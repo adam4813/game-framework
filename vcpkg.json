@@ -1,0 +1,43 @@
+{
+	"name": "game",
+	"version": "0.1.0",
+	"dependencies": [
+		{
+			"name": "angelscript",
+			"features": [
+				"addons"
+			]
+		},
+		"raylib",
+		"flecs",
+		"stb",
+		"glfw3",
+		"glm",
+		"imgui",
+		"nlohmann-json",
+		"spdlog",
+		{
+			"name": "joltphysics",
+			"features": [
+				"debugrenderer",
+				"rtti"
+			],
+			"platform": "!emscripten"
+		},
+		{
+			"name": "joltphysics",
+			"platform": "emscripten"
+		}
+	],
+	"builtin-baseline": "dd3097e305afa53f7b4312371f62058d2e665320",
+	"overrides": [
+		{
+			"name": "spdlog",
+			"version": "1.11.0"
+		},
+		{
+			"name": "fmt",
+			"version": "9.0.0"
+		}
+	]
+}

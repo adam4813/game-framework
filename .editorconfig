@@ -1,0 +1,31 @@
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+# with 4 tabulator indent
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = tab
+indent_size = 4
+trim_trailing_whitespace = true
+
+# If we need fine tuning the rules for other files, we can add they here
+[CMakeLists.txt]
+indent_style = space
+ij_continuation_indent_size = 4
+
+[*.as]
+indent_style = space
+
+[*.{yaml,yml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+indent_style = space
+indent_size = 2
+ij_json_array_wrapping = off
+ij_json_object_wrapping = off
+ij_markdown_force_one_space_after_list_bullet = true

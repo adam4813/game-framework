@@ -1,0 +1,24 @@
+# Build output
+build/
+out/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# vcpkg installed packages (downloaded on build)
+vcpkg_installed/
+
+# Node modules (tools deps — regenerate with `cd tools && npm install`)
+tools/node_modules/
+
+# Per-user world saves (never committed)
+saves/
+build-headless/

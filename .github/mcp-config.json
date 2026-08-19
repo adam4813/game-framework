@@ -1,0 +1,14 @@
+{
+	"mcpServers": {
+		"flecs": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"tools/flecs-mcp.js"
+			],
+			"env": {
+				"FLECS_HOST": "http://localhost:27750"
+			}
+		}
+	}
+}

@@ -1,0 +1,77 @@
+{
+	"singletons": {
+		"ambient_light": { "color": [90, 105, 130, 255], "intensity": 0.35 }
+	},
+	"entities": [
+		{
+			"name": "Camera",
+			"components": {
+				"transform": { "position": [0.0, 5.0, 5.0] },
+				"camera": {
+					"target": [0.0, 1.0, 0.0],
+					"up": [0.0, 1.0, 0.0],
+					"fov": 60.0,
+					"aspect_ratio": 1.7777778,
+					"near": 0.1,
+					"far": 100.0
+				}
+			}
+		},
+		{
+			"name": "SunLight",
+			"components": {
+				"directional_light": {
+					"direction": [-0.55, -1.0, -0.4],
+					"color": [255, 245, 220, 255],
+					"intensity": 1.0,
+					"specular_strength": 0.35,
+					"shininess": 24.0,
+					"casts_shadows": true,
+					"shadow_ground_y": 0.25,
+					"shadow_color": [8, 10, 14, 115]
+				}
+			},
+			"children": [
+				{ "name": "SunCycleScript", "components": { "script": { "source": "scripts/sun_cycle.as" } } }
+			]
+		},
+		{
+			"name": "Floor",
+			"components": {
+				"transform": { "position": [0.0, 0.0, 0.0], "scale": [10.0, 0.5, 10.0] },
+				"cube": { "size": [1.0, 1.0, 1.0] },
+				"material": { "color": [235, 240, 235, 255], "cast_shadow": false },
+				"albedo": { "path": "textures/checker.png" },
+				"rigid_body": { "motion_type": "static", "mass": 0.0, "friction": 0.5, "restitution": 0.0, "use_gravity": false },
+				"collision_shape": { "type": "box", "box_half_extents": [5.0, 0.25, 5.0] }
+			}
+		},
+		{
+			"name": "FallingCube",
+			"components": {
+				"transform": { "position": [0.0, 3.0, 0.0], "scale": [1.0, 1.0, 1.0] },
+				"cube": { "size": [1.0, 1.0, 1.0] },
+				"material": { "color": [220, 150, 60, 255] },
+				"albedo": { "path": "textures/checker.png" },
+				"rigid_body": {
+					"motion_type": "dynamic",
+					"mass": 1.0,
+					"linear_damping": 0.05,
+					"angular_damping": 0.05,
+					"friction": 0.5,
+					"restitution": 0.3,
+					"enable_ccd": false,
+					"use_gravity": true,
+					"gravity_scale": 1.0
+				},
+				"collision_shape": { "type": "box", "box_half_extents": [0.5, 0.5, 0.5] },
+				"physics_velocity": {},
+				"sound_effect": { "path": "audio/sfx/jump.wav" }
+			},
+			"children": [
+				{ "name": "CubeJumpScript", "components": { "script": { "source": "scripts/cube_jump.as" } } },
+				{ "name": "CubeSpinScript", "components": { "script": { "source": "scripts/cube_spin.as" } } }
+			]
+		}
+	]
+}

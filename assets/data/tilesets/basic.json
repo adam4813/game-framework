@@ -1,0 +1,180 @@
+{
+	"name": "basic",
+	"description": "Terrain tileset – grass, forest, path, water, stone floor/wall, sand, deep forest",
+	"texture": "textures/tileset_basic.png",
+	"tile_size_px": 64,
+	"tiles_per_row": 2,
+	"tiles_per_col": 4,
+	"tiles": [
+		{
+			"id": 0,
+			"name": "grass",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				0,
+				64,
+				64
+			],
+			"walkable": true
+		},
+		{
+			"id": 1,
+			"name": "forest",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				64,
+				0,
+				64,
+				64
+			],
+			"walkable": false
+		},
+		{
+			"id": 2,
+			"name": "path",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				64,
+				64,
+				64
+			],
+			"walkable": true
+		},
+		{
+			"id": 3,
+			"name": "water",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				64,
+				64,
+				64,
+				64
+			],
+			"walkable": false
+		},
+		{
+			"id": 4,
+			"name": "stone_floor",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				128,
+				64,
+				64
+			],
+			"walkable": true
+		},
+		{
+			"id": 5,
+			"name": "stone_wall",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				64,
+				128,
+				64,
+				64
+			],
+			"walkable": false
+		},
+		{
+			"id": 6,
+			"name": "sand",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				192,
+				64,
+				64
+			],
+			"walkable": true
+		},
+		{
+			"id": 7,
+			"name": "deep_forest",
+			"color": [
+				255,
+				255,
+				255,
+				255
+			],
+			"tex_coords": [
+				64,
+				192,
+				64,
+				64
+			],
+			"walkable": false
+		},
+		{
+			"id": 100,
+			"name": "teleporter",
+			"color": [
+				255,
+				0,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				0,
+				0,
+				0
+			],
+			"walkable": true
+		},
+		{
+			"id": 101,
+			"name": "prompt",
+			"color": [
+				0,
+				0,
+				255,
+				255
+			],
+			"tex_coords": [
+				0,
+				0,
+				0,
+				0
+			],
+			"walkable": true
+		}
+	]
+}

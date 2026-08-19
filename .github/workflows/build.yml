@@ -1,0 +1,91 @@
+name: Build Game Engine
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }} (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+
+    env:
+      EM-VERSION: '4.0.10'
+      VCPKG-COMMIT: 'dd3097e305afa53f7b4312371f62058d2e665320'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows Release build
+          - os: windows-latest
+            target: Desktop
+            preset_configure: desktop
+            preset_build: desktop-release
+
+          # Linux Release build
+          - os: ubuntu-latest
+            target: Desktop
+            preset_configure: desktop
+            preset_build: desktop-release
+
+          # WebAssembly Release build
+          - os: ubuntu-latest
+            target: WebAssembly
+            preset_configure: wasm
+            preset_build: wasm-release
+
+          # MacOS builds - disabled as the non-large is ARM based, and doesnt' compile at this time
+          # - os: macos-latest-large
+          #   target: Desktop
+          #   preset_configure: desktop
+          #   preset_build: desktop-release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Engine Environment
+        uses: $/.github/actions/setup-environment
+        with:
+          em-version: ${{ env.EM-VERSION }}
+          vcpkg-commit: ${{ env.VCPKG-COMMIT }}
+          target: ${{ matrix.target }}
+
+      - name: Restore artifacts, or run vcpkg, build and cache artifacts
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG-COMMIT }}
+
+      - name: Run CMake with Presets
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: ${{ matrix.preset_configure }}
+          buildPreset: ${{ matrix.preset_build }}
+
+      # Verify build outputs for desktop builds
+      - name: List desktop build outputs
+        if: matrix.target != 'WebAssembly'
+        shell: bash
+        run: |
+          echo "=== Build output directory ==="
+          if [ -d "build/${{ matrix.preset_configure }}" ]; then
+            find build/${{ matrix.preset_configure }} -type f \( -name "game*" -o -name "*.html" -o -name "*.wasm" \) | head -20
+          fi
+
+      # Upload artifacts for desktop builds
+      - name: Upload Desktop Build Artifact
+        if: matrix.target != 'WebAssembly'
+        uses: actions/upload-artifact@v7
+        with:
+          name: game-${{ matrix.os }}-release
+          path: build/${{ matrix.preset_configure }}/Release/game*
+          if-no-files-found: warn

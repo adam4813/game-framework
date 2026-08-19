@@ -1,0 +1,69 @@
+{
+	"version": 8,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 30,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "default",
+			"hidden": true,
+			"displayName": "Default",
+			"generator": "Ninja Multi-Config",
+			"binaryDir": "${sourceDir}/build/${presetName}",
+			"toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
+		},
+		{
+			"name": "desktop",
+			"displayName": "Desktop Build",
+			"inherits": "default"
+		},
+		{
+			"name": "wasm",
+			"displayName": "WebAssembly Build",
+			"inherits": "default",
+			"toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+			"cacheVariables": {
+				"VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+				"VCPKG_TARGET_TRIPLET": "wasm32-emscripten",
+				"EMSCRIPTEN_ROOT_PATH": "$env{EMSDK}/upstream/emscripten",
+				"raylib_USE_STATIC_LIBS": "ON"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "default",
+			"hidden": true,
+			"configurePreset": "default"
+		},
+		{
+			"name": "desktop-debug",
+			"displayName": "Desktop Debug",
+			"configurePreset": "desktop",
+			"configuration": "Debug"
+		},
+		{
+			"name": "desktop-release",
+			"displayName": "Desktop Release",
+			"configurePreset": "desktop",
+			"configuration": "Release"
+		},
+		{
+			"name": "wasm-debug",
+			"displayName": "WebAssembly Debug",
+			"configurePreset": "wasm",
+			"configuration": "Debug"
+		},
+		{
+			"name": "wasm-release",
+			"displayName": "WebAssembly Release",
+			"configurePreset": "wasm",
+			"configuration": "Release"
+		}
+	]
+}
