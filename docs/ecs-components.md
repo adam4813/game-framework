@@ -28,7 +28,7 @@ transform vocabulary.
 
 | Singleton                           | Module    | Purpose                                                          |
 |-------------------------------------|-----------|------------------------------------------------------------------|
-| `ecs::RngState`                     | ecs       | Deterministic splitmix64 RNG (`Next`, `NextFloat`, `NextRange`). |
+| `ecs::RngState`                     | ecs       | Deterministic splitmix64 RNG (`Next`, `NextFloat`, `NextRange`, `NextFloatRange`, `Chance`, `WeightedIndex`). |
 | `platform::PlatformRef`             | platform  | Non-owning `Platform*` for any system.                           |
 | `EngineContextRef`                  | engine    | Non-owning `EngineContext*` for world-only module ctors.         |
 | `input::InputState`                 | input     | Full keyboard/mouse state for the current frame.                 |
