@@ -1,0 +1,8 @@
+{
+	"name": "Playbook Boost",
+	"category": "buff",
+	"effect": "add_yards",
+	"description": "+5 yards to the play you hike",
+	"amount": 5,
+	"cost": 9
+}

@@ -1,0 +1,7 @@
+{
+	"name": "Pay Off Ref",
+	"category": "utility",
+	"effect": "no_flag",
+	"description": "No penalty flag on your play this down",
+	"cost": 9
+}

@@ -1,0 +1,8 @@
+{
+	"name": "Hail Mary Juice",
+	"category": "debuff",
+	"effect": "risky",
+	"description": "+12 yards but +15% turnover on your play",
+	"amount": 12,
+	"cost": 10
+}

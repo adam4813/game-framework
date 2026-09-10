@@ -1,0 +1,7 @@
+{
+	"name": "QB Sneak",
+	"category": "run",
+	"yards": [[1, 3], [2, 3], [3, 1]],
+	"turnoverChance": 0.01,
+	"cost": 7
+}

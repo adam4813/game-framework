@@ -1,0 +1,7 @@
+{
+	"name": "Short Pass",
+	"category": "pass",
+	"yards": [[0, 2], [4, 3], [6, 2], [9, 1]],
+	"turnoverChance": 0.04,
+	"cost": 9
+}

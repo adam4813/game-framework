@@ -1,0 +1,8 @@
+{
+	"name": "Screen",
+	"category": "pass",
+	"yards": [[-3, 1], [2, 2], [7, 2], [14, 1]],
+	"turnoverChance": 0.05,
+	"flagChance": 0.05,
+	"cost": 9
+}

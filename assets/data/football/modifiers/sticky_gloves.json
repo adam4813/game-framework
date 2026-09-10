@@ -1,0 +1,7 @@
+{
+	"name": "Sticky Gloves",
+	"category": "utility",
+	"effect": "no_turnover",
+	"description": "No turnover on your play this down",
+	"cost": 11
+}

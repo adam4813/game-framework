@@ -1,0 +1,8 @@
+{
+	"name": "Cool Head",
+	"category": "buff",
+	"effect": "reduce_turnover",
+	"description": "-8% turnover chance on your play",
+	"amount": 8,
+	"cost": 8
+}

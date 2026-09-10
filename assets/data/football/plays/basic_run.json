@@ -1,0 +1,7 @@
+{
+	"name": "Basic Run",
+	"category": "run",
+	"yards": [[-1, 1], [2, 3], [4, 3], [6, 1]],
+	"turnoverChance": 0.02,
+	"cost": 0
+}

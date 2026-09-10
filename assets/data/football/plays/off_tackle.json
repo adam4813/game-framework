@@ -1,0 +1,8 @@
+{
+	"name": "Off Tackle",
+	"category": "run",
+	"yards": [[-2, 1], [3, 2], [5, 3], [8, 2], [12, 1]],
+	"turnoverChance": 0.03,
+	"flagChance": 0.08,
+	"cost": 10
+}
