@@ -22,27 +22,75 @@ The backend's `ScriptComponent.OnSet` observer compiles/instantiates the script;
 
 ## Component access API
 
-Every component registered with `RegisterComponentForScripts(world, world.component<T>())` gains three entity methods in
-scripts:
+Every component registered with `RegisterComponentForScripts(world, world.component<T>())` gains four entity methods in
+scripts. The exact signature depends on whether the entity reference is mutable or const:
+
+**On a mutable Entity&:**
 
 | Method            | Returns        | Behaviour                                                                     |
 |-------------------|----------------|-------------------------------------------------------------------------------|
-| `T@ GetT()`       | mutable handle | Direct pointer into ECS storage; **marks the component modified** every call. |
+| `T@ GetT()`       | mutable handle | Direct pointer into ECS storage; **does not mark component modified**.        |
+| `T@ MutT()`       | mutable handle | Direct pointer into ECS storage; **marks the component modified** every call. |
 | `T@ AddT()`       | mutable handle | Ensures the component exists (adds zero-initialised if absent).               |
 | `void SetT(T@ v)` | —              | Upsert: add if absent, replace value if present.                              |
 
-`GetT()` is **intentionally eager** — it calls the backend's modified notification on every call (only when the
-component pointer is non-null), so in-place mutations fire `OnSet` observers without a separate write-back:
+**On a const Entity&:**
+
+| Method                | Returns      | Behaviour                                            |
+|-----------------------|--------------|------------------------------------------------------|
+| `const T@ GetT() const` | const handle | Read-only pointer into ECS storage.                  |
+
+### When to use each method:
+
+**`GetT()`** — Safe mutable access without notifications. Use for private mutations or reads where observer notifications would be unwanted:
 
 ```angelscript
-SoundEffect@ sfx = self.GetSoundEffect();  // resolves to the host
-sfx.path = "sfx/land.wav";                  // OnSet re-fires → new handle resolved, no SetT() needed
+// Read and modify without observer side effects
+SoundEffect@ sfx = self.GetSoundEffect();  // no modified() call
+sfx.path = "sfx/land.wav";                  // change is local to this frame
+sfx.Fire();                                 // only this explicit call has side effects
+```
+
+**`MutT()`** — Notify Flecs that you modified a component. Use when you want `OnSet` observers to fire immediately:
+
+```angelscript
+SoundEffect@ sfx = self.MutSoundEffect();  // calls modified() internally
+sfx.path = "sfx/land.wav";                  // OnSet re-fires → new handle resolved, observers run
 sfx.Fire();                                 // playing = true; SoundEffectPlayback picks it up
 ```
 
-**Performance note:** `GetT()` dirties the component even on read-only access. In hot read paths use the generic field
-accessors (`GetFloat`/`GetInt`/`GetBool`) or the copy-returning singleton getters instead. (A non-dirtying `PeekT()` is
-a documented TODO.)
+**`GetT() const`** — Read-only on a const entity. Compile error if you try to modify:
+
+```angelscript
+const SoundEffect@ sfx = self.GetSoundEffect();  // const reference (if self is const)
+// sfx.path = "..."; // compile error: cannot modify
+Print("Sound: " + sfx.path); // OK
+```
+
+**Performance note:** `MutT()` marks the component modified even on read-only access. In hot read paths, prefer
+`GetT()` (on a mutable entity) or the copy-returning singleton getters.
+
+### ScriptTraversal — transparent relationship navigation
+
+Some components (e.g., `Material`, `AlbedoMap`, `ShaderMap`) may live on a child entity linked via a relationship (e.g.,
+a material entity linked to the renderable via `RenderWith`). The **ScriptTraversal** pattern lets scripts access these
+transparently without knowing the relationship structure:
+
+```angelscript
+Material@ mat = self.GetMaterial();     // If not found on host, the scripting backend navigates
+                                         // through (ScriptTraversal, RenderWith) to find it
+AlbedoMap@ albedo = self.GetAlbedoMap();
+```
+
+The backend registers the traversal relationship at component registration time; scripts never explicitly navigate
+relationships.
+
+**Relationship access in scripts:** Direct access to arbitrary relationships (e.g., getting the `LookAt` target of a
+camera) is not yet exposed to scripts. Workarounds:
+
+1. Store the relationship target as a component field if the relationship is static (e.g., store the target entity ID).
+2. Use `ScriptTraversal` if the relationship is used only for component navigation (the `RenderWith` pattern above).
+3. Extend the scripting backend to expose relationship getters (future work).
 
 ## Singletons
 

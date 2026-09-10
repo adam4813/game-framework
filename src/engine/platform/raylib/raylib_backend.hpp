@@ -39,47 +39,18 @@ public:
 	[[nodiscard]] float MeasureText(std::string_view text, float size) const override;
 	void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) override;
 	void DrawCircle(glm::vec2 center, float radius, Rgba c) override;
+	void DrawTexturedRect(int texture, Rect dest, Rgba tint) override;
 	void BeginScissor(Rect r) override;
 	void EndScissor() override;
 
 	void BeginMode3D(const Camera3DParams& camera) override;
 	void EndMode3D() override;
 	void SetLighting(const LightParams& lighting) override;
-	void DrawCube(
-		const glm::mat4& transform,
-		glm::vec3 size,
-		Rgba c,
-		int texture,
-		bool cast_shadow,
-		bool wireframe
-	) override;
-	void DrawSphere(
-		const glm::mat4& transform,
-		float radius,
-		Rgba c,
-		int texture,
-		bool cast_shadow,
-		bool wireframe
-	) override;
-	void DrawQuad(
-		const glm::mat4& transform,
-		glm::vec2 size,
-		Rgba c,
-		int texture,
-		bool cast_shadow,
-		bool wireframe
-	) override;
-	void DrawCapsule(
-		const glm::mat4& transform,
-		float radius,
-		float height,
-		Rgba c,
-		int texture,
-		bool cast_shadow,
-		bool wireframe
-	) override;
-	void
-	DrawMesh(int handle, const glm::mat4& transform, Rgba tint, int texture, bool cast_shadow, bool wireframe) override;
+	void DrawCube(const glm::mat4& transform, glm::vec3 size, const DrawMaterial& material) override;
+	void DrawSphere(const glm::mat4& transform, float radius, const DrawMaterial& material) override;
+	void DrawQuad(const glm::mat4& transform, glm::vec2 size, const DrawMaterial& material) override;
+	void DrawCapsule(const glm::mat4& transform, float radius, float height, const DrawMaterial& material) override;
+	void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) override;
 
 	int UploadDynamicMesh(
 		const std::vector<glm::vec3>& vertices,
@@ -88,12 +59,20 @@ public:
 		const std::vector<glm::vec2>& uvs
 	) override;
 	void UnloadDynamicMesh(int handle) override;
-	void DrawDynamicMesh(int handle, const glm::mat4& transform, int texture, bool wireframe) override;
+	void DrawDynamicMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) override;
+	void UpdateDynamicMeshUVs(int handle, const std::vector<glm::vec2>& uvs) override;
+	void UpdateDynamicMeshColors(int handle, const std::vector<glm::vec4>& colors) override;
+
+	[[nodiscard]] std::string ShaderDirectory() const override;
+	int LoadShader(const std::vector<ShaderStage>& stages) override;
+	void UnloadShader(int handle) override;
 
 	int LoadMesh(std::string_view path) override;
 	int LoadTexture(std::string_view path) override;
 	void UnloadMesh(int handle) override;
 	void UnloadTexture(int handle) override;
+	void SetTextureFilter(int handle, bool linear) override;
+	void SetTextureWrap(int handle, bool clamp) override;
 
 	int LoadSound(std::string_view path) override;
 	void UnloadSound(int handle) override;

@@ -93,6 +93,8 @@ private:
 	void RegisterGlobalFunctions() const;
 	void RegisterValueTypeFromMeta(flecs::entity type_entity) const;
 	static void ComponentGetRefGeneric(asIScriptGeneric* gen);
+	static void ComponentGetMutRefGeneric(asIScriptGeneric* gen);
+	static void ComponentGetConstRefGeneric(asIScriptGeneric* gen);
 	static void ComponentAddGeneric(asIScriptGeneric* gen);
 	static void ComponentSetGeneric(asIScriptGeneric* gen);
 	static void SingletonGetGeneric(asIScriptGeneric* gen);

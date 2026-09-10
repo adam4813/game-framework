@@ -6,9 +6,9 @@
 
 #include <glm/glm.hpp>
 
-// Platform abstraction. All Raylib/ImGui calls live behind this interface so
-// game logic stays engine-agnostic. Game code uses these POD types, never
-// Raylib's own Vector2/Rectangle/Color.
+#include "engine/core/core.hpp"
+
+// Platform abstraction. All Raylib/ImGui calls live behind this interface so game logic stays engine-agnostic.
 namespace engine::platform {
 
 class Platform;
@@ -27,22 +27,17 @@ struct Camera3DParams {
 	float fov_y = 60.0f;
 };
 
-struct Rect {
-	float x = 0.0f;
-	float y = 0.0f;
-	float w = 0.0f;
-	float h = 0.0f;
-
-	[[nodiscard]] bool Contains(const glm::vec2 p) const {
-		return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
-	}
+struct ShaderStage {
+	std::string type; // "vertex", "fragment", "geometry", "compute", etc.
+	std::string path; // full resolved path to the shader source file
 };
 
-struct Rgba {
-	uint8_t r = 0;
-	uint8_t g = 0;
-	uint8_t b = 0;
-	uint8_t a = 255;
+struct DrawMaterial {
+	int texture{-1}; // albedo texture handle (-1 = no texture / solid colour)
+	int shader{-1};  // shader handle (-1 = backend default for this draw path)
+	core::Rgba tint{255, 255, 255, 255};
+	bool wireframe{false};
+	bool cast_shadow{true};
 };
 
 // Scene lighting pushed to the 3D lit shader before primitives are drawn. A single directional
@@ -50,39 +45,24 @@ struct Rgba {
 // plane at `shadow_ground_y` (ideal for a flat playfield).
 struct LightParams {
 	glm::vec3 direction{-0.5f, -1.0f, -0.35f}; // direction the light travels (world space)
-	Rgba light_color{255, 244, 214, 255};
+	core::Rgba light_color{255, 244, 214, 255};
 	float light_intensity = 1.0f;
-	Rgba ambient_color{120, 130, 150, 255};
+	core::Rgba ambient_color{120, 130, 150, 255};
 	float ambient_intensity = 0.35f;
 	float specular_strength = 0.4f;
 	float shininess = 24.0f;
 
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;
-	Rgba shadow_color{10, 12, 16, 120};
+	core::Rgba shadow_color{10, 12, 16, 120};
 };
-
-namespace colors {
-inline constexpr Rgba Background{24, 28, 24, 255};
-inline constexpr Rgba Panel{40, 46, 40, 255};
-inline constexpr Rgba PanelHi{56, 64, 56, 255};
-inline constexpr Rgba PanelBg{18, 20, 18, 235};
-inline constexpr Rgba Border{90, 100, 90, 255};
-inline constexpr Rgba Accent{70, 140, 70, 255};
-inline constexpr Rgba Title{120, 200, 120, 255};
-inline constexpr Rgba Text{220, 225, 220, 255};
-inline constexpr Rgba Subtle{140, 150, 140, 255};
-inline constexpr Rgba Pollinator{170, 120, 210, 255};
-inline constexpr Rgba Water{70, 130, 200, 255};
-inline constexpr Rgba Fertilizer{90, 170, 90, 255};
-inline constexpr Rgba Boost{220, 150, 60, 255};
-inline constexpr Rgba Hazard{200, 70, 70, 255};
-} // namespace colors
 
 enum class MouseButton { Left = 0, Right = 1 };
 
 class Platform {
 public:
+	using Rect = core::Rect;
+	using Rgba = core::Rgba;
 	virtual ~Platform() = default;
 
 	// ── Lifecycle ──
@@ -124,6 +104,12 @@ public:
 	[[nodiscard]] virtual float MeasureText(std::string_view text, float size) const = 0;
 	virtual void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) = 0;
 	virtual void DrawCircle(glm::vec2 center, float radius, Rgba c) = 0;
+	// Draws `texture` into `dest` (screen-space pixels), tiling it at native resolution (the source
+	// rect is the dest size, repeating via the texture's wrap mode) so low-res art stays crisp — an
+	// N64-style look rather than a stretched blur. Modulated by `tint` (use white for the texture's
+	// own colours). Falls back to a solid `tint` rect when the handle is invalid. Handles come from
+	// LoadTexture. Used by the 2D UI layer for textured panels/buttons/backgrounds.
+	virtual void DrawTexturedRect(int texture, Rect dest, Rgba tint) = 0;
 	// Restricts subsequent 2D drawing to the rectangle `r` (screen-space pixels) until EndScissor
 	// is called. Used by the UI layer to clip scrollable content. Calls are not nestable at the
 	// backend level — the UI render pass intersects rectangles and issues a single active region.
@@ -131,32 +117,17 @@ public:
 	virtual void EndScissor() = 0;
 
 	// ── 3D drawing ──
-	// Primitives are drawn as lit meshes (Phong shading with per-face normals) so depth reads
-	// clearly. `texture` is a handle from LoadTexture (or -1 for a flat colour). `cast_shadow`
-	// adds a planar projected shadow onto the ground plane configured via SetLighting. All 3D
-	// draw calls must occur between BeginMode3D and EndMode3D.
+	// All 3D draw calls must occur between BeginMode3D and EndMode3D.
 	virtual void BeginMode3D(const Camera3DParams& camera) = 0;
 	virtual void EndMode3D() = 0;
 	// Uploads scene lighting + shadow configuration to the lit shader. Call once per frame after
 	// BeginMode3D and before drawing primitives.
 	virtual void SetLighting(const LightParams& lighting) = 0;
-	virtual void
-	DrawCube(const glm::mat4& transform, glm::vec3 size, Rgba c, int texture, bool cast_shadow, bool wireframe) = 0;
-	virtual void
-	DrawSphere(const glm::mat4& transform, float radius, Rgba c, int texture, bool cast_shadow, bool wireframe) = 0;
-	virtual void
-	DrawQuad(const glm::mat4& transform, glm::vec2 size, Rgba c, int texture, bool cast_shadow, bool wireframe) = 0;
-	virtual void DrawCapsule(
-		const glm::mat4& transform,
-		float radius,
-		float height,
-		Rgba c,
-		int texture,
-		bool cast_shadow,
-		bool wireframe
-	) = 0;
-	virtual void
-	DrawMesh(int handle, const glm::mat4& transform, Rgba tint, int texture, bool cast_shadow, bool wireframe) = 0;
+	virtual void DrawCube(const glm::mat4& transform, glm::vec3 size, const DrawMaterial& material) = 0;
+	virtual void DrawSphere(const glm::mat4& transform, float radius, const DrawMaterial& material) = 0;
+	virtual void DrawQuad(const glm::mat4& transform, glm::vec2 size, const DrawMaterial& material) = 0;
+	virtual void DrawCapsule(const glm::mat4& transform, float radius, float height, const DrawMaterial& material) = 0;
+	virtual void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) = 0;
 
 	// Upload a dynamic mesh built from vertices, indices, per-vertex colors, and optional UV
 	// coordinates. When `uvs` is empty, all tex-coords default to (0,0).
@@ -168,7 +139,14 @@ public:
 		const std::vector<glm::vec2>& uvs
 	) = 0;
 	virtual void UnloadDynamicMesh(int handle) = 0;
-	virtual void DrawDynamicMesh(int handle, const glm::mat4& transform, int texture, bool wireframe) = 0;
+	virtual void DrawDynamicMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) = 0;
+	virtual void UpdateDynamicMeshUVs(int handle, const std::vector<glm::vec2>& uvs) = 0;
+	virtual void UpdateDynamicMeshColors(int handle, const std::vector<glm::vec4>& colors) = 0;
+
+	// ── Shaders ──
+	[[nodiscard]] virtual std::string ShaderDirectory() const = 0;
+	virtual int LoadShader(const std::vector<ShaderStage>& stages) = 0;
+	virtual void UnloadShader(int handle) = 0;
 
 	// ── Assets ──
 	virtual int LoadMesh(std::string_view path) = 0;    // loads a model file, returns handle or -1
@@ -177,6 +155,9 @@ public:
 	// handle (no-op). Handles are not reused, so the freed slot stays valid-but-empty.
 	virtual void UnloadMesh(int handle) = 0;
 	virtual void UnloadTexture(int handle) = 0;
+	// Configure filtering / wrap mode on an already-loaded texture.
+	virtual void SetTextureFilter(int handle, bool linear) = 0; // false = NEAREST (default)
+	virtual void SetTextureWrap(int handle, bool clamp) = 0;    // true = CLAMP_TO_EDGE
 
 	// ── Audio ──
 	virtual int LoadSound(std::string_view path) = 0; // returns handle, or -1

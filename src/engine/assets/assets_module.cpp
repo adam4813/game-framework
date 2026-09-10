@@ -54,10 +54,10 @@ int Acquire(const flecs::world& world, const AssetType type, const std::string_v
 	// Increment refcount; if first acquire, load through platform
 	if (const auto it = registry.refCounts.find(key); it != registry.refCounts.end()) {
 		++it->second.refCount;
-	} else {
+	}
+	else {
 		auto* platform = world.get<platform::PlatformRef>().ptr;
-		const int handle = PlatformLoad(platform, type, path);
-		if (handle < 0) {
+		if (const int handle = PlatformLoad(platform, type, path); handle < 0) {
 			spdlog::warn("[AssetModule] Failed to load asset '{}'", path);
 			return -1;
 		}
@@ -75,8 +75,7 @@ int Get(const flecs::world& world, const AssetType type, const std::string_view 
 		return -1;
 	}
 	const auto& registry = world.get<AssetRegistry>();
-	const std::string key = MakeKey(type, path);
-	if (registry.refCounts.find(key) == registry.refCounts.end()) {
+	if (const std::string key = MakeKey(type, path); !registry.refCounts.contains(key)) {
 		return -1;
 	}
 	// The asset is loaded; fetch it from platform (dedup'd by backend)
@@ -102,8 +101,7 @@ void Release(const flecs::world& world, const AssetType type, const std::string_
 
 	// Last reference released; unload through platform
 	auto* platform = world.get<platform::PlatformRef>().ptr;
-	const int handle = PlatformLoad(platform, type, path);
-	if (handle >= 0) {
+	if (const int handle = PlatformLoad(platform, type, path); handle >= 0) {
 		PlatformUnload(platform, type, handle);
 	}
 	registry.refCounts.erase(it);

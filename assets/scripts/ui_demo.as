@@ -2,8 +2,8 @@
 // components live (the UI-layer analogue of sun_cycle.as mutating a render component).
 //
 // Attached as a child ScriptComponent of the "DemoProgress" entity in the title scene, so `self`
-// is the progress-bar entity. self.GetProgressBar() returns a handle straight into ECS storage;
-// writing bar.value is picked up by the UI render pass the same frame.
+// is the progress-bar entity. self.MutProgressBar() returns a mutable handle straight into ECS storage
+// and marks the component modified so observers fire; writing bar.value is picked up by the UI render pass.
 
 float g_t = 0.0f;
 
@@ -13,7 +13,7 @@ void OnInit(Entity self) {
 }
 
 void Tick(Entity self, float dt) {
-    ProgressBar@ bar = self.GetProgressBar();
+    ProgressBar@ bar = self.MutProgressBar();
 
     // Loop the fill from 0 to 1 over five seconds.
     g_t += dt * 0.2f;

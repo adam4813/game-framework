@@ -1,7 +1,8 @@
 #include "level_module.hpp"
 
-#include <cstdint>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -9,14 +10,8 @@
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
 
-#include "engine/assets/assets.hpp"
-#include "engine/audio/audio.hpp"
-#include "engine/core/json_util.hpp"
+#include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
-#include "engine/physics/physics.hpp"
-#include "engine/platform/platform.hpp"
-#include "engine/render/render.hpp"
-#include "engine/scripting/scripting.hpp"
 #include "level_components.hpp"
 
 namespace engine::level {
@@ -25,167 +20,79 @@ namespace {
 
 using json = nlohmann::json;
 
-// JSON field parsers are centralised in engine/core/json_util.hpp; alias them so existing call
-// sites (JVec3/JVec2/JRgba) keep working without duplicating the parsing logic here.
-using core::JRgba;
-using core::JVec2;
-using core::JVec3;
 
-physics::MotionType ParseMotionType(const std::string& s) {
-	if (s == "static") {
-		return physics::MotionType::Static;
+// Builds entities from a JSON definition tree using the factories registered in LevelRegistry
+// (Builder pattern). For each entity it assembles the components, wires the link to its parent (a
+// relationship beyond the implicit ChildOf) and recurses into children — so a material can be a
+// first-class nested child linked to its renderable via "render_with".
+class EntityBuilder {
+public:
+	explicit EntityBuilder(const flecs::world& world) : world_(world) {}
+
+	flecs::entity Build(const json& def, const flecs::entity parent) {
+		// Create anonymously first, then parent, then name. The lookup-free anonymous create avoids a
+		// name collision when sibling subtrees under different parents share a child name (e.g. every
+		// renderable's material): under a deferred scene Load the child_of reparent is not yet applied,
+		// so a named create (world.entity(name) is lookup-or-create) would resolve the shared name to
+		// the same entity and silently merge them. Naming after child_of scopes the name under the
+		// parent, keeping each child distinct — and gives levels "instantiate fresh" semantics.
+		flecs::entity e = world_.entity();
+		if (parent) {
+			e.child_of(parent);
+		}
+		if (def.contains("name")) {
+			const auto name = def.at("name").get<std::string>();
+			e.set_name(name.c_str());
+			named_[name] = e; // record for name-based ref resolution (see ResolveRefs)
+		}
+		ApplyComponents(e, def);
+		if (parent) {
+			ApplyLink(parent, e, def);
+		}
+		if (def.contains("refs")) {
+			for (const auto& [ref, target] : def.at("refs").items()) {
+				pending_refs_.push_back({.self = e, .ref = ref, .target = target.get<std::string>()});
+			}
+		}
+		if (def.contains("children")) {
+			for (const auto& child : def.at("children")) {
+				Build(child, e);
+			}
+		}
+		return e;
 	}
-	if (s == "kinematic") {
-		return physics::MotionType::Kinematic;
+
+	// Second pass: wire every "refs" entry now that all named entities exist. Runs after the whole
+	// tree is built so an entity can reference a sibling declared later in the file.
+	void ResolveRefs() {
+		const auto& reg = world_.get<LevelRegistry>();
+		for (const auto& [self, ref, target] : pending_refs_) {
+			const auto ref_it = reg.refLoaders.find(ref);
+			if (ref_it == reg.refLoaders.end()) {
+				spdlog::warn("[Level] Unknown ref '{}' on entity '{}'", ref, self.name().c_str());
+				continue;
+			}
+			const auto target_it = named_.find(target);
+			if (target_it == named_.end()) {
+				spdlog::warn("[Level] Ref '{}' targets unknown entity '{}'", ref, target);
+				continue;
+			}
+			ref_it->second(self, target_it->second);
+		}
 	}
-	return physics::MotionType::Dynamic;
-}
 
-physics::ShapeType ParseShapeType(const std::string& s) {
-	if (s == "sphere") {
-		return physics::ShapeType::Sphere;
-	}
-	if (s == "capsule") {
-		return physics::ShapeType::Capsule;
-	}
-	if (s == "cylinder") {
-		return physics::ShapeType::Cylinder;
-	}
-	return physics::ShapeType::Box;
-}
-
-// === Built-in component loaders ===
-
-// Register the loaders for the engine's own components. Each is keyed by the JSON component name.
-void RegisterBuiltinLoaders(LevelRegistry& reg) {
-	// transform: also computes the WorldTransform so static entities render/collide correctly
-	// without the author having to duplicate the values.
-	reg.loaders["transform"] = [](const flecs::entity e, const json& j) {
-		const glm::vec3 pos = JVec3(j, "position", glm::vec3{0.0F});
-		const glm::vec3 rot = JVec3(j, "rotation", glm::vec3{0.0F});
-		const glm::vec3 scale = JVec3(j, "scale", glm::vec3{1.0F});
-		e.set<ecs::Transform>({pos, rot, scale});
-		ecs::WorldTransform wt{pos, rot, scale};
-		wt.ComputeMatrix();
-		e.set<ecs::WorldTransform>(wt);
+private:
+	struct PendingRef {
+		flecs::entity self;
+		std::string ref;
+		std::string target;
 	};
 
-	reg.loaders["camera"] = [](const flecs::entity e, const json& j) {
-		render::Camera c{};
-		c.target = JVec3(j, "target", c.target);
-		c.up = JVec3(j, "up", c.up);
-		c.fov = j.value("fov", c.fov);
-		c.aspect_ratio = j.value("aspect_ratio", c.aspect_ratio);
-		c.near_plane = j.value("near", c.near_plane);
-		c.far_plane = j.value("far", c.far_plane);
-		e.set<render::Camera>(c);
-	};
-
-	reg.loaders["cube"] = [](const flecs::entity e, const json& j) {
-		e.set<render::CubePrimitive>({JVec3(j, "size", glm::vec3{1.0F})});
-	};
-	reg.loaders["sphere"] = [](const flecs::entity e, const json& j) {
-		e.set<render::SpherePrimitive>({j.value("radius", 0.5F)});
-	};
-	reg.loaders["quad"] = [](const flecs::entity e, const json& j) {
-		e.set<render::QuadPrimitive>({JVec2(j, "size", glm::vec2{1.0F})});
-	};
-	reg.loaders["capsule"] = [](const flecs::entity e, const json& j) {
-		e.set<render::CapsulePrimitive>({j.value("radius", 0.5F), j.value("height", 1.0F)});
-	};
-	reg.loaders["mesh"] = [](const flecs::entity e, const json& j) {
-		e.set<render::MeshPrimitive>({.path = assets::ResolveAsset(e.world(), j.value("path", std::string{}))});
-	};
-
-	reg.loaders["material"] = [](const flecs::entity e, const json& j) {
-		render::Material m{};
-		m.color = JRgba(j, "color", m.color);
-		m.wireframe = j.value("wireframe", m.wireframe);
-		m.cast_shadow = j.value("cast_shadow", m.cast_shadow);
-		e.set<render::Material>(m);
-	};
-	reg.loaders["albedo"] = [](const flecs::entity e, const json& j) {
-		e.set<render::AlbedoMap>({.path = assets::ResolveAsset(e.world(), j.value("path", std::string{}))});
-	};
-
-	reg.loaders["directional_light"] = [](const flecs::entity e, const json& j) {
-		render::DirectionalLight dl{};
-		dl.direction = JVec3(j, "direction", dl.direction);
-		dl.color = JRgba(j, "color", dl.color);
-		dl.intensity = j.value("intensity", dl.intensity);
-		dl.specular_strength = j.value("specular_strength", dl.specular_strength);
-		dl.shininess = j.value("shininess", dl.shininess);
-		dl.casts_shadows = j.value("casts_shadows", dl.casts_shadows);
-		dl.shadow_ground_y = j.value("shadow_ground_y", dl.shadow_ground_y);
-		dl.shadow_color = JRgba(j, "shadow_color", dl.shadow_color);
-		e.set<render::DirectionalLight>(dl);
-	};
-
-	reg.loaders["rigid_body"] = [](const flecs::entity e, const json& j) {
-		physics::RigidBody rb{};
-		rb.motion_type = ParseMotionType(j.value("motion_type", std::string{"dynamic"}));
-		rb.mass = j.value("mass", rb.mass);
-		rb.linear_damping = j.value("linear_damping", rb.linear_damping);
-		rb.angular_damping = j.value("angular_damping", rb.angular_damping);
-		rb.friction = j.value("friction", rb.friction);
-		rb.restitution = j.value("restitution", rb.restitution);
-		rb.enable_ccd = j.value("enable_ccd", rb.enable_ccd);
-		rb.use_gravity = j.value("use_gravity", rb.use_gravity);
-		rb.gravity_scale = j.value("gravity_scale", rb.gravity_scale);
-		e.set<physics::RigidBody>(rb);
-	};
-	reg.loaders["collision_shape"] = [](const flecs::entity e, const json& j) {
-		physics::CollisionShape cs{};
-		cs.type = ParseShapeType(j.value("type", std::string{"box"}));
-		cs.box_half_extents = JVec3(j, "box_half_extents", cs.box_half_extents);
-		cs.sphere_radius = j.value("sphere_radius", cs.sphere_radius);
-		cs.capsule_radius = j.value("capsule_radius", cs.capsule_radius);
-		cs.capsule_height = j.value("capsule_height", cs.capsule_height);
-		cs.offset = JVec3(j, "offset", cs.offset);
-		e.set<physics::CollisionShape>(cs);
-	};
-	reg.loaders["physics_velocity"] = [](const flecs::entity e, const json& j) {
-		physics::PhysicsVelocity v{};
-		v.linear = JVec3(j, "linear", v.linear);
-		v.angular = JVec3(j, "angular", v.angular);
-		e.set<physics::PhysicsVelocity>(v);
-	};
-
-	reg.loaders["sound_effect"] = [](const flecs::entity e, const json& j) {
-		e.set<audio::SoundEffect>({.path = assets::ResolveAsset(e.world(), j.value("path", std::string{}))});
-	};
-
-	reg.loaders["script"] = [](const flecs::entity e, const json& j) {
-		e.set<scripting::ScriptComponent>(
-			{.source_path = assets::ResolveAsset(e.world(), j.value("source", std::string{}))}
-		);
-	};
-}
-
-// Register the loaders for world singletons.
-void RegisterBuiltinSingletonLoaders(LevelRegistry& reg) {
-	reg.singletonLoaders["ambient_light"] = [](const flecs::world& world, const json& j) {
-		render::AmbientLight al{};
-		al.color = JRgba(j, "color", al.color);
-		al.intensity = j.value("intensity", al.intensity);
-		world.set<render::AmbientLight>(al);
-	};
-	reg.singletonLoaders["physics_world"] = [](const flecs::world& world, const json& j) {
-		auto cfg = world.has<physics::PhysicsWorldConfig>() ? world.get<physics::PhysicsWorldConfig>()
-															: physics::PhysicsWorldConfig{};
-		cfg.gravity = JVec3(j, "gravity", cfg.gravity);
-		world.set<physics::PhysicsWorldConfig>(cfg);
-	};
-}
-
-// Instantiate one entity definition (and its children) into the world.
-flecs::entity BuildEntity(const flecs::world& world, const json& def, const flecs::entity parent) {
-	flecs::entity e = def.contains("name") ? world.entity(def.at("name").get<std::string>().c_str()) : world.entity();
-	if (parent) {
-		e.child_of(parent);
-	}
-	if (def.contains("components")) {
-		const auto& reg = world.get<LevelRegistry>();
+	void ApplyComponents(const flecs::entity e, const json& def) const {
+		if (!def.contains("components")) {
+			return;
+		}
+		const auto& reg = world_.get<LevelRegistry>();
 		for (const auto& [key, value] : def.at("components").items()) {
 			const auto it = reg.loaders.find(key);
 			if (it == reg.loaders.end()) {
@@ -195,22 +102,31 @@ flecs::entity BuildEntity(const flecs::world& world, const json& def, const flec
 			it->second(e, value);
 		}
 	}
-	if (def.contains("children")) {
-		for (const auto& child : def.at("children")) {
-			BuildEntity(world, child, e);
+
+	void ApplyLink(const flecs::entity parent, const flecs::entity child, const json& def) const {
+		if (!def.contains("link")) {
+			return;
 		}
+		const auto link = def.at("link").get<std::string>();
+		const auto& reg = world_.get<LevelRegistry>();
+		const auto it = reg.linkLoaders.find(link);
+		if (it == reg.linkLoaders.end()) {
+			spdlog::warn("[Level] Unknown link '{}' on entity '{}'", link, child.name().c_str());
+			return;
+		}
+		it->second(parent, child);
 	}
-	return e;
-}
+
+	const flecs::world& world_;
+	std::unordered_map<std::string, flecs::entity> named_;
+	std::vector<PendingRef> pending_refs_;
+};
 
 } // namespace
 
 LevelModule::LevelModule(const flecs::world& world) {
 	world.set<LevelRegistry>({});
-	auto& reg = world.get_mut<LevelRegistry>();
-	RegisterBuiltinLoaders(reg);
-	RegisterBuiltinSingletonLoaders(reg);
-	spdlog::info("[LevelModule] Registered level registry with built-in component loaders");
+	spdlog::info("[LevelModule] Registered level registry (module factories populate it on import)");
 }
 
 void RegisterComponentLoader(const flecs::world& world, const std::string_view name, ComponentLoader loader) {
@@ -227,7 +143,21 @@ void RegisterSingletonLoader(const flecs::world& world, const std::string_view n
 	world.get_mut<LevelRegistry>().singletonLoaders[std::string{name}] = std::move(loader);
 }
 
-int LoadLevel(const flecs::world& world, const std::string_view path) {
+void RegisterLink(const flecs::world& world, const std::string_view name, LinkLoader loader) {
+	if (!world.has<LevelRegistry>()) {
+		return;
+	}
+	world.get_mut<LevelRegistry>().linkLoaders[std::string{name}] = std::move(loader);
+}
+
+void RegisterRef(const flecs::world& world, const std::string_view name, RefLoader loader) {
+	if (!world.has<LevelRegistry>()) {
+		return;
+	}
+	world.get_mut<LevelRegistry>().refLoaders[std::string{name}] = std::move(loader);
+}
+
+int LoadLevel(const flecs::world& world, const std::string_view path, const flecs::entity parent) {
 	if (!world.has<LevelRegistry>()) {
 		spdlog::error("[Level] LevelRegistry not set — import LevelModule before loading a level");
 		return -1;
@@ -253,10 +183,12 @@ int LoadLevel(const flecs::world& world, const std::string_view path) {
 
 	int count = 0;
 	if (doc.contains("entities")) {
+		EntityBuilder builder(world);
 		for (const auto& def : doc.at("entities")) {
-			BuildEntity(world, def, flecs::entity{});
+			builder.Build(def, parent);
 			++count;
 		}
+		builder.ResolveRefs(); // second pass: wire "refs" now that all named entities exist
 	}
 	spdlog::info("[Level] Loaded '{}' ({} top-level entities)", path, count);
 	return count;

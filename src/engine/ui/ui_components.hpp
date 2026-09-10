@@ -8,7 +8,7 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 
-#include "engine/platform/platform.hpp"
+#include "engine/core/core.hpp"
 
 // Data-driven 2D UI. An entity becomes a UI element by pairing a UIRect (its position + size)
 // with one or more visual components (Panel, Label, Button). Behaviour is attached as extra
@@ -24,7 +24,7 @@ namespace engine::ui {
 // Position + size of a UI element in screen-space pixels. Every UI entity carries exactly one.
 // Wraps platform::Rect so hit-testing and the 2D draw calls share the same primitive.
 struct UIRect {
-	platform::Rect rect{};
+	core::Rect rect{};
 
 	[[nodiscard]] bool Contains(const glm::vec2 point) const { return rect.Contains(point); }
 };
@@ -39,21 +39,25 @@ struct UIElement {
 // Filled background box with an optional border. Used on its own for containers/backdrops or
 // combined with a Label to make a titled panel.
 struct Panel {
-	platform::Rgba color{platform::colors::Panel};
-	platform::Rgba border_color{platform::colors::Border};
+	core::Rgba color{core::colors::Panel};
+	core::Rgba border_color{core::colors::Border};
 	float border_thickness{2.0F};
 	float roundness{0.0F}; // 0 = square corners; >0 = rounded (fraction of the shorter side)
+	int texture{-1};       // optional texture handle (from platform LoadTexture); -1 = solid color fill
 };
 
 // Horizontal text placement of a Label within its UIRect.
 enum class TextAlign : std::uint8_t { Left, Center, Right };
 
-// Static text drawn (vertically centred) within the element's UIRect.
+// Static text drawn (vertically centred) within the element's UIRect. When `wrap` is set the text is
+// word-wrapped to the UIRect width and laid out top-aligned across multiple lines.
 struct Label {
 	std::string text;
 	float font_size{20.0F};
-	platform::Rgba color{platform::colors::Text};
+	core::Rgba color{core::colors::Text};
 	TextAlign align{TextAlign::Center};
+	bool wrap{false};         // word-wrap to the UIRect width (multi-line, top-aligned)
+	float line_spacing{4.0F}; // extra pixels between wrapped lines
 };
 
 // Clickable button. The stylable fields describe its look; the trailing fields are runtime state
@@ -63,12 +67,13 @@ struct Label {
 struct Button {
 	std::string label;
 	float font_size{22.0F};
-	platform::Rgba normal{platform::colors::Accent};
-	platform::Rgba hover{platform::colors::PanelHi};
-	platform::Rgba pressed_color{platform::colors::Panel};
-	platform::Rgba border_color{platform::colors::Border};
-	platform::Rgba text_color{platform::colors::Text};
+	core::Rgba normal{core::colors::Accent};
+	core::Rgba hover{core::colors::PanelHi};
+	core::Rgba pressed_color{core::colors::Panel};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba text_color{core::colors::Text};
 	float roundness{0.25F};
+	int texture{-1}; // optional background texture handle (from LoadTexture); -1 = solid color fill
 
 	// === Runtime interaction state (written by UIButtonInteraction) ===
 	bool hovered{false}; // cursor is over the button this frame
@@ -104,9 +109,9 @@ struct ProgressBar {
 	float value{0.0F};
 	float min{0.0F};
 	float max{1.0F};
-	platform::Rgba fill_color{platform::colors::Accent};
-	platform::Rgba track_color{platform::colors::PanelBg};
-	platform::Rgba border_color{platform::colors::Border};
+	core::Rgba fill_color{core::colors::Accent};
+	core::Rgba track_color{core::colors::PanelBg};
+	core::Rgba border_color{core::colors::Border};
 	float border_thickness{2.0F};
 	float roundness{0.35F};
 
@@ -123,7 +128,7 @@ struct ProgressBar {
 // Indeterminate loading spinner: `dots` dots rotating around the element's centre, trailing in
 // opacity. `phase` is advanced every frame by UISpinnerAnimate.
 struct Spinner {
-	platform::Rgba color{platform::colors::Accent};
+	core::Rgba color{core::colors::Accent};
 	float radius{18.0F};    // radius of the ring the dots travel on
 	float dot_radius{4.0F}; // radius of each dot
 	int dots{8};
@@ -157,8 +162,8 @@ struct ScrollRect {
 	bool horizontal{false};
 	float scrollbar_thickness{10.0F};
 	float wheel_speed{28.0F};
-	platform::Rgba track_color{platform::colors::PanelBg};
-	platform::Rgba thumb_color{platform::colors::PanelHi};
+	core::Rgba track_color{core::colors::PanelBg};
+	core::Rgba thumb_color{core::colors::PanelHi};
 
 	// === Runtime drag state (written by UIScrollRectUpdate) ===
 	bool dragging_v{false};        // currently dragging the vertical thumb
@@ -173,7 +178,7 @@ struct ScrollRect {
 // drawing and interaction for their whole subtree.
 struct Modal {
 	bool open{true};
-	platform::Rgba backdrop_color{6, 8, 6, 200};
+	core::Rgba backdrop_color{6, 8, 6, 200};
 	bool close_on_backdrop{false};
 };
 
@@ -188,21 +193,23 @@ enum class UIDrawKind : std::uint8_t {
 	Text,
 	Line,
 	Circle,
-	BeginClip, // push a scissor rectangle (intersected with any active clip)
-	EndClip,   // pop the last scissor rectangle
+	TexturedRect, // a texture tiled into a rect, modulated by `color` (tint)
+	BeginClip,    // push a scissor rectangle (intersected with any active clip)
+	EndClip,      // pop the last scissor rectangle
 };
 
 // One queued 2D draw call. Only the fields relevant to `kind` are meaningful. `order` is the
 // sort key (lower draws first); commands sharing an order keep their insertion order (FIFO).
 struct UIDrawCommand {
 	UIDrawKind kind{UIDrawKind::Rect};
-	platform::Rect rect{};  // rect-based kinds
-	platform::Rgba color{}; // all kinds
+	core::Rect rect{};      // rect-based kinds
+	core::Rgba color{};     // all kinds
 	float roundness{0.0F};  // (Rounded)Rect(Lines)
 	float thickness{1.0F};  // *Lines, Line
 	glm::vec2 p0{0.0F};     // Text position / Line start / Circle centre
 	glm::vec2 p1{0.0F};     // Line end
 	float radius{0.0F};     // Circle
+	int texture{-1};        // TexturedRect (handle from LoadTexture)
 	std::string text;       // Text
 	float font_size{20.0F}; // Text
 	int order{0};           // sort key (z_index)
@@ -216,28 +223,27 @@ struct UIDrawList {
 
 	void Clear() { commands.clear(); }
 
-	void PushRect(const platform::Rect r, const platform::Rgba color, const int order = 0) {
+	void PushRect(const core::Rect r, const core::Rgba color, const int order = 0) {
 		commands.push_back({.kind = UIDrawKind::Rect, .rect = r, .color = color, .order = order});
 	}
 
-	void
-	PushRoundedRect(const platform::Rect r, const float roundness, const platform::Rgba color, const int order = 0) {
+	void PushRoundedRect(const core::Rect r, const float roundness, const core::Rgba color, const int order = 0) {
 		commands.push_back(
 			{.kind = UIDrawKind::RoundedRect, .rect = r, .color = color, .roundness = roundness, .order = order}
 		);
 	}
 
-	void PushRectLines(const platform::Rect r, const float thickness, const platform::Rgba color, const int order = 0) {
+	void PushRectLines(const core::Rect r, const float thickness, const core::Rgba color, const int order = 0) {
 		commands.push_back(
 			{.kind = UIDrawKind::RectLines, .rect = r, .color = color, .thickness = thickness, .order = order}
 		);
 	}
 
 	void PushRoundedRectLines(
-		const platform::Rect r,
+		const core::Rect r,
 		const float roundness,
 		const float thickness,
-		const platform::Rgba color,
+		const core::Rgba color,
 		const int order = 0
 	) {
 		commands.push_back(
@@ -255,7 +261,7 @@ struct UIDrawList {
 		const float x,
 		const float y,
 		const float font_size,
-		const platform::Rgba color,
+		const core::Rgba color,
 		const int order = 0
 	) {
 		commands.push_back(
@@ -268,25 +274,27 @@ struct UIDrawList {
 		);
 	}
 
-	void PushLine(
-		const glm::vec2 a,
-		const glm::vec2 b,
-		const float thickness,
-		const platform::Rgba color,
-		const int order = 0
-	) {
+	void
+	PushLine(const glm::vec2 a, const glm::vec2 b, const float thickness, const core::Rgba color, const int order = 0) {
 		commands.push_back(
 			{.kind = UIDrawKind::Line, .color = color, .thickness = thickness, .p0 = a, .p1 = b, .order = order}
 		);
 	}
 
-	void PushCircle(const glm::vec2 center, const float radius, const platform::Rgba color, const int order = 0) {
+	void PushCircle(const glm::vec2 center, const float radius, const core::Rgba color, const int order = 0) {
 		commands.push_back(
 			{.kind = UIDrawKind::Circle, .color = color, .p0 = center, .radius = radius, .order = order}
 		);
 	}
 
-	void PushBeginClip(const platform::Rect r, const int order = 0) {
+	// Queue a textured rect: `texture` (a LoadTexture handle) tiled into `r`, modulated by `tint`.
+	void PushTexturedRect(const int texture, const core::Rect r, const core::Rgba tint, const int order = 0) {
+		commands.push_back(
+			{.kind = UIDrawKind::TexturedRect, .rect = r, .color = tint, .texture = texture, .order = order}
+		);
+	}
+
+	void PushBeginClip(const core::Rect r, const int order = 0) {
 		commands.push_back({.kind = UIDrawKind::BeginClip, .rect = r, .order = order});
 	}
 

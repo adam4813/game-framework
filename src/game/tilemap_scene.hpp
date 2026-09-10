@@ -30,6 +30,7 @@ public:
 	explicit TilemapScene() = default;
 	~TilemapScene() override = default;
 
+	void RegisterLoaders(const flecs::world& world) override;
 	void InitializePipeline(const flecs::world& world) override;
 	void Load(flecs::world& world) override;
 	void Unload(flecs::world& world) override;

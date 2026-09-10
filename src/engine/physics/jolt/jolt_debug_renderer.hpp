@@ -43,7 +43,7 @@ private:
 	static glm::vec3 ToGlm(JPH::RVec3Arg v);
 	static glm::vec3 ToGlmColor(JPH::ColorArg c);
 	static float ToGlmAlpha(JPH::ColorArg c);
-	static platform::Rgba ToRgba(glm::vec3 color, float alpha);
+	static core::Rgba ToRgba(glm::vec3 color, float alpha);
 
 	/// Project 3D world position to 2D screen coordinates using the camera
 	[[nodiscard]] glm::vec2 ProjectToScreen(glm::vec3 world_pos) const;

@@ -28,6 +28,40 @@ VCPKG.
   entity for pipeline filtering. Untagged systems run in every scene pipeline.
 - Prefer composition (add/remove components) over inheritance.
 - Register systems in dedicated `Register*System()` functions.
+- **Flecs template/parameter parity:** If you include a component or singleton type in the system template arguments
+  (e.g., `world.system<const MyComponent>()` or `.term_at<MySingleton>().singleton()`), you MUST include it as a
+  parameter in your `.each()` or `.run()` callback. The parameter list must match the template list exactly. For
+  example:
+  ```cpp
+  world.system<const InputState>("MySystem")
+      .term_at<InputState>()
+      .singleton()
+      .each([](const flecs::iter&, size_t, const InputState& input) { ... });  // ✓ correct
+      // .each([](const flecs::iter&, size_t) { ... });  // ✗ wrong — InputState in template but not in params
+  ```
+  - Alternatively you can spin through the iter
+  ```
+    // Spin through the iterator to ensure ECS systems are aware of the iteration
+    while (it.next());
+  ```
+
+### Transform Authoring
+
+- **Author only `Transform`** (local position/rotation/scale) — never hand-write `WorldTransform`. The engine seeds
+  `WorldTransform` once via `TransformSeedWorldTransform` observer, then keeps it in sync via `TransformPropagation`
+  or the physics backend.
+- This prevents out-of-phase sync bugs (e.g., stale camera matrices or physics bodies left desynchronized after a
+  transform change).
+
+### Entity Relationships and Linkage
+
+- Use first-class relationships (e.g., `RenderWith`, `LookAt`) to decouple entity structure from hardcoded
+  dependencies.
+- In JSON levels, declare relationships with `"link"` (for parent→child) and `"refs"` (for named-entity
+  cross-references). The level loader resolves them in a second pass.
+- Register relationship loaders in your module's constructor via `RegisterLink` and `RegisterRef`.
+- Example: a camera with a target is authored as `"refs": { "look_at": "PlayerEntity" }`, not as a stored position
+  field. The camera's aim is derived from the target's `WorldTransform` on-demand each frame.
 
 ### Event-Driven Over Per-Frame Polling
 
@@ -51,14 +85,16 @@ VCPKG.
 - **Simplicity is the default.** Only introduce complexity (a pattern, an abstraction layer, an extensibility
   mechanism) when it *measurably* pays off: it removes code, or it improves developer/authoring UX by tens of percent —
   not single digits. A registry/strategy for 5 variants with maybe 2 more ever is usually not worth it; a plain
-  `if`/`else` dispatch or a small lookup is clearer. Reach for the pattern when the variant count is genuinely open-ended
+  `if`/`else` dispatch or a small lookup is clearer. Reach for the pattern when the variant count is genuinely
+  open-ended
   or third-party extension is a real requirement.
 - **Weigh before abstracting:** how many variants realistically exist, does this reduce total code, and does it make the
   code considerably easier to work with? If the answer is "a handful / not really / marginally," keep it simple.
 
 ### Suggestions Are Guidance, Not Mandates
 
-- When the user (or this file) *suggests* an approach, treat it as guidance: evaluate whether it is actually the best fit
+- When the user (or this file) *suggests* an approach, treat it as guidance: evaluate whether it is actually the best
+  fit
   for the situation and say so, proposing the simpler/better option with a short rationale. Do **not** implement a
   suggested design just because it was mentioned if a simpler approach serves better.
 - Only treat direction as non-negotiable when the user **explicitly** states it is required (e.g. "you must do this",

@@ -16,6 +16,9 @@ class SceneBase {
 public:
 	virtual ~SceneBase() = default;
 
+	// Register any scene-specific loaders (e.g., level loaders, component loaders) with the world.
+	virtual void RegisterLoaders(const flecs::world& world) {}
+
 	// Initializes and creates the scene's pipeline.
 	// Called when the scene component is added.
 	// Concrete scenes should override to create a pipeline with their specific systems.

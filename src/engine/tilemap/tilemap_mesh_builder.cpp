@@ -1,33 +1,92 @@
 #include "tilemap_mesh_builder.hpp"
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
 
 #include "engine/ecs/ecs.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/render/render.hpp"
+#include "engine/spatial/spatial.hpp"
 #include "tilemap_components.hpp"
 
 namespace engine::tilemap {
 
-void TilemapMeshBuilder::Register(const flecs::world& world) {
-	// Observer 1: generates mesh data (vertices, indices, colors) whenever a Tilemap component is set/changed.
-	// The TileRegistry is scoped to the tilemap entity, so descriptors are resolved from `e` itself.
-	world.observer<Tilemap>("TilemapBuildMesh").event(flecs::OnSet).each([](const flecs::entity e, const Tilemap& tm) {
-		// Get the tile registry scoped to this tilemap entity.
-		const auto* registry_data = e.try_get<TileRegistry>();
-		if (!registry_data) {
-			return;
-		}
+namespace {
 
-		// Get the TileSet for texture dimensions used to normalise pixel tex_coords → UVs
+// Compute inset UVs for a tile descriptor, applying a half-pixel border to prevent atlas bleeding.
+// Returns {uv_top_left, uv_bottom_right}.
+std::pair<glm::vec2, glm::vec2> TileUVs(const TileDescriptor& desc, const float tex_w, const float tex_h) {
+	const float px = desc.tex_coords.x;
+	const float py = desc.tex_coords.y;
+	const float pw = desc.tex_coords.w;
+	const float ph = desc.tex_coords.h;
+
+	if (pw <= 0.0f || ph <= 0.0f) {
+		// Zero-area rect: use flat color via UV (0,0)
+		return {{0.0f, 0.0f}, {0.0f, 0.0f}};
+	}
+
+	const glm::vec2 uv0{(px + 0.5f) / tex_w, (py + 0.5f) / tex_h};
+	const glm::vec2 uv1{(px + pw - 0.5f) / tex_w, (py + ph - 0.5f) / tex_h};
+	return {uv0, uv1};
+}
+
+// Append a quad for tile at buffer slot (bx, bz) with the given UVs into mesh_data.
+// Each quad is expanded outward by kTileExpand to fill sub-pixel rasterization seams that appear
+// in 3D perspective — adjacent tiles don't share vertices so the GPU may leave a hairline gap.
+// The expansion is smaller than half a screen pixel so it's visually imperceptible; with NEAREST
+// texture filtering the expanded area samples the tile's edge texel (correct colour).
+void PushTileQuad(
+	TilemapMeshData& mesh_data,
+	const int bx,
+	const int bz,
+	const float tile_size,
+	const glm::vec2 uv0,
+	const glm::vec2 uv1,
+	const glm::vec4& color
+) {
+	// Expand by ~0.5% of a tile on each side (≈ 0.4 screen-pixels at typical camera height 12).
+	const float kExpand = tile_size * 0.005f;
+	const float x0 = static_cast<float>(bx) * tile_size - kExpand;
+	const float z0 = static_cast<float>(bz) * tile_size - kExpand;
+	const float x1 = static_cast<float>(bx + 1) * tile_size + kExpand;
+	const float z1 = static_cast<float>(bz + 1) * tile_size + kExpand;
+
+	const auto vertex_offset = static_cast<uint32_t>(mesh_data.vertices.size());
+
+	mesh_data.vertices.emplace_back(x0, 0.0f, z0); // TL
+	mesh_data.vertices.emplace_back(x1, 0.0f, z0); // TR
+	mesh_data.vertices.emplace_back(x1, 0.0f, z1); // BR
+	mesh_data.vertices.emplace_back(x0, 0.0f, z1); // BL
+
+	// CCW winding (two triangles per quad)
+	mesh_data.indices.push_back(vertex_offset + 0);
+	mesh_data.indices.push_back(vertex_offset + 2);
+	mesh_data.indices.push_back(vertex_offset + 1);
+	mesh_data.indices.push_back(vertex_offset + 0);
+	mesh_data.indices.push_back(vertex_offset + 3);
+	mesh_data.indices.push_back(vertex_offset + 2);
+
+	for (int i = 0; i < 4; ++i) mesh_data.colors.push_back(color);
+
+	mesh_data.uvs.emplace_back(uv0.x, uv0.y); // TL
+	mesh_data.uvs.emplace_back(uv1.x, uv0.y); // TR
+	mesh_data.uvs.emplace_back(uv1.x, uv1.y); // BR
+	mesh_data.uvs.emplace_back(uv0.x, uv1.y); // BL
+}
+
+} // namespace
+
+void TilemapMeshBuilder::Register(const flecs::world& world) {
+	// Observer: generates viewport-sized or full-map mesh data when Tilemap is set/changed.
+	world.observer<Tilemap>("TilemapBuildMesh").event(flecs::OnSet).each([](const flecs::entity e, const Tilemap& tm) {
+		const auto* registry_data = e.try_get<TileRegistry>();
+		if (!registry_data) return;
+
 		const auto* tileset = e.try_get<TileSet>();
 		const float tex_w = tileset ? static_cast<float>(tileset->image_width_px) : 1.0f;
 		const float tex_h = tileset ? static_cast<float>(tileset->image_height_px) : 1.0f;
 
-		// Guard against malformed data: the flat grid must hold exactly width*height ids, otherwise
-		// the inner loop would read past tile_ids. Reject rather than render a corrupt/partial mesh.
 		if (tm.tile_ids.size() != static_cast<size_t>(tm.width) * tm.height) {
 			spdlog::warn(
 				"[Tilemap] tile_ids size {} != width*height ({}x{}); skipping mesh build",
@@ -38,80 +97,71 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 			return;
 		}
 
+		const float tile_size = TileWorldSize(tm);
+		const auto* viewport = e.try_get<TilemapViewport>();
+
+		// Guard: skip if viewport is present but buffer size hasn't been computed yet
+		if (viewport && (viewport->buffer_width <= 0 || viewport->buffer_height <= 0)) {
+			return;
+		}
+
 		TilemapMeshData mesh_data;
 
-		const float tile_size = TileWorldSize(tm); // pixels → world units (per-tilemap scale)
+		if (viewport) {
+			// Viewport ring-buffer mode: build a fixed bw × bh grid at origin (0,0).
+			// The streaming system will later update UVs and entity Transform each frame.
+			const int bw = viewport->buffer_width;
+			const int bh = viewport->buffer_height;
 
-		for (uint32_t y = 0; y < tm.height; ++y) {
-			for (uint32_t x = 0; x < tm.width; ++x) {
-				const uint32_t tile_idx = y * tm.width + x;
-				const uint32_t tile_id = tm.tile_ids[tile_idx];
+			mesh_data.vertices.reserve(static_cast<size_t>(bw * bh * 4));
+			mesh_data.indices.reserve(static_cast<size_t>(bw * bh * 6));
+			mesh_data.colors.reserve(static_cast<size_t>(bw * bh * 4));
+			mesh_data.uvs.reserve(static_cast<size_t>(bw * bh * 4));
 
-				// Look up tile descriptor from registry
-				const TileDescriptor* descriptor = registry_data->GetTile(tile_id);
-				if (!descriptor) {
-					continue; // Tile not found in registry, skip
+			for (int bz = 0; bz < bh; ++bz) {
+				for (int bx = 0; bx < bw; ++bx) {
+					const uint32_t tile_id = GetTileIdAt(tm, bx, bz);
+					const auto* desc = registry_data->GetTile(tile_id);
+					const auto [uv0, uv1] =
+						desc ? TileUVs(*desc, tex_w, tex_h) : std::pair{glm::vec2{0.0f}, glm::vec2{0.0f}};
+					const glm::vec4 color = desc ? desc->color : glm::vec4{1.0f};
+					PushTileQuad(mesh_data, bx, bz, tile_size, uv0, uv1, color);
 				}
+			}
+		}
+		else {
+			// Full-map mode: bake every tile into one static mesh.
+			mesh_data.vertices.reserve(tm.width * tm.height * 4);
+			mesh_data.indices.reserve(tm.width * tm.height * 6);
+			mesh_data.colors.reserve(tm.width * tm.height * 4);
+			mesh_data.uvs.reserve(tm.width * tm.height * 4);
 
-				// Create position for this tile (centre of quad)
-				const float world_x = (static_cast<float>(x) + 0.5f) * tile_size;
-				const float world_z = (static_cast<float>(y) + 0.5f) * tile_size;
-
-				// Quad vertices (XZ plane at y=0)
-				const auto vertex_offset = static_cast<uint32_t>(mesh_data.vertices.size());
-				const float half_size = tile_size / 2.0f;
-
-				mesh_data.vertices.emplace_back(world_x - half_size, 0.0f, world_z - half_size);
-				mesh_data.vertices.emplace_back(world_x + half_size, 0.0f, world_z - half_size);
-				mesh_data.vertices.emplace_back(world_x + half_size, 0.0f, world_z + half_size);
-				mesh_data.vertices.emplace_back(world_x - half_size, 0.0f, world_z + half_size);
-
-				// Winding order: CCW
-				mesh_data.indices.push_back(vertex_offset + 0);
-				mesh_data.indices.push_back(vertex_offset + 2);
-				mesh_data.indices.push_back(vertex_offset + 1);
-
-				mesh_data.indices.push_back(vertex_offset + 0);
-				mesh_data.indices.push_back(vertex_offset + 3);
-				mesh_data.indices.push_back(vertex_offset + 2);
-
-				// Per-vertex color (tint; white means the texture is shown without modification)
-				const glm::vec4 color = descriptor->color;
-				for (int i = 0; i < 4; ++i) {
-					mesh_data.colors.push_back(color);
+			for (uint32_t z = 0; z < tm.height; ++z) {
+				for (uint32_t x = 0; x < tm.width; ++x) {
+					const uint32_t tile_id = tm.tile_ids[z * tm.width + x];
+					const auto* desc = registry_data->GetTile(tile_id);
+					if (!desc) continue;
+					const auto [uv0, uv1] = TileUVs(*desc, tex_w, tex_h);
+					PushTileQuad(mesh_data, static_cast<int>(x), static_cast<int>(z), tile_size, uv0, uv1, desc->color);
 				}
-
-				// UV coordinates: normalise pixel tex_coords rect to 0-1 range
-				const float u0 = descriptor->tex_coords.x / tex_w;
-				const float v0 = descriptor->tex_coords.y / tex_h;
-				const float u1 = (descriptor->tex_coords.x + descriptor->tex_coords.w) / tex_w;
-				const float v1 = (descriptor->tex_coords.y + descriptor->tex_coords.h) / tex_h;
-
-				mesh_data.uvs.emplace_back(u0, v0); // TL
-				mesh_data.uvs.emplace_back(u1, v0); // TR
-				mesh_data.uvs.emplace_back(u1, v1); // BR
-				mesh_data.uvs.emplace_back(u0, v1); // BL
 			}
 		}
 
-		// Store CPU mesh data temporarily for upload
 		e.set<TilemapMeshData>(mesh_data);
 	});
 
-	// Observer 2: uploads mesh data to GPU and creates a DynamicMesh component
+	// Observer: uploads CPU mesh data to GPU and sets a DynamicMesh component.
 	world.observer<TilemapMeshData>("UploadTilemapMesh")
 		.event(flecs::OnSet)
 		.each([](const flecs::entity e, TilemapMeshData& mesh_data) {
 			if (e.has<render::DynamicMesh>()) {
-				e.remove<render::DynamicMesh>(); // Remove old mesh if it exists
+				e.remove<render::DynamicMesh>();
 			}
 
-			// Only upload once
 			if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
 				return;
 			}
 
-			// Upload to GPU via platform backend
 			const auto& platform_ref = e.world().get<platform::PlatformRef>();
 			const int handle = platform_ref.ptr->UploadDynamicMesh(
 				mesh_data.vertices,
@@ -121,16 +171,13 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 			);
 
 			if (handle >= 0) {
-				// Set the generic DynamicMesh component
 				e.set<render::DynamicMesh>({handle});
 
-				// Ensure entity has Transform for rendering
-				if (!e.has<ecs::Transform>()) {
-					e.set<ecs::Transform>({{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+				if (!e.has<spatial::Transform>()) {
+					e.set<spatial::Transform>({{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
 				}
 			}
 
-			// Clean up CPU-side data
 			mesh_data.vertices.clear();
 			mesh_data.indices.clear();
 			mesh_data.colors.clear();

@@ -8,6 +8,7 @@
 
 #include "engine/ecs/ecs.hpp"
 #include "engine/input/input.hpp"
+#include "engine/scripting/scripting.hpp"
 #include "scene-base.hpp"
 #include "scene_components.hpp"
 
@@ -17,6 +18,20 @@ SceneManagementModule::SceneManagementModule(const flecs::world& world) {
 	world.component<SceneComponent>();
 	// Single-active is enforced procedurally in ActivateScene.
 	world.component<Active>();
+	world.component<Paused>();
+
+	// PauseScene() / ResumeScene() — scene control from scripts.
+	scripting::RegisterGlobalFunctionForScripts(
+		world,
+		{.name = "PauseScene", .return_type = scripting::ScriptValueType::MakeVoid(), .params = {}},
+		[&world](scripting::ScriptCallContext&, flecs::world&) { world.add<Paused>(); }
+	);
+
+	scripting::RegisterGlobalFunctionForScripts(
+		world,
+		{.name = "ResumeScene", .return_type = scripting::ScriptValueType::MakeVoid(), .params = {}},
+		[&world](scripting::ScriptCallContext&, flecs::world&) { world.remove<Paused>(); }
+	);
 
 	// Register mode/filter tags. Identity tags are defined and registered by each concrete scene.
 	world.component<GameScene>();

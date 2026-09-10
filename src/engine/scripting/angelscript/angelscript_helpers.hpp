@@ -37,7 +37,8 @@ inline std::string ScriptTypeName(const flecs::world& world, const ScriptValueTy
 // Format a single parameter as its AngelScript declaration fragment, honoring handle/reference:
 //   handle → "T@";  by-reference → "const T &in";  by-value → "T".
 // Appends " name" when the param is named and include_name is true. Returns empty if unresolved.
-inline std::string FormatParam(const flecs::world& world, const ScriptMethodParam& param, const bool include_name = true) {
+inline std::string
+FormatParam(const flecs::world& world, const ScriptMethodParam& param, const bool include_name = true) {
 	const std::string type_name = ScriptTypeName(world, param.type);
 	if (type_name.empty()) {
 		return {};
@@ -57,8 +58,7 @@ inline std::string FormatParam(const flecs::world& world, const ScriptMethodPara
 
 // Format a parameter list as comma-separated AngelScript declarations.
 // Returns empty if any parameter type is unresolved.
-inline std::string
-FormatParamList(const flecs::world& world, const std::vector<ScriptMethodParam>& params) {
+inline std::string FormatParamList(const flecs::world& world, const std::vector<ScriptMethodParam>& params) {
 	std::string result;
 	for (size_t i = 0; i < params.size(); ++i) {
 		const std::string frag = FormatParam(world, params[i]);
@@ -75,8 +75,11 @@ FormatParamList(const flecs::world& world, const std::vector<ScriptMethodParam>&
 
 // Build a callback funcdef declaration "void <funcdef_name>(<params...>)".
 // Returns empty if any parameter type is unresolved.
-inline std::string
-BuildFuncdefDeclaration(const flecs::world& world, const std::string& funcdef_name, const std::vector<ScriptMethodParam>& params) {
+inline std::string BuildFuncdefDeclaration(
+	const flecs::world& world,
+	const std::string& funcdef_name,
+	const std::vector<ScriptMethodParam>& params
+) {
 	const std::string param_list = FormatParamList(world, params);
 	if (param_list.empty() && !params.empty()) {
 		return {};

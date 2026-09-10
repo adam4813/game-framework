@@ -46,6 +46,18 @@ flecs::entity ResolveHostEntity(const flecs::entity entity) {
 	const flecs::entity parent = entity.parent();
 	return parent.is_valid() ? parent : entity;
 }
+
+std::optional<std::pair<flecs::entity, uintptr_t>> ResolveEntityAndComponent(asIScriptGeneric* gen) {
+	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
+	const auto* entity_ref = static_cast<ScriptEntityRef*>(gen->GetObject());
+	if (!entity_ref || component_id == 0) {
+		return {};
+	}
+
+	const flecs::entity host = ResolveHostEntity(entity_ref->GetEntity());
+	return {{host, component_id}};
+}
+
 void PrintFn(const std::string& msg) { spdlog::info("[Script] {}", msg); }
 
 // Adapts AngelScript's generic-call context to the backend-neutral ScriptCallContext so a
@@ -328,33 +340,82 @@ void AngelScriptBackend::RegisterGlobalFunctions() const {
 }
 
 void AngelScriptBackend::ComponentGetRefGeneric(asIScriptGeneric* gen) {
-	// Returns a mutable handle (T@) directly into Flecs component storage so scripts can modify
-	// the component in-place without a separate SetT() call.
-	//
-	// **Modified notification trade-off**: ecs_modified_id is called unconditionally after every
-	// GetT() so that in-place mutations (e.g. `self.GetSoundEffect().Fire()`) are seen by OnSet
-	// observers and change-detection queries without requiring a manual SetT() write-back. The
-	// downside is that every call — even a read-only access — marks the component dirty and can
-	// wake observers or invalidate caches. This is intentional for correctness and convenience at
-	// the cost of some per-tick overhead. See scripting/README.md for the design rationale and
-	// the TODO for a future fine-grained solution (e.g. const vs mutable overloads).
+	// Returns a mutable T@ handle into Flecs component storage WITHOUT calling modified.
+	// This is the default `GetT()` getter — safe for both reads and silent in-place mutations.
+	// Assigning to `const T@` in script incurs no Flecs overhead (no observer wake-up, no
+	// change-detection invalidation). When you need Flecs to detect a mutation, use MutT()
+	// instead, or call SetT() after you are done modifying.
 	//
 	// Pointer stability: structural changes (add/remove) are deferred during world.progress(), so
 	// the returned pointer is stable for the duration of the tick. If the component is absent a
-	// warning is logged and a null handle returned — the script will fault on access, which is
-	// intentional: call AddT() first to ensure the component exists.
-	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
-	const auto* entity_ref = static_cast<ScriptEntityRef*>(gen->GetObject());
-	if (!entity_ref || component_id == 0) {
+	// warning is logged and a null handle returned — call AddT() first.
+	//
+	// **ScriptTraversal fallback**: when the component entity carries a (ScriptTraversal, Rel)
+	// pair and the component is not found on the host, the lookup retries on the entity targeted
+	// via Rel.
+
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value()) {
 		gen->SetReturnAddress(nullptr);
 		return;
+	};
+	const auto [host, component_id] = resolved.value();
+
+	void* ptr = host.try_get_mut(component_id);
+	if (ptr == nullptr) {
+		if (const flecs::entity traversal_rel = host.world().entity(component_id).target<ScriptTraversal>();
+			traversal_rel.is_valid()) {
+			if (const auto target = host.target(traversal_rel)) {
+				if (void* target_ptr = target.try_get_mut(component_id); target_ptr != nullptr) {
+					gen->SetReturnAddress(target_ptr);
+					return;
+				}
+			}
+		}
 	}
 
-	const flecs::entity host = ResolveHostEntity(entity_ref->GetEntity());
-	void* ptr = ecs_get_mut_id(host.world().c_ptr(), host.id(), component_id);
 	if (ptr == nullptr) {
 		spdlog::warn(
 			"[AngelScript] GetT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
+			host.name(),
+			component_id
+		);
+	}
+	gen->SetReturnAddress(ptr);
+}
+
+void AngelScriptBackend::ComponentGetMutRefGeneric(asIScriptGeneric* gen) {
+	// Mutable getter registered as `T@ MutT()`. Identical to GetT() but calls modified
+	// after the lookup so Flecs OnSet observers and change-detection queries fire. Use this when
+	// you will mutate through the returned handle and need Flecs to see the change (e.g. a
+	// Transform that drives physics propagation, or a component with an OnSet hook). For pure
+	// reads or mutations that don't require observer notification, use GetT().
+
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value()) {
+		gen->SetReturnAddress(nullptr);
+		return;
+	};
+	const auto [host, component_id] = resolved.value();
+
+	void* ptr = host.try_get_mut(component_id);
+
+	if (ptr == nullptr) {
+		if (const flecs::entity traversal_rel = host.world().entity(component_id).target<ScriptTraversal>();
+			traversal_rel.is_valid()) {
+			if (const auto target = host.target(traversal_rel)) {
+				if (void* target_ptr = target.try_get_mut(component_id); target_ptr != nullptr) {
+					target.modified(component_id);
+					gen->SetReturnAddress(target_ptr);
+					return;
+				}
+			}
+		}
+	}
+
+	if (ptr == nullptr) {
+		spdlog::warn(
+			"[AngelScript] MutT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
 			host.name(),
 			component_id
 		);
@@ -365,36 +426,74 @@ void AngelScriptBackend::ComponentGetRefGeneric(asIScriptGeneric* gen) {
 	gen->SetReturnAddress(ptr);
 }
 
+void AngelScriptBackend::ComponentGetConstRefGeneric(asIScriptGeneric* gen) {
+	// Read-only companion to ComponentGetRefGeneric. Registered as `const T@ GetT() const` on
+	// Entity so scripts (or C++ callers with a const Entity) can read a component without
+	// triggering modified. Uses try_get (const pointer) — no mutation tracking, no
+	// waking of change-detection queries or OnSet observers. Use this whenever the intent is
+	// purely to read, e.g. when checking a value inside an OnValidate or a read-heavy loop.
+
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value()) {
+		gen->SetReturnAddress(nullptr);
+		return;
+	};
+	const auto [host, component_id] = resolved.value();
+
+	const void* ptr = host.try_get(component_id);
+
+	if (ptr == nullptr) {
+		if (const flecs::entity traversal_rel = host.world().entity(component_id).target<ScriptTraversal>();
+			traversal_rel.is_valid()) {
+			if (const auto target = host.target(traversal_rel)) {
+				if (const void* target_ptr = target.try_get(component_id); target_ptr != nullptr) {
+					gen->SetReturnAddress(const_cast<void*>(target_ptr));
+					return;
+				}
+			}
+		}
+	}
+
+	if (ptr == nullptr) {
+		spdlog::warn(
+			"[AngelScript] GetT (const): entity '{}' does not have component id {}; returning null handle",
+			host.name(),
+			component_id
+		);
+	}
+	gen->SetReturnAddress(const_cast<void*>(ptr));
+}
+
 void AngelScriptBackend::ComponentAddGeneric(asIScriptGeneric* gen) {
 	// Ensures the component exists on the entity (adds zero-initialised if absent), then returns
 	// a mutable handle (T@) into the ECS storage. This replaces the old "create local value, call
 	// SetT()" pattern: scripts call AddT() once, modify fields via the handle, and the ECS
 	// component is immediately updated without a separate write-back step.
-	// NOTE: ecs_ensure_id fires OnAdd (if newly added) but NOT OnSet. Call SetT() explicitly
+	// NOTE: ensure fires OnAdd (if newly added) but NOT OnSet. Call SetT() explicitly
 	// when an OnSet observer must trigger (e.g. AudioSource which resolves handles on OnSet).
-	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
-	const auto* entity_ref = static_cast<ScriptEntityRef*>(gen->GetObject());
-	if (!entity_ref || component_id == 0) {
+
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value()) {
 		gen->SetReturnAddress(nullptr);
 		return;
-	}
+	};
+	const auto [host, component_id] = resolved.value();
 
-	const flecs::entity host = ResolveHostEntity(entity_ref->GetEntity());
-	void* ptr = ecs_ensure_id(host.world().c_ptr(), host.id(), component_id);
+	void* ptr = host.ensure(component_id);
 	gen->SetReturnAddress(ptr);
 }
 
 void AngelScriptBackend::ComponentSetGeneric(asIScriptGeneric* gen) {
-	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
 	// The method receiver is the Entity; the argument is a T@ handle (ref type).
 	// GetArgObject returns the raw pointer for a handle argument (the T* itself).
-	const auto* entity_ref = static_cast<ScriptEntityRef*>(gen->GetObject());
 	const void* value = gen->GetArgObject(0);
-	if (!entity_ref || !value || component_id == 0) {
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value() || !value) {
+		gen->SetReturnAddress(nullptr);
 		return;
-	}
+	};
+	const auto [host, component_id] = resolved.value();
 
-	const flecs::entity host = ResolveHostEntity(entity_ref->GetEntity());
 	const auto* component_info = GetComponentInfo(host.world(), component_id);
 	if (!component_info) {
 		spdlog::warn("[AngelScript] ComponentSetGeneric: component_id {} has no type info", component_id);

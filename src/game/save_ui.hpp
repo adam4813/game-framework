@@ -12,7 +12,6 @@ namespace game {
 // The list rebuilds itself live whenever slots change. Returns the panel entity (destroyed with the
 // parent). Backed by ListSaveSlots / SaveGameToSlot / LoadGameFromSlot / DeleteSaveSlot, which in
 // turn use the Platform save API (desktop files / browser localStorage).
-flecs::entity
-BuildSaveBrowser(const flecs::world& world, const engine::platform::Rect& rect, const flecs::entity& parent);
+flecs::entity BuildSaveBrowser(const flecs::world& world, const engine::core::Rect& rect, const flecs::entity& parent);
 
 } // namespace game

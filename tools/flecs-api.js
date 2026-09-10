@@ -35,14 +35,14 @@
  *   const { connect } = require("./flecs-api");
  *   const flecs = connect();                       // defaults to localhost:27750
  *   console.log(await flecs.query("engine.ecs.Transform", { entityIds: true }));
- *   await flecs.switchScene("#768");               // move the Active scene tag to the Game scene
+ *   await flecs.switchScene("Cube");               // move the Active scene tag to the Cube scene
  *
  * CLI usage:
  *   node flecs-api.js query  "engine.scripting.ScriptComponent" --entity-ids // Fully qualified component name
  *   node flecs-api.js entity FallingCube.CubeJumpScript
  *   node flecs-api.js add    "#768" engine.scene.SceneManagementModule.Active
  *   node flecs-api.js remove "#765" engine.scene.SceneManagementModule.Active
- *   node flecs-api.js switch-scene Game        // switch by SceneId identity name (preferred)
+ *   node flecs-api.js switch-scene Cube        // switch by scene identity name (preferred)
  *   node flecs-api.js switch-scene "#807"      // ...or by raw runtime id
  *   node flecs-api.js scenes                   // scene(s) currently carrying Active
  *   node flecs-api.js list-scenes              // all scenes: identity name, id, active flag
@@ -62,10 +62,13 @@
 // SceneComponent; adding this tag activates one (see engine/scene/scene_module.cpp).
 const SCENE_ACTIVE_TAG = "engine.scene.SceneManagementModule.Active";
 
-// Full path of the SceneId identity enum. Each scene entity carries a (SceneId, <constant>) pair
-// (e.g. (SceneId, Game)) as a stable, queryable identity, so scenes can be resolved by name
-// instead of by their runtime-assigned entity id (see engine/scene/scene_components.hpp).
-const SCENE_ID_ENUM = "engine.scene.SceneManagementModule.SceneId";
+// Full path of the SceneComponent that marks an entity as a scene (registered inside
+// SceneManagementModule). Every scene entity carries this component plus a single identity tag
+// named "<Name>SceneTag" (e.g. game.CubeSceneTag), added by scene::RegisterScene<Tag>(). Scenes
+// are resolved by that tag's short name ("Cube", "Title", "Tilemap") — stable across launches,
+// independent of runtime-assigned entity ids. See engine/scene/scene.hpp and src/game/*_scene.hpp.
+const SCENE_COMPONENT = "engine.scene.SceneManagementModule.SceneComponent";
+const SCENE_TAG_SUFFIX = "SceneTag";
 
 // Full path of the InputState singleton component (engine/input/input_components.hpp). The
 // singleton value is stored on the component's own entity, so it is addressed by that entity.
@@ -169,41 +172,48 @@ class FlecsClient {
 		return this.query(activeTag, {entityIds: true});
 	}
 
-	// Resolve the runtime "#<id>" of the scene whose SceneId identity is `name` (e.g. "Game",
-	// "Title") by querying its (SceneId, name) pair. Returns null if no such scene exists.
-	async sceneIdentityEntity(name) {
-		const res = await this.query(`(${SCENE_ID_ENUM},${SCENE_ID_ENUM}.${name})`, {entityIds: true});
-		const r = ((res && res.results) || [])[0];
-		return r ? "#" + r.id : null;
+	// Enumerate every registered scene: each entity carrying a SceneComponent, with its identity
+	// tag resolved to a short scene name and its current Active flag. Each scene entity is fetched
+	// once to read its tag list (the identity tag is the one whose leaf ends in "SceneTag").
+	async sceneRows() {
+		const res = await this.query(SCENE_COMPONENT, {entityIds: true});
+		const results = (res && res.results) || [];
+		const rows = [];
+		for (const r of results) {
+			const ref = r.name && String(r.name).startsWith("#") ? r.name : "#" + r.id;
+			const info = await this.entity(ref);
+			const tags = (info && info.tags) || [];
+			const idTag = tags.find((t) => String(t).split(".").pop().endsWith(SCENE_TAG_SUFFIX));
+			const leaf = idTag ? String(idTag).split(".").pop() : null;
+			const scene = leaf ? leaf.slice(0, -SCENE_TAG_SUFFIX.length) : null;
+			rows.push({scene, id: ref, active: tags.includes(SCENE_ACTIVE_TAG)});
+		}
+		return rows;
 	}
 
-	// Accept either a raw entity ref ("#807") or a SceneId identity name ("Game") and return a
+	// Resolve the runtime "#<id>" of the scene whose identity tag short-name is `name`
+	// (e.g. "Cube" -> game.CubeSceneTag). Case-insensitive. Returns null if no such scene exists.
+	async sceneIdentityEntity(name) {
+		const want = String(name).toLowerCase();
+		const rows = await this.sceneRows();
+		const hit = rows.find((row) => row.scene && row.scene.toLowerCase() === want);
+		return hit ? hit.id : null;
+	}
+
+	// Accept either a raw entity ref ("#807") or a scene identity name ("Cube") and return a
 	// concrete "#<id>" address. Identity names are preferred — they are stable across launches.
 	async resolveSceneRef(ref) {
 		if (typeof ref === "string" && ref.startsWith("#")) return ref;
 		return this.sceneIdentityEntity(ref);
 	}
 
-	// List every registered scene with its SceneId identity name, runtime id, and active flag.
+	// List every registered scene with its identity name, runtime id, and active flag.
 	async listScenes() {
-		const res = await this.query(`(${SCENE_ID_ENUM},*)`, {entityIds: true, fullPaths: true});
-		const active = await this.scenes();
-		const activeIds = new Set(((active && active.results) || []).map((r) => r.id));
-		const out = [];
-		for (const r of (res && res.results) || []) {
-			let scene = null;
-			const ids = r.fields && r.fields.ids;
-			if (ids && ids.length) {
-				const pair = ids[ids.length - 1];
-				if (Array.isArray(pair) && pair[1]) scene = String(pair[1]).split(".").pop();
-			}
-			out.push({scene, id: "#" + r.id, active: activeIds.has(r.id)});
-		}
-		return out;
+		return this.sceneRows();
 	}
 
 	// Move the scene Active tag to the target scene: remove it from every entity that currently
-	// has it, then add it to the target. `target` may be a SceneId identity name ("Game") or a
+	// has it, then add it to the target. `target` may be a scene identity name ("Cube") or a
 	// raw "#<id>". Mirrors engine::scene::ActivateScene in C++.
 	async switchScene(target, activeTag = SCENE_ACTIVE_TAG) {
 		const targetSceneEntity = await this.resolveSceneRef(target);
@@ -453,7 +463,7 @@ async function main(argv) {
 			print(await flecs.toggle(arg1, arg2 !== "false", positional[3]));
 			break;
 		case "switch-scene":
-			// arg1 may be a SceneId identity name ("Game", "Title") or a raw "#<id>".
+			// arg1 may be a scene identity name ("Cube", "Title", "Tilemap") or a raw "#<id>".
 			print(await flecs.switchScene(arg1));
 			break;
 		case "scenes":
@@ -493,7 +503,7 @@ async function main(argv) {
 				"                          click|list-buttons|pause|resume|toggle-pause|paused|\n" +
 				"                          override-input|restore-input> [args] [--host URL]\n" +
 				"       [--entity-ids] [--values] [--full-paths]\n" +
-				"       switch-scene accepts a SceneId identity name (e.g. Game, Title) or a raw #id.\n" +
+				"       switch-scene accepts a scene identity name (e.g. Cube, Title, Tilemap) or a raw #id.\n" +
 				"       click accepts a Button name (e.g. PlayButton) or a raw #id (see list-buttons).\n" +
 				"Docs:  https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html"
 			);

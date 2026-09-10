@@ -1,0 +1,51 @@
+{
+	"entities": [
+		{
+			"name": "Player",
+			"components": {
+				"player_controlled": {},
+				"tilemap_follow_target": {},
+				"grid_position": { "x": 31, "z": 60 },
+				"grid_mover": {},
+				"transform": { "position": [15.75, 0.5, 30.25] },
+				"cube": { "size": [0.4, 0.8, 0.4] }
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": { "color": [70, 140, 70, 255], "cast_shadow": false },
+						"albedo": { "path": "textures/player_sprite.png" }
+					}
+				},
+				{
+					"name": "PlayerSword",
+					"components": {
+						"transform": { "position": [0.2, 0.0, 0.0] },
+						"cube": { "size": [0.2, 0.05, 0.05] }
+					},
+					"children": [
+						{
+							"link": "render_with",
+							"components": { "material": { "color": [200, 180, 80, 255], "cast_shadow": false } }
+						}
+					]
+				},
+				{
+					"name": "TilemapCamera",
+					"components": {
+						"camera": {
+							"up": [0.0, 0.0, 1.0],
+							"fov": 60.0,
+							"aspect_ratio": 1.7777778,
+							"near": 0.1,
+							"far": 100.0
+						},
+						"transform": { "position": [0.0, 12.0, 0.0] }
+					},
+					"refs": { "look_at": "Player" }
+				}
+			]
+		}
+	]
+}

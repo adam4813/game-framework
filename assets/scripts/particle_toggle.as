@@ -3,7 +3,7 @@
 // Attached as a child of FallingCube (which has a ParticleEmitter component added in C++).
 //
 // Demonstrates:
-//   - self.GetParticleEmitter()  — mutable handle into the host entity's ParticleEmitter.
+//   - self.MutParticleEmitter()  — mutable handle that marks the component modified (for observer notifications).
 //   - emitter.emitting           — bool flag: toggling it starts/stops particle spawning.
 //   - self.AddCooldown()         — creates a Cooldown on the host entity; CooldownAdvance drains it.
 //   - cd.Ready()                 — returns true when remaining <= 0 (method registered by timer module).
@@ -33,7 +33,7 @@ void Tick(Entity self, float dt) {
 	}
 
 	// Toggle the emitter and re-arm the cooldown.
-	ParticleEmitter@ em = self.GetParticleEmitter();
+	ParticleEmitter@ em = self.MutParticleEmitter();
 	em.emitting  = !em.emitting;
 	cd.remaining = cd.duration;
 

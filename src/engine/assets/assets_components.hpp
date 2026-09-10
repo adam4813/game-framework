@@ -32,7 +32,7 @@ struct RefCountedAsset {
 // to decrement refcounts and prevent leaks.
 struct AssetRegistry {
 	std::unordered_map<std::string, RefCountedAsset> refCounts; // "<type>:<path>" -> refcount
-	std::unordered_map<std::string, std::string> aliases; // id -> "<type>:<path>" key
+	std::unordered_map<std::string, std::string> aliases;       // id -> "<type>:<path>" key
 };
 
 } // namespace engine::assets

@@ -6,22 +6,24 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 
 - **physics_types.hpp** — Core physics types, enums (MotionType, ShapeType, etc.), and data structures
 - **physics_components.hpp** — ECS components (RigidBody, CollisionShape, PhysicsVelocity, etc.)
-- **jolt_backend.hpp/cpp** — Concrete JoltPhysicsSystem implementation (no interfaces)
-- **physics_module.hpp/cpp** — Flecs system registration and ECS integration
+- **physics_module.hpp/cpp** — Flecs system registration, ECS integration, and physics-world setup
+- **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping)
+- **jolt/jolt_module.hpp/cpp** — Jolt-specific Flecs systems (sync, step, collision events)
+- **jolt/jolt_debug_renderer.cpp** — Debug visualization support
 - **physics.hpp** — Main public API header
 
 ## Usage
 
 ```cpp
-// Create physics module (registers all Flecs systems)
+// Create physics module (registers physics-world setup and observers)
 engine::physics::PhysicsModule physics_module(world);
 
-// Physics system automatically registers:
+// Additionally creates Jolt physics systems (lives in jolt_module.cpp):
 // - PhysicsApplyForces — applies PhysicsForce components each frame
 // - PhysicsApplyImpulses — applies PhysicsImpulse components and removes them
 // - PhysicsStep — fixed timestep physics stepping with accumulation
-// - PhysicsSyncToBackend — syncs ECS state to Jolt on component changes
-// - PhysicsRemoveBody — removes bodies when RigidBody removed
+// - PhysicsSyncToBackend — syncs ECS state to Jolt on component changes (OnSet observer)
+// - PhysicsRemoveBody — removes bodies when RigidBody removed (OnRemove observer)
 // - PhysicsSyncFromBackend — syncs dynamic bodies back from Jolt
 // - PhysicsCollisionEvents — distributes collision events to entities
 ```
@@ -49,6 +51,11 @@ entity.set<engine::physics::CollisionShape>({
 ## Flecs System Registration Patterns
 
 All systems follow Flecs 4.x best practices:
+
+### Physics-world setup (physics_module.cpp)
+- World-level observer for seeding physics metadata, state tracking
+
+### Jolt-specific systems (jolt_module.cpp)
 
 1. **Per-entity systems** (`.each()`):
 

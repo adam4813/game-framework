@@ -4,13 +4,16 @@
 
 namespace engine::physics {
 
-/// Physics module for Flecs ECS integration
-/// Registers Jolt physics system with proper system lifecycle
+/// Physics core module for Flecs ECS integration.
+/// Defines physics components, types, and level loaders.
+/// Does NOT register any backend-specific systems.
+/// 
+/// Backend implementations (e.g., JoltModule) must be imported separately
+/// to register their own systems and initialize the physics backend.
 class PhysicsModule {
 public:
-	/// Initialize physics module and register all Flecs systems.
-	/// Per-frame simulation systems are tagged engine::ecs::Pausable so a scene's paused
-	/// pipeline can exclude them.
+	/// Initialize physics core components, reflection, and level loaders.
+	/// Backend implementations register their own systems separately.
 	explicit PhysicsModule(const flecs::world& world);
 };
 

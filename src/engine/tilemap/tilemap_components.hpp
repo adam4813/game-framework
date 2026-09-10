@@ -1,14 +1,16 @@
 #pragma once
 
 #include <cstdint>
-#include <flecs.h>
 #include <functional>
-#include <glm/glm.hpp>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "engine/platform/platform.hpp"
+#include <flecs.h>
+#include <glm/glm.hpp>
+
+#include "engine/core/core.hpp"
 
 namespace engine::tilemap {
 
@@ -32,12 +34,16 @@ struct GridPosition {
 	int z{0};
 };
 
+// Marker: the viewport streaming centers on the WorldTransform of the entity carrying this tag (the
+// player, a camera, or any chosen anchor), decoupling the tilemap from any specific follower.
+struct TilemapFollowTarget {};
+
 // TileDescriptor: data-driven definition of a single tile type
 struct TileDescriptor {
 	uint32_t id{0};                          // Unique tile ID
 	std::string name;                        // Tile name (e.g., "grass", "forest", "path")
 	glm::vec4 color{1.0F, 1.0F, 1.0F, 1.0F}; // RGBA tint (white = use raw texture colour)
-	platform::Rect tex_coords{};             // Pixel rect {x, y, w, h} within the tileset image.
+	core::Rect tex_coords{};                 // Pixel rect {x, y, w, h} within the tileset image.
 	bool walkable{true};                     // Whether entities can pass through this tile
 
 	// Tile event callbacks (optional)
@@ -85,7 +91,7 @@ struct Tilemap {
 	uint32_t tile_size_px{16}; // Tile art size in pixels (world size = tile_size_px / pixels_per_world_unit)
 	float pixels_per_world_unit{
 		kDefaultPixelsPerWorldUnit
-	};                              // Pixels mapped to one world unit; renderer + gameplay derive scale from this
+	}; // Pixels mapped to one world unit; renderer + gameplay derive scale from this
 	std::vector<uint32_t> tile_ids; // References to tile descriptors (not raw colors)
 };
 
@@ -157,6 +163,22 @@ inline void VLine(Tilemap& tm, const int x, const int z0, const int z1, const ui
 struct TileCallbackState {
 	int current_tile_x{-1};
 	int current_tile_z{-1};
+};
+
+// Enables viewport-sized ring-buffer rendering for a Tilemap.  Instead of baking the entire map
+// into one mesh, the GPU buffer holds a fixed bw × bh window of tiles.  The streaming system
+// repositions the mesh and refreshes UV data each frame the camera crosses a tile boundary, so
+// only the visible area is ever on the GPU.  Set this component BEFORE setting Tilemap so that
+// the mesh-builder observer sees it and builds a viewport-sized buffer.
+//
+// origin_tile_x / origin_tile_z: world-tile index at buffer slot (0,0); the sentinel
+// std::numeric_limits<int>::min() means "not yet initialised" and forces a full UV upload on the
+// first streaming update.
+struct TilemapViewport {
+	int buffer_width{0};  // 0 = compute from camera on first streaming update
+	int buffer_height{0}; // 0 = compute from camera on first streaming update
+	int origin_tile_x{std::numeric_limits<int>::min()};
+	int origin_tile_z{std::numeric_limits<int>::min()};
 };
 
 } // namespace engine::tilemap

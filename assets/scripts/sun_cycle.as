@@ -1,11 +1,11 @@
 // sun_cycle.as — Cycles the parent SunLight's DirectionalLight colour through the hue wheel.
 //
 // Demonstrates a script reading and writing a *render* component every tick:
-//   - self.GetDirectionalLight()   reads the host (parent) entity's DirectionalLight
+//   - self.MutDirectionalLight()   mutable access to the host (parent) entity's DirectionalLight
 //   - light.color.r/g/b            mutates the nested Rgba value (uint8 fields)
-//   - self.SetDirectionalLight(l)  writes it back so the render module picks it up next frame
+//   - MutDirectionalLight() marks the component modified so observers fire
 //
-// The script entity is a child of "SunLight", so the generic get/set resolve to the parent,
+// The script entity is a child of "SunLight", so component accessors resolve to the parent,
 // exactly like cube_jump.as resolves to its parent cube.
 
 const float CYCLE_SPEED = 0.15f; // full rainbow every ~6.7 seconds
@@ -49,7 +49,7 @@ void Tick(Entity self, float dt) {
 	float r, g, b;
 	HueToRgb(g_hue, r, g, b);
 
-	DirectionalLight@ light = self.GetDirectionalLight();
+	DirectionalLight@ light = self.MutDirectionalLight();
 	light.color.r = uint8(r);
 	light.color.g = uint8(g);
 	light.color.b = uint8(b);

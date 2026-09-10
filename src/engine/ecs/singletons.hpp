@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <utility>
+#include <vector>
 
 // Singletons hold global run state. Stored on the Flecs world via world.set<T>().
 // Kept as aggregates (no user-declared constructors) so `set<T>({})` works.
@@ -79,6 +81,20 @@ struct RngState {
 			}
 		}
 		return last_positive; // float-rounding fallback: the last positive-weight index
+	}
+
+	// Fisher-Yates in-place shuffle of `items`, using this RNG so the ordering is reproducible from
+	// the seed. Generic over any random-access container element (deck of cards, a shuffle bag,
+	// procedural spawn order, ...). Empty/single-element inputs are left untouched.
+	template<typename T>
+	void Shuffle(std::vector<T>& items) {
+		if (items.size() < 2) {
+			return;
+		}
+		for (std::size_t i = items.size() - 1; i > 0; --i) {
+			const auto j = static_cast<std::size_t>(NextRange(0, static_cast<int>(i) + 1));
+			std::swap(items[i], items[j]);
+		}
 	}
 };
 

@@ -14,29 +14,30 @@ Flecs 4.x conventions used throughout the engine:
   (`world.component<T>().member<...>(...)`) and *then* registers it for scripting (`RegisterComponentForScripts`). Core
   math types are reflected once in `EngineContext`.
 
-## Core transforms (`engine::ecs`, `src/engine/ecs/ecs.hpp`)
+## Core transforms (`engine::spatial`, `src/engine/spatial/spatial_components.hpp`)
 
-| Component        | Fields                                          | Notes                                                                                                                               |
-|------------------|-------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `Transform`      | `position`, `rotation` (Euler radians), `scale` | Local-to-parent (plain data).                                                                                                       |
-| `WorldTransform` | `position`, `rotation`, `scale`, `matrix`       | World-space; `ComputeMatrix()` builds `matrix = T * Rz * Ry * Rx * S` (or `ecs::MakeWorldTransform`). Render/physics read `matrix`. |
+| Component        | Fields                                          | Notes                                                                                                                                                                                                                                                                              |
+|------------------|-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Transform`      | `position`, `rotation` (Euler radians), `scale` | **Authored source** — author only this component; do not hand-write `WorldTransform`. Local-to-parent (plain data).                                                                                                                                                                |
+| `WorldTransform` | `position`, `rotation`, `scale`, `matrix`       | **Computed/canonical** — seeded once from `Transform` via `TransformSeedWorldTransform` observer (`.without<WorldTransform>()`), then owned exclusively by `TransformPropagation` (parented/local entities) or the physics backend (dynamic bodies). Render/physics read `matrix`. |
 
 Both are reflected in `EngineContext` and registered for scripting, so any renderable/physical entity shares one
-transform vocabulary.
+transform vocabulary. **Important**: author only `Transform`; `WorldTransform` is auto-seeded and kept in sync by the
+engine. Hand-authoring `WorldTransform` is error-prone and will be overwritten.
 
 ## Singletons
 
-| Singleton                           | Module    | Purpose                                                          |
-|-------------------------------------|-----------|------------------------------------------------------------------|
+| Singleton                           | Module    | Purpose                                                                                                       |
+|-------------------------------------|-----------|---------------------------------------------------------------------------------------------------------------|
 | `ecs::RngState`                     | ecs       | Deterministic splitmix64 RNG (`Next`, `NextFloat`, `NextRange`, `NextFloatRange`, `Chance`, `WeightedIndex`). |
-| `platform::PlatformRef`             | platform  | Non-owning `Platform*` for any system.                           |
-| `EngineContextRef`                  | engine    | Non-owning `EngineContext*` for world-only module ctors.         |
-| `input::InputState`                 | input     | Full keyboard/mouse state for the current frame.                 |
-| `render::AmbientLight`              | render    | Global ambient term for the lit shader.                          |
-| `assets::AssetRegistry`             | assets    | Ref-counted asset ownership (textures/sounds/meshes).            |
-| `save::SaveRegistry`                | save      | Schema of what persists and how.                                 |
-| `level::LevelRegistry`              | level     | Component/singleton JSON loader callbacks.                       |
-| `scripting::ScriptBackendSingleton` | scripting | Owns the active scripting backend.                               |
+| `platform::PlatformRef`             | platform  | Non-owning `Platform*` for any system.                                                                        |
+| `EngineContextRef`                  | engine    | Non-owning `EngineContext*` for world-only module ctors.                                                      |
+| `input::InputState`                 | input     | Full keyboard/mouse state for the current frame.                                                              |
+| `render::AmbientLight`              | render    | Global ambient term for the lit shader.                                                                       |
+| `assets::AssetRegistry`             | assets    | Ref-counted asset ownership (textures/sounds/meshes).                                                         |
+| `save::SaveRegistry`                | save      | Schema of what persists and how.                                                                              |
+| `level::LevelRegistry`              | level     | Component/singleton JSON loader callbacks.                                                                    |
+| `scripting::ScriptBackendSingleton` | scripting | Owns the active scripting backend.                                                                            |
 
 Access pattern is uniform: `world.get<T>()` for read, `world.get_mut<T>()` for write.
 
@@ -60,10 +61,22 @@ Deep field-level docs live in each module's README; this is the map of *which co
 ### render (`src/engine/render/render_components.hpp`)
 
 Shapes: `CubePrimitive`, `SpherePrimitive`, `QuadPrimitive`, `CapsulePrimitive`, `MeshPrimitive`
-(its `path`/`handle` resolve via the `ResolveMeshPrimitive` `OnSet` observer). Material/appearance:
-`Material`, `AlbedoMap` (a texture map resolved by a templated `OnSet` observer to a platform handle; more map types
-follow the same `RegisterTextureResolver<T>` pattern). Lights: `AmbientLight`
+(its `path`/`handle` resolve via the templated `RegisterPathAsset<T>()` observer). Material/appearance:
+`Material`, `AlbedoMap`, `ShaderMap` (all three use `RegisterPathAsset<T>()` for path→handle resolution). Lights:
+`AmbientLight`
 (singleton), `DirectionalLight`. View: `Camera` (+ an `ecs::Transform` as the eye).
+
+**Relationships & linkage**:
+
+- `RenderWith` — relationship from a renderable entity to a **material entity**. The material entity carries `Material`,
+  `AlbedoMap`, `ShaderMap`, and is resolved transparently via scripts (see `ScriptTraversal` below).
+- `LookAt` — relationship from a camera to a target entity. `Render3DBegin` reads the target's `WorldTransform` to aim
+  the camera; if unset, falls back to the camera's forward vector.
+
+**ScriptTraversal**: Material-related components (`Material`, `AlbedoMap`, `ShaderMap`) are tagged with
+`(ScriptTraversal, RenderWith)`. This tells the scripting backend to navigate through `RenderWith` when `GetMaterial()`/
+`GetAlbedoMap()` are called from a script and the component is not found directly on the host entity — allowing scripts
+to work transparently regardless of whether material data lives on the entity or its linked material child.
 
 ### physics (`src/engine/physics/physics_components.hpp`)
 
@@ -110,7 +123,9 @@ namespace, tag `InputEnabled`.
 
 `Tilemap` (grid of tile IDs), `TileSet` (texture + atlas dims), `TileRegistry` (tile ID → descriptor map, scoped per
 tilemap entity), `TileDescriptor` (id/name/color/tex_coords/walkable/callbacks), `GridPosition` (entity's current tile
-x/z), `TileCallbackState` (internal transition tracking). See [tilemap README](../src/engine/tilemap/README.md).
+x/z), `TileCallbackState` (internal transition tracking), `TilemapViewport` (viewport-sized ring-buffer streaming),
+**tag** `TilemapFollowTarget` (marks the entity that the viewport centers on — typically the player, but decoupled from
+any specific follower). See [tilemap README](../src/engine/tilemap/README.md).
 
 ## Registering a new component
 

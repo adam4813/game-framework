@@ -8,14 +8,13 @@
 #include <vector>
 
 #include <spdlog/spdlog.h>
-
 #include <flecs.h>
 #include <glm/glm.hpp>
 
+#include "engine/assets/assets.hpp"
 #include "engine/audio/audio.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/input/input.hpp"
-#include "engine/platform/platform.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "ui_components.hpp"
 
@@ -25,7 +24,7 @@ namespace {
 
 constexpr float kTwoPi = 6.28318530717958647692F;
 
-platform::Rect Translate(const platform::Rect r, const glm::vec2 offset) {
+core::Rect Translate(const core::Rect r, const glm::vec2 offset) {
 	return {.x = r.x + offset.x, .y = r.y + offset.y, .w = r.w, .h = r.h};
 }
 
@@ -42,7 +41,7 @@ glm::vec2 ScrollOffset(const flecs::entity entity) {
 }
 
 // The element's rect after ancestor scroll offsets — its true on-screen position for hit-testing.
-platform::Rect ResolvedRect(const flecs::entity entity, const UIRect& ui) {
+core::Rect ResolvedRect(const flecs::entity entity, const UIRect& ui) {
 	return Translate(ui.rect, ScrollOffset(entity));
 }
 
@@ -99,7 +98,7 @@ void DispatchClick(const flecs::entity entity) {
 // Centre `text` horizontally within `r` for the given alignment and vertically in all cases.
 glm::vec2 PlaceText(
 	const platform::Platform* platform,
-	const platform::Rect r,
+	const core::Rect r,
 	const std::string_view text,
 	const float font_size,
 	const TextAlign align
@@ -114,6 +113,48 @@ glm::vec2 PlaceText(
 	return {x, r.y + (r.h - font_size) / 2.0F};
 }
 
+// Split `text` into lines that fit within `max_width` (in pixels at `font_size`), breaking on spaces
+// and honouring explicit '\n'. A single word wider than max_width is left on its own (overflowing)
+// line rather than dropped. Used by wrapped Labels.
+std::vector<std::string>
+WrapText(const platform::Platform* platform, const std::string& text, const float max_width, const float font_size) {
+	std::vector<std::string> lines;
+	std::string line;
+	std::string word;
+	const auto commit_word = [&]() {
+		if (word.empty()) {
+			return;
+		}
+		const std::string trial = line.empty() ? word : line + ' ' + word;
+		if (line.empty() || platform->MeasureText(trial, font_size) <= max_width) {
+			line = trial;
+		}
+		else {
+			lines.push_back(line);
+			line = word;
+		}
+		word.clear();
+	};
+	for (const char c : text) {
+		if (c == '\n') {
+			commit_word();
+			lines.push_back(line);
+			line.clear();
+		}
+		else if (c == ' ') {
+			commit_word();
+		}
+		else {
+			word.push_back(c);
+		}
+	}
+	commit_word();
+	if (!line.empty() || lines.empty()) {
+		lines.push_back(line);
+	}
+	return lines;
+}
+
 // Append the draw commands for a single UI element (all its visual components) at layer `z`.
 void EmitElement(
 	const flecs::entity entity,
@@ -126,10 +167,10 @@ void EmitElement(
 	if (ui == nullptr) {
 		return;
 	}
-	const platform::Rect r = Translate(ui->rect, offset);
+	const core::Rect r = Translate(ui->rect, offset);
 
 	if (const auto* modal = entity.try_get<Modal>()) {
-		const platform::Rect full{
+		const core::Rect full{
 			.x = 0.0F,
 			.y = 0.0F,
 			.w = static_cast<float>(platform->Width()),
@@ -139,7 +180,18 @@ void EmitElement(
 	}
 
 	if (const auto* panel = entity.try_get<Panel>()) {
-		if (panel->roundness > 0.0F) {
+		if (panel->texture >= 0) {
+			list.PushTexturedRect(panel->texture, r, panel->color, z);
+			if (panel->border_thickness > 0.0F) {
+				if (panel->roundness > 0.0F) {
+					list.PushRoundedRectLines(r, panel->roundness, panel->border_thickness, panel->border_color, z);
+				}
+				else {
+					list.PushRectLines(r, panel->border_thickness, panel->border_color, z);
+				}
+			}
+		}
+		else if (panel->roundness > 0.0F) {
 			list.PushRoundedRect(r, panel->roundness, panel->color, z);
 			if (panel->border_thickness > 0.0F) {
 				list.PushRoundedRectLines(r, panel->roundness, panel->border_thickness, panel->border_color, z);
@@ -161,7 +213,7 @@ void EmitElement(
 			list.PushRect(r, bar->track_color, z);
 		}
 		if (const float frac = bar->Fraction(); frac > 0.0F) {
-			const platform::Rect fill{.x = r.x, .y = r.y, .w = r.w * frac, .h = r.h};
+			const core::Rect fill{.x = r.x, .y = r.y, .w = r.w * frac, .h = r.h};
 			if (bar->roundness > 0.0F) {
 				list.PushRoundedRect(fill, bar->roundness, bar->fill_color, z);
 			}
@@ -189,16 +241,26 @@ void EmitElement(
 				center.y + spinner->radius * std::sin(angle)
 			};
 			const float t = static_cast<float>(i) / static_cast<float>(dots);
-			platform::Rgba color = spinner->color;
+			core::Rgba color = spinner->color;
 			color.a = static_cast<std::uint8_t>(40.0F + 215.0F * t);
 			list.PushCircle(pos, spinner->dot_radius, color, z);
 		}
 	}
 
 	if (const auto* button = entity.try_get<Button>()) {
-		const platform::Rgba fill =
+		const core::Rgba fill =
 			button->pressed ? button->pressed_color : (button->hovered ? button->hover : button->normal);
-		list.PushRoundedRect(r, button->roundness, fill, z);
+		if (button->texture >= 0) {
+			// Tint the texture by brightness for hover/press feedback, decoupled from the color fields
+			// so any button art reads consistently.
+			const core::Rgba tint =
+				button->pressed ? core::Rgba{170, 170, 170, 255}
+								: (button->hovered ? core::Rgba{255, 255, 255, 255} : core::Rgba{225, 225, 225, 255});
+			list.PushTexturedRect(button->texture, r, tint, z);
+		}
+		else {
+			list.PushRoundedRect(r, button->roundness, fill, z);
+		}
 		list.PushRoundedRectLines(r, button->roundness, 2.0F, button->border_color, z);
 		if (!button->label.empty()) {
 			const glm::vec2 pos = PlaceText(platform, r, button->label, button->font_size, TextAlign::Center);
@@ -208,16 +270,35 @@ void EmitElement(
 
 	if (const auto* label = entity.try_get<Label>()) {
 		if (!label->text.empty()) {
-			const glm::vec2 pos = PlaceText(platform, r, label->text, label->font_size, label->align);
-			list.PushText(label->text, pos.x, pos.y, label->font_size, label->color, z);
+			if (label->wrap) {
+				const float line_height = label->font_size + label->line_spacing;
+				float ly = r.y;
+				for (const auto& line : WrapText(platform, label->text, r.w, label->font_size)) {
+					if (!line.empty()) {
+						const float tw = platform->MeasureText(line, label->font_size);
+						float lx = r.x;
+						switch (label->align) {
+						case TextAlign::Left: lx = r.x; break;
+						case TextAlign::Center: lx = r.x + (r.w - tw) / 2.0F; break;
+						case TextAlign::Right: lx = r.x + r.w - tw; break;
+						}
+						list.PushText(line, lx, ly, label->font_size, label->color, z);
+					}
+					ly += line_height;
+				}
+			}
+			else {
+				const glm::vec2 pos = PlaceText(platform, r, label->text, label->font_size, label->align);
+				list.PushText(label->text, pos.x, pos.y, label->font_size, label->color, z);
+			}
 		}
 	}
 }
 
 // Draw a ScrollRect's scrollbar(s) on top of (outside) the clipped content.
-void EmitScrollbar(const platform::Rect viewport, const ScrollRect& sr, UIDrawList& list, const int z) {
+void EmitScrollbar(const core::Rect viewport, const ScrollRect& sr, UIDrawList& list, const int z) {
 	if (sr.vertical && sr.content_size.y > viewport.h) {
-		const platform::Rect track{
+		const core::Rect track{
 			.x = viewport.x + viewport.w - sr.scrollbar_thickness,
 			.y = viewport.y,
 			.w = sr.scrollbar_thickness,
@@ -228,7 +309,7 @@ void EmitScrollbar(const platform::Rect viewport, const ScrollRect& sr, UIDrawLi
 		const float thumb_h = std::max(24.0F, viewport.h * view_ratio);
 		const float range = sr.content_size.y - viewport.h;
 		const float t = range > 0.0F ? glm::clamp(sr.scroll.y / range, 0.0F, 1.0F) : 0.0F;
-		const platform::Rect thumb{
+		const core::Rect thumb{
 			.x = track.x,
 			.y = viewport.y + t * (viewport.h - thumb_h),
 			.w = sr.scrollbar_thickness,
@@ -237,7 +318,7 @@ void EmitScrollbar(const platform::Rect viewport, const ScrollRect& sr, UIDrawLi
 		list.PushRoundedRect(thumb, 0.5F, sr.thumb_color, z);
 	}
 	if (sr.horizontal && sr.content_size.x > viewport.w) {
-		const platform::Rect track{
+		const core::Rect track{
 			.x = viewport.x,
 			.y = viewport.y + viewport.h - sr.scrollbar_thickness,
 			.w = viewport.w,
@@ -248,7 +329,7 @@ void EmitScrollbar(const platform::Rect viewport, const ScrollRect& sr, UIDrawLi
 		const float thumb_w = std::max(24.0F, viewport.w * view_ratio);
 		const float range = sr.content_size.x - viewport.w;
 		const float t = range > 0.0F ? glm::clamp(sr.scroll.x / range, 0.0F, 1.0F) : 0.0F;
-		const platform::Rect thumb{
+		const core::Rect thumb{
 			.x = viewport.x + t * (viewport.w - thumb_w),
 			.y = track.y,
 			.w = thumb_w,
@@ -283,7 +364,7 @@ void EmitTree(
 
 	if (const auto* sr = entity.try_get<ScrollRect>()) {
 		const auto* ui = entity.try_get<UIRect>();
-		const platform::Rect viewport = ui != nullptr ? Translate(ui->rect, offset) : platform::Rect{};
+		const core::Rect viewport = ui != nullptr ? Translate(ui->rect, offset) : core::Rect{};
 		list.PushBeginClip(viewport, z);
 		const glm::vec2 child_offset = offset - sr->scroll;
 		entity.children([&list, platform, child_offset, z](const flecs::entity child) {
@@ -310,7 +391,7 @@ void EmitTree(
 void LayoutNode(const flecs::entity entity) {
 	if (const auto* stack = entity.try_get<Stack>()) {
 		if (const auto* ui = entity.try_get<UIRect>()) {
-			const platform::Rect base = ui->rect;
+			const core::Rect base = ui->rect;
 			const bool vertical = stack->direction == StackDirection::Vertical;
 			float cursor = (vertical ? base.y : base.x) + stack->padding;
 			const float cross = (vertical ? base.x : base.y) + stack->padding;
@@ -318,7 +399,7 @@ void LayoutNode(const flecs::entity entity) {
 				if (!child.has<UIRect>()) {
 					return;
 				}
-				platform::Rect& cr = child.get_mut<UIRect>().rect;
+				core::Rect& cr = child.get_mut<UIRect>().rect;
 				if (vertical) {
 					cr.x = cross;
 					cr.y = cursor;
@@ -353,30 +434,30 @@ UIModule::UIModule(const flecs::world& world) {
 	world.set<UIConfig>({});
 	world.set<UIModalState>({});
 
-	// (2) Reflection — expose the plain-data components in the Flecs Explorer. platform::Rect is
+	// (2) Reflection — expose the plain-data components in the Flecs Explorer. core::Rect is
 	// registered here (it has no other Flecs home) so UIRect can reference it as a member type.
-	world.component<platform::Rect>().member<float>("x").member<float>("y").member<float>("w").member<float>("h");
-	world.component<UIRect>().member<platform::Rect>("rect");
+	world.component<core::Rect>().member<float>("x").member<float>("y").member<float>("w").member<float>("h");
+	world.component<UIRect>().member<core::Rect>("rect");
 	world.component<UIElement>().member<int>("z_index").member<bool>("visible");
 	world.component<Panel>()
-		.member<platform::Rgba>("color")
-		.member<platform::Rgba>("border_color")
+		.member<core::Rgba>("color")
+		.member<core::Rgba>("border_color")
 		.member<float>("border_thickness")
 		.member<float>("roundness");
 	world.component<TextAlign>();
 	world.component<Label>()
 		.member<std::string>("text")
 		.member<float>("font_size")
-		.member<platform::Rgba>("color")
+		.member<core::Rgba>("color")
 		.member<TextAlign>("align");
 	world.component<Button>()
 		.member<std::string>("label")
 		.member<float>("font_size")
-		.member<platform::Rgba>("normal")
-		.member<platform::Rgba>("hover")
-		.member<platform::Rgba>("pressed_color")
-		.member<platform::Rgba>("border_color")
-		.member<platform::Rgba>("text_color")
+		.member<core::Rgba>("normal")
+		.member<core::Rgba>("hover")
+		.member<core::Rgba>("pressed_color")
+		.member<core::Rgba>("border_color")
+		.member<core::Rgba>("text_color")
 		.member<float>("roundness")
 		.member<bool>("hovered")
 		.member<bool>("pressed")
@@ -385,13 +466,13 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<float>("value")
 		.member<float>("min")
 		.member<float>("max")
-		.member<platform::Rgba>("fill_color")
-		.member<platform::Rgba>("track_color")
-		.member<platform::Rgba>("border_color")
+		.member<core::Rgba>("fill_color")
+		.member<core::Rgba>("track_color")
+		.member<core::Rgba>("border_color")
 		.member<float>("border_thickness")
 		.member<float>("roundness");
 	world.component<Spinner>()
-		.member<platform::Rgba>("color")
+		.member<core::Rgba>("color")
 		.member<float>("radius")
 		.member<float>("dot_radius")
 		.member<int>("dots")
@@ -405,20 +486,20 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<bool>("horizontal")
 		.member<float>("scrollbar_thickness")
 		.member<float>("wheel_speed")
-		.member<platform::Rgba>("track_color")
-		.member<platform::Rgba>("thumb_color")
+		.member<core::Rgba>("track_color")
+		.member<core::Rgba>("thumb_color")
 		.member<bool>("dragging_v")
 		.member<bool>("dragging_h");
 	world.component<Modal>()
 		.member<bool>("open")
-		.member<platform::Rgba>("backdrop_color")
+		.member<core::Rgba>("backdrop_color")
 		.member<bool>("close_on_backdrop");
 	world.component<UIClickRequest>();
 
 	// Scripting — expose the POD components whose members are all script-registered so scripts can
 	// read/write UI state (e.g. self.GetProgressBar().value = x). OnClick (std::function), Stack's
 	// enum direction, and the draw-list types are intentionally left engine-only.
-	scripting::RegisterValueTypeForScripts(world, world.component<platform::Rect>());
+	scripting::RegisterValueTypeForScripts(world, world.component<core::Rect>());
 	scripting::RegisterComponentForScripts(world, world.component<UIRect>());
 	scripting::RegisterComponentForScripts(world, world.component<UIElement>());
 	scripting::RegisterComponentForScripts(world, world.component<Panel>());
@@ -451,8 +532,8 @@ UIModule::UIModule(const flecs::world& world) {
 					.name = "onClick",
 				},
 		},
-		[](scripting::ScriptCallContext& ctx, flecs::world&, scripting::ScriptFunctionHandle* handle) {
-			auto* ref = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
+		[](const scripting::ScriptCallContext& ctx, flecs::world&, scripting::ScriptFunctionHandle* handle) {
+			const auto* ref = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
 			if (!ref) return;
 			const flecs::entity button = ref->GetEntity();
 			if (!handle) {
@@ -475,7 +556,7 @@ UIModule::UIModule(const flecs::world& world) {
 	// Release script-backed OnClick handlers before the scripting engine is torn down (see the
 	// tilemap module for the same teardown-ordering rationale). Clearing every OnClick is safe:
 	// C++ handlers hold no engine references, and everything is being destroyed anyway.
-	scripting::RegisterScriptShutdownCallback(world, [](flecs::world& shutdown_world) {
+	scripting::RegisterScriptShutdownCallback(world, [](const flecs::world& shutdown_world) {
 		shutdown_world.query<OnClick>().each([](flecs::entity, OnClick& on_click) { on_click.callback = nullptr; });
 	});
 
@@ -522,7 +603,7 @@ UIModule::UIModule(const flecs::world& world) {
 			const glm::vec2 range{std::max(0.0F, extent.x - ui.rect.w), std::max(0.0F, extent.y - ui.rect.h)};
 			const auto& input = entity.world().get<input::InputState>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
-			const platform::Rect viewport = ResolvedRect(entity, ui);
+			const core::Rect viewport = ResolvedRect(entity, ui);
 			const bool mouse_down = input.mouse.left.state;
 			const bool mouse_pressed = input.mouse.left.pressed;
 
@@ -542,7 +623,7 @@ UIModule::UIModule(const flecs::world& world) {
 				const float thumb_h = std::max(24.0F, viewport.h * (viewport.h / sr.content_size.y));
 				const float t = glm::clamp(sr.scroll.y / range.y, 0.0F, 1.0F);
 				const float thumb_y = viewport.y + t * (viewport.h - thumb_h);
-				const platform::Rect thumb{.x = track_x, .y = thumb_y, .w = sr.scrollbar_thickness, .h = thumb_h};
+				const core::Rect thumb{.x = track_x, .y = thumb_y, .w = sr.scrollbar_thickness, .h = thumb_h};
 
 				if (!sr.dragging_v && mouse_pressed && thumb.Contains(mouse)) {
 					sr.dragging_v = true;
@@ -568,9 +649,9 @@ UIModule::UIModule(const flecs::world& world) {
 				const float thumb_w = std::max(24.0F, viewport.w * (viewport.w / sr.content_size.x));
 				const float t = glm::clamp(sr.scroll.x / range.x, 0.0F, 1.0F);
 				const float thumb_x = viewport.x + t * (viewport.w - thumb_w);
-				const platform::Rect thumb{.x = thumb_x, .y = track_y, .w = thumb_w, .h = sr.scrollbar_thickness};
 
-				if (!sr.dragging_h && mouse_pressed && thumb.Contains(mouse)) {
+				if (const core::Rect thumb{.x = thumb_x, .y = track_y, .w = thumb_w, .h = sr.scrollbar_thickness};
+					!sr.dragging_h && mouse_pressed && thumb.Contains(mouse)) {
 					sr.dragging_h = true;
 					sr.drag_start_mouse = mouse.x;
 					sr.drag_start_scroll = sr.scroll.x;
@@ -611,8 +692,8 @@ UIModule::UIModule(const flecs::world& world) {
 				return;
 			}
 			const auto& input = entity.world().get<input::InputState>();
-			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
-			if (input.mouse.left.pressed && !ResolvedRect(entity, ui).Contains(mouse)) {
+			if (const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
+				input.mouse.left.pressed && !ResolvedRect(entity, ui).Contains(mouse)) {
 				modal.open = false;
 			}
 		});
@@ -681,9 +762,9 @@ UIModule::UIModule(const flecs::world& world) {
 	// through children so the hierarchy determines layering. Emits into the shared UIDrawList.
 	const auto ui_query = world.query_builder<const UIRect>().build();
 	world.system("UIBuildDrawList").kind<ecs::OnUI>().run([ui_query](const flecs::iter& it) {
-		const flecs::world world = it.world();
-		auto& list = world.get_mut<UIDrawList>();
-		auto* platform = world.get<platform::PlatformRef>().ptr;
+		const flecs::world ecs_world = it.world();
+		auto& list = ecs_world.get_mut<UIDrawList>();
+		auto* platform = ecs_world.get<platform::PlatformRef>().ptr;
 		list.Clear();
 		ui_query.each([&list, platform](const flecs::entity entity, const UIRect&) {
 			if (const flecs::entity parent = entity.parent(); parent && parent.has<UIRect>()) {
@@ -705,13 +786,13 @@ UIModule::UIModule(const flecs::world& world) {
 			return a.order < b.order;
 		});
 
-		std::vector<platform::Rect> clip_stack;
-		const auto intersect = [](const platform::Rect a, const platform::Rect b) {
+		std::vector<core::Rect> clip_stack;
+		const auto intersect = [](const core::Rect a, const core::Rect b) {
 			const float x0 = std::max(a.x, b.x);
 			const float y0 = std::max(a.y, b.y);
 			const float x1 = std::min(a.x + a.w, b.x + b.w);
 			const float y1 = std::min(a.y + a.h, b.y + b.h);
-			return platform::Rect{.x = x0, .y = y0, .w = std::max(0.0F, x1 - x0), .h = std::max(0.0F, y1 - y0)};
+			return core::Rect{.x = x0, .y = y0, .w = std::max(0.0F, x1 - x0), .h = std::max(0.0F, y1 - y0)};
 		};
 
 		for (const auto& cmd : list.commands) {
@@ -725,9 +806,10 @@ UIModule::UIModule(const flecs::world& world) {
 			case UIDrawKind::Text: platform->DrawText(cmd.text, cmd.p0.x, cmd.p0.y, cmd.font_size, cmd.color); break;
 			case UIDrawKind::Line: platform->DrawLine(cmd.p0, cmd.p1, cmd.thickness, cmd.color); break;
 			case UIDrawKind::Circle: platform->DrawCircle(cmd.p0, cmd.radius, cmd.color); break;
+			case UIDrawKind::TexturedRect: platform->DrawTexturedRect(cmd.texture, cmd.rect, cmd.color); break;
 			case UIDrawKind::BeginClip:
 			{
-				const platform::Rect region = clip_stack.empty() ? cmd.rect : intersect(clip_stack.back(), cmd.rect);
+				const core::Rect region = clip_stack.empty() ? cmd.rect : intersect(clip_stack.back(), cmd.rect);
 				clip_stack.push_back(region);
 				platform->BeginScissor(region);
 				break;
@@ -755,27 +837,36 @@ UIModule::UIModule(const flecs::world& world) {
 // === Factories ===
 
 void SetDefaultClickSound(const flecs::world& world, std::string path) {
-	if (world.has<UIConfig>()) {
-		world.get_mut<UIConfig>().default_click_sound_path = std::move(path);
+	if (!world.has<UIConfig>()) {
+		return;
 	}
+	// Pin one permanent reference to the click sound so it stays cached even as buttons — each
+	// carrying their own ref-counted SoundEffect — are created and destroyed during UI rebuilds.
+	// Without this pin, destroying the last button drops the asset's ref count to zero and unloads
+	// it, forcing a disk reload on the very next button/click.
+	if (!path.empty()) {
+		(void) assets::LoadSound(world, path); // intentionally never released (app lifetime)
+	}
+	world.get_mut<UIConfig>().default_click_sound_path = std::move(path);
 }
 
-flecs::entity CreatePanel(const flecs::world& world, const platform::Rect rect, const Panel panel) {
+flecs::entity CreatePanel(const flecs::world& world, const core::Rect rect, const Panel panel) {
 	return world.entity().set<UIRect>({rect}).set<Panel>(panel);
 }
 
-flecs::entity
-CreateLabel(const flecs::world& world, const platform::Rect rect, std::string text, const float font_size) {
+flecs::entity CreateLabel(const flecs::world& world, const core::Rect rect, std::string text, const float font_size) {
 	return world.entity().set<UIRect>({rect}).set<Label>({.text = std::move(text), .font_size = font_size});
 }
 
 flecs::entity CreateButton(
 	const flecs::world& world,
-	const platform::Rect rect,
+	const core::Rect rect,
 	std::string label,
-	std::function<void(flecs::entity)> on_click
+	std::function<void(flecs::entity)> on_click,
+	const int texture
 ) {
-	const flecs::entity entity = world.entity().set<UIRect>({rect}).set<Button>({.label = std::move(label)});
+	const flecs::entity entity =
+		world.entity().set<UIRect>({rect}).set<Button>({.label = std::move(label), .texture = texture});
 	if (on_click) {
 		entity.set<OnClick>({std::move(on_click)});
 	}
@@ -788,33 +879,33 @@ flecs::entity CreateButton(
 	return entity;
 }
 
-flecs::entity CreateProgressBar(const flecs::world& world, const platform::Rect rect, const ProgressBar& bar) {
+flecs::entity CreateProgressBar(const flecs::world& world, const core::Rect rect, const ProgressBar& bar) {
 	return world.entity().set<UIRect>({rect}).set<ProgressBar>(bar);
 }
 
-flecs::entity CreateSpinner(const flecs::world& world, const platform::Rect rect, const Spinner& spinner) {
+flecs::entity CreateSpinner(const flecs::world& world, const core::Rect rect, const Spinner& spinner) {
 	return world.entity().set<UIRect>({rect}).set<Spinner>(spinner);
 }
 
-flecs::entity CreateStack(const flecs::world& world, const platform::Rect rect, const Stack& stack) {
+flecs::entity CreateStack(const flecs::world& world, const core::Rect rect, const Stack& stack) {
 	return world.entity().set<UIRect>({rect}).set<Stack>(stack);
 }
 
-flecs::entity CreateScrollRect(const flecs::world& world, const platform::Rect rect, const ScrollRect& scroll) {
-	return world.entity().set<UIRect>({rect}).set<Panel>({.color = platform::colors::PanelBg}).set<ScrollRect>(scroll);
+flecs::entity CreateScrollRect(const flecs::world& world, const core::Rect rect, const ScrollRect& scroll) {
+	return world.entity().set<UIRect>({rect}).set<Panel>({.color = core::colors::PanelBg}).set<ScrollRect>(scroll);
 }
 
-flecs::entity CreateModal(const flecs::world& world, const platform::Rect rect, const Modal& modal) {
+flecs::entity CreateModal(const flecs::world& world, const core::Rect rect, const Modal& modal) {
 	return world.entity()
 		.set<UIRect>({rect})
 		.set<UIElement>({.z_index = 1000})
 		.set<Modal>(modal)
-		.set<Panel>({.color = platform::colors::Panel, .roundness = 0.1F});
+		.set<Panel>({.color = core::colors::Panel, .roundness = 0.1F});
 }
 
 flecs::entity CreatePrompt(
 	const flecs::world& world,
-	const platform::Rect rect,
+	const core::Rect rect,
 	std::string title,
 	std::string message,
 	std::vector<PromptButton> buttons

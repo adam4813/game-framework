@@ -53,6 +53,7 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
 | `save`      | data/service | `SaveRegistry` singleton; schema-driven JSON save/load       | [save](../src/engine/save/README.md)                                                                          |
 | `scene`     | management   | scene lifecycle observers + tick/input/UI systems            | [scene](../src/engine/scene/README.md)                                                                        |
 | `scripting` | runtime      | backend singleton, script lifecycle observers + tick systems | [scripting](../src/engine/scripting/README.md) · [angelscript](../src/engine/scripting/angelscript/README.md) |
+| `spatial`   | simulation   | `Transform`/`WorldTransform`, transform propagation system   | [spatial](../src/engine/spatial/README.md)                                                                    |
 | `tilemap`   | simulation   | `TileMap`/`Tile`, tilemap update system                      | [tilemap](../src/engine/tilemap/README.md)                                                                    |
 | `timer`     | simulation   | `Timer`/`Cooldown`/`Tween`, three advance systems            | [timer](../src/engine/timer/README.md)                                                                        |
 | `render`    | simulation   | primitives, lights, camera, draw systems, resolve observers  | [render](../src/engine/render/README.md)                                                                      |
@@ -68,6 +69,8 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
   `.add<scene::YourSceneTag>()` for pipeline filtering. Untagged systems run in **every** scene.
 - **Pausing is data** — add `.add<engine::ecs::Pausable>()` to a system to make it stop while the game is paused; omit
   it to keep running (input, rendering, audio, UI).
+- **Entity linkage** — use relationships (e.g., `RenderWith`, `LookAt`) in JSON with `"link"` and `"refs"` fields to
+  declare parent-child and cross-entity relationships; the level loader resolves them after building the tree.
 - **Platform abstraction** — game/engine logic calls the `platform::Platform` interface, never Raylib directly.
 - **Game code includes** — import `#include "engine/engine.hpp"` to access all engine modules, components, and
   singletons. The one-way dependency (engine never includes game code) is maintained, making this safe and convenient.
