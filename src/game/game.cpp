@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 #include "cube_scene.hpp"
@@ -42,6 +43,7 @@ GameModule::GameModule(flecs::world& world) {
 
 	{
 		const auto tilemapScene = std::make_shared<TilemapScene>();
+		tilemapScene->RegisterLoaders(world); // register the tilemap scene's level loaders (player, grid_mover, etc.)
 		scene::RegisterScene<TilemapSceneTag>(world, tilemapScene);
 	}
 

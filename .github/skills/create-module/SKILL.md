@@ -103,9 +103,10 @@ Order of work inside the constructor:
 #include <glm/glm.hpp>
 
 #include "engine/ecs/ecs.hpp"
-#include "engine/platform/platform.hpp"
+#include "engine/core/core.hpp"
 #include "engine/scene/scene_components.hpp"
 #include "engine/scripting/scripting_module.hpp"
+
 #include "<name>_components.hpp"
 
 namespace engine::<name> {
@@ -147,11 +148,7 @@ namespace engine::<name> {
 
 ### Conventions to honor
 
-- **Never call Raylib directly** — go through the `platform::Platform` interface. If the module needs a capability the
-  interface lacks, add a method to `platform.hpp` and implement it in `raylib_platform.*` (keep Raylib headers inside
-  the
-  `.cpp`).
-- Components are plain data; systems are stateless functions; singletons via
+- Components are usually plain data; systems are stateless functions; singletons via
   `world.get<T>()` / `world.get_mut<T>()`.
 - Scope scene-specific systems with `.add<scene::YourSceneTag>()` on the returned system entity. Use a single
   `.kind(phase)` for ordering — never chain two `.kind()` calls. Untagged systems run in every scene pipeline.

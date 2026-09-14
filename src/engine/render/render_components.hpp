@@ -4,9 +4,10 @@
 
 #include <glm/glm.hpp>
 
+#include "engine/core/core.hpp"
 #include "engine/platform/platform.hpp"
 
-// Rendering primitives. An entity becomes drawable by combining an ecs::WorldTransform (which
+// Rendering primitives. An entity becomes drawable by combining a spatial::WorldTransform (which
 // supplies world-space position/rotation/scale) with exactly one shape component below and a
 // Material. The render systems read the WorldTransform matrix and hand it to the platform's 3D
 // draw calls, so the shape components only describe the base dimensions of the primitive.
@@ -46,9 +47,16 @@ struct DynamicMesh {
 	int handle{-1};
 };
 
+// Per-entity shader override for DynamicMesh rendering. `stages` lists the shader source files
+// (resolved to the platform's shader directory); the render observer calls LoadShader on OnSet.
+struct ShaderMap {
+	std::vector<platform::ShaderStage> stages;
+	int handle{-1};
+};
+
 // Surface appearance shared by every primitive.
 struct Material {
-	platform::Rgba color{200, 200, 200, 255};
+	core::Rgba color{200, 200, 200, 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
 };
@@ -68,7 +76,7 @@ struct AlbedoMap {
 // Ambient light singleton: a uniform base illumination applied to every lit surface so shadowed
 // faces never go fully black. Set one on the world.
 struct AmbientLight {
-	platform::Rgba color{120, 130, 150, 255};
+	core::Rgba color{120, 130, 150, 255};
 	float intensity{0.35F};
 };
 
@@ -77,26 +85,40 @@ struct AmbientLight {
 // onto the plane y = `shadow_ground_y`.
 struct DirectionalLight {
 	glm::vec3 direction{-0.5F, -1.0F, -0.35F}; // direction the light travels
-	platform::Rgba color{255, 244, 214, 255};
+	core::Rgba color{255, 244, 214, 255};
 	float intensity{1.0F};
 	float specular_strength{0.4F};
 	float shininess{24.0F};
 	bool casts_shadows{true};
 	float shadow_ground_y{0.0F};
-	platform::Rgba shadow_color{10, 12, 16, 120};
+	core::Rgba shadow_color{10, 12, 16, 120};
 };
 
-// Perspective camera used to drive the 3D pass. view_matrix and projection_matrix are recomputed by
-// the render module's CameraTransformUpdate observer.
+// Relationship: links a renderable entity to a dedicated material entity that carries Material,
+// optionally AlbedoMap, and optionally ShaderMap. Registered with flecs::Exclusive so each entity
+// can target at most one material at a time. Usage:
+//
+//   auto mat = world.entity("Material::MyObject")
+//       .set<Material>({.color = colors::Accent})
+//       .set<AlbedoMap>({.path = "textures/foo.png"});
+//   object.add<RenderWith>(mat);
+//
+// Render systems accept both this relationship pattern and the legacy inline-component pattern
+// (Material + optional AlbedoMap + optional ShaderMap directly on the renderable entity), so
+// particles and other entities that mutate their material per-frame can continue to use either.
+struct RenderWith {};
+
+// Perspective camera projection attributes (fov, aspect, near/far) plus the world up vector.
 struct Camera {
-	glm::vec3 target{0.0F, 0.0F, 0.0F};
 	glm::vec3 up{0.0F, 1.0F, 0.0F};
 	float fov{60.0F};
 	float aspect_ratio{16.0F / 9.0F};
 	float near_plane{0.1F};
 	float far_plane{100.0F};
-	glm::mat4 view_matrix{1.0F};
-	glm::mat4 projection_matrix{1.0F};
 };
+
+// Relationship: `camera.add<LookAt>(target)` aims the camera at `target`'s WorldTransform position.
+// Exclusive — a camera looks at exactly one entity. Consumed by Render3DBegin and the debug renderer.
+struct LookAt {};
 
 } // namespace engine::render

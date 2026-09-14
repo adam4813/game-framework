@@ -26,7 +26,7 @@ std::string NextSlotName(const flecs::world& world) {
 
 } // namespace
 
-flecs::entity BuildSaveBrowser(const flecs::world& world, const platform::Rect& rect, const flecs::entity& parent) {
+flecs::entity BuildSaveBrowser(const flecs::world& world, const core::Rect& rect, const flecs::entity& parent) {
 	constexpr float pad = 12.0F;
 	constexpr float rowHeight = 32.0F;
 	constexpr float rowGap = 6.0F;
@@ -36,12 +36,12 @@ flecs::entity BuildSaveBrowser(const flecs::world& world, const platform::Rect& 
 	const float innerW = rect.w - 2.0F * pad;
 	const float loadWidth = innerW - deleteWidth - rowGap;
 
-	const auto panel = ui::CreatePanel(world, rect, {.color = platform::colors::PanelBg, .roundness = 0.06F});
+	const auto panel = ui::CreatePanel(world, rect, {.color = core::colors::PanelBg, .roundness = 0.06F});
 	panel.child_of(parent);
 
 	const auto heading =
 		ui::CreateLabel(world, {.x = rect.x, .y = rect.y + 8.0F, .w = rect.w, .h = 26.0F}, "Saves", 22.0F);
-	heading.set<ui::Label>({.text = "Saves", .font_size = 22.0F, .color = platform::colors::Title});
+	heading.set<ui::Label>({.text = "Saves", .font_size = 22.0F, .color = core::colors::Title});
 	heading.child_of(panel);
 
 	// Scrollable list of slot rows (built/rebuilt by refresh below).

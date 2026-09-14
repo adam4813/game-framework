@@ -213,6 +213,37 @@ toggles pause by switching the active pipeline (one that includes `Pausable` sys
 All Raylib calls go through the `platform::Platform` interface. Game code never calls Raylib directly. This makes WASM
 and desktop backends interchangeable.
 
+### Transform and WorldTransform
+
+The engine has a strict separation between **authored** and **computed** transforms:
+
+- **Author `Transform`** — this holds local position, rotation, and scale. Always set this when creating entities.
+- **Never hand-write `WorldTransform`** — this is world-space data computed from `Transform` by the engine. The
+  `TransformSeedWorldTransform` observer seeds it once when an entity is created, then `TransformPropagation` (for
+  parented entities) or the physics backend (for dynamic bodies) keeps it in sync.
+
+```cpp
+// ✓ Correct: author Transform
+e.set<ecs::Transform>({.position = {1.0, 0.0, 0.0}});
+
+// ✗ Wrong: never hand-write WorldTransform after initialization
+e.set<ecs::WorldTransform>({/* ... */});  // Will be overwritten by propagation/physics
+```
+
+This prevents out-of-phase sync bugs (e.g., a stale cached camera matrix or a physics body left stranded after a
+transform change). See `docs/architecture.md` for details.
+
+### Entity Relationships and Linkage
+
+First-class entity relationships allow data-driven composition without hardcoding dependencies:
+
+- **`RenderWith(renderable → material)`** — a renderable links to its material entity via this relationship, which can
+  be authored as a nested child with `"link": "render_with"` in JSON.
+- **`LookAt(camera → target)`** — a camera aims at a target entity via this relationship, which can be authored with
+  `"refs": { "look_at": "TargetName" }` in JSON.
+
+See `docs/architecture.md` and the module READMEs (`render/`, `level/`) for examples.
+
 ## Building from Scratch
 
 If you're starting a new game:
@@ -382,4 +413,4 @@ VCPKG downloads and builds dependencies on first configure. If a build stalls or
 
 ---
 
-**Last updated**: September 2026 **Framework version**: 0.1.0
+**Last updated**: September 2026 **Framework version**: 0.2.0

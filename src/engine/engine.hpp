@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "core/core.hpp"
 #include "assets/assets.hpp"
 #include "audio/audio.hpp"
 #include "ecs/ecs.hpp"
@@ -13,6 +14,7 @@
 #include "save/save.hpp"
 #include "scene/scene.hpp"
 #include "scripting/scripting.hpp"
+#include "spatial/spatial.hpp"
 #include "tilemap/tilemap.hpp"
 #include "timer/timer.hpp"
 #include "ui/ui.hpp"

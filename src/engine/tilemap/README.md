@@ -24,10 +24,34 @@ fires C++ or AngelScript functions when entities enter, occupy, or leave tiles.
 | `Tilemap`           | Grid of tile IDs: `tile_ids[z * width + x]`                                                                              |
 | `GridPosition`      | Entity's current tile column (`x`) and row (`z`)                                                                         |
 | `TileCallbackState` | Internal: last-seen tile coordinates for transition detection                                                            |
+| `TilemapViewport`   | Optional: viewport-sized ring-buffer configuration for efficient streaming; set before `Tilemap`                         |
 
 The registry lives on the same entity as `Tilemap`/`TileSet`, so systems query it alongside the tilemap
 (`world.query<const Tilemap, const TileRegistry>()`) and scripts reach it from their host entity
 (`self.GetTileRegistry()`).
+
+## Viewport Streaming and TilemapFollowTarget
+
+For large tilemaps, enabling viewport-sized rendering avoids baking the entire grid into one mesh:
+
+```cpp
+world.entity("Tilemap").child_of(sceneRoot)
+    .set<engine::tilemap::TileSet>(/* ... */)
+    .set<engine::tilemap::TileRegistry>(/* ... */)
+    .set<engine::tilemap::TilemapViewport>({.buffer_width = 0, .buffer_height = 0})  // 0 = auto-compute
+    .set<engine::tilemap::Tilemap>(*tilemap);  // mesh builder sees viewport and creates ring-buffer
+```
+
+Mark the entity that the viewport should follow (typically the player) with the **tag** `TilemapFollowTarget`:
+
+```cpp
+player.add<engine::tilemap::TilemapFollowTarget>();
+```
+
+The tilemap's streaming system queries this tag and centers the viewport window on the target's
+`WorldTransform.position`. If no target exists, it falls back to the map center, so a valid static view still renders.
+This decouples the tilemap from any specific follower — you can swap which entity carries the tag without changing the
+tilemap.
 
 ## Systems
 

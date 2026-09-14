@@ -34,29 +34,27 @@ void TitleScene::Load(flecs::world& world) {
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
 
 	// Title + hint text.
-	std::ignore = ui::CreateLabel(
-					  world,
-					  {.x = 0.0F, .y = h / 2.0F - 200.0F, .w = w, .h = 64.0F},
-					  std::string(app::constants::kWindowTitle),
-					  64.0F
-	)
-					  .set<ui::Label>(
-						  {.text = std::string(app::constants::kWindowTitle),
-						   .font_size = 64.0F,
-						   .color = platform::colors::Title}
-					  )
-					  .child_of(uiRoot_);
+	std::ignore =
+		ui::CreateLabel(
+			world,
+			{.x = 0.0F, .y = h / 2.0F - 200.0F, .w = w, .h = 64.0F},
+			std::string(app::constants::kWindowTitle),
+			64.0F
+		)
+			.set<ui::Label>(
+				{.text = std::string(app::constants::kWindowTitle), .font_size = 64.0F, .color = core::colors::Title}
+			)
+			.child_of(uiRoot_);
 
-	std::ignore = ui::CreateLabel(
-					  world,
-					  {.x = 0.0F, .y = h / 2.0F + 70.0F, .w = w, .h = 20.0F},
-					  "Press F1 for the debug menu",
-					  16.0F
-	)
-					  .set<ui::Label>(
-						  {.text = "Press F1 for the debug menu", .font_size = 16.0F, .color = platform::colors::Subtle}
-					  )
-					  .child_of(uiRoot_);
+	std::ignore =
+		ui::CreateLabel(
+			world,
+			{.x = 0.0F, .y = h / 2.0F + 70.0F, .w = w, .h = 20.0F},
+			"Press F1 for the debug menu",
+			16.0F
+		)
+			.set<ui::Label>({.text = "Press F1 for the debug menu", .font_size = 16.0F, .color = core::colors::Subtle})
+			.child_of(uiRoot_);
 
 	// Play Cube button (left)
 	std::ignore = ui::CreateButton(
@@ -101,13 +99,13 @@ void TitleScene::Load(flecs::world& world) {
 	const auto panel = ui::CreatePanel(
 						   world,
 						   {.x = w - 340.0F, .y = h / 2.0F - 175.0F, .w = 300.0F, .h = 350.0F},
-						   {.color = platform::colors::PanelBg, .roundness = 0.06F}
+						   {.color = core::colors::PanelBg, .roundness = 0.06F}
 	)
 						   .child_of(uiRoot_);
 
 	std::ignore =
 		ui::CreateLabel(world, {.x = w - 340.0F, .y = h / 2.0F - 168.0F, .w = 300.0F, .h = 28.0F}, "UI Widgets", 22.0F)
-			.set<ui::Label>({.text = "UI Widgets", .font_size = 22.0F, .color = platform::colors::Title})
+			.set<ui::Label>({.text = "UI Widgets", .font_size = 22.0F, .color = core::colors::Title})
 			.child_of(panel);
 
 	// Progress bar driven live by a script (see assets/scripts/ui_demo.as).
@@ -125,10 +123,7 @@ void TitleScene::Load(flecs::world& world) {
 	const auto loading =
 		ui::CreateLabel(world, {.x = w - 256.0F, .y = h / 2.0F - 92.0F, .w = 190.0F, .h = 56.0F}, "Loading...", 18.0F)
 			.set<ui::Label>(
-				{.text = "Loading...",
-				 .font_size = 18.0F,
-				 .color = platform::colors::Text,
-				 .align = ui::TextAlign::Left}
+				{.text = "Loading...", .font_size = 18.0F, .color = core::colors::Text, .align = ui::TextAlign::Left}
 			)
 			.child_of(panel);
 

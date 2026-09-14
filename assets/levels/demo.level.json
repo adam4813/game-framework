@@ -1,19 +1,51 @@
 {
 	"singletons": {
-		"ambient_light": { "color": [90, 105, 130, 255], "intensity": 0.35 }
+		"ambient_light": {
+			"color": [
+				90,
+				105,
+				130,
+				255
+			],
+			"intensity": 0.35
+		}
 	},
 	"entities": [
 		{
 			"name": "Camera",
 			"components": {
-				"transform": { "position": [0.0, 5.0, 5.0] },
+				"transform": {
+					"position": [
+						0.0,
+						5.0,
+						5.0
+					]
+				},
 				"camera": {
-					"target": [0.0, 1.0, 0.0],
-					"up": [0.0, 1.0, 0.0],
+					"up": [
+						0.0,
+						1.0,
+						0.0
+					],
 					"fov": 60.0,
 					"aspect_ratio": 1.7777778,
 					"near": 0.1,
 					"far": 100.0
+				}
+			},
+			"refs": {
+				"look_at": "CameraTarget"
+			}
+		},
+		{
+			"name": "CameraTarget",
+			"components": {
+				"transform": {
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					]
 				}
 			}
 		},
@@ -21,38 +53,121 @@
 			"name": "SunLight",
 			"components": {
 				"directional_light": {
-					"direction": [-0.55, -1.0, -0.4],
-					"color": [255, 245, 220, 255],
+					"direction": [
+						-0.55,
+						-1.0,
+						-0.4
+					],
+					"color": [
+						255,
+						245,
+						220,
+						255
+					],
 					"intensity": 1.0,
 					"specular_strength": 0.35,
 					"shininess": 24.0,
 					"casts_shadows": true,
 					"shadow_ground_y": 0.25,
-					"shadow_color": [8, 10, 14, 115]
+					"shadow_color": [
+						8,
+						10,
+						14,
+						115
+					]
 				}
 			},
 			"children": [
-				{ "name": "SunCycleScript", "components": { "script": { "source": "scripts/sun_cycle.as" } } }
+				{
+					"name": "SunCycleScript",
+					"components": {
+						"script": {
+							"source": "scripts/sun_cycle.as"
+						}
+					}
+				}
 			]
 		},
 		{
 			"name": "Floor",
 			"components": {
-				"transform": { "position": [0.0, 0.0, 0.0], "scale": [10.0, 0.5, 10.0] },
-				"cube": { "size": [1.0, 1.0, 1.0] },
-				"material": { "color": [235, 240, 235, 255], "cast_shadow": false },
-				"albedo": { "path": "textures/checker.png" },
-				"rigid_body": { "motion_type": "static", "mass": 0.0, "friction": 0.5, "restitution": 0.0, "use_gravity": false },
-				"collision_shape": { "type": "box", "box_half_extents": [5.0, 0.25, 5.0] }
-			}
+				"transform": {
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						10.0,
+						0.5,
+						10.0
+					]
+				},
+				"cube": {
+					"size": [
+						1.0,
+						1.0,
+						1.0
+					]
+				},
+				"rigid_body": {
+					"motion_type": "static",
+					"mass": 0.0,
+					"friction": 0.5,
+					"restitution": 0.0,
+					"use_gravity": false
+				},
+				"collision_shape": {
+					"type": "box",
+					"box_half_extents": [
+						5.0,
+						0.25,
+						5.0
+					]
+				}
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								235,
+								240,
+								235,
+								255
+							],
+							"cast_shadow": false
+						},
+						"albedo": {
+							"path": "textures/checker.png"
+						}
+					}
+				}
+			]
 		},
 		{
 			"name": "FallingCube",
 			"components": {
-				"transform": { "position": [0.0, 3.0, 0.0], "scale": [1.0, 1.0, 1.0] },
-				"cube": { "size": [1.0, 1.0, 1.0] },
-				"material": { "color": [220, 150, 60, 255] },
-				"albedo": { "path": "textures/checker.png" },
+				"transform": {
+					"position": [
+						0.0,
+						3.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				},
+				"cube": {
+					"size": [
+						1.0,
+						1.0,
+						1.0
+					]
+				},
 				"rigid_body": {
 					"motion_type": "dynamic",
 					"mass": 1.0,
@@ -64,14 +179,132 @@
 					"use_gravity": true,
 					"gravity_scale": 1.0
 				},
-				"collision_shape": { "type": "box", "box_half_extents": [0.5, 0.5, 0.5] },
+				"collision_shape": {
+					"type": "box",
+					"box_half_extents": [
+						0.5,
+						0.5,
+						0.5
+					]
+				},
 				"physics_velocity": {},
-				"sound_effect": { "path": "audio/sfx/jump.wav" }
+				"sound_effect": {
+					"path": "audio/sfx/jump.wav"
+				},
+				"particle_emitter": {
+					"rate": 30.0,
+					"lifetime": 0.6,
+					"speed": 2.5,
+					"start_size": 0.08,
+					"spread": 0.6,
+					"direction": [
+						0.0,
+						1.0,
+						0.0
+					],
+					"color_start": [
+						255,
+						200,
+						80,
+						255
+					],
+					"color_end": [
+						255,
+						80,
+						30,
+						0
+					],
+					"emitting": false
+				}
 			},
 			"children": [
-				{ "name": "CubeJumpScript", "components": { "script": { "source": "scripts/cube_jump.as" } } },
-				{ "name": "CubeSpinScript", "components": { "script": { "source": "scripts/cube_spin.as" } } }
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								150,
+								60,
+								255
+							]
+						},
+						"albedo": {
+							"path": "textures/checker.png"
+						}
+					}
+				},
+				{
+					"name": "CubeJumpScript",
+					"components": {
+						"script": {
+							"source": "scripts/cube_jump.as"
+						}
+					}
+				},
+				{
+					"name": "CubeSpinScript",
+					"components": {
+						"script": {
+							"source": "scripts/cube_spin.as"
+						}
+					}
+				},
+				{
+					"name": "ParticleToggleScript",
+					"components": {
+						"script": {
+							"source": "scripts/particle_toggle.as"
+						}
+					}
+				}
 			]
+		},
+		{
+			"name": "TimerDemoSphere",
+			"components": {
+				"transform": {
+					"position": [
+						-2.5,
+						0.5,
+						0.0
+					]
+				},
+				"sphere": {
+					"radius": 0.5
+				}
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								150,
+								60,
+								255
+							]
+						}
+					}
+				},
+				{
+					"name": "TimerTweenDemoScript",
+					"components": {
+						"script": {
+							"source": "scripts/timer_tween_demo.as"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "SaveDemoScript",
+			"components": {
+				"script": {
+					"source": "scripts/save_demo.as"
+				}
+			}
 		}
 	]
 }

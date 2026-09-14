@@ -15,7 +15,11 @@
 #include <rlgl.h>
 #include <spdlog/spdlog.h>
 
+#include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
+
+using engine::core::Rect;
+using engine::core::Rgba;
 
 #if defined(__EMSCRIPTEN__)
 #include <cstdlib>
@@ -77,16 +81,14 @@ std::unordered_map<std::string, int> g_model_paths;
 // Dynamic meshes uploaded programmatically (for tilemaps, etc), indexed by handle
 std::vector<Mesh> g_dynamic_meshes;
 
-// Unlit-rendering resources: simple shader for 2D/UI elements without Phong shading.
-// Populated once GL is ready and torn down on Shutdown.
-struct UnlitState {
+struct CustomShaderEntry {
 	bool ready = false;
 	Shader shader{};
 	Material material{};
-	Texture2D white{}; // 1x1 white fallback
+	Texture2D white{};
 };
 
-UnlitState g_unlit;
+std::vector<CustomShaderEntry> g_custom_shaders;
 
 // Loaded textures, indexed by the handle returned from LoadTexture.
 std::vector<Texture2D> g_textures;
@@ -130,6 +132,19 @@ struct LitState {
 
 LitState g_lit;
 
+Texture2D ResolveTextureHandle(const int texture, const Texture2D& fallback) {
+	return (texture >= 0 && texture < static_cast<int>(g_textures.size())) ? g_textures[static_cast<size_t>(texture)]
+																		   : fallback;
+}
+
+CustomShaderEntry* ResolveCustomShaderEntry(const int shader) {
+	if (shader < 0 || shader >= static_cast<int>(g_custom_shaders.size())) {
+		return nullptr;
+	}
+	auto& entry = g_custom_shaders[static_cast<size_t>(shader)];
+	return entry.ready ? &entry : nullptr;
+}
+
 // glm is column-major; map column i to raylib Matrix column i (raylib is also column-major).
 Matrix ToRayMatrix(const glm::mat4& m) {
 	Matrix r;
@@ -150,6 +165,16 @@ Matrix ToRayMatrix(const glm::mat4& m) {
 	r.m14 = m[3][2];
 	r.m15 = m[3][3];
 	return r;
+}
+
+void DrawMeshWithMaterial(const Mesh& mesh, Material& material, const glm::mat4& model, const bool wireframe) {
+	if (wireframe) {
+		rlEnableWireMode();
+	}
+	::DrawMesh(mesh, material, ToRayMatrix(model));
+	if (wireframe) {
+		rlDisableWireMode();
+	}
 }
 
 // Projects world-space geometry onto the plane y = ground along the light direction `l`.
@@ -367,79 +392,72 @@ void ShutdownLitResources() {
 	g_lit = LitState{};
 }
 
-void InitUnlitResources() {
-	if (g_unlit.ready) return;
-
-#if defined(__EMSCRIPTEN__)
-	const std::string dir = std::string("/assets/shaders/") + kGlslDir;
-#else
-	const std::string dir = std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
-#endif
-	const std::string vs = dir + "/unlit.vs";
-	const std::string fs = dir + "/unlit.fs";
-
-	g_unlit.shader = LoadShader(vs.c_str(), fs.c_str());
-	if (g_unlit.shader.id == rlGetShaderIdDefault()) {
-		TraceLog(LOG_WARNING, "[RaylibBackend] Unlit shader failed to load; falling back to default");
-		return;
-	}
-
-	const Image white_img = GenImageColor(1, 1, WHITE);
-	g_unlit.white = LoadTextureFromImage(white_img);
-	UnloadImage(white_img);
-
-	g_unlit.material = LoadMaterialDefault();
-	g_unlit.material.shader = g_unlit.shader;
-	g_unlit.material.maps[MATERIAL_MAP_DIFFUSE].texture = g_unlit.white;
-
-	g_unlit.ready = true;
-}
-
-void ShutdownUnlitResources() {
-	if (!g_unlit.ready) return;
-	UnloadTexture(g_unlit.white);
-	UnloadShader(g_unlit.shader);
-	// LoadMaterialDefault allocated material.maps via RL_CALLOC. The shader and texture are already
-	// unloaded above, so free just the maps array (a full UnloadMaterial would double-free them).
-	MemFree(g_unlit.material.maps);
-	g_unlit = UnlitState{};
-}
-
 // Draws a cached mesh with the lit material, then an optional planar projected shadow.
-void DrawLitMesh(
+void DrawLitMeshWithFallbackTexture(
 	const Mesh& mesh,
 	const glm::mat4& model,
-	const Rgba color,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
+	const DrawMaterial& material,
+	const Texture2D& fallback_texture
 ) {
+	const Rgba color = material.tint;
+	const int texture = material.texture;
+	const bool cast_shadow = material.cast_shadow;
+	const bool wireframe = material.wireframe;
+
 	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(color);
-	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = (texture >= 0 && texture < static_cast<int>(g_textures.size()))
-															? g_textures[static_cast<std::size_t>(texture)]
-															: g_lit.white;
+	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(texture, fallback_texture);
 
 	constexpr float kOff = 0.0f;
 	constexpr float kOn = 1.0f;
 	SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 
 	if (wireframe) {
-		rlEnableWireMode();
-		DrawMesh(mesh, g_lit.material, ToRayMatrix(model));
-		rlDisableWireMode();
+		DrawMeshWithMaterial(mesh, g_lit.material, model, true);
 		return;
 	}
 
-	DrawMesh(mesh, g_lit.material, ToRayMatrix(model));
+	DrawMeshWithMaterial(mesh, g_lit.material, model, false);
 
 	if (cast_shadow && g_lit.shadows_enabled) {
 		const glm::mat4 shadow_model = g_lit.shadow_matrix * model;
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
 		rlDisableDepthMask(); // shadows blend without fighting the receiver's depth
-		DrawMesh(mesh, g_lit.material, ToRayMatrix(shadow_model));
+		DrawMeshWithMaterial(mesh, g_lit.material, shadow_model, false);
 		rlEnableDepthMask();
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 	}
+}
+
+void DrawLitMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial& material) {
+	DrawLitMeshWithFallbackTexture(mesh, model, material, g_lit.white);
+}
+
+bool DrawCustomMesh(
+	const Mesh& mesh,
+	const glm::mat4& model,
+	const DrawMaterial& material,
+	const Texture2D& fallback_texture
+) {
+	auto* entry = ResolveCustomShaderEntry(material.shader);
+	if (entry == nullptr) {
+		return false;
+	}
+
+	entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
+	entry->material.maps[MATERIAL_MAP_DIFFUSE].texture =
+		ResolveTextureHandle(material.texture, fallback_texture.id != 0 ? fallback_texture : entry->white);
+	DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
+	return true;
+}
+
+bool DrawCustomMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial& material) {
+	if (auto* entry = ResolveCustomShaderEntry(material.shader)) {
+		entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
+		entry->material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(material.texture, entry->white);
+		DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
+		return true;
+	}
+	return false;
 }
 } // namespace
 
@@ -449,14 +467,12 @@ void RaylibBackend::Init(const int width, const int height, const std::string_vi
 	SetTargetFPS(60);
 	InitAudioDevice();
 	InitLitResources();
-	InitUnlitResources();
 }
 
 bool RaylibBackend::ShouldClose() const { return WindowShouldClose(); }
 
 void RaylibBackend::Shutdown() {
 	ShutdownLitResources();
-	ShutdownUnlitResources();
 	for (const Texture2D& t : g_textures) {
 		if (t.id != 0) {
 			::UnloadTexture(t);
@@ -486,6 +502,15 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_dynamic_meshes.clear();
+	for (CustomShaderEntry& e : g_custom_shaders) {
+		if (e.ready) {
+			::UnloadTexture(e.white);
+			::UnloadShader(e.shader);
+			MemFree(e.material.maps);
+			e = CustomShaderEntry{};
+		}
+	}
+	g_custom_shaders.clear();
 	CloseAudioDevice();
 	CloseWindow();
 }
@@ -606,6 +631,19 @@ void RaylibBackend::DrawCircle(const glm::vec2 center, const float radius, const
 	DrawCircleV(ToRay(center), radius, ToRay(c));
 }
 
+void RaylibBackend::DrawTexturedRect(const int texture, const Rect dest, const Rgba tint) {
+	if (texture < 0 || texture >= static_cast<int>(g_textures.size())) {
+		DrawRectangleRec(ToRay(dest), ToRay(tint));
+		return;
+	}
+	const Texture2D& tex = g_textures[static_cast<std::size_t>(texture)];
+	// Source rect the size of the destination: texels beyond the texture wrap (default REPEAT), so
+	// the art tiles at 1:1 texel:pixel instead of stretching.
+	const Rectangle src{0.0F, 0.0F, dest.w, dest.h};
+	const Rectangle dst{dest.x, dest.y, dest.w, dest.h};
+	DrawTexturePro(tex, src, dst, Vector2{0.0F, 0.0F}, 0.0F, ToRay(tint));
+}
+
 void RaylibBackend::BeginScissor(const Rect r) {
 	BeginScissorMode(static_cast<int>(r.x), static_cast<int>(r.y), static_cast<int>(r.w), static_cast<int>(r.h));
 }
@@ -673,94 +711,71 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 	}
 }
 
-void RaylibBackend::DrawCube(
-	const glm::mat4& transform,
-	const glm::vec3 size,
-	const Rgba c,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
-) {
+void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, const DrawMaterial& material) {
+	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), size);
+	if (DrawCustomMesh(g_lit.cube, model, material)) {
+		return;
+	}
 	if (g_lit.ready) {
-		DrawLitMesh(g_lit.cube, transform * glm::scale(glm::mat4(1.0f), size), c, texture, cast_shadow, wireframe);
+		DrawLitMesh(g_lit.cube, model, material);
 		return;
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
-	if (wireframe) {
-		DrawCubeWiresV(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, ToRay(size), ToRay(c));
+	if (material.wireframe) {
+		DrawCubeWiresV(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, ToRay(size), ToRay(material.tint));
 	}
 	else {
-		DrawCubeV(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, ToRay(size), ToRay(c));
+		DrawCubeV(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, ToRay(size), ToRay(material.tint));
 	}
 	rlPopMatrix();
 }
 
-void RaylibBackend::DrawSphere(
-	const glm::mat4& transform,
-	const float radius,
-	const Rgba c,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
-) {
+void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, const DrawMaterial& material) {
+	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
+	if (DrawCustomMesh(g_lit.sphere, model, material)) {
+		return;
+	}
 	if (g_lit.ready) {
-		DrawLitMesh(
-			g_lit.sphere,
-			transform * glm::scale(glm::mat4(1.0f), glm::vec3(radius)),
-			c,
-			texture,
-			cast_shadow,
-			wireframe
-		);
+		DrawLitMesh(g_lit.sphere, model, material);
 		return;
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
-	if (wireframe) {
-		DrawSphereWires(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, radius, 16, 16, ToRay(c));
+	if (material.wireframe) {
+		DrawSphereWires(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, radius, 16, 16, ToRay(material.tint));
 	}
 	else {
-		::DrawSphere(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, radius, ToRay(c));
+		::DrawSphere(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, radius, ToRay(material.tint));
 	}
 	rlPopMatrix();
 }
 
-void RaylibBackend::DrawQuad(
-	const glm::mat4& transform,
-	const glm::vec2 size,
-	const Rgba c,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
-) {
-	if (g_lit.ready && !wireframe) {
-		DrawLitMesh(
-			g_lit.plane,
-			transform * glm::scale(glm::mat4(1.0f), glm::vec3(size.x, 1.0f, size.y)),
-			c,
-			texture,
-			cast_shadow,
-			false
-		);
+void RaylibBackend::DrawQuad(const glm::mat4& transform, const glm::vec2 size, const DrawMaterial& material) {
+	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), glm::vec3(size.x, 1.0f, size.y));
+	if (DrawCustomMesh(g_lit.plane, model, material)) {
+		return;
+	}
+	if (g_lit.ready) {
+		DrawLitMesh(g_lit.plane, model, material);
 		return;
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
-	if (wireframe) {
+	if (material.wireframe) {
 		const float hx = size.x * 0.5F;
 		const float hz = size.y * 0.5F;
 		const Vector3 a{.x = -hx, .y = 0.0F, .z = -hz};
 		const Vector3 b{.x = hx, .y = 0.0F, .z = -hz};
 		const Vector3 d{.x = hx, .y = 0.0F, .z = hz};
 		const Vector3 e{.x = -hx, .y = 0.0F, .z = hz};
-		DrawLine3D(a, b, ToRay(c));
-		DrawLine3D(b, d, ToRay(c));
-		DrawLine3D(d, e, ToRay(c));
-		DrawLine3D(e, a, ToRay(c));
+		DrawLine3D(a, b, ToRay(material.tint));
+		DrawLine3D(b, d, ToRay(material.tint));
+		DrawLine3D(d, e, ToRay(material.tint));
+		DrawLine3D(e, a, ToRay(material.tint));
 	}
 	else {
-		DrawPlane(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, Vector2{.x = size.x, .y = size.y}, ToRay(c));
+		DrawPlane(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, Vector2{.x = size.x, .y = size.y}, ToRay(material.tint));
 	}
 	rlPopMatrix();
 }
@@ -769,87 +784,105 @@ void RaylibBackend::DrawCapsule(
 	const glm::mat4& transform,
 	const float radius,
 	const float height,
-	const Rgba c,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
+	const DrawMaterial& material
 ) {
-	if (g_lit.ready && !wireframe) {
-		const float half = height * 0.5F;
-		// Cylinder body: unit cylinder (base at y=0) scaled and shifted so it spans [-half, +half].
-		const glm::mat4 body = transform
-							   * glm::translate(glm::mat4(1.0f), {0.0f, -half, 0.0f})
-							   * glm::scale(glm::mat4(1.0f), {radius, height, radius});
-		const glm::mat4 top = transform
-							  * glm::translate(glm::mat4(1.0f), {0.0f, half, 0.0f})
-							  * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
-		const glm::mat4 bottom = transform
-								 * glm::translate(glm::mat4(1.0f), {0.0f, -half, 0.0f})
-								 * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
-		DrawLitMesh(g_lit.cylinder, body, c, texture, cast_shadow, false);
-		DrawLitMesh(g_lit.sphere, top, c, texture, cast_shadow, false);
-		DrawLitMesh(g_lit.sphere, bottom, c, texture, cast_shadow, false);
+	const float half = height * 0.5F;
+	// Cylinder body: unit cylinder (base at y=0) scaled and shifted so it spans [-half, +half].
+	const glm::mat4 body = transform
+						   * glm::translate(glm::mat4(1.0f), {0.0f, -half, 0.0f})
+						   * glm::scale(glm::mat4(1.0f), {radius, height, radius});
+	const glm::mat4 top = transform
+						  * glm::translate(glm::mat4(1.0f), {0.0f, half, 0.0f})
+						  * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
+	const glm::mat4 bottom = transform
+							 * glm::translate(glm::mat4(1.0f), {0.0f, -half, 0.0f})
+							 * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
+
+	if (DrawCustomMesh(g_lit.cylinder, body, material)) {
+		DrawCustomMesh(g_lit.sphere, top, material);
+		DrawCustomMesh(g_lit.sphere, bottom, material);
 		return;
 	}
-	const float half = height * 0.5F;
+	if (g_lit.ready) {
+		DrawLitMesh(g_lit.cylinder, body, material);
+		DrawLitMesh(g_lit.sphere, top, material);
+		DrawLitMesh(g_lit.sphere, bottom, material);
+		return;
+	}
 	const Vector3 start{.x = 0.0F, .y = -half, .z = 0.0F};
 	const Vector3 end{.x = 0.0F, .y = half, .z = 0.0F};
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
-	if (wireframe) {
-		DrawCapsuleWires(start, end, radius, 16, 8, ToRay(c));
+	if (material.wireframe) {
+		DrawCapsuleWires(start, end, radius, 16, 8, ToRay(material.tint));
 	}
 	else {
-		::DrawCapsule(start, end, radius, 16, 8, ToRay(c));
+		::DrawCapsule(start, end, radius, 16, 8, ToRay(material.tint));
 	}
 	rlPopMatrix();
 }
 
-void RaylibBackend::DrawMesh(
-	const int handle,
-	const glm::mat4& transform,
-	const Rgba tint,
-	const int texture,
-	const bool cast_shadow,
-	const bool wireframe
-) {
+void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const DrawMaterial& material) {
 	if (handle < 0 || handle >= static_cast<int>(g_models.size())) {
 		return;
 	}
-	Model& model = g_models[static_cast<std::size_t>(handle)];
+	Model& model = g_models[static_cast<size_t>(handle)];
 
-	// Optional per-draw diffuse texture override on the model's primary material.
-	if (texture >= 0 && texture < static_cast<int>(g_textures.size()) && model.materialCount > 0) {
-		model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = g_textures[static_cast<std::size_t>(texture)];
-	}
+	if (ResolveCustomShaderEntry(material.shader) != nullptr || g_lit.ready) {
+		auto draw_meshes = [&](auto&& draw_fn) {
+			for (int i = 0; i < model.meshCount; ++i) {
+				Texture2D fallback = g_lit.white;
+				if (model.meshMaterial != nullptr
+					&& model.materials != nullptr
+					&& model.materialCount > 0
+					&& model.meshMaterial[i] >= 0
+					&& model.meshMaterial[i] < model.materialCount) {
+					const Texture2D source = model.materials[model.meshMaterial[i]].maps[MATERIAL_MAP_DIFFUSE].texture;
+					if (source.id != 0) {
+						fallback = source;
+					}
+				}
+				draw_fn(model.meshes[i], fallback);
+			}
+		};
 
-	const bool lit = g_lit.ready && !wireframe;
-	if (lit) {
+		if (ResolveCustomShaderEntry(material.shader) != nullptr) {
+			draw_meshes([&](const Mesh& mesh, const Texture2D& fallback) {
+				DrawCustomMesh(mesh, transform, material, fallback);
+			});
+			return;
+		}
+
 		constexpr float off = 0.0f;
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &off, SHADER_UNIFORM_FLOAT);
+
+		draw_meshes([&](const Mesh& mesh, const Texture2D& fallback) {
+			DrawLitMeshWithFallbackTexture(mesh, transform, material, fallback);
+		});
+		return;
+	}
+
+	// Optional per-draw diffuse texture override on the model's primary material for the default path.
+	Texture2D original_texture{};
+	bool restore_texture = false;
+	if (material.texture >= 0 && material.texture < static_cast<int>(g_textures.size()) && model.materialCount > 0) {
+		original_texture = model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture;
+		model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = g_textures[static_cast<size_t>(material.texture)];
+		restore_texture = true;
 	}
 
 	model.transform = ToRayMatrix(transform);
-	if (wireframe) {
+	if (material.wireframe) {
 		rlEnableWireMode();
 	}
-	DrawModel(model, Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, 1.0F, ToRay(tint));
-	if (wireframe) {
+	DrawModel(model, Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, 1.0F, ToRay(material.tint));
+	if (material.wireframe) {
 		rlDisableWireMode();
 	}
-
-	if (lit && cast_shadow && g_lit.shadows_enabled) {
-		constexpr float on = 1.0f;
-		constexpr float off = 0.0f;
-		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &on, SHADER_UNIFORM_FLOAT);
-		rlDisableDepthMask();
-		model.transform = ToRayMatrix(g_lit.shadow_matrix * transform);
-		DrawModel(model, Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, 1.0F, ToRay(tint));
-		rlEnableDepthMask();
-		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &off, SHADER_UNIFORM_FLOAT);
-	}
-
 	model.transform = ToRayMatrix(glm::mat4(1.0f));
+	if (restore_texture) {
+		model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = original_texture;
+	}
 }
 
 int RaylibBackend::LoadMesh(const std::string_view path) {
@@ -941,8 +974,8 @@ int RaylibBackend::UploadDynamicMesh(
 		mesh.texcoords[i * 2 + 1] = i < uv_count ? uvs[i].y : 0.0f;
 	}
 
-	// Upload to GPU
-	::UploadMesh(&mesh, false);
+	// Upload to GPU as dynamic so UpdateMeshBuffer can update UV coords for streaming
+	::UploadMesh(&mesh, true);
 
 	// Store in dynamic mesh list
 	const int handle = static_cast<int>(g_dynamic_meshes.size());
@@ -962,41 +995,30 @@ void RaylibBackend::UnloadDynamicMesh(const int handle) {
 	mesh.vertexCount = 0;
 }
 
-void RaylibBackend::DrawDynamicMesh(
-	const int handle,
-	const glm::mat4& transform,
-	const int texture,
-	const bool wireframe
-) {
+void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform, const DrawMaterial& material) {
 	if (handle < 0 || handle >= static_cast<int>(g_dynamic_meshes.size())) {
 		return;
 	}
 
 	const Mesh& mesh = g_dynamic_meshes[static_cast<size_t>(handle)];
+	if (mesh.vertexCount == 0) return;
 
-	// Use unlit shader if available, otherwise fall back to default
-	if (g_unlit.ready) {
-		g_unlit.material.maps[MATERIAL_MAP_DIFFUSE].texture =
-			(texture >= 0 && texture < static_cast<int>(g_textures.size()))
-				? g_textures[static_cast<std::size_t>(texture)]
-				: g_unlit.white;
+	if (DrawCustomMesh(mesh, transform, material)) {
+		return;
+	}
+	if (g_lit.ready) {
+		DrawLitMesh(mesh, transform, material);
+		return;
 	}
 
-	if (wireframe) {
+	rlPushMatrix();
+	rlMultMatrixf(glm::value_ptr(transform));
+	if (material.wireframe) {
 		rlEnableWireMode();
 	}
 
-	// Apply transformation matrix
-	// rlPushMatrix();
-	// rlMultMatrixf(glm::value_ptr(transform));
-
-	// Draw mesh with material (vertex colors are automatically used by Raylib)
-	if (g_unlit.ready) {
-		::DrawMesh(mesh, g_unlit.material, ToRayMatrix(transform));
-	}
-	else {
-		// Fallback: draw without shader
-		rlSetMatrixModelview(rlGetMatrixTransform());
+	{
+		// Immediate-mode fallback when shaders haven't been initialised yet
 		for (int i = 0; i < mesh.triangleCount; i++) {
 			rlBegin(RL_TRIANGLES);
 			for (int v = 0; v < 3; v++) {
@@ -1009,17 +1031,102 @@ void RaylibBackend::DrawDynamicMesh(
 						mesh.colors[vidx * 4 + 3]
 					);
 				}
+				else {
+					rlColor4ub(material.tint.r, material.tint.g, material.tint.b, material.tint.a);
+				}
 				rlVertex3f(mesh.vertices[vidx * 3], mesh.vertices[vidx * 3 + 1], mesh.vertices[vidx * 3 + 2]);
 			}
 			rlEnd();
 		}
 	}
 
-	// rlPopMatrix();
-
-	if (wireframe) {
+	if (material.wireframe) {
 		rlDisableWireMode();
 	}
+	rlPopMatrix();
+}
+
+void RaylibBackend::UpdateDynamicMeshUVs(const int handle, const std::vector<glm::vec2>& uvs) {
+	if (handle < 0 || handle >= static_cast<int>(g_dynamic_meshes.size())) return;
+	const Mesh& mesh = g_dynamic_meshes[static_cast<size_t>(handle)];
+	if (mesh.vertexCount == 0 || !mesh.texcoords) return;
+
+	const int count = std::min(static_cast<int>(uvs.size()), mesh.vertexCount);
+	for (int i = 0; i < count; ++i) {
+		mesh.texcoords[i * 2 + 0] = uvs[i].x;
+		mesh.texcoords[i * 2 + 1] = uvs[i].y;
+	}
+	UpdateMeshBuffer(mesh, 1, mesh.texcoords, count * 2 * static_cast<int>(sizeof(float)), 0);
+}
+
+void RaylibBackend::UpdateDynamicMeshColors(const int handle, const std::vector<glm::vec4>& colors) {
+	if (handle < 0 || handle >= static_cast<int>(g_dynamic_meshes.size())) return;
+	const Mesh& mesh = g_dynamic_meshes[static_cast<size_t>(handle)];
+	if (mesh.vertexCount == 0 || !mesh.colors) return;
+
+	const int count = std::min(static_cast<int>(colors.size()), mesh.vertexCount);
+	for (int i = 0; i < count; ++i) {
+		mesh.colors[i * 4 + 0] = static_cast<unsigned char>(glm::clamp(colors[i].r, 0.0f, 1.0f) * 255.0f);
+		mesh.colors[i * 4 + 1] = static_cast<unsigned char>(glm::clamp(colors[i].g, 0.0f, 1.0f) * 255.0f);
+		mesh.colors[i * 4 + 2] = static_cast<unsigned char>(glm::clamp(colors[i].b, 0.0f, 1.0f) * 255.0f);
+		mesh.colors[i * 4 + 3] = static_cast<unsigned char>(glm::clamp(colors[i].a, 0.0f, 1.0f) * 255.0f);
+	}
+	UpdateMeshBuffer(mesh, 3, mesh.colors, count * 4, 0);
+}
+
+std::string RaylibBackend::ShaderDirectory() const {
+#if defined(__EMSCRIPTEN__)
+	return std::string("/assets/shaders/") + kGlslDir;
+#else
+	return std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
+#endif
+}
+
+int RaylibBackend::LoadShader(const std::vector<ShaderStage>& stages) {
+	// Raylib needs vertex + fragment paths; pick them by stage type.
+	const char* vs = nullptr;
+	const char* fs = nullptr;
+	std::string vs_str, fs_str;
+	for (const auto& [type, path] : stages) {
+		if (type == "vertex") {
+			vs_str = path;
+			vs = vs_str.c_str();
+		}
+		else if (type == "fragment") {
+			fs_str = path;
+			fs = fs_str.c_str();
+		}
+	}
+
+	CustomShaderEntry entry;
+	entry.shader = ::LoadShader(vs, fs);
+	if (entry.shader.id == rlGetShaderIdDefault()) {
+		spdlog::warn("[RaylibBackend] LoadShader: shader failed to load (vs={}, fs={})", vs ? vs : "", fs ? fs : "");
+		return -1;
+	}
+
+	const Image white_img = GenImageColor(1, 1, WHITE);
+	entry.white = LoadTextureFromImage(white_img);
+	UnloadImage(white_img);
+
+	entry.material = LoadMaterialDefault();
+	entry.material.shader = entry.shader;
+	entry.material.maps[MATERIAL_MAP_DIFFUSE].texture = entry.white;
+	entry.ready = true;
+
+	const int handle = static_cast<int>(g_custom_shaders.size());
+	g_custom_shaders.push_back(entry);
+	return handle;
+}
+
+void RaylibBackend::UnloadShader(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_custom_shaders.size())) return;
+	auto& entry = g_custom_shaders[static_cast<size_t>(handle)];
+	if (!entry.ready) return;
+	::UnloadTexture(entry.white);
+	::UnloadShader(entry.shader);
+	MemFree(entry.material.maps);
+	entry = CustomShaderEntry{};
 }
 
 int RaylibBackend::LoadTexture(const std::string_view path) {
@@ -1034,7 +1141,7 @@ int RaylibBackend::LoadTexture(const std::string_view path) {
 		return -1;
 	}
 	GenTextureMipmaps(&texture);
-	SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+	::SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
 	const int handle = static_cast<int>(g_textures.size());
 	g_textures.push_back(texture);
 	g_texture_paths[key] = handle;
@@ -1074,6 +1181,20 @@ void RaylibBackend::UnloadTexture(const int handle) {
 	::UnloadTexture(texture);
 	texture.id = 0;
 	std::erase_if(g_texture_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+void RaylibBackend::SetTextureFilter(const int handle, const bool linear) {
+	if (handle < 0 || handle >= static_cast<int>(g_textures.size())) return;
+	const Texture2D& tex = g_textures[static_cast<size_t>(handle)];
+	if (tex.id == 0) return;
+	::SetTextureFilter(tex, linear ? TEXTURE_FILTER_BILINEAR : TEXTURE_FILTER_POINT);
+}
+
+void RaylibBackend::SetTextureWrap(const int handle, const bool clamp) {
+	if (handle < 0 || handle >= static_cast<int>(g_textures.size())) return;
+	const Texture2D& tex = g_textures[static_cast<size_t>(handle)];
+	if (tex.id == 0) return;
+	::SetTextureWrap(tex, clamp ? TEXTURE_WRAP_CLAMP : TEXTURE_WRAP_REPEAT);
 }
 
 void RaylibBackend::UnloadMesh(const int handle) {

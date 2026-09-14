@@ -1,12 +1,12 @@
 // cube_jump.as — Makes the parent (host) entity jump on Space or a left-mouse click.
 //
 // Demonstrates the scripting interface:
-//   - self.GetWorldTransform()       returns a WorldTransform@ handle into ECS storage
+//   - self.GetWorldTransform()       returns a const WorldTransform@ handle into ECS storage
 //   - GetInputState()                reads the InputState world singleton (value type)
 //   - input.WasKeyPressed(key)       native method on the singleton value
 //   - self.AddPhysicsImpulse()       ensures the component exists, returns a PhysicsImpulse@
-//   - self.GetAlbedoMap()            Get texture path at runtime to toggle from initial to empty (T key)
-//   - self.GetSoundEffect().Fire()     modifies the SoundEffect in-place via its handle
+//   - self.GetSoundEffect().Fire()   read-only access without marking modified
+//   - self.MutAlbedoMap()            mutable access that triggers OnSet observers when modified
 
 const float JUMP_FORCE = 5.0f;
 const float MAX_Y_TO_JUMP = 1.2f; // only jump when near the ground
@@ -42,7 +42,7 @@ void Tick(Entity self, float dt) {
     // Setting path = "" triggers ResolveAlbedoMap (via modified()) which clears texture_handle.
     // Setting path = original triggers ResolveAlbedoMap which reloads the texture handle.
     if (input.WasKeyPressed(Key_T)) {
-        AlbedoMap@ tmap = self.GetAlbedoMap();
+        AlbedoMap@ tmap = self.MutAlbedoMap();
         if (tmap.path != "") {
             tmap.path = "";
             Print("[T] Texture removed");

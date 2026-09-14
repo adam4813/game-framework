@@ -60,8 +60,10 @@ public:
 		const CollisionShape& shape
 	);
 
+	void SetBodyTransform(EntityId entity, const PhysicsTransform& transform);
+
 	/// Sync body state from physics backend to ECS
-	[[nodiscard]] PhysicsSyncResult SyncBodyFromBackend(EntityId entity) const;
+	[[nodiscard]] PhysicsSyncResult GetPhysicsSyncResult(EntityId entity) const;
 
 	/// Remove body from backend
 	void RemoveBody(EntityId entity);

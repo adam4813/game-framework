@@ -6,39 +6,80 @@ implementation notes.
 
 ## Component access API
 
-Every ECS component registered with `RegisterComponentForScripts` exposes three entity methods:
+Every ECS component registered with `RegisterComponentForScripts` exposes four entity methods. The exact signature
+depends on whether the entity reference is mutable or const:
 
-| Method            | Returns        | Behaviour                                                       |
-|-------------------|----------------|-----------------------------------------------------------------|
-| `T@ GetT()`       | mutable handle | Direct pointer into ECS storage; marks the component modified   |
-| `T@ AddT()`       | mutable handle | Ensures the component exists (adds with defaults if absent)     |
-| `void SetT(T@ v)` | —              | Upsert: adds the component if absent, replaces value if present |
+**On a mutable Entity&:**
 
-### `GetT()` always marks the component modified
+| Method            | Returns        | Marks Modified? | Behaviour                                                              |
+|-------------------|----------------|-----------------|------------------------------------------------------------------------|
+| `T@ GetT()`       | mutable handle | No              | Direct pointer into ECS storage; allows mutation but no notifications  |
+| `T@ MutT()`       | mutable handle | Yes (every call)| Direct pointer into ECS storage; marks component modified on each call |
+| `T@ AddT()`       | mutable handle | —               | Ensures the component exists (adds with defaults if absent)            |
+| `void SetT(T@ v)` | —              | —               | Upsert: adds the component if absent, replaces value if present        |
 
-`GetT()` is **intentionally eager**: it calls the backend's modified notification on every call — even read-only
-accesses. This means in-place mutations are seen by `OnSet` observers and change-detection queries without a separate
-`SetT()` write-back:
+**On a const Entity&:**
+
+| Method            | Returns      | Behaviour                                                       |
+|-------------------|--------------|----------|
+| `const T@ GetT()` | const handle | Read-only pointer into ECS storage; cannot be modified         |
+
+### `GetT()` — mutable access without notifications (mutable entity only)
+
+`GetT()` on a mutable entity reference returns a mutable handle but does **not** mark the component modified. You can
+read and modify fields, but `OnSet` observers will not fire. Use this when you need to mutate privately or read state
+without triggering side effects:
 
 ```angelscript
-// in-place mutation — GetT() called modified(), so OnSet observers fire automatically
+// Read or modify without triggering OnSet observers
 SoundEffect@ sfx = self.GetSoundEffect();
-sfx.path = "sfx/land.wav"; // observer re-triggers, new sound loaded — no SetT() needed
+sfx.path = "sfx/land.wav"; // modified, but observer does NOT fire — load happens on next MutT() or SetT()
+Print("Path was: " + sfx.path); // you can read what you just wrote
+```
+
+### `GetT()` — read-only access (const entity only)
+
+`GetT() const` on a const entity reference returns a const handle for pure reads. Use this when you want to ensure
+the component is not accidentally modified:
+
+```angelscript
+// Pure read — compile error if you try to modify
+const Entity& host = GetHost(); // hypothetically const
+const SoundEffect@ sfx = host.GetSoundEffect(); // const reference
+Print("Sound: " + sfx.path); // OK
+// sfx.path = "..."; // error: cannot modify const handle
+```
+
+### `MutT()` — in-place mutation with notifications
+
+`MutT()` returns a mutable handle and marks the component modified on every call. Use this when you need `OnSet`
+observers to fire; typical use is making changes and having them immediately processed by observers:
+
+```angelscript
+// In-place mutation — MutT() marks modified, so OnSet observers fire immediately
+SoundEffect@ sfx = self.MutSoundEffect();
+sfx.path = "sfx/land.wav"; // observer re-triggers, new sound loaded automatically
 sfx.Fire();                 // playing = true, SoundEffectPlayback picks it up this frame
 ```
 
-**Performance note**: every `GetT()` call dirtifies the component each tick, regardless of whether the script actually
-writes to it. Avoid `GetT()` in hot read-only paths; use the generic field accessors (`GetFloat`, `GetInt`, `GetBool`)
-or the copy-return singleton pattern (`GetInputState()`) instead.
+**Performance note**: `MutT()` dirties the component every time it's called, regardless of whether you actually write
+to it. In hot read-only paths, use `GetT()` or the generic field accessors (`GetFloat`, `GetInt`, `GetBool`) instead.
 
-> **TODO**: Add a read-only `PeekT()` variant (or a const overload) that returns a handle
-> *without* firing the modified notification, so high-frequency read paths don't pay the
-> dirty-notification cost. Current blocker: the script `self` parameter is non-const, so
-> AngelScript const-overload resolution doesn't distinguish the two calls today.
+### `AddT()` — ensure component exists
+
+`AddT()` ensures the component is present (zero-initialized if just added). Useful for guaranteeing a component before
+mutation without knowing whether it already exists:
+
+```angelscript
+// Guarantee Timer exists, then start it
+Timer@ t = self.AddTimer();
+t.duration = 5.0f;
+t.remaining = 5.0f;
+```
 
 ### `SetT()` — upsert
 
-`SetT(v)` copies from a handle into ECS storage, adding the component if it isn't present yet. Use it when you have a
+`SetT(v)` copies a value into ECS storage, adding the component if it isn't present yet. Use it when you have a
 standalone value to push onto an entity rather than fetching and mutating:
 
 ```angelscript

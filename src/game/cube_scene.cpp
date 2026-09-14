@@ -47,143 +47,12 @@ void CubeScene::Load(flecs::world& world) {
 }
 
 void CubeScene::SetupPhysicsDemo(const flecs::world& world) const {
-	// Create side-on camera
-	const auto camera_entity = world.entity("Camera").child_of(sceneRoot_);
-	camera_entity.set<ecs::Transform>({.position = {0.0F, 5.0F, 5.0F}});
-	camera_entity.set<ecs::WorldTransform>(ecs::MakeWorldTransform({0.0F, 5.0F, 5.0F}, {}, {1.0F, 1.0F, 1.0F}));
-	camera_entity.set<render::Camera>(
-		{.target = {0.0F, 1.0F, 0.0F},
-		 .up = {0.0F, 1.0F, 0.0F},
-		 .fov = 60.0F,
-		 .aspect_ratio = 16.0F / 9.0F,
-		 .near_plane = 0.1F,
-		 .far_plane = 100.0F}
-	);
-
-	// Ambient fill so shadowed faces stay readable, plus a sun-like directional light that drives
-	// Phong shading and casts planar shadows onto the floor's top surface (y = 0.25).
-	world.set<render::AmbientLight>({.color = {.r = 90, .g = 105, .b = 130, .a = 255}, .intensity = 0.35F});
-	const auto sun = world.entity("SunLight").child_of(sceneRoot_);
-	sun.set<render::DirectionalLight>(
-		{.direction = {-0.55F, -1.0F, -0.4F},
-		 .color = {.r = 255, .g = 245, .b = 220, .a = 255},
-		 .intensity = 1.0F,
-		 .specular_strength = 0.35F,
-		 .shininess = 24.0F,
-		 .casts_shadows = true,
-		 .shadow_ground_y = 0.25F,
-		 .shadow_color = {.r = 8, .g = 10, .b = 14, .a = 115}}
-	);
-
-	// Script demo: a child entity whose AngelScript hue-cycles the sun's DirectionalLight colour
-	// each tick, showing a script mutating a render component live.
-	const auto sun_script = world.entity("SunCycleScript").child_of(sun);
-	sun_script.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/sun_cycle.as")});
-
-	// Create floor (static rigid body)
-	const auto floor = world.entity("Floor").child_of(sceneRoot_);
-	floor.set<ecs::Transform>(
-		{.position = {0.0F, 0.0F, 0.0F}, .rotation = {0.0F, 0.0F, 0.0F}, .scale = {10.0F, 0.5F, 10.0F}}
-	);
-	floor.set<ecs::WorldTransform>(ecs::MakeWorldTransform({0.0F, 0.0F, 0.0F}, {}, {10.0F, 0.5F, 10.0F}));
-	floor.set<physics::RigidBody>(
-		{.motion_type = physics::MotionType::Static,
-		 .mass = 0.0F,
-		 .friction = 0.5F,
-		 .restitution = 0.0F,
-		 .use_gravity = false}
-	);
-	floor.set<physics::CollisionShape>(
-		{.type = physics::ShapeType::Box, .box_half_extents = {5.0F, 0.25F, 5.0F}, .offset = {0.0F, 0.0F, 0.0F}}
-	);
-
-	// Render the floor as a unit cube scaled by its WorldTransform (10 x 0.5 x 10). A checker
-	// texture makes the surface (and the ball's motion across it) far easier to read. The floor
-	// receives shadows but shouldn't cast one, so cast_shadow is disabled.
-	floor.set<render::CubePrimitive>({.size = {1.0F, 1.0F, 1.0F}});
-	floor.set<render::Material>({.color = {.r = 235, .g = 240, .b = 235, .a = 255}, .cast_shadow = false});
-	floor.set<render::AlbedoMap>({.path = assets::ResolveAsset(world, "textures/checker.png")});
-
-	// Create falling cube (dynamic rigid body)
-	const auto cube = world.entity("FallingCube").child_of(sceneRoot_);
-	cube.set<ecs::Transform>(
-		{.position = {0.0F, 3.0F, 0.0F}, .rotation = {0.0F, 0.0F, 0.0F}, .scale = {1.0F, 1.0F, 1.0F}}
-	);
-	cube.set<ecs::WorldTransform>(ecs::MakeWorldTransform({0.0F, 3.0F, 0.0F}, {}, {1.0F, 1.0F, 1.0F}));
-	cube.set<physics::RigidBody>(
-		{.motion_type = physics::MotionType::Dynamic,
-		 .mass = 1.0F,
-		 .linear_damping = 0.05F,
-		 .angular_damping = 0.05F,
-		 .friction = 0.5F,
-		 .restitution = 0.3F,
-		 .enable_ccd = false,
-		 .use_gravity = true,
-		 .gravity_scale = 1.0F}
-	);
-	cube.set<physics::CollisionShape>(
-		{.type = physics::ShapeType::Box, .box_half_extents = {0.5F, 0.5F, 0.5F}, .offset = {0.0F, 0.0F, 0.0F}}
-	);
-	cube.set<physics::PhysicsVelocity>({});
-
-	// Render the falling cube; physics drives its WorldTransform each frame.
-	cube.set<render::CubePrimitive>({.size = {1.0F, 1.0F, 1.0F}});
-	cube.set<render::Material>({.color = platform::colors::Boost});
-
-	// Add the checker texture so the T-key script demo can toggle it on/off.
-	cube.set<render::AlbedoMap>({.path = assets::ResolveAsset(world, "textures/checker.png")});
-
-	// Attach a jump sound via SoundEffect directly. The ResolveSoundEffect observer fires on
-	// OnSet and loads the handle automatically so no separate AudioSource is needed.
-	cube.set<audio::SoundEffect>({.path = assets::ResolveAsset(world, "audio/sfx/jump.wav")});
-
-	// First script: jump on space/click, toggle texture with T.
-	const auto cube_script = world.entity("CubeJumpScript").child_of(cube);
-	cube_script.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/cube_jump.as")});
-
-	// Second script on the same parent entity — demonstrates the multiple-scripts-per-entity
-	// pattern. Uses a timer, vec3 constructor, and Vec3_Right; see cube_spin.as for details.
-	const auto spin_script = world.entity("CubeSpinScript").child_of(cube);
-	spin_script.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/cube_spin.as")});
-
-	// === Particles demo: emitter on the cube (spawns children using the render pipeline) ===
-	// P key toggles emitting via particle_toggle.as. The emitter drives the position from the
-	// cube's WorldTransform (updated each frame by physics).
-	cube.set<particles::ParticleEmitter>(
-		{.rate = 30.0F,
-		 .particleLifetime = 0.6F,
-		 .speed = 2.5F,
-		 .startSize = 0.08F,
-		 .spread = 0.6F,
-		 .direction = {0.0F, 1.0F, 0.0F},
-		 .colorStart = {.r = 255, .g = 200, .b = 80, .a = 255},
-		 .colorEnd = {.r = 255, .g = 80, .b = 30, .a = 0},
-		 .emitting = false} // off by default; P key enables it
-	);
-	const auto particle_script = world.entity("ParticleToggleScript").child_of(cube);
-	particle_script.set<scripting::ScriptComponent>(
-		{.source_path = assets::ResolveAsset(world, "scripts/particle_toggle.as")}
-	);
-
-	// === Timer + Tween demo: a sphere that pulses colour on a repeating timer ===
-	// Placed to the left of the cube. The TimerTweenDemoScript adds Timer + Tween components to
-	// this entity via AddTimer()/AddTween() in OnInit; the engine's advance systems drive them.
-	const auto timerSphere = world.entity("TimerDemoSphere").child_of(sceneRoot_);
-	timerSphere.set<ecs::Transform>({.position = {-2.5F, 0.5F, 0.0F}});
-	timerSphere.set<ecs::WorldTransform>(ecs::MakeWorldTransform({-2.5F, 0.5F, 0.0F}, {}, {1.0F, 1.0F, 1.0F}));
-	timerSphere.set<render::SpherePrimitive>({.radius = 0.5F});
-	timerSphere.set<render::Material>({.color = platform::colors::Boost});
-	const auto timer_script = world.entity("TimerTweenDemoScript").child_of(timerSphere);
-	timer_script.set<scripting::ScriptComponent>(
-		{.source_path = assets::ResolveAsset(world, "scripts/timer_tween_demo.as")}
-	);
-
-	// Save-system demo: drives JSON save/load from a script via global verbs (see save_demo.as and
-	// src/game/meta_save_example.cpp). Standalone entity — it only uses input + global functions.
-	const auto save_demo_script = world.entity("SaveDemoScript").child_of(sceneRoot_);
-	save_demo_script.set<scripting::ScriptComponent>(
-		{.source_path = assets::ResolveAsset(world, "scripts/save_demo.as")}
-	);
+	// The 3D physics demo is authored declaratively in assets/levels/demo.level.json: camera, a
+	// sun light with its hue-cycle script, the floor, the falling cube (with its jump/spin/particle
+	// scripts, particle emitter and jump sound), a timer-tween sphere and the save-system demo
+	// script. Loading it under sceneRoot_ keeps the whole tree owned by one entity, so Unload tears
+	// it down with a single destruct — the same ownership the imperative setup had, now data-driven.
+	level::LoadLevel(world, assets::ResolveAsset(world, "levels/demo.level.json"), sceneRoot_);
 }
 
 void CubeScene::BuildUI(const flecs::world& world) {
@@ -201,14 +70,14 @@ void CubeScene::BuildUI(const flecs::world& world) {
 			   .child_of(uiRoot_);
 
 	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h / 2.0F - 100.0F, .w = w, .h = 48.0F}, "Game Scene", 48.0F)
-					  .set<ui::Label>({.text = "Game Scene", .font_size = 48.0F, .color = platform::colors::Title})
+					  .set<ui::Label>({.text = "Game Scene", .font_size = 48.0F, .color = core::colors::Title})
 					  .child_of(hud_);
 
 	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h / 2.0F, .w = w, .h = 20.0F}, "Press ESC to pause", 16.0F)
 					  .set<ui::Label>(
 						  {.text = "ESC: pause  |  Space/Click: jump  |  P: toggle particles  |  T: texture",
 						   .font_size = 16.0F,
-						   .color = platform::colors::Subtle}
+						   .color = core::colors::Subtle}
 					  )
 					  .child_of(hud_);
 

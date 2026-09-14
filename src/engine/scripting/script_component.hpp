@@ -20,10 +20,10 @@ class IScriptInstance;
 
 // Script compilation/execution error state.
 enum class ScriptError : uint8_t {
-	None,           // No error; script is valid
-	LoadFailed,     // File read error
-	CompileFailed,  // Syntax or compile-time error
-	RuntimeError,   // Initialization or execution error
+	None,          // No error; script is valid
+	LoadFailed,    // File read error
+	CompileFailed, // Syntax or compile-time error
+	RuntimeError,  // Initialization or execution error
 };
 
 // Attached as a component on a *child* entity of the host entity.
@@ -43,13 +43,27 @@ struct ScriptComponent {
 	std::string source_path;   // path on disk (empty when using inline source)
 	std::string inline_source; // raw script text (empty when using a file path)
 
-	IScriptInstance* instance{nullptr}; // backend-owned; direct dispatch target
-	bool initialized{false};            // true after IScriptInstance::OnInit has been called
+	IScriptInstance* instance{nullptr};   // backend-owned; direct dispatch target
+	bool initialized{false};              // true after IScriptInstance::OnInit has been called
 	ScriptError error{ScriptError::None}; // tracks compilation/init failures
-	std::string error_message;          // human-readable error detail
+	std::string error_message;            // human-readable error detail
 };
 
 // Tag placed on the parent ("host") entity when at least one script child exists.
 struct ScriptHost {};
+
+// Relationship tag for component traversal in script Get calls.
+//
+// When component C has the pair (ScriptTraversal, Rel) added to its component entity, the
+// scripting backend's GetC() accessor will also try finding C on the entity that `this` targets
+// via Rel whenever C is not found directly on the host entity.
+//
+// Usage (typically in a module constructor):
+//   world.component<render::Material>()
+//       .add<scripting::ScriptTraversal>(world.component<render::RenderWith>());
+//
+// This lets scripts call self.GetMaterial() on entities that declare their material via a
+// RenderWith relationship, rather than having Material set directly on them.
+struct ScriptTraversal {};
 
 } // namespace engine::scripting

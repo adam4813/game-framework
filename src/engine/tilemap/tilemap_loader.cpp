@@ -7,9 +7,8 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include "engine/assets/assets_module.hpp"
-#include "engine/core/json_util.hpp"
-#include "engine/platform/platform.hpp"
+#include "engine/assets/assets.hpp"
+#include "engine/core/core.hpp"
 #include "tilemap_components.hpp"
 
 namespace engine::tilemap {

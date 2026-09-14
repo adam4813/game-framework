@@ -217,7 +217,7 @@ void JoltBackend::SetGravity(const glm::vec3& gravity) const {
 
 glm::vec3 JoltBackend::GetGravity() const {
 	if (physics_system_) {
-		auto g = physics_system_->GetGravity();
+		const auto g = physics_system_->GetGravity();
 		return {g.GetX(), g.GetY(), g.GetZ()};
 	}
 	return config_.gravity;
@@ -417,8 +417,26 @@ void JoltBackend::SyncBodyToBackend(
 		}
 	}
 }
+void JoltBackend::SetBodyTransform(const EntityId entity, const PhysicsTransform& transform) {
+	auto& body_interface = physics_system_->GetBodyInterface();
 
-PhysicsSyncResult JoltBackend::SyncBodyFromBackend(const EntityId entity) const {
+	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
+		const JPH::BodyID bid(it->second);
+		const JPH::Vec3 linear_vel = body_interface.GetLinearVelocity(bid);
+		const JPH::Vec3 angular_vel = body_interface.GetAngularVelocity(bid);
+		body_interface.SetPositionAndRotationWhenChanged(
+			bid,
+			{transform.position.x, transform.position.y, transform.position.z},
+			{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
+			JPH::EActivation::Activate
+		);
+		body_interface.SetLinearVelocity(bid, linear_vel);
+		body_interface.SetAngularVelocity(bid, angular_vel);
+		body_interface.ActivateBody(bid);
+	}
+}
+
+PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const EntityId entity) const {
 	PhysicsSyncResult result;
 
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {

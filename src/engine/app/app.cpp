@@ -1,5 +1,6 @@
 #include "app.hpp"
 
+#include "engine/core/core.hpp"
 #include "engine/engine_context.hpp"
 #include "engine/platform/platform.hpp"
 
@@ -15,7 +16,7 @@ void App::Tick() const {
 
 	const float dt = platform->DeltaTime();
 
-	platform->BeginFrame(platform::colors::Background);
+	platform->BeginFrame(core::colors::Background);
 	world->progress(dt);
 	platform->EndFrame();
 }

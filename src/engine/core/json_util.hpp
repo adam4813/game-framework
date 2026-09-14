@@ -14,7 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include "engine/platform/platform.hpp"
+#include "core_types.hpp"
 
 namespace engine::core {
 
@@ -112,7 +112,7 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 }
 
 // Parse a JSON [r, g, b, a] array (0-255) into a platform::Rgba.
-[[nodiscard]] inline platform::Rgba JRgba(const nlohmann::json& j, const char* key, const platform::Rgba def) {
+[[nodiscard]] inline Rgba JRgba(const nlohmann::json& j, const char* key, const Rgba def) {
 	if (!j.contains(key)) {
 		return def;
 	}
@@ -146,7 +146,7 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 }
 
 // Parse a JSON [x, y, w, h] pixel-rect array into a platform::Rect.
-[[nodiscard]] inline platform::Rect JRect(const nlohmann::json& j, const char* key, const platform::Rect def = {}) {
+[[nodiscard]] inline Rect JRect(const nlohmann::json& j, const char* key, const Rect def = {}) {
 	if (!j.contains(key)) {
 		return def;
 	}

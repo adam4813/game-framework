@@ -37,17 +37,17 @@ void OnInit(Entity self) {
 
 void Tick(Entity self, float dt) {
 	// Consume the expired flag and restart the tween.
-	Timer@ t = self.GetTimer();
+	Timer@ t = self.MutTimer();
 	if (t.expired) {
 		t.expired = false;
-		Tween@ tw = self.GetTween();
+		Tween@ tw = self.MutTween();
 		tw.elapsed = 0.0f;
 		tw.done    = false;
 		Print("[TimerTweenDemo] Pulse! Restarting colour flash (remaining=" + t.remaining + ")");
 	}
 
 	// Apply tween.value (0=base colour, 1=white peak) to the host Material each frame.
-	float v = self.GetTween().value;
+	float v = self.MutTween().value;
 	Material@ mat = self.GetMaterial();
 	mat.color.r = uint8(BASE_R + (PEAK_R - BASE_R) * v);
 	mat.color.g = uint8(BASE_G + (PEAK_G - BASE_G) * v);

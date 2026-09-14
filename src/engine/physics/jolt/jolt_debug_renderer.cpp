@@ -3,8 +3,8 @@
 #include <glm/glm.hpp>
 
 #include "engine/ecs/ecs.hpp"
-#include "engine/platform/platform.hpp"
 #include "engine/render/render.hpp"
+#include "engine/spatial/spatial.hpp"
 
 namespace engine::physics {
 
@@ -23,7 +23,7 @@ glm::vec3 JoltDebugRendererAdapter::ToGlmColor(const JPH::ColorArg c) {
 
 float JoltDebugRendererAdapter::ToGlmAlpha(const JPH::ColorArg c) { return static_cast<float>(c.a) / 255.0F; }
 
-platform::Rgba JoltDebugRendererAdapter::ToRgba(const glm::vec3 color, const float alpha) {
+core::Rgba JoltDebugRendererAdapter::ToRgba(const glm::vec3 color, const float alpha) {
 	return {
 		static_cast<uint8_t>(color.x * 255.0F),
 		static_cast<uint8_t>(color.y * 255.0F),
@@ -36,14 +36,24 @@ glm::vec2 JoltDebugRendererAdapter::ProjectToScreen(const glm::vec3 world_pos) c
 	if (!platform_) return {0.0F, 0.0F};
 
 	// Find camera entity
-	const auto camera = world_.query<const render::Camera>().first();
+	const auto camera = world_.query<const spatial::WorldTransform, const render::Camera>().first();
 	if (!camera) return {0.0F, 0.0F};
 
-	const auto cam_data = camera.get<const render::Camera>();
+	const auto& cam_wt = camera.get<const spatial::WorldTransform>();
+	const auto& cam_data = camera.get<const render::Camera>();
 
-	// Use pre-computed matrices from camera component
-	const glm::mat4 view = cam_data.view_matrix;
-	const glm::mat4 projection = cam_data.projection_matrix;
+	// Aim at the LookAt target's position if the camera has one; otherwise look along the camera's own
+	// forward axis (from its world rotation), so a look-at target is never strictly required.
+	glm::vec3 target = cam_wt.position + glm::vec3(cam_wt.matrix * glm::vec4(0.0F, 0.0F, -1.0F, 0.0F));
+	if (const auto look = camera.target<render::LookAt>(); look && look.has<spatial::WorldTransform>()) {
+		target = look.get<const spatial::WorldTransform>().position;
+	}
+
+	// Derive view/projection live from the camera's current world transform so debug lines stay
+	// correct when the camera moves (e.g. a follow-camera parented to the player).
+	const glm::mat4 view = glm::lookAt(cam_wt.position, target, cam_data.up);
+	const glm::mat4 projection =
+		glm::perspective(glm::radians(cam_data.fov), cam_data.aspect_ratio, cam_data.near_plane, cam_data.far_plane);
 
 	// Transform world position to clip space
 	const glm::vec4 clip_pos = projection * view * glm::vec4(world_pos, 1.0F);

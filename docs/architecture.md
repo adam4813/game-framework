@@ -77,6 +77,36 @@ ordinary simulation with no one-frame input lag.
 
 See [systems-reference.md](systems-reference.md) for the full per-module system/observer table.
 
+## Transform and WorldTransform
+
+**Design principle**: author `Transform` (local position/rotation/scale), never `WorldTransform` (world space). The
+engine computes and maintains `WorldTransform` exclusively.
+
+- **`SetInitialWorldTransform` observer**: When a new entity gets a `WorldTransform` component,
+  this observer seeds its `WorldTransform` once from `Transform`. This is the **only**  place `WorldTransform` is
+  hand-authored.
+- **`TransformPropagation` system** (`OnUpdate`): For parented and unparented entities carrying `Transform`, this system
+  computes the parent's `WorldTransform` matrix (if parented) or uses `Transform` directly (if root), and applies it.
+  This is the canonical writer for `WorldTransform` in simulation.
+- **Physics backend**: For dynamic rigid bodies, Jolt owns `WorldTransform` after each physics step (via
+  `PhysicsSyncFromBackend`).
+
+Hand-writing `set<WorldTransform>()` after initialization is error-prone and will be overwritten by propagation/physics.
+Keep `Transform` in sync with gameplay intent; the engine keeps `WorldTransform` consistent automatically.
+
+## Entity linkage and relationships
+
+The level loader supports first-class entity **relationships** in JSON:
+
+- **`link`** — declares an implicit parent→child relationship. E.g., a material entity nested under a renderable
+  declares `"link": "render_with"`, and the render module's `LinkLoader` wires `RenderWith(parent → material)`.
+- **`refs`** — declares named-entity relationships. E.g., a camera declares `"refs": { "look_at": "Player" }`, and the
+  render module's `RefLoader` wires `LookAt(camera → Player)` once all named entities are built.
+
+Both are resolved by the level loader's `EntityBuilder`, which builds the tree first, then resolves links and refs in a
+second pass. This decouples the definition order and allows cross-references (e.g., a camera can reference a player
+entity defined anywhere in the level).
+
 ## The pause model
 
 Pausing is **data**, not a branch in every system. A system that advances the simulation carries the zero-size tag

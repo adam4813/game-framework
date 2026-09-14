@@ -172,7 +172,7 @@ void RegisterMetaSaveExample(const flecs::world& world) {
 			if (!cube) {
 				return nullptr;
 			}
-			const auto& t = cube.get<ecs::Transform>();
+			const auto& t = cube.get<spatial::Transform>();
 			return {
 				{"px", t.position.x},
 				{"py", t.position.y},
@@ -184,10 +184,10 @@ void RegisterMetaSaveExample(const flecs::world& world) {
 		})
 		.Set([](const flecs::world& w, const save::Json& j) {
 			const flecs::entity cube = w.lookup("CubeSceneRoot::FallingCube");
-			if (!cube || !cube.has<ecs::Transform>()) {
+			if (!cube || !cube.has<spatial::Transform>()) {
 				return;
 			}
-			auto& t = cube.get_mut<ecs::Transform>();
+			auto& t = cube.get_mut<spatial::Transform>();
 			t.position = {j.value("px", 0.0F), j.value("py", 3.0F), j.value("pz", 0.0F)};
 			t.rotation = {j.value("rx", 0.0F), j.value("ry", 0.0F), j.value("rz", 0.0F)};
 			cube.modified<physics::RigidBody>(); // teleports the Jolt body to the new position

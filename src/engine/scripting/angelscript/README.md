@@ -23,16 +23,13 @@ Components registered via `RegisterComponentForScripts` are registered as
 Value types (math primitives: `vec2`, `vec3`, `Rgba`) stay `asOBJ_VALUE | asOBJ_POD` and are registered via
 `RegisterValueTypeForScripts`.
 
-## `GetT()` and the modified notification
+## Component access variants: `GetT()`, `MutT()`, and const access
 
-`ComponentGetRefGeneric` (the `GetT()` dispatcher) calls `host.modified(component_id)` on every invocation. This is a
-deliberate trade-off documented in the generic scripting README:
+Three variants are registered for each component:
 
-> Every `GetT()` call marks the component dirty so in-place mutations fire `OnSet` observers
-> without a separate `SetT()` write-back. The cost is that read-only accesses also dirty the
-> component.
-
-The call to `modified()` is only made when the component pointer is non-null.
+- **`GetT()`** (`ComponentGetRefGeneric`) — mutable handle without marking modified. Use for read-only or silent mutations.
+- **`MutT()`** (`ComponentGetMutRefGeneric`) — mutable handle that calls `host.modified(component_id)`, firing `OnSet` observers.
+- **`GetT() const`** (`ComponentGetConstRefGeneric`) — const handle, only on const entity references. Read-only only.
 
 ## `AddT()` and deferred structural changes
 
@@ -48,6 +45,4 @@ for adding components from within a system.
 `"string"` via the generic name lookup, so string members on components (e.g. `SoundEffect.path`,
 `TextureMap.path`) are automatically exposed as `string` properties via `RegisterObjectProperty`.
 
-Mutations through these properties go directly to the ECS storage. Because `GetT()` calls
-`modified()`, any observer watching `OnSet` for the component will re-fire on the next flush, allowing path changes to
-re-trigger handle resolution without an explicit `SetT()` call.
+Mutations through these properties go directly to the ECS storage. Use `MutT()` when you need observer notifications, or `GetT()` for silent mutations.

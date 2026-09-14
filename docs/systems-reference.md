@@ -45,6 +45,20 @@ through the cached `IScriptInstance*` (no backend lookup in the hot path).
 | `ActiveSceneDebugUI`    | system   | `OnUI`                      | all   | ✘       |
 | `ActiveSceneUI`         | system   | `OnUI`                      | all   | ✘       |
 
+## spatial (`src/engine/spatial/spatial_module.cpp`)
+
+| Name                           | Kind             | Phase / Event | Scope     | Pausable |
+|--------------------------------|------------------|---------------|-----------|----------|
+| `TransformPropagation`         | system `.each()` | `PreStore`    | GameScene | ✘       |
+| `TransformSeedWorldTransform`  | observer         | `OnSet`       | —         | —        |
+
+**Transform propagation**: Cascades `Transform` (local space) changes to `WorldTransform` (world space) for
+parented and root entities. Respects parent matrix when computing world-space values. Runs in `PreStore` so
+`WorldTransform` is ready for rendering and physics. Skips rigid bodies (physics backend owns their `WorldTransform`).
+
+**Transform seeding**: When an entity gets its first `Transform` component, the observer seeds its `WorldTransform`
+once so entities always have both components.
+
 ## physics (`src/engine/physics/physics_module.cpp`)
 
 | Name                            | Kind             | Phase / Event | Scope     | Pausable |
@@ -65,24 +79,24 @@ Fixed-timestep step with accumulation; per-entity request components (`Force`/`I
 
 ## render (`src/engine/render/render_module.cpp`)
 
-| Name                                        | Kind             | Phase / Event | Scope     | Pausable |
-|---------------------------------------------|------------------|---------------|-----------|----------|
-| `ResolveAlbedoMap` (templated `Resolve<T>`) | observer         | `OnSet`       | —         | —        |
-| `ResolveMeshPrimitive`                      | observer         | `OnSet`       | —         | —        |
-| `CameraTransformUpdate`                     | observer         | `OnSet`       | —         | —        |
-| `Render3DBegin`                             | system `.run()`  | `OnStore`     | GameScene | ✘       |
-| `RenderLightingUpload`                      | system           | `OnStore`     | GameScene | ✘       |
-| `RenderCubes`                               | system `.each()` | `OnStore`     | GameScene | ✘       |
-| `RenderSpheres`                             | system `.each()` | `OnStore`     | GameScene | ✘       |
-| `RenderQuads`                               | system `.each()` | `OnStore`     | GameScene | ✘       |
-| `RenderCapsules`                            | system `.each()` | `OnStore`     | GameScene | ✘       |
-| `RenderMeshes`                              | system `.each()` | `OnStore`     | GameScene | ✘       |
-| `Render3DEnd`                               | system `.run()`  | `OnStore`     | GameScene | ✘       |
+| Name                                                                                            | Kind             | Phase / Event      | Scope     | Pausable |
+|-------------------------------------------------------------------------------------------------|------------------|--------------------|-----------|----------|
+| `RegisterPathAsset<T>` observers (AlbedoMap, MeshPrimitive, SoundEffect, Music)                 | observer         | `OnSet`/`OnRemove` | —         | —        |
+| `Render3DBegin`                                                                                 | system `.run()`  | `OnStore`          | GameScene | ✘       |
+| `RenderLightingUpload`                                                                          | system           | `OnStore`          | GameScene | ✘       |
+| `RegisterPrimitiveRenderer<T>` systems (Cubes, Spheres, Quads, Capsules, Meshes, DynamicMeshes) | system `.each()` | `OnStore`          | GameScene | ✘       |
+| `Render3DEnd`                                                                                   | system `.run()`  | `OnStore`          | GameScene | ✘       |
 
-Rendering runs in registration order within `OnStore`, and is **not** pausable (the world keeps drawing while paused).
-Texture resolvers share a `RegisterTextureResolver<T>` template;
-`MeshPrimitive` handles resolve through the parallel `ResolveMeshPrimitive` observer (so the draw systems never load
-lazily).
+**Path-asset resolution**: `RegisterPathAsset<T>(world, AssetType)` is a unified template for any component with a
+`std::string path` + `int handle`. It registers `OnSet` (acquire via asset registry) and `OnRemove` (release) observers.
+Used for `AlbedoMap`, `MeshPrimitive`, and `SoundEffect`.
+
+**Primitive rendering**: `RegisterPrimitiveRenderer<T>(world, name, draw)` is a template that registers a system for
+shape `T`. Each system queries `(RenderWith, *)` with `.self().up()` to resolve the material entity, then issues the
+draw call.
+
+**Camera**: Camera matrices (`view_matrix`, `projection_matrix`) are **computed on-demand** in `Render3DBegin` from the
+camera's `WorldTransform` and its optional `LookAt` target.
 
 ## ui (`src/engine/ui/ui_module.cpp`)
 

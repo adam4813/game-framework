@@ -10,6 +10,20 @@ using namespace engine;
 
 namespace game {
 
+void TilemapScene::RegisterLoaders(const flecs::world& world) {
+	// Register the game-owned level-loader factories (the tilemap scene authors its player in JSON):
+	// PlayerControlled is a pure tag, and GridMover is default-constructable runtime movement state
+	// (the movement system seeds its origin from the authored Transform), so a level only needs
+	// `grid_mover: {}` plus optional tuning overrides.
+	level::RegisterTag<PlayerControlled>(world, "player_controlled");
+	level::RegisterComponentLoader(world, "grid_mover", [](const flecs::entity e, const nlohmann::json& j) {
+		GridMover m{};
+		m.step_size = j.value("step_size", m.step_size);
+		m.duration = j.value("duration", m.duration);
+		m.initial_delay = j.value("initial_delay", m.initial_delay);
+		e.set<GridMover>(m);
+	});
+}
 void TilemapScene::InitializePipeline(const flecs::world& world) {
 	// clang-format off
 	pipeline_ = world.pipeline()
@@ -104,10 +118,16 @@ void TilemapScene::RegisterInputSystems(const flecs::world& world) {
 	// Input → initiate a grid move.
 	// First press moves immediately; holding repeats after initial_delay at the move duration rate.
 	const auto player_movement_sys =
-		world.system<GridMover, tilemap::GridPosition>("TilemapPlayerMovement")
+		world.system<GridMover, tilemap::GridPosition, const spatial::Transform>("TilemapPlayerMovement")
 			.with<PlayerControlled>()
 			.kind(flecs::PreUpdate)
-			.each([tilemap_query](const flecs::iter& it, size_t, GridMover& mover, tilemap::GridPosition& grid_pos) {
+			.each([tilemap_query](
+					  const flecs::iter& it,
+					  size_t,
+					  GridMover& mover,
+					  tilemap::GridPosition& grid_pos,
+					  const spatial::Transform& transform
+				  ) {
 				const auto& input = it.world().get<input::InputState>();
 				int dx = 0, dz = 0;
 				bool just_pressed = false;
@@ -175,24 +195,44 @@ void TilemapScene::RegisterInputSystems(const flecs::world& world) {
 					return walkable;
 				};
 
-				// For diagonal moves, check destination and both adjacent tiles to prevent
-				// shortcuts through corners
+				// For diagonal moves, allow sliding along walls:
+				const bool target_clear = is_walkable(grid_pos.x + dx, grid_pos.z + dz);
 				if (dx != 0 && dz != 0) {
-					if (!is_walkable(grid_pos.x + dx, grid_pos.z)
-						|| !is_walkable(grid_pos.x, grid_pos.z + dz)
-						|| !is_walkable(grid_pos.x + dx, grid_pos.z + dz)) {
+					const bool x_clear = is_walkable(grid_pos.x + dx, grid_pos.z);
+					const bool z_clear = is_walkable(grid_pos.x, grid_pos.z + dz);
+
+					if (!x_clear && !z_clear) {
 						return;
+					}
+
+					if (!target_clear) {
+						if (x_clear) {
+							dz = 0;
+						}
+						else if (z_clear) {
+							dx = 0;
+						}
+					}
+					else {
+						if (!x_clear) {
+							dx = 0;
+						}
+						if (!z_clear) {
+							dz = 0;
+						}
 					}
 				}
-				else {
-					if (!is_walkable(grid_pos.x + dx, grid_pos.z + dz)) {
-						return;
-					}
+				else if (!target_clear) {
+					return;
 				}
 
 				grid_pos.x += dx;
 				grid_pos.z += dz;
-				mover.origin = mover.target;
+				// Start the move from the entity's current world-local position rather than the last
+				// target. This makes GridMover default-constructable (a level can author just
+				// `grid_mover: {}`): the authored Transform is the spawn, and there is no jump-from-0
+				// on the first move. In steady state (stationary between moves) this equals mover.target.
+				mover.origin = transform.position;
 				// Tile centre = (index + 0.5) * step_size, matching the tilemap renderer
 				mover.target = glm::vec3(
 					(static_cast<float>(grid_pos.x) + 0.5f) * mover.step_size,
@@ -210,9 +250,9 @@ void TilemapScene::RegisterInputSystems(const flecs::world& world) {
 
 	// Smooth interpolation of Transform toward the target tile position.
 	const auto grid_movement_sys =
-		world.system<ecs::Transform, GridMover>("GridMovementSystem")
+		world.system<spatial::Transform, GridMover>("GridMovementSystem")
 			.kind(flecs::OnUpdate)
-			.each([](const flecs::iter& it, size_t, ecs::Transform& transform, GridMover& mover) {
+			.each([](const flecs::iter& it, size_t, spatial::Transform& transform, GridMover& mover) {
 				if (!mover.moving) return;
 
 				mover.elapsed += it.delta_time();
@@ -225,18 +265,6 @@ void TilemapScene::RegisterInputSystems(const flecs::world& world) {
 			})
 			.add<ecs::Pausable>();
 	grid_movement_sys.child_of(sceneRoot_);
-
-	// Update camera target to track the player's position
-	const auto camera_sys =
-		world.system<render::Camera, const ecs::WorldTransform>("CameraTargetUpdate")
-			.term_at(1)
-			.src("$player")
-			.with<PlayerControlled>()
-			.src("$player")
-			.kind(flecs::OnUpdate)
-			.each([](render::Camera& cam, const ecs::WorldTransform& player_wt) { cam.target = player_wt.position; })
-			.add<ecs::Pausable>();
-	camera_sys.child_of(sceneRoot_);
 }
 
 void TilemapScene::SetupTilemap(const flecs::world& world) {
@@ -277,93 +305,37 @@ void TilemapScene::SetupTilemap(const flecs::world& world) {
 		};
 	}
 
-	// Assemble the tilemap entity. TileSet + TileRegistry are set before Tilemap so the mesh-builder
-	// observer (fires on Tilemap OnSet) sees the tileset dimensions and descriptors it needs.
 	tilemap_entity_ = world.entity("Tilemap")
 						  .child_of(sceneRoot_)
-						  .set<ecs::WorldTransform>({})
+						  .set<spatial::Transform>({})
 						  .set<tilemap::TileSet>(map_result->tileset.info)
-						  .set<render::Material>({.color = {.r = 255, .g = 255, .b = 255, .a = 255}})
-						  .set<render::AlbedoMap>({.path = map_result->tileset.info.texture_path})
 						  .set<tilemap::TileRegistry>(map_result->tileset.registry)
+						  .set<tilemap::TilemapViewport>({})
 						  .set<tilemap::Tilemap>(map_result->tilemap);
+
+	// Material entity is a child of the tilemap entity so the TilesetTextureParams observer can
+	// detect it via .with<TileSet>().self().up() (ChildOf traversal to the tilemap parent).
+	tilemap_entity_.add<render::RenderWith>(
+		world.entity("mat.Tilemap")
+			.child_of(tilemap_entity_)
+			.set<render::Material>({.color = {.r = 255, .g = 255, .b = 255, .a = 255}})
+			.set<render::AlbedoMap>({.path = map_result->tileset.info.texture_path})
+			.set<render::ShaderMap>(
+				{.stages = {
+					 {.type = "vertex", .path = "tilemap.vs"},
+					 {.type = "fragment", .path = "tilemap.fs"},
+				 }}
+			)
+	);
 }
 
 void TilemapScene::SetupPlayer(const flecs::world& world) {
-	// Derive the per-tile world size from the tilemap's own (configurable) scale so the player's
-	// stride always matches the rendered grid. Query the tilemap from the world rather than relying on
-	// a stored handle; fall back to the default tile scale if no tilemap exists yet.
-	float tile_scale = tilemap::TileWorldSize(tilemap::Tilemap{});
-	world.query<const tilemap::Tilemap>().each([&tile_scale](const tilemap::Tilemap& tm) {
-		tile_scale = tilemap::TileWorldSize(tm);
-	});
-	// Start at south road entrance (tile 31, 60).
-	// Tile centres are at (x + 0.5) * tile_scale to match the tilemap renderer.
-	constexpr int start_tile_x = 31;
-	constexpr int start_tile_z = 60;
-	const auto player_pos = glm::vec3(
-		(static_cast<float>(start_tile_x) + 0.5f) * tile_scale,
-		0.5f,
-		(static_cast<float>(start_tile_z) + 0.5f) * tile_scale
-	);
-
-	player_entity_ = world.entity("Player")
-						 .child_of(sceneRoot_)
-						 .add<PlayerControlled>()
-						 .set<tilemap::GridPosition>({.x = start_tile_x, .z = start_tile_z})
-						 .set<GridMover>({
-							 .origin = player_pos,
-							 .target = player_pos,
-							 .step_size = tile_scale,
-						 })
-						 .set<ecs::Transform>({
-							 .position = player_pos,
-							 .rotation = glm::vec3(0.0f, 0.0f, 0.0f),
-							 .scale = glm::vec3(1.0f, 1.0f, 1.0f),
-						 })
-						 .set<ecs::WorldTransform>(ecs::MakeWorldTransform(player_pos, {}, {1.0f, 1.0f, 1.0f}))
-						 .set<render::CubePrimitive>({{0.4f, 0.8f, 0.4f}})
-						 .set<render::AlbedoMap>({.path = assets::ResolveAsset(world, "textures/player_sprite.png")})
-						 .set<render::Material>({
-							 .color = platform::colors::Accent,
-							 .wireframe = false,
-							 .cast_shadow = false,
-						 });
-
-	world.entity("PlayerSword")
-		.child_of(player_entity_)
-		.set<ecs::Transform>({
-			.position = glm::vec3(0.2f, 0.0f, 0.0f),
-			.rotation = glm::vec3(0.0f, 0.0f, 0.0f),
-			.scale = glm::vec3(1.0f, 1.0f, 1.0f),
-		})
-		.set<ecs::WorldTransform>({})
-		.set<render::CubePrimitive>({{0.2f, 0.05f, 0.05f}})
-		.set<render::Material>({
-			.color = {.r = 200, .g = 180, .b = 80, .a = 255},
-			.wireframe = false,
-			.cast_shadow = false,
-		});
-
-	// Camera follows the player by being a child of the player entity. The transform propagation
-	// system will automatically compute its WorldTransform based on both the player's position and
-	// the camera's local offset from the player. Render3DBegin reads the camera's WorldTransform.position.
-	world.entity("TilemapCamera")
-		.child_of(player_entity_)
-		.set<render::Camera>({
-			.target = glm::vec3(0.0f, 0.0f, 0.0f), // Relative to player
-			.up = glm::vec3(0.0f, 0.0f, 1.0f),
-			.fov = 60.0f,
-			.aspect_ratio = 16.0f / 9.0f,
-			.near_plane = 0.1f,
-			.far_plane = 100.0f,
-		})
-		.set<ecs::Transform>({
-			.position = glm::vec3(0.0f, 12.0f, 0.0f), // Offset from player (directly above)
-			.rotation = glm::vec3(0.0f, 0.0f, 0.0f),
-			.scale = glm::vec3(1.0f, 1.0f, 1.0f),
-		})
-		.set<ecs::WorldTransform>(ecs::MakeWorldTransform({0.0f, 12.0f, 0.0f}, {}, {1.0f, 1.0f, 1.0f}));
+	// The player, its sword and the follow-camera (a child of the player) are authored
+	// declaratively in assets/levels/tilemap_player.level.json and loaded under sceneRoot_ for
+	// single-destruct teardown. GridMover is default-state: the movement system seeds its origin
+	// from the authored Transform, so no runtime positions need to be computed here. Runs after
+	// SetupTilemap so the grid scale that the authored spawn assumes (0.5) is already in place.
+	level::LoadLevel(world, assets::ResolveAsset(world, "levels/tilemap_player.level.json"), sceneRoot_);
 }
 
 void TilemapScene::BuildUI(const flecs::world& world) {
