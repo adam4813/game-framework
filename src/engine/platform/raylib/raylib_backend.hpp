@@ -16,6 +16,7 @@ public:
 	[[nodiscard]] float DeltaTime() const override;
 	[[nodiscard]] double Time() const override;
 	[[nodiscard]] std::string AssetDirectory() const override;
+	[[nodiscard]] int Fps() const override;
 
 	void BeginFrame(Rgba clear) override;
 	void EndFrame() override;
@@ -53,6 +54,9 @@ public:
 	void DrawCapsule(const glm::mat4& transform, float radius, float height, const DrawMaterial& material) override;
 	void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) override;
 
+	[[nodiscard]] int PrimitiveMesh(PrimitiveShape shape) const override;
+	BatchStats SubmitBatch(std::span<const RenderCommand> commands) override;
+
 	int UploadDynamicMesh(
 		const std::vector<glm::vec3>& vertices,
 		const std::vector<uint32_t>& indices,
@@ -70,6 +74,8 @@ public:
 
 	int LoadMesh(std::string_view path) override;
 	int LoadTexture(std::string_view path) override;
+	int UploadTexture(int width, int height, const std::vector<uint8_t>& rgba) override;
+	void UpdateTexture(int handle, const std::vector<uint8_t>& rgba) override;
 	void UnloadMesh(int handle) override;
 	void UnloadTexture(int handle) override;
 	void SetTextureFilter(int handle, bool linear) override;

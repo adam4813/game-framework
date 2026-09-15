@@ -10,10 +10,15 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace engine::scripting::angelscript {
+
+// Forward declaration: defined in the .cpp anonymous namespace, used by AngelScriptInstance for
+// handle invalidation. Full definition is not needed in callers' translation units.
+class AngelScriptFunctionHandle;
 
 // AngelScript implementation of IScriptInstance.
 // One instance exists per (entity, ScriptComponent) pair.
@@ -26,6 +31,13 @@ public:
 	void OnInit(flecs::entity entity) override;
 	void Tick(flecs::entity entity, float dt, ScriptTickPhase phase) override;
 	void OnDestroy(flecs::entity entity) override;
+
+	// Track a handle created from a script function in this instance's module.
+	// On instance destruction, all tracked handles have their AS function reference released
+	// (fn_ nulled) before the module is discarded — eliminating "external reference" warnings.
+	void TrackHandle(AngelScriptFunctionHandle* handle);
+	// Called by the handle's own destructor when the handle dies before the instance.
+	void UntrackHandle(AngelScriptFunctionHandle* handle);
 
 private:
 	void Call(asIScriptFunction* fn, flecs::entity entity, float dt = 0.0f, bool pass_dt = false);
@@ -42,6 +54,9 @@ private:
 	asIScriptFunction* fn_on_tick_{nullptr};
 	asIScriptFunction* fn_post_tick_{nullptr};
 	asIScriptFunction* fn_on_destroy_{nullptr};
+
+	// All live handles created from this instance's module functions. Invalidated before discard.
+	std::vector<AngelScriptFunctionHandle*> tracked_handles_;
 };
 
 // AngelScript implementation of IScriptBackend.
@@ -79,7 +94,6 @@ public:
 		ScriptGenericThunk ctor_thunk,
 		ScriptGenericThunk dtor_thunk
 	) override;
-	void RegisterShutdownCallback(const std::function<void(flecs::world&)>& callback) override;
 	void RegisterGlobalConstants(std::vector<ScriptConstant> constants) override;
 	void RegisterCallbackFunction(const ScriptCallbackFunctionDesc& desc, ScriptCallbackSink sink) override;
 	void RegisterCallbackViewType(
@@ -97,6 +111,7 @@ private:
 	static void ComponentGetConstRefGeneric(asIScriptGeneric* gen);
 	static void ComponentAddGeneric(asIScriptGeneric* gen);
 	static void ComponentSetGeneric(asIScriptGeneric* gen);
+	static void ComponentHasGeneric(asIScriptGeneric* gen);
 	static void SingletonGetGeneric(asIScriptGeneric* gen);
 	static void ComponentMethodGeneric(asIScriptGeneric* gen);
 	static void GlobalFunctionGeneric(asIScriptGeneric* gen);
@@ -125,16 +140,17 @@ private:
 	asIScriptEngine* engine_{nullptr};
 	flecs::world* world_{nullptr};
 	std::unordered_set<AngelScriptInstance*> instances_; // for bulk cleanup on Shutdown
-	// Stable storage for global function thunks so their addresses remain valid as auxiliaries
-	// passed to the AngelScript generic dispatcher (vector reallocation would invalidate them).
-	std::vector<std::unique_ptr<GlobalFunctionThunk>> global_thunks_;
-	// Shutdown callbacks are run before the engine is released to give registrants a chance
-	// to nullify any ScriptFunctionHandle-holding std::functions they own.
-	std::vector<std::function<void(flecs::world&)>> shutdown_callbacks_;
-	// Stable storage for callback-binding state, each passed as a generic auxiliary.
-	std::vector<std::unique_ptr<CallbackBinding>> callback_bindings_;
-	// Stable storage for callback view-property state, each passed as a generic auxiliary.
-	std::vector<std::unique_ptr<CallbackViewProperty>> callback_view_props_;
+	// Maps AS declaration → owned thunk. The heap object's address is stable (unique_ptr never
+	// moves the managed allocation), so it is safe as the AngelScript generic auxiliary.
+	// On re-registration the thunk is updated in-place; the AS engine's auxiliary is unchanged.
+	std::unordered_map<std::string, std::unique_ptr<GlobalFunctionThunk>> global_thunks_;
+	// Maps AS declaration → owned binding (same pointer-stability guarantee as global_thunks_).
+	std::unordered_map<std::string, std::unique_ptr<CallbackBinding>> callback_bindings_;
+	// Maps "TypeName::PropName" → owned property state (same pointer-stability guarantee).
+	std::unordered_map<std::string, std::unique_ptr<CallbackViewProperty>> callback_view_props_;
+	// Names of funcdefs successfully registered with the engine (GetTypeInfoByName does not
+	// cover funcdefs, so we track them ourselves to avoid duplicate registration attempts).
+	std::unordered_set<std::string> registered_funcdefs_;
 	// Preamble injected as a script section into every module at compile time so constants are
 	// visible in all scripts without import or include statements.
 	std::string constants_preamble_;

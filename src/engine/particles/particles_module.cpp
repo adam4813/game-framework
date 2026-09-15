@@ -26,7 +26,7 @@ std::uint8_t LerpU8(const std::uint8_t a, const std::uint8_t b, const float t) {
 
 // Linear interpolation between two colours, including the alpha channel (used for fade-out).
 core::Rgba LerpRgba(const core::Rgba a, const core::Rgba b, const float t) {
-	return {LerpU8(a.r, b.r, t), LerpU8(a.g, b.g, t), LerpU8(a.b, b.b, t), LerpU8(a.a, b.a, t)};
+	return {.r = LerpU8(a.r, b.r, t), .g = LerpU8(a.g, b.g, t), .b = LerpU8(a.b, b.b, t), .a = LerpU8(a.a, b.a, t)};
 }
 
 } // namespace

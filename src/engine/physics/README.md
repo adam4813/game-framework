@@ -28,7 +28,24 @@ engine::physics::PhysicsModule physics_module(world);
 // - PhysicsCollisionEvents — distributes collision events to entities
 ```
 
-## Adding Physics to an Entity
+## RigidBody + CollisionShape — Required Pair
+
+`RigidBody` and `CollisionShape` are a **required pair** — a physics body cannot be created without both:
+
+- `CollisionShape` **must** be present when `RigidBody` is added, **or** added immediately after in the same
+  deferred command batch.
+- If `RigidBody` is added without a `CollisionShape`, a warning is logged and body creation is **deferred** until
+  `CollisionShape` is set (handled by `PhysicsAddBodyOnCollisionShape`).
+- `CollisionShape` *can* exist without `RigidBody` (e.g. trigger volumes or shapes awaiting attachment).
+
+In JSON level files, always author both components on the same entity:
+
+```json
+"rigid_body": { "motion_type": "static" },
+"collision_shape": { "type": "box", "box_half_extents": [0.5, 0.5, 0.5] }
+```
+
+
 
 ```cpp
 auto entity = world.entity();
@@ -70,7 +87,10 @@ All systems follow Flecs 4.x best practices:
 
 3. **Observers** (event-based):
 
-- PhysicsSyncToBackend (OnSet)
+- PhysicsAddBody (OnAdd RigidBody — creates body if CollisionShape already present)
+- PhysicsAddBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates body if not yet created)
+- PhysicsSetInitialTransform (OnAdd WorldTransform + has RigidBody — syncs initial position)
+- PhysicsSyncToBackend (OnSet — syncs ECS transform changes to Jolt)
 - PhysicsRemoveBody (OnRemove)
 
 Systems run in `OnUpdate` (logic) or `OnStore` (debug rendering), scoped to `scene::GameScene` via

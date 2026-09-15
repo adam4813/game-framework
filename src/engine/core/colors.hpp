@@ -5,6 +5,9 @@
 namespace engine::core::colors {
 
 // Predefined color palette for UI and game elements.
+inline constexpr Rgba Transparent{.r = 0, .g = 0, .b = 0, .a = 0};
+inline constexpr Rgba White{.r = 255, .g = 255, .b = 255, .a = 255};
+inline constexpr Rgba Black{.r = 0, .g = 0, .b = 0, .a = 255};
 inline constexpr Rgba Background{.r = 24, .g = 28, .b = 24, .a = 255};
 inline constexpr Rgba Panel{.r = 40, .g = 46, .b = 40, .a = 255};
 inline constexpr Rgba PanelHi{.r = 56, .g = 64, .b = 56, .a = 255};

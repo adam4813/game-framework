@@ -1,14 +1,16 @@
 #include "engine/engine_context.hpp"
 
+#include "engine/ai/ai.hpp"
 #include "engine/assets/assets.hpp"
 #include "engine/audio/audio.hpp"
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
-#include "engine/ecs/flecs_remote.hpp"
+#include "engine/graph/graph.hpp"
 #include "engine/input/input.hpp"
 #include "engine/level/level.hpp"
 #include "engine/noise/noise.hpp"
 #include "engine/particles/particles.hpp"
+#include "engine/pathfinding/pathfinding.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/spatial/spatial.hpp"
 #include "engine/tilemap/tilemap.hpp"
@@ -38,21 +40,19 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : pla
 	world_.import<assets::AssetModule>();
 	world_.import<audio::AudioModule>();
 	world_.import<input::InputModule>();
+	world_.import<graph::GraphModule>();
+	world_.import<ai::AIModule>();
 	world_.import<physics::PhysicsModule>();
 	world_.import<physics::jolt::JoltModule>();
 	world_.import<noise::NoiseModule>();
 	world_.import<noise::builtin::BuiltinNoiseModule>();
+	world_.import<pathfinding::PathfindingModule>();
 	world_.import<render::RenderModule>();
 	world_.import<ui::UIModule>();
 	world_.import<save::SaveModule>();
 	world_.import<timer::TimerModule>();
 	world_.import<tilemap::TilemapModule>();
 	world_.import<particles::ParticlesModule>();
-
-#if !defined(__EMSCRIPTEN__)
-	// REST API requires TCP sockets — unavailable in WASM browsers.
-	ecs::InitializeRemoteAPI(world_);
-#endif
 }
 
 EngineContext::~EngineContext() = default;

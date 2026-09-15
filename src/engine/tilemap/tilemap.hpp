@@ -4,3 +4,4 @@
 #include "tilemap_loader.hpp"
 #include "tilemap_mesh_builder.hpp"
 #include "tilemap_module.hpp"
+#include "tilemap_nav_adapter.hpp"

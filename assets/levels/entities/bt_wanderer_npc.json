@@ -1,0 +1,36 @@
+{
+	"name": "BtWandererNPC",
+	"components": {
+		"bt_wanderer": {},
+		"grid_position": {
+			"x": 28,
+			"z": 60
+		},
+		"grid_mover": {},
+		"transform": {
+			"position": [
+				14.25,
+				0.5,
+				30.25
+			]
+		},
+		"cube": {
+			"size": [
+				0.4,
+				0.8,
+				0.4
+			]
+		},
+		"behavior_tree": {
+			"file": "assets/ai/npc_wanderer_bt.json",
+			"tick_interval": 1.0
+		},
+		"blackboard": {}
+	},
+	"refs": {
+		"use_registry": "Tilemap"
+	},
+	"children": [
+		"@file:../children/npc_material_blue.json"
+	]
+}

@@ -254,6 +254,45 @@ If you're starting a new game:
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
 5. **Define your data** — game content goes in JSON configs under `assets/`
 
+## Scene Equivalence Test
+
+The `tests/scene_equivalence/` target verifies that a scene authored in JSON, scripting, and C++ all produce **identical
+ECS component values**. It is the primary regression guard for the engine — run it whenever you add a new
+module or change a component's structure.
+
+### Build and Run
+
+```powershell
+# Build (desktop-only, part of the main cmake --build):
+cmake --preset desktop
+cmake --build --preset desktop-release --target scene_equivalence_test
+
+# Run from the project root (output lands in scene_test_output/):
+.\build\desktop\tests\scene_equivalence\Release\scene_equivalence_test.exe scene_test_output
+```
+
+Passing output lands in `scene_test_output/`:
+
+| File              | Contents                                  |
+|-------------------|-------------------------------------------|
+| `world_json.json` | Serialized scene (JSON path)              |
+| `world_as.json`   | Serialized scene (AngelScript path)       |
+| `world_cpp.json`  | Serialized scene (C++ path)               |
+| `diff_table.txt`  | 4-column property diff: JSON \| AS \| C++ |
+
+The test exits 0 when all properties match across all three paths, and 1 on any mismatch.
+
+### Committing Results
+
+The output files in `scene_test_output/` are committed to the repository. Running the test after changes and committing
+the updated outputs makes regressions visible in code review — a diff that unexpectedly changes
+`scene_test_output/diff_table.txt` is a signal that component authoring parity was broken.
+
+### Coverage Catalog
+
+See **[tests/scene_equivalence/COMPONENT_COVERAGE.md](tests/scene_equivalence/COMPONENT_COVERAGE.md)** for the full
+component coverage table, known bugs, and the adding-a-new-module checklist.
+
 ## Testing Workflows Locally
 
 GitHub Actions workflows can be tested locally using **`act`**, which simulates the CI/CD environment on your machine.

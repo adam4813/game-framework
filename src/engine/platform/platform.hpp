@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,9 +37,38 @@ struct ShaderStage {
 struct DrawMaterial {
 	int texture{-1}; // albedo texture handle (-1 = no texture / solid colour)
 	int shader{-1};  // shader handle (-1 = backend default for this draw path)
-	core::Rgba tint{255, 255, 255, 255};
+	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
+};
+
+// Identifiers for the backend's built-in unit primitive meshes. Fetch a batchable handle for one
+// via Platform::PrimitiveMesh; the handle is used as RenderCommand::mesh so the backend can group
+// and GPU-instance many copies of the same primitive in a single draw call.
+enum class PrimitiveShape : uint8_t {
+	Cube,     // unit cube, centred at the origin
+	Sphere,   // unit-radius sphere
+	Plane,    // 1x1 quad on the local XZ plane, +Y normal
+	Cylinder, // unit-radius, unit-height cylinder, base at y=0
+};
+
+// A single backend-agnostic draw request. The render queue fills a buffer of these each frame and
+// hands them to the backend, which groups them by (mesh, shader, texture, flags) and issues one
+// instanced draw per group. `mesh` is a handle from PrimitiveMesh (or a future batchable mesh).
+// `tint` in `material` is applied per-instance, so instances of the same mesh/shader/texture batch
+// together regardless of colour.
+struct RenderCommand {
+	int mesh{-1};
+	glm::mat4 transform{1.0f};
+	DrawMaterial material{};
+};
+
+// Aggregate counters returned by SubmitBatch so the engine can display render stats.
+struct BatchStats {
+	int draw_calls{0};
+	int instances{0};
+	double group_ms{0.0}; // time spent grouping/sorting commands into batches (CPU)
+	double draw_ms{0.0};  // time spent issuing the instanced draws (CPU submit, incl. VBO upload)
 };
 
 // Scene lighting pushed to the 3D lit shader before primitives are drawn. A single directional
@@ -45,16 +76,16 @@ struct DrawMaterial {
 // plane at `shadow_ground_y` (ideal for a flat playfield).
 struct LightParams {
 	glm::vec3 direction{-0.5f, -1.0f, -0.35f}; // direction the light travels (world space)
-	core::Rgba light_color{255, 244, 214, 255};
+	core::Rgba light_color{.r = 255, .g = 244, .b = 214, .a = 255};
 	float light_intensity = 1.0f;
-	core::Rgba ambient_color{120, 130, 150, 255};
+	core::Rgba ambient_color{.r = 120, .g = 130, .b = 150, .a = 255};
 	float ambient_intensity = 0.35f;
 	float specular_strength = 0.4f;
 	float shininess = 24.0f;
 
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;
-	core::Rgba shadow_color{10, 12, 16, 120};
+	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
 };
 
 enum class MouseButton { Left = 0, Right = 1 };
@@ -74,6 +105,8 @@ public:
 	[[nodiscard]] virtual float DeltaTime() const = 0;
 	[[nodiscard]] virtual double Time() const = 0;
 	[[nodiscard]] virtual std::string AssetDirectory() const = 0;
+	// Frames-per-second over a recent window, for render-stat overlays.
+	[[nodiscard]] virtual int Fps() const = 0;
 
 	// ── Frame ──
 	virtual void BeginFrame(Rgba clear) = 0;
@@ -130,6 +163,15 @@ public:
 	virtual void DrawCapsule(const glm::mat4& transform, float radius, float height, const DrawMaterial& material) = 0;
 	virtual void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) = 0;
 
+	// ── Batched instanced drawing ──
+	// Returns a batchable mesh handle for a built-in unit primitive. Stable for the process
+	// lifetime; use as RenderCommand::mesh.
+	[[nodiscard]] virtual int PrimitiveMesh(PrimitiveShape shape) const = 0;
+	// Draws a batch of commands, grouping by (mesh, shader, texture, flags) and GPU-instancing each
+	// group in a single draw call. Must be called inside a Begin/EndMode3D pass, after SetLighting.
+	// Returns the number of draw calls and instances issued.
+	virtual BatchStats SubmitBatch(std::span<const RenderCommand> commands) = 0;
+
 	// Upload a dynamic mesh built from vertices, indices, per-vertex colors, and optional UV
 	// coordinates. When `uvs` is empty, all tex-coords default to (0,0).
 	// Returns a handle to the GPU mesh, or -1 on failure.
@@ -152,6 +194,11 @@ public:
 	// ── Assets ──
 	virtual int LoadMesh(std::string_view path) = 0;    // loads a model file, returns handle or -1
 	virtual int LoadTexture(std::string_view path) = 0; // loads an image file, returns handle or -1
+	// Upload a texture from raw RGBA8 pixel data (width × height × 4 bytes). Returns a handle or -1.
+	// Use UpdateTexture to replace the pixels later without allocating a new GPU resource.
+	virtual int UploadTexture(int width, int height, const std::vector<uint8_t>& rgba) = 0;
+	// Replace the pixel data of a previously uploaded texture. `rgba` must be the same dimensions.
+	virtual void UpdateTexture(int handle, const std::vector<uint8_t>& rgba) = 0;
 	// Free a previously loaded resource. Safe to call with an out-of-range or already-unloaded
 	// handle (no-op). Handles are not reused, so the freed slot stays valid-but-empty.
 	virtual void UnloadMesh(int handle) = 0;

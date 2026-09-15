@@ -1,0 +1,7 @@
+{
+	"nodes": [
+		{ "id": 1, "type": "selector" },
+		{ "id": 2, "parent": 1, "type": "condition", "handler": "IsMoving" },
+		{ "id": 3, "parent": 1, "type": "action", "handler": "RandomWander" }
+	]
+}

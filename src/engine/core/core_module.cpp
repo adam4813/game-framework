@@ -5,7 +5,6 @@
 #include <spdlog/spdlog.h>
 
 #include "core_types.hpp"
-#include "engine/ecs/ecs.hpp"
 #include "engine/scripting/scripting.hpp"
 
 namespace engine::core {
@@ -28,7 +27,7 @@ CoreModule::CoreModule(const flecs::world& world) {
 		.member<std::uint8_t>("g")
 		.member<std::uint8_t>("b")
 		.member<std::uint8_t>("a");
-	
+
 	scripting::RegisterValueTypeForScripts(world, world.component<glm::vec2>("vec2"));
 	scripting::RegisterValueTypeForScripts(world, world.component<glm::vec3>("vec3"));
 	scripting::RegisterValueTypeForScripts(world, world.component<glm::vec4>("vec4"));

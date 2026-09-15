@@ -121,16 +121,6 @@ inline void RegisterObjectConstructorForScripts(
 	}
 }
 
-// Free helper — register a callback to run just before the backend's Shutdown().
-// Use this to nullify any ScriptFunctionHandle-holding std::functions owned by C++ objects
-// (e.g. TileCallback lambdas) so the backend's script functions can be released cleanly.
-inline void
-RegisterScriptShutdownCallback(const flecs::world& world, const std::function<void(flecs::world&)>& callback) {
-	if (world.has<ScriptBackendSingleton>()) {
-		world.get_mut<ScriptBackendSingleton>().backend->RegisterShutdownCallback(callback);
-	}
-}
-
 // Free helper — register a callback-binding free function. See
 // IScriptBackend::RegisterCallbackFunction for full documentation. The function is declared to
 // scripts as `void <name>(<fixed_params...>, <callback funcdef>@)`; `sink` receives the fixed
@@ -174,7 +164,7 @@ inline void RegisterComponentMethodForScripts(
 	const flecs::world& world,
 	const flecs::entity& component_entity,
 	const ScriptMethodSignature& sig,
-	ScriptGenericThunk thunk
+	const ScriptGenericThunk thunk
 ) {
 	if (world.has<ScriptBackendSingleton>()) {
 		world.get_mut<ScriptBackendSingleton>().backend->RegisterComponentMethod(component_entity, sig, thunk);
@@ -212,7 +202,6 @@ public:
 	}
 
 private:
-	void RegisterObservers(const flecs::world& world);
 	void RegisterSystems(const flecs::world& world);
 };
 

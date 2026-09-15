@@ -12,6 +12,11 @@
 
 namespace engine::scripting::angelscript {
 
+// Thread-local pointer to the AngelScriptInstance currently driving a ctx->Execute() call.
+// Set in Call() before execution and cleared after, so that callback generics (SetOnClick,
+// SetOnEnter etc.) can associate newly created handles with the right owning instance.
+thread_local AngelScriptInstance* t_current_instance = nullptr;
+
 // -------------------------------------------------------------------------
 // Helpers (local to core runtime)
 // -------------------------------------------------------------------------
@@ -38,15 +43,6 @@ const flecs::Component* GetComponentInfo(const flecs::world& world, const ecs_en
 	return world.entity(component_id).try_get<flecs::Component>();
 }
 
-// Component accessors are exposed as Entity methods, but a script's "self" is the script
-// child entity — the component-bearing host is its parent. Resolve to the parent when one
-// exists so `self.GetTransform()` reads the host's Transform; fall back to the entity itself
-// for top-level entities that have no parent.
-flecs::entity ResolveHostEntity(const flecs::entity entity) {
-	const flecs::entity parent = entity.parent();
-	return parent.is_valid() ? parent : entity;
-}
-
 std::optional<std::pair<flecs::entity, uintptr_t>> ResolveEntityAndComponent(asIScriptGeneric* gen) {
 	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
 	const auto* entity_ref = static_cast<ScriptEntityRef*>(gen->GetObject());
@@ -54,8 +50,7 @@ std::optional<std::pair<flecs::entity, uintptr_t>> ResolveEntityAndComponent(asI
 		return {};
 	}
 
-	const flecs::entity host = ResolveHostEntity(entity_ref->GetEntity());
-	return {{host, component_id}};
+	return {{entity_ref->GetEntity(), component_id}};
 }
 
 void PrintFn(const std::string& msg) { spdlog::info("[Script] {}", msg); }
@@ -102,26 +97,63 @@ private:
 	asIScriptGeneric* gen_;
 };
 
+} // namespace
+
 // Backend-neutral ScriptFunctionHandle over an asIScriptFunction*. Created when a script passes a
 // function handle to a callback-binding function (see RegisterCallbackFunction); the sink wraps it
 // (typically in a std::function on a component or descriptor) and fires it via Invoke(). The
 // recorded parameter list drives argument marshalling back into AngelScript at invoke time.
 class AngelScriptFunctionHandle final : public ScriptFunctionHandle {
 public:
-	AngelScriptFunctionHandle(asIScriptEngine* engine, asIScriptFunction* fn, std::vector<ScriptMethodParam> params) :
-			engine_(engine), fn_(fn), params_(std::move(params)) {
-		fn_->AddRef();
+	AngelScriptFunctionHandle(
+		asIScriptEngine* engine,
+		asIScriptFunction* fn,
+		std::vector<ScriptMethodParam> params,
+		AngelScriptInstance* owner = nullptr
+	) : engine_(engine), fn_(fn), params_(std::move(params)), owner_(owner) {
+		// Do NOT call fn_->AddRef() here.
+		//
+		// AS pre-increments the reference count before passing a handle parameter to any generic
+		// function (it transfers ownership to the callee). Calling AddRef() again inflates the count
+		// by one too many, leaving the function permanently referenced and preventing clean module
+		// discard (AS will warn "external reference preventing deletion" at shutdown).
+		//
+		// Ownership contract: fn_ arrives with externalRefCount already incremented by AS.
+		// We are responsible for exactly one matching Release(), either via InvalidateFn() (for
+		// tracked handles, called before DiscardModule) or via the destructor (for handles whose
+		// C++ owner drops before the script instance is destroyed).
 	}
 
-	~AngelScriptFunctionHandle() override { fn_->Release(); }
+	~AngelScriptFunctionHandle() override {
+		if (owner_) {
+			owner_->UntrackHandle(this);
+		}
+		// Balance the AS-provided AddRef. Skipped when InvalidateFn() already released and nulled fn_.
+		if (fn_) {
+			fn_->Release();
+		}
+	}
+
+	// Called by the owning instance before module discard: balances the AS-provided AddRef and
+	// nulls fn_ so the destructor skips its release and Invoke becomes a safe no-op.
+	void InvalidateFn() {
+		owner_ = nullptr;
+		if (fn_) {
+			fn_->Release();
+			fn_ = nullptr;
+		}
+	}
 
 	void AddRef() override { ++ref_count_; }
 
 	void Release() override {
-		if (--ref_count_ <= 0) delete this;
+		if (--ref_count_ <= 0) {
+			delete this;
+		}
 	}
 
 	void Invoke(const void* const* args, const int arg_count) override {
+		if (!fn_) return; // handle was invalidated (source module discarded)
 		asIScriptContext* ctx = engine_->CreateContext();
 		if (!ctx) return;
 		if (ctx->Prepare(fn_) < 0) {
@@ -157,12 +189,11 @@ public:
 
 private:
 	asIScriptEngine* engine_;
-	asIScriptFunction* fn_;
+	asIScriptFunction* fn_; // null after InvalidateFn(); destructor and Invoke check this
 	std::vector<ScriptMethodParam> params_;
+	AngelScriptInstance* owner_; // non-owning; cleared by InvalidateFn() or UntrackHandle
 	int ref_count_{1};
 };
-
-} // namespace
 
 // -------------------------------------------------------------------------
 // AngelScriptBackend — core lifecycle and entity/global registration
@@ -195,12 +226,13 @@ bool AngelScriptBackend::Init(flecs::world& world) {
 }
 
 void AngelScriptBackend::Shutdown() {
-	// Run shutdown callbacks first so that C++ objects (like TileCallback lambdas) can release
-	// their ScriptFunctionHandle references before the engine is torn down.
-	for (auto& cb : shutdown_callbacks_) {
-		if (cb) cb(*world_);
+	// Run a full GC pass before deleting instances. The GC may hold transient references to
+	// script functions (e.g. from the last Execute cycle). Flushing those references first
+	// ensures that our InvalidateFn calls in ~AngelScriptInstance are the last external refs,
+	// so DiscardModule can complete without "external reference" warnings.
+	if (engine_) {
+		engine_->GarbageCollect(asGC_FULL_CYCLE);
 	}
-	shutdown_callbacks_.clear();
 
 	spdlog::debug("[AngelScript] Shutdown: {} script instances remaining", instances_.size());
 	for (const AngelScriptInstance* inst : instances_) {
@@ -209,13 +241,15 @@ void AngelScriptBackend::Shutdown() {
 	instances_.clear();
 
 	if (engine_) {
-		// NOTE: A residual warning may still appear for script functions if AS's internal
-		// GC/context-pool processing increments externalRefCount between our cleanup and the
-		// module-discard check inside ShutDownAndRelease. This is a benign timing issue.
-		engine_->GarbageCollect(asGC_FULL_CYCLE);
 		engine_->ShutDownAndRelease();
 		engine_ = nullptr;
 	}
+
+	// Clear stable storage after the engine is gone so a future Init() starts from a clean slate.
+	global_thunks_.clear();
+	callback_bindings_.clear();
+	callback_view_props_.clear();
+	registered_funcdefs_.clear();
 
 	world_ = nullptr;
 }
@@ -323,6 +357,19 @@ void AngelScriptBackend::RegisterEntityType() {
 		"Entity",
 		"void SetBool(const string &in, const string &in, bool)",
 		WRAP_MFN(ScriptEntityRef, SetBool),
+		asCALL_GENERIC
+	);
+
+	engine_->RegisterObjectMethod(
+		"Entity",
+		"string GetString(const string &in, const string &in) const",
+		WRAP_MFN(ScriptEntityRef, GetString),
+		asCALL_GENERIC
+	);
+	engine_->RegisterObjectMethod(
+		"Entity",
+		"void SetString(const string &in, const string &in, const string &in)",
+		WRAP_MFN(ScriptEntityRef, SetString),
 		asCALL_GENERIC
 	);
 
@@ -504,6 +551,17 @@ void AngelScriptBackend::ComponentSetGeneric(asIScriptGeneric* gen) {
 	host.set_ptr(component_id, static_cast<size_t>(component_info->size), value);
 }
 
+void AngelScriptBackend::ComponentHasGeneric(asIScriptGeneric* gen) {
+	// Returns true if the entity (or its script host) has the component.
+	const auto resolved = ResolveEntityAndComponent(gen);
+	if (!resolved.has_value()) {
+		gen->SetReturnByte(0);
+		return;
+	}
+	const auto [host, component_id] = resolved.value();
+	gen->SetReturnByte(host.has(component_id) ? 1 : 0);
+}
+
 void AngelScriptBackend::SingletonGetGeneric(asIScriptGeneric* gen) {
 	const auto component_id = reinterpret_cast<uintptr_t>(gen->GetAuxiliary());
 	void* out = gen->GetAddressOfReturnLocation();
@@ -567,9 +625,13 @@ void AngelScriptBackend::RegisterGlobalFunction(const ScriptMethodSignature& sig
 		return;
 	}
 
-	// Keep the thunk alive in a stable heap allocation so its address remains valid as the
-	// auxiliary pointer passed to GlobalFunctionGeneric (a vector reallocation would invalidate
-	// a pointer into the vector's element storage).
+	// On re-registration (e.g. scene reload), update the thunk in-place so the AS engine's
+	// auxiliary pointer continues to point to the same address with the new behaviour.
+	if (const auto it = global_thunks_.find(declaration); it != global_thunks_.end()) {
+		*it->second = std::move(thunk);
+		return;
+	}
+
 	auto thunk_ptr = std::make_unique<GlobalFunctionThunk>(std::move(thunk));
 	if (engine_->RegisterGlobalFunction(
 			declaration.c_str(),
@@ -581,13 +643,13 @@ void AngelScriptBackend::RegisterGlobalFunction(const ScriptMethodSignature& sig
 		spdlog::error("[AngelScript] Failed to register global function '{}'", sig.name);
 		return;
 	}
-	global_thunks_.push_back(std::move(thunk_ptr));
+	global_thunks_[declaration] = std::move(thunk_ptr);
 }
 
 void AngelScriptBackend::CallbackFunctionGeneric(asIScriptGeneric* gen) {
 	// The binding (sink + callback signature) is carried as the auxiliary; the world comes from
 	// engine user data (slot 1). The trailing argument is always the script function handle.
-	auto* binding = static_cast<CallbackBinding*>(gen->GetAuxiliary());
+	const auto* binding = static_cast<CallbackBinding*>(gen->GetAuxiliary());
 	auto* world = static_cast<flecs::world*>(gen->GetEngine()->GetUserData(1));
 	if (binding == nullptr || !binding->sink || world == nullptr) {
 		return;
@@ -598,9 +660,13 @@ void AngelScriptBackend::CallbackFunctionGeneric(asIScriptGeneric* gen) {
 		return; // null callback passed; nothing to bind
 	}
 
+	// Associate the handle with the currently executing instance for cleanup on module discard.
+	AngelScriptInstance* owner = t_current_instance;
+
 	// The handle holds the backend's single reference for the duration of the call. The sink
 	// AddRef()s it if it retains the callback; we drop our reference immediately afterwards.
-	auto* handle = new AngelScriptFunctionHandle(gen->GetEngine(), as_fn, binding->callback_params);
+	auto* handle = new AngelScriptFunctionHandle(gen->GetEngine(), as_fn, binding->callback_params, owner);
+	if (owner) owner->TrackHandle(handle);
 	AngelScriptCallContext ctx{gen};
 	binding->sink(ctx, *world, handle);
 	handle->Release();
@@ -622,7 +688,7 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 	const auto format_param = [this](const ScriptMethodParam& p) -> std::string { return FormatParam(*world_, p); };
 
 	// Register the callback funcdef (deduplicated by name across bindings that share a signature).
-	if (engine_->GetTypeInfoByName(fdname.c_str()) == nullptr) {
+	if (!registered_funcdefs_.contains(fdname)) {
 		const std::string fdecl = BuildFuncdefDeclaration(*world_, fdname, desc.callback.params);
 		if (fdecl.empty()) {
 			spdlog::error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
@@ -632,6 +698,7 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 			spdlog::error("[AngelScript] Failed to register funcdef '{}'", fdecl);
 			return;
 		}
+		registered_funcdefs_.insert(fdname);
 	}
 
 	// Build `void <name>(<fixed params...>, <funcdef>@ <callback name>)`.
@@ -650,6 +717,12 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 	decl += fdname + "@ " + (desc.callback.name.empty() ? "callback" : desc.callback.name);
 	decl += ")";
 
+	// On re-registration (e.g. scene reload), update the sink in-place.
+	if (const auto it = callback_bindings_.find(decl); it != callback_bindings_.end()) {
+		it->second->sink = std::move(sink);
+		return;
+	}
+
 	auto binding = std::make_unique<CallbackBinding>();
 	binding->sink = std::move(sink);
 	binding->callback_params = desc.callback.params;
@@ -665,13 +738,13 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 		spdlog::error("[AngelScript] Failed to register callback function '{}'", desc.name);
 		return;
 	}
-	callback_bindings_.push_back(std::move(binding));
+	callback_bindings_[decl] = std::move(binding);
 }
 
 void AngelScriptBackend::CallbackPropertySetGeneric(asIScriptGeneric* gen) {
 	// Auxiliary carries the property's sink + callback signature. The receiver is the C++ view
 	// object; the single argument is the assigned script function (null when the property is cleared).
-	auto* state = static_cast<CallbackViewProperty*>(gen->GetAuxiliary());
+	const auto* state = static_cast<CallbackViewProperty*>(gen->GetAuxiliary());
 	if (state == nullptr || !state->sink) {
 		return;
 	}
@@ -686,9 +759,13 @@ void AngelScriptBackend::CallbackPropertySetGeneric(asIScriptGeneric* gen) {
 		return;
 	}
 
+	// Associate the handle with the currently executing instance for cleanup on module discard.
+	AngelScriptInstance* owner = t_current_instance;
+
 	// The handle holds the backend's single reference for the duration of the call; the sink
 	// AddRef()s it if it retains the callback, and we drop our reference immediately afterwards.
-	auto* handle = new AngelScriptFunctionHandle(state->engine, as_fn, state->params);
+	auto* handle = new AngelScriptFunctionHandle(state->engine, as_fn, state->params, owner);
+	if (owner) owner->TrackHandle(handle);
 	state->sink(object, handle);
 	handle->Release();
 }
@@ -697,7 +774,7 @@ void AngelScriptBackend::CallbackPropertyInvokeGeneric(asIScriptGeneric* gen) {
 	// Invoke the stored callback on the receiver view, marshalling the script arguments through
 	// the neutral context. Works regardless of whether the callback was registered from script or
 	// C++, because both are invoked through the object's std::function.
-	auto* state = static_cast<CallbackViewProperty*>(gen->GetAuxiliary());
+	const auto* state = static_cast<CallbackViewProperty*>(gen->GetAuxiliary());
 	if (state == nullptr || !state->invoke) {
 		return;
 	}
@@ -724,13 +801,20 @@ void AngelScriptBackend::RegisterCallbackViewType(
 
 	// Non-owning reference view — instances are handles into C++-owned storage, so no factory or
 	// reference counting is registered (same shape as component accessors).
+	// The AS type may have been pre-registered by RegisterComponentType (without the view fields),
+	// so use the callback_view_props_ map — not type existence — to detect re-registration.
+	const std::string first_key =
+		callback_props.empty() ? "" : std::string{type_name} + "::" + callback_props.front().name;
+	const bool is_re_registration = !first_key.empty() && callback_view_props_.contains(first_key);
+
 	if (engine_->GetTypeIdByDecl(type_name) < 0) {
 		engine_->RegisterObjectType(type_name, 0, asOBJ_REF | asOBJ_NOCOUNT);
 	}
-
-	for (const auto& [decl, offset] : fields) {
-		if (engine_->RegisterObjectProperty(type_name, decl.c_str(), offset) < 0) {
-			spdlog::error("[AngelScript] Failed to register property '{}' on '{}'", decl, type_name);
+	if (!is_re_registration) {
+		for (const auto& [decl, offset] : fields) {
+			if (engine_->RegisterObjectProperty(type_name, decl.c_str(), offset) < 0) {
+				spdlog::error("[AngelScript] Failed to register property '{}' on '{}'", decl, type_name);
+			}
 		}
 	}
 
@@ -738,8 +822,9 @@ void AngelScriptBackend::RegisterCallbackViewType(
 		const std::string fdname =
 			prop.funcdef_name.empty() ? std::string{type_name} + "_" + prop.name + "Fn" : prop.funcdef_name;
 
-		// Register the callback funcdef (deduplicated by name).
-		if (engine_->GetTypeInfoByName(fdname.c_str()) == nullptr) {
+		// Register the callback funcdef (deduplicated by name; shared across bindings with the
+		// same signature — including bindings from a separate RegisterCallbackFunction call).
+		if (!registered_funcdefs_.contains(fdname)) {
 			const std::string fdecl = BuildFuncdefDeclaration(*world_, fdname, prop.params);
 			if (fdecl.empty()) {
 				spdlog::error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
@@ -749,6 +834,16 @@ void AngelScriptBackend::RegisterCallbackViewType(
 				spdlog::error("[AngelScript] Failed to register funcdef '{}'", fdecl);
 				return;
 			}
+			registered_funcdefs_.insert(fdname);
+		}
+
+		const std::string key = std::string{type_name} + "::" + prop.name;
+
+		// On re-registration (e.g. scene reload), update sink/invoke in-place.
+		if (is_re_registration) {
+			callback_view_props_[key]->sink = std::move(prop.sink);
+			callback_view_props_[key]->invoke = std::move(prop.invoke);
+			continue;
 		}
 
 		auto state = std::make_unique<CallbackViewProperty>();
@@ -799,7 +894,7 @@ void AngelScriptBackend::RegisterCallbackViewType(
 				return;
 			}
 		}
-		callback_view_props_.push_back(std::move(state));
+		callback_view_props_[key] = std::move(state);
 	}
 }
 
@@ -852,15 +947,22 @@ AngelScriptInstance::~AngelScriptInstance() {
 		ctx_->Release();
 		ctx_ = nullptr;
 	}
-	// Discard this instance's (uniquely-named) module so its bytecode and functions are reclaimed
-	// instead of leaking for the engine's lifetime. Script functions still referenced elsewhere
-	// (e.g. a callback that AddRef'd a handle) survive the discard per AngelScript semantics. This is
-	// safe at final teardown too because the backend deletes all instances before ShutDownAndRelease.
+	// Invalidate all tracked handles before discarding the module so the module has zero
+	// application-held external references when DiscardModule is called. AS's GC may still
+	// hold a transient ref; a full GC pass in Shutdown() before deleting instances resolves that.
+	for (AngelScriptFunctionHandle* handle : tracked_handles_) {
+		handle->InvalidateFn();
+	}
+	tracked_handles_.clear();
 	if (engine_ && module_) {
 		engine_->DiscardModule(module_->GetName());
 		module_ = nullptr;
 	}
 }
+
+void AngelScriptInstance::TrackHandle(AngelScriptFunctionHandle* handle) { tracked_handles_.push_back(handle); }
+
+void AngelScriptInstance::UntrackHandle(AngelScriptFunctionHandle* handle) { std::erase(tracked_handles_, handle); }
 
 void AngelScriptInstance::OnInit(flecs::entity /*entity*/) { Call(fn_on_init_, entity_ref_.GetEntity()); }
 
@@ -890,7 +992,13 @@ void AngelScriptInstance::Call(asIScriptFunction* fn, flecs::entity /*entity*/, 
 		ctx_->SetArgFloat(1, dt);
 	}
 
-	if (const int result = ctx_->Execute(); result == asEXECUTION_EXCEPTION) {
+	// Publish this instance so that callback generics (SetOnClick etc.) can track any
+	// script function handles they create back to this module for cleanup on discard.
+	t_current_instance = this;
+	const int result = ctx_->Execute();
+	t_current_instance = nullptr;
+
+	if (result == asEXECUTION_EXCEPTION) {
 		spdlog::error("[AngelScript] Exception in '{}': {}", fn->GetName(), ctx_->GetExceptionString());
 	}
 	else if (result < 0) {

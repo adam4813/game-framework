@@ -41,17 +41,17 @@ struct ScriptValueType {
 	flecs::entity_t object_type{0}; // flecs component/type id, only used when kind == Object
 	bool is_handle{false};          // Object only: exposed as a reference handle (`T@`) rather than a value
 
-	[[nodiscard]] static ScriptValueType MakeVoid() { return {ScriptValueKind::Void, 0}; }
-	[[nodiscard]] static ScriptValueType MakeBool() { return {ScriptValueKind::Bool, 0}; }
-	[[nodiscard]] static ScriptValueType MakeInt() { return {ScriptValueKind::Int, 0}; }
-	[[nodiscard]] static ScriptValueType MakeFloat() { return {ScriptValueKind::Float, 0}; }
-	[[nodiscard]] static ScriptValueType MakeString() { return {ScriptValueKind::String, 0}; }
+	[[nodiscard]] static ScriptValueType MakeVoid() { return {.kind = ScriptValueKind::Void, .object_type = 0}; }
+	[[nodiscard]] static ScriptValueType MakeBool() { return {.kind = ScriptValueKind::Bool, .object_type = 0}; }
+	[[nodiscard]] static ScriptValueType MakeInt() { return {.kind = ScriptValueKind::Int, .object_type = 0}; }
+	[[nodiscard]] static ScriptValueType MakeFloat() { return {.kind = ScriptValueKind::Float, .object_type = 0}; }
+	[[nodiscard]] static ScriptValueType MakeString() { return {.kind = ScriptValueKind::String, .object_type = 0}; }
 	[[nodiscard]] static ScriptValueType MakeObject(const flecs::entity_t type_id) {
-		return {ScriptValueKind::Object, type_id};
+		return {.kind = ScriptValueKind::Object, .object_type = type_id};
 	}
 	// A reference-type handle (`T@`) — used to return/pass a non-owning view into C++ storage.
 	[[nodiscard]] static ScriptValueType MakeObjectHandle(const flecs::entity_t type_id) {
-		return {ScriptValueKind::Object, type_id, true};
+		return {.kind = ScriptValueKind::Object, .object_type = type_id, .is_handle = true};
 	}
 };
 

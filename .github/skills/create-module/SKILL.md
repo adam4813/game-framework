@@ -115,8 +115,26 @@ namespace engine::<name> {
   // (1) Singletons
   world.set<MyState>({});
 
-  // (2) Reflection — optional but recommended for debugging via the Explorer.
+  // (2) Reflection — ALWAYS register every component type your module owns via world.component<T>(),
+  // even tags and event-only components with no meta fields. Without explicit registration, the
+  // type only exists when game code first calls entity.add<T>() or entity.set<T>(). In contexts
+  // where that code path never runs (e.g. the headless scene-equivalence test), any query or
+  // observer referencing that component will fail or produce wrong results.
+  //
+  // Preferred — sequential template deduction: short, readable, correct when every struct field
+  // from the first registered to the last is listed in declaration order with no gaps:
   world.component<MyComponent>().member<glm::vec3>("value").member<float>("amount");
+  world.component<MyTag>();    // zero-size tags still need explicit registration
+  //
+  // Fallback — pointer-to-member syntax: use this whenever ANY field between the first and
+  // last registered member is skipped (functions, std::function callbacks, complex STL
+  // containers, etc.). Sequential tracking would compute wrong offsets in those cases, causing
+  // garbage reads in the Flecs Explorer, bad serialization, and crashes in entity.to_json():
+  //
+  //   world.component<MyComp>()
+  //       .member("value",  &MyComp::value)   // safe — offset is always exact
+  //       .member("amount", &MyComp::amount);
+  //
   // RegisterComponentForScripts is a no-op when no scripting backend is present.
   scripting::RegisterComponentForScripts(world, world.component<MyComponent>());
 
@@ -186,7 +204,94 @@ world_.import<<namespace>::<Name>Module>(); // near the other world_.import<> ca
 Mirror `src/engine/physics/README.md`: a one-line summary, a **Structure** file list, a **Usage** snippet, an **Adding X
 to an entity** snippet, and the list of registered systems grouped by kind (per-entity `each`, global `run`, observers).
 
-## 8. Build & verify
+## 8. Scene equivalence test — `tests/scene_equivalence/`
+
+The scene equivalence test (`tests/scene_equivalence/scene_equivalence_test`) verifies that the
+same scene produces identical authored component values when built through JSON, AngelScript,
+and C++. **Every authored (non-transient, non-singleton) component with meta-registered fields
+should be covered.** After creating a new module, update the test in five places:
+
+### 8a. Import the module in `TestWorld` (`main.cpp`)
+
+Add the include and `world.import<>()` call alongside the others in the `TestWorld` constructor:
+
+```cpp
+#include "engine/<name>/<name>.hpp"   // top of main.cpp
+
+// Inside TestWorld constructor:
+world.import<engine::<name>::<Name>Module>();
+```
+
+### 8b. Add test entities in `BuildCppWorld()` (`main.cpp`)
+
+For each authored component with meta-registered fields, add one named entity as a
+`child_of(scene_root)`. **Use fully-explicit designated initializers** for every meta-registered
+field — do not rely on struct defaults, since C++ designated init zero-initializes unspecified
+fields while JSON and AS paths use the struct's own defaults.
+
+```cpp
+test_world.world.entity()
+    .child_of(scene_root)
+    .set_name("Test<ComponentName>")
+    .set<engine::<name>::MyComponent>({
+        .value = {1.0F, 2.0F, 3.0F},
+        .amount = 0.5F,
+    });
+```
+
+### 8c. Add JSON entities to `kTestSceneJson` (`scene_data.hpp`)
+
+Add a new entity for each test component using the JSON loader key registered in the module
+via `level::RegisterComponentLoader(world, "<key>", ...)`:
+
+```json
+{
+  "name": "Test<ComponentName>",
+  "components": {
+    "<loader_key>": {
+      "value": [1.0, 2.0, 3.0],
+      "amount": 0.5
+    }
+  }
+}
+```
+
+### 8d. Add AngelScript entities to `kTestSceneScript` (`scene_data.hpp`)
+
+In the `OnInit` function body, create the entity and set its components via the typed component
+handle. Use **direct handle property assignment** — this works for all field types regardless of
+component scope:
+
+```angelscript
+Entity my_ent = CreateNamedEntity("Test<ComponentName>");
+MyComponent@ mc = my_ent.AddMyComponent();
+mc.value = vec3(1.0f, 2.0f, 3.0f);
+mc.amount = 0.5f;
+```
+
+- `std::string` fields: assign directly via the handle property — `mc.path = "./some/path"`.
+- `Rgba` fields: use the `MakeRgba(r, g, b, a)` global registered by the test setup.
+- Skip fields that are runtime-only (asset handles, per-frame state) — they are excluded from
+  comparison automatically (handle fields are skipped; components serializing to `null` are
+  skipped).
+
+### 8e. Update `COMPONENT_COVERAGE.md` (`tests/scene_equivalence/`)
+
+Add a row for every new component to
+`tests/scene_equivalence/COMPONENT_COVERAGE.md` using the legend at the top of that file (✅ Tested, ⚠️ Partial, 🚫 Skip,
+🔧 TODO, 🐛 Bug).
+
+### 8f. Verify
+
+```powershell
+cmake --build --preset desktop-release --target scene_equivalence_test
+cd build\desktop\tests\scene_equivalence\Release
+.\scene_equivalence_test.exe
+```
+
+The test must exit 0 with **0 mismatches**.
+
+## 9. Build & verify
 
 ```powershell
 cmake --preset desktop

@@ -80,7 +80,7 @@ float ScriptEntityRef::GetFloat(const std::string& component, const std::string&
 	return ecs_meta_get_float(&cur);
 }
 
-void ScriptEntityRef::SetFloat(const std::string& component, const std::string& field, const float value) {
+void ScriptEntityRef::SetFloat(const std::string& component, const std::string& field, const float value) const {
 	auto [comp_id, ptr] = ResolveMutableComponent(entity_, component);
 	if (!ptr) {
 		return;
@@ -112,7 +112,7 @@ int ScriptEntityRef::GetInt(const std::string& component, const std::string& fie
 	return static_cast<int>(ecs_meta_get_int(&cur));
 }
 
-void ScriptEntityRef::SetInt(const std::string& component, const std::string& field, const int value) {
+void ScriptEntityRef::SetInt(const std::string& component, const std::string& field, const int value) const {
 	auto [comp_id, ptr] = ResolveMutableComponent(entity_, component);
 	if (!ptr) {
 		return;
@@ -144,7 +144,7 @@ bool ScriptEntityRef::GetBool(const std::string& component, const std::string& f
 	return ecs_meta_get_bool(&cur);
 }
 
-void ScriptEntityRef::SetBool(const std::string& component, const std::string& field, const bool value) {
+void ScriptEntityRef::SetBool(const std::string& component, const std::string& field, const bool value) const {
 	auto [comp_id, ptr] = ResolveMutableComponent(entity_, component);
 	if (!ptr) {
 		return;
@@ -156,6 +156,42 @@ void ScriptEntityRef::SetBool(const std::string& component, const std::string& f
 		return;
 	}
 	ecs_meta_set_bool(&cur, value);
+}
+
+// -------------------------------------------------------------------------
+// String
+// -------------------------------------------------------------------------
+
+std::string ScriptEntityRef::GetString(const std::string& component, const std::string& field) const {
+	auto [comp_id, ptr] = ResolveConstComponent(entity_, component);
+	if (!ptr) {
+		return {};
+	}
+
+	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, const_cast<void*>(ptr));
+	if (ecs_meta_member(&cur, field.c_str()) != 0) {
+		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		return {};
+	}
+
+	const char* value = ecs_meta_get_string(&cur);
+	return value ? value : std::string{};
+}
+
+void ScriptEntityRef::SetString(const std::string& component, const std::string& field, const std::string& value
+) const {
+	auto [comp_id, ptr] = ResolveMutableComponent(entity_, component);
+	if (!ptr) {
+		return;
+	}
+
+	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, ptr);
+	if (ecs_meta_member(&cur, field.c_str()) != 0) {
+		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		return;
+	}
+
+	ecs_meta_set_string(&cur, value.c_str());
 }
 
 // -------------------------------------------------------------------------

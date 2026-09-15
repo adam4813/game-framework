@@ -125,27 +125,82 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
 
-	// === OBSERVER: Sync physics bodies to backend on component set ===
-	// Triggered when RigidBody is set.
-	// TODO: Come back and add a system with detect_changes() to recreate physics bodies when RigidBody or CollisionShape changes.
-	// This will require a bit of care to avoid feedback loops, but it should be doable. using detect_changes() and it.changed in the loop,
-	std::ignore = world.observer<const RigidBody, JoltBackend>("PhysicsAddBody")
+	// === OBSERVER: Create physics body when RigidBody is added ===
+	// CollisionShape MUST already be present — RigidBody without CollisionShape is an authoring
+	// error and will NOT create a body. If CollisionShape arrives after RigidBody (e.g. component
+	// order in a level file), PhysicsAddBodyOnCollisionShape below handles that case.
+	// TODO: Add system with detect_changes() to recreate bodies when RigidBody/CollisionShape changes.
+	// TODO: OnAdd means we won't recreate the body if RigidBody is removed and then re-added.
+	// Using OnSet causes the world to get into a weird state where the body sleeps forever.
+	std::ignore =
+		world.observer<const RigidBody, JoltBackend>("PhysicsAddBody")
+			.event(flecs::OnAdd)
+			.term_at<JoltBackend>()
+			.singleton()
+			.run([](flecs::iter& it) {
+				auto& sys = it.world().get_mut<JoltBackend>();
+
+				while (it.next()) {
+					auto rb_array = it.field<const RigidBody>(0);
+
+					for (const size_t i : it) {
+						flecs::entity e = it.entity(i);
+						const auto& rb = rb_array[i];
+						const auto* cs = e.try_get<CollisionShape>();
+
+						if (!cs) {
+							const std::string entity_name = e.name() ? std::string{e.name()} : std::to_string(e.id());
+							spdlog::warn(
+								"[Physics] Entity '{}' has RigidBody but no CollisionShape — body creation deferred "
+								"until CollisionShape is added.",
+								entity_name
+							);
+							continue;
+						}
+
+						const auto* wt = e.try_get<const spatial::WorldTransform>();
+						const PhysicsTransform phys_transform =
+							wt ? PhysicsTransform::FromMatrix(wt->matrix)
+							   : PhysicsTransform{}; // identity; corrected by PhysicsSetInitialTransform / PhysicsSyncToBackend
+
+						sys.SyncBodyToBackend(e.id(), phys_transform, rb, *cs);
+
+						if (rb.motion_type == MotionType::Dynamic && !e.has<PhysicsVelocity>()) {
+							e.set<PhysicsVelocity>({});
+						}
+					}
+				}
+			});
+
+	// === OBSERVER: Create physics body when CollisionShape is added to an entity with RigidBody ===
+	// Handles the case where CollisionShape is authored after RigidBody (e.g. JSON component order).
+	// Mirrors the PhysicsAddBody logic; also handles CollisionShape being set/updated after creation.
+	std::ignore = world.observer<const CollisionShape, JoltBackend>("PhysicsAddBodyOnCollisionShape")
 					  .event(flecs::OnSet)
+					  .with<RigidBody>()
 					  .term_at<JoltBackend>()
 					  .singleton()
 					  .run([](flecs::iter& it) {
 						  auto& sys = it.world().get_mut<JoltBackend>();
 
 						  while (it.next()) {
-							  auto rb_array = it.field<const RigidBody>(0);
+							  auto cs_array = it.field<const CollisionShape>(0);
 
 							  for (const size_t i : it) {
-								  flecs::entity e = it.entity(i);
-								  const auto& rb = rb_array[i];
-								  const auto& cs = e.get<CollisionShape>();
+								  const flecs::entity e = it.entity(i);
 
+								  // Skip if a body was already created by PhysicsAddBody (CS was present at RB add time).
+								  if (sys.HasBody(e.id())) {
+									  continue;
+								  }
+
+								  const auto& cs = cs_array[i];
+								  const auto& rb = e.get<const RigidBody>();
+
+								  const auto* wt = e.try_get<const spatial::WorldTransform>();
 								  const PhysicsTransform phys_transform =
-									  PhysicsTransform::FromMatrix(e.get<const spatial::WorldTransform>().matrix);
+									  wt ? PhysicsTransform::FromMatrix(wt->matrix) : PhysicsTransform{};
+
 								  sys.SyncBodyToBackend(e.id(), phys_transform, rb, cs);
 
 								  if (rb.motion_type == MotionType::Dynamic && !e.has<PhysicsVelocity>()) {
@@ -161,6 +216,25 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .term_at<JoltBackend>()
 					  .singleton()
 					  .each([](const flecs::entity& e, const RigidBody&, JoltBackend& sys) { sys.RemoveBody(e.id()); });
+
+	// When WorldTransform is added AFTER RigidBody, the body was created with an identity
+	// transform. Sync immediately to the correct initial position so the first simulated
+	// frame sees the right pose.
+	std::ignore = world.observer<const spatial::WorldTransform, JoltBackend>("PhysicsSetInitialTransform")
+					  .event(flecs::OnAdd)
+					  .with<RigidBody>()
+					  .term_at<JoltBackend>()
+					  .singleton()
+					  .run([](flecs::iter& it) {
+						  auto& sys = it.world().get_mut<JoltBackend>();
+						  while (it.next()) {
+							  for (const size_t i : it) {
+								  const flecs::entity e = it.entity(i);
+								  const auto& wt = e.get<const spatial::WorldTransform>();
+								  sys.SetBodyTransform(e.id(), PhysicsTransform::FromMatrix(wt.matrix));
+							  }
+						  }
+					  });
 
 	// === SYSTEM: Sync physics state back to ECS ===
 	std::ignore = world.system<const spatial::WorldTransform, const RigidBody>("PhysicsSyncToBackend")
@@ -264,7 +338,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .term_at<input::InputState>()
 					  .singleton()
 					  .each([debug_render_sys](const input::InputState& input_state) {
-						  if (input_state.keys[input::KeyCode::F3].pressed) {
+						  if (input_state.keys[input::kDebugRenderKey].pressed) {
 							  if (debug_render_sys.enabled()) {
 								  if (!debug_render_sys.disable()) {
 									  spdlog::warn("[JoltModule] Failed to disable debug render system");

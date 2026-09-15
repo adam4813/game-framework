@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 #include <glm/glm.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <spdlog/spdlog.h>
 
 #include "engine/core/core.hpp"
@@ -11,6 +11,7 @@
 #include "engine/scene/scene_components.hpp"
 #include "engine/scripting/scripting_module.hpp"
 
+#include "engine/ecs/pausable.hpp"
 #include "spatial_components.hpp"
 
 namespace engine::spatial {
@@ -52,29 +53,60 @@ SpatialModule::SpatialModule(const flecs::world& world) {
 			.kind(flecs::PreStore)
 			.without<physics::RigidBody>()
 			.each([](const Transform& local, WorldTransform& world_transform, const WorldTransform* parent_wt) {
-				const glm::mat4 t = glm::translate(glm::mat4(1.0F), local.position);
-				const glm::mat4 rx = glm::rotate(glm::mat4(1.0F), local.rotation.x, glm::vec3(1, 0, 0));
-				const glm::mat4 ry = glm::rotate(glm::mat4(1.0F), local.rotation.y, glm::vec3(0, 1, 0));
-				const glm::mat4 rz = glm::rotate(glm::mat4(1.0F), local.rotation.z, glm::vec3(0, 0, 1));
-				const glm::mat4 s = glm::scale(glm::mat4(1.0F), local.scale);
-				const glm::mat4 local_matrix = t * rz * ry * rx * s;
+				// Compose the local matrix. The overwhelmingly common case is an unrotated entity, so
+				// skip the four glm::rotate calls (each a sin/cos) and their matrix products entirely
+				// when there is no local rotation — this is the hot path for scenes with tens of
+				// thousands of moving entities.
+				glm::mat4 local_matrix;
+				if (local.rotation.x == 0.0F && local.rotation.y == 0.0F && local.rotation.z == 0.0F) {
+					local_matrix = glm::mat4(1.0F);
+					local_matrix[0][0] = local.scale.x;
+					local_matrix[1][1] = local.scale.y;
+					local_matrix[2][2] = local.scale.z;
+					local_matrix[3] = glm::vec4(local.position, 1.0F);
+				}
+				else {
+					const glm::mat4 t = glm::translate(glm::mat4(1.0F), local.position);
+					const glm::mat4 rx = glm::rotate(glm::mat4(1.0F), local.rotation.x, glm::vec3(1, 0, 0));
+					const glm::mat4 ry = glm::rotate(glm::mat4(1.0F), local.rotation.y, glm::vec3(0, 1, 0));
+					const glm::mat4 rz = glm::rotate(glm::mat4(1.0F), local.rotation.z, glm::vec3(0, 0, 1));
+					const glm::mat4 s = glm::scale(glm::mat4(1.0F), local.scale);
+					local_matrix = t * rz * ry * rx * s;
+				}
 
-				world_transform.matrix = parent_wt ? (parent_wt->matrix * local_matrix) : local_matrix;
+				// Root entity (no parent WorldTransform): world == local, so copy the authored
+				// components directly. No matrix decomposition is needed — this is the fast path that
+				// avoids glm::decompose for every unparented entity (the common case).
+				if (parent_wt == nullptr) {
+					world_transform.matrix = local_matrix;
+					world_transform.position = local.position;
+					world_transform.rotation = local.rotation;
+					world_transform.scale = local.scale;
+					return;
+				}
 
-				glm::quat orientation;
-				glm::vec3 skew;
-				glm::vec4 perspective;
-				glm::decompose(
-					world_transform.matrix,
-					world_transform.scale,
-					orientation,
-					world_transform.position,
-					skew,
-					perspective
-				);
-				world_transform.rotation = glm::eulerAngles(orientation);
+				world_transform.matrix = parent_wt->matrix * local_matrix;
+
+				// Parented entity: extract world-space components from the composed matrix. This is a
+				// lightweight, affine-only substitute for glm::decompose (which additionally solves for
+				// skew and perspective that these transforms never contain).
+				world_transform.position = glm::vec3(world_transform.matrix[3]);
+				const glm::vec3 c0(world_transform.matrix[0]);
+				const glm::vec3 c1(world_transform.matrix[1]);
+				const glm::vec3 c2(world_transform.matrix[2]);
+				const float sx = glm::length(c0);
+				const float sy = glm::length(c1);
+				const float sz = glm::length(c2);
+				world_transform.scale = glm::vec3(sx, sy, sz);
+				const glm::mat3 rotation_matrix{
+					sx > 0.0F ? c0 / sx : glm::vec3(1, 0, 0),
+					sy > 0.0F ? c1 / sy : glm::vec3(0, 1, 0),
+					sz > 0.0F ? c2 / sz : glm::vec3(0, 0, 1),
+				};
+				world_transform.rotation = glm::eulerAngles(glm::quat_cast(rotation_matrix));
 			})
-			.add<scene::GameScene>();
+			.add<scene::GameScene>()
+			.add<ecs::Pausable>();
 
 	// Set world transform initial value to local transform
 	std::ignore = world.observer<WorldTransform>("SetInitialWorldTransform")

@@ -4,6 +4,8 @@ project(game LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BUILD_SCENE_EQUIVALENCE_TEST "Build the scene equivalence test application" ON)
+
 find_package(Angelscript CONFIG REQUIRED)
 find_package(raylib CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -37,6 +39,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Jolt::Jolt
     spdlog::spdlog
 )
+
+if (BUILD_SCENE_EQUIVALENCE_TEST AND NOT EMSCRIPTEN)
+    add_subdirectory(tests/scene_equivalence)
+endif ()
 
 if (EMSCRIPTEN)
     # Preload assets for WASM

@@ -156,11 +156,11 @@ void AngelScriptBackend::RegisterComponentType(const flecs::entity component_ent
 		RegisterReflectedMembers(engine_, world, component_name, component_entity);
 	}
 
-	const std::string const_getter_sig =
-		"const " + std::string{component_name} + "@ Get" + component_name + "() const";
+	const std::string const_getter_sig = "const " + std::string{component_name} + "@ Get" + component_name + "() const";
 	const std::string mut_getter_sig = std::string{component_name} + "@ Mut" + component_name + "()";
 	const std::string adder_sig = std::string{component_name} + "@ Add" + component_name + "()";
 	const std::string setter_sig = "void Set" + std::string{component_name} + "(" + component_name + "@ v)";
+	const std::string has_sig = "bool Has" + std::string{component_name} + "() const";
 	const auto auxiliary = reinterpret_cast<void*>(component_entity.id());
 	engine_->RegisterObjectMethod(
 		"Entity",
@@ -192,6 +192,8 @@ void AngelScriptBackend::RegisterComponentType(const flecs::entity component_ent
 		asCALL_GENERIC,
 		auxiliary
 	);
+	engine_
+		->RegisterObjectMethod("Entity", has_sig.c_str(), asFUNCTION(ComponentHasGeneric), asCALL_GENERIC, auxiliary);
 }
 
 void AngelScriptBackend::RegisterSingletonType(const flecs::entity component_entity) {
@@ -292,10 +294,6 @@ void AngelScriptBackend::RegisterValueTypeFromMeta(const flecs::entity type_enti
 	spdlog::debug("[AngelScript] Registered reflected type '{}' ({} bytes)", type_name, type_info->size);
 }
 
-void AngelScriptBackend::RegisterShutdownCallback(const std::function<void(flecs::world&)>& callback) {
-	shutdown_callbacks_.push_back(callback);
-}
-
 void AngelScriptBackend::RegisterObjectConstructor(
 	const flecs::entity type_entity,
 	const std::string_view params_signature,
@@ -347,7 +345,7 @@ void AngelScriptBackend::RegisterObjectConstructor(
 	}
 }
 
-void AngelScriptBackend::RegisterGlobalConstants(std::vector<ScriptConstant> constants) {
+void AngelScriptBackend::RegisterGlobalConstants(const std::vector<ScriptConstant> constants) {
 	for (const ScriptConstant& c : constants) {
 		std::string decl;
 		switch (c.type.kind) {

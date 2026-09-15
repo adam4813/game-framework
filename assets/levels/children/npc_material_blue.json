@@ -1,0 +1,14 @@
+{
+	"link": "render_with",
+	"components": {
+		"material": {
+			"color": [
+				60,
+				100,
+				220,
+				255
+			],
+			"cast_shadow": false
+		}
+	}
+}

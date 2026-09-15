@@ -9,7 +9,7 @@
 
 void OnInit(Entity self) {
     Print("[ButtonClickDemo] Binding onClick handler to the Script Button");
-    SetOnClick(self.GetParent(), @OnScriptButtonClicked);
+    SetOnClick(self, @OnScriptButtonClicked);
 }
 
 void OnScriptButtonClicked(Entity button) {

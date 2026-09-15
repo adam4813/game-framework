@@ -115,6 +115,39 @@ struct UIFocus {
 // without synthesising mouse input. UIButtonClickRequest consumes and removes it each frame.
 struct UIClickRequest {};
 
+// Horizontal interactive slider. Drag the thumb (or click anywhere on the track) to set
+// `value`. The `on_change` callback fires whenever the value changes via interaction.
+// Set `step > 0` to snap to discrete increments (e.g. step=1 for integer sliders).
+struct Slider {
+	float value{0.5F};
+	float min{0.0F};
+	float max{1.0F};
+	float step{0.0F}; // 0 = continuous; > 0 = snap to nearest multiple of step from min
+
+	core::Rgba track_color{core::colors::PanelHi};
+	core::Rgba fill_color{core::colors::Accent};
+	core::Rgba thumb_color{core::colors::Text};
+	core::Rgba thumb_hover_color{core::colors::Title};
+	float thumb_radius{8.0F};
+	float track_height{6.0F};
+
+	// === Runtime state (written by UISliderInteraction) ===
+	bool hovered{false};
+	bool dragging{false};
+
+	// Called when `value` changes via user interaction. Capture context in a lambda.
+	std::function<void(float)> on_change;
+
+	// Normalised position in [0, 1].
+	[[nodiscard]] float Fraction() const {
+		const float range = max - min;
+		if (range <= 0.0F) {
+			return 0.0F;
+		}
+		return glm::clamp((value - min) / range, 0.0F, 1.0F);
+	}
+};
+
 // Determinate value/progress bar. Non-interactive: game or script code drives `value`.
 struct ProgressBar {
 	float value{0.0F};
@@ -189,7 +222,7 @@ struct ScrollRect {
 // drawing and interaction for their whole subtree.
 struct Modal {
 	bool open{true};
-	core::Rgba backdrop_color{6, 8, 6, 200};
+	core::Rgba backdrop_color{.r = 6, .g = 8, .b = 6, .a = 200};
 	bool close_on_backdrop{false};
 };
 

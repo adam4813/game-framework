@@ -64,14 +64,18 @@ Deep field-level docs live in each module's README; this is the map of *which co
 
 Shapes: `CubePrimitive`, `SpherePrimitive`, `QuadPrimitive`, `CapsulePrimitive`, `MeshPrimitive`
 (its `path`/`handle` resolve via the templated `RegisterPathAsset<T>()` observer). Material/appearance:
-`Material`, `AlbedoMap`, `ShaderMap` (all three use `RegisterPathAsset<T>()` for path→handle resolution). Lights:
-`AmbientLight`
-(singleton), `DirectionalLight`. View: `Camera` (+ an `ecs::Transform` as the eye).
+`Material`, `AlbedoMap`, `ShaderMap` (all three use `RegisterPathAsset<T>()` for path→handle resolution). Sprite
+atlases: `SpriteAtlas` (texture path + pixel dimensions; an atlas entity also carries `AlbedoMap`, `Material`,
+and `ShaderMap` directly so it serves as a material source). Lights: `AmbientLight` (singleton), `DirectionalLight`.
+View: `Camera` (+ an `ecs::Transform` as the eye).
 
 **Relationships & linkage**:
 
 - `RenderWith` — relationship from a renderable entity to a **material entity**. The material entity carries `Material`,
   `AlbedoMap`, `ShaderMap`, and is resolved transparently via scripts (see `ScriptTraversal` below).
+- `UseSpriteAtlas` — relationship from a sprite consumer (e.g., a tilemap) to a `SpriteAtlas` entity. An observer
+  automatically wires `RenderWith` from the consumer to the atlas entity, so the consumer's mesh render uses the
+  atlas as its material source.
 - `LookAt` — relationship from a camera to a target entity. `Render3DBegin` reads the target's `WorldTransform` to aim
   the camera; if unset, falls back to the camera's forward vector.
 
@@ -123,11 +127,18 @@ namespace, tag `InputEnabled`.
 
 ### tilemap (`src/engine/tilemap/tilemap_components.hpp`)
 
-`Tilemap` (grid of tile IDs), `TileSet` (texture + atlas dims), `TileRegistry` (tile ID → descriptor map, scoped per
-tilemap entity), `TileDescriptor` (id/name/color/tex_coords/walkable/callbacks), `GridPosition` (entity's current tile
-x/z), `TileCallbackState` (internal transition tracking), `TilemapViewport` (viewport-sized ring-buffer streaming),
-**tag** `TilemapFollowTarget` (marks the entity that the viewport centers on — typically the player, but decoupled from
-any specific follower). See [tilemap README](../src/engine/tilemap/README.md).
+`Tilemap` (grid of tile IDs, width/height, tile size, pixels per world unit), `TileSet` (registry of tile
+descriptors keyed by ID), `TilemapSpec` (the "recipe" for a tilemap — dimensions, fill tile, and painting ops),
+`TileDescriptor` (id/name/color/tex_coords/walkable/callbacks), `GridPosition` (entity's current tile x/z),
+`TileCallbackState` (internal transition tracking), `TilemapViewport` (viewport-sized ring-buffer streaming),
+relationship `UseRegistry` (tilemap → registry entity carrying `TileSet`), and **tag** `TilemapFollowTarget` (marks the
+entity that the viewport centers on — typically the player, but decoupled from any specific follower). See [tilemap
+README](../src/engine/tilemap/README.md).
+
+**Rendering**: Tilemaps compose a `TileSet` (via `UseRegistry` ref) and a sprite atlas (via `UseSpriteAtlas` ref,
+pointing to a render module `SpriteAtlas` entity). The `TilemapMeshBuilder` observer watches for `Tilemap` and bakes
+the grid geometry + UVs into a `DynamicMesh`, using the tileset descriptors for tile properties and the sprite atlas
+for texture coordinates.
 
 ## Registering a new component
 

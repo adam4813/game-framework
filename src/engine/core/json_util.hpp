@@ -70,7 +70,7 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 			files.push_back(it->path());
 		}
 	}
-	std::sort(files.begin(), files.end());
+	std::ranges::sort(files);
 
 	int loaded = 0;
 	for (const auto& file : files) {
@@ -121,10 +121,10 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 		return def;
 	}
 	return {
-		static_cast<std::uint8_t>(a[0].get<int>()),
-		static_cast<std::uint8_t>(a[1].get<int>()),
-		static_cast<std::uint8_t>(a[2].get<int>()),
-		static_cast<std::uint8_t>(a[3].get<int>())
+		.r = static_cast<std::uint8_t>(a[0].get<int>()),
+		.g = static_cast<std::uint8_t>(a[1].get<int>()),
+		.b = static_cast<std::uint8_t>(a[2].get<int>()),
+		.a = static_cast<std::uint8_t>(a[3].get<int>())
 	};
 }
 
@@ -154,7 +154,7 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 	if (!a.is_array() || a.size() < 4) {
 		return def;
 	}
-	return {a[0].get<float>(), a[1].get<float>(), a[2].get<float>(), a[3].get<float>()};
+	return {.x = a[0].get<float>(), .y = a[1].get<float>(), .w = a[2].get<float>(), .h = a[3].get<float>()};
 }
 
 } // namespace engine::core

@@ -1,0 +1,782 @@
+{
+  "children": {
+    "TestAlbedo": {
+      "components": {
+        "AlbedoMap": {
+          "handle": -1,
+          "path": "./textures/checker.png"
+        }
+      },
+      "name": "TestAlbedo",
+      "parent": "SceneRoot"
+    },
+    "TestAudio": {
+      "components": {
+        "SoundEffect": {
+          "handle": -1,
+          "path": "./audio/sfx/jump.wav",
+          "playing": false
+        }
+      },
+      "name": "TestAudio",
+      "parent": "SceneRoot"
+    },
+    "TestBTree": {
+      "components": {
+        "BehaviorTree": {
+          "tick_interval": 0.1000000015,
+          "tick_timer": 0
+        }
+      },
+      "name": "TestBTree",
+      "parent": "SceneRoot"
+    },
+    "TestBox": {
+      "components": {
+        "CollisionShape": {
+          "offset": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "CubePrimitive": {
+          "size": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "PhysicsVelocity": {
+          "angular": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "linear": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "RigidBody": {
+          "friction": 0.5,
+          "gravity_scale": 1,
+          "mass": 1,
+          "restitution": 0.3000000119,
+          "use_gravity": true
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 3,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestBox",
+      "parent": "SceneRoot"
+    },
+    "TestCamera": {
+      "components": {
+        "Camera": {
+          "aspect_ratio": 1.777777791,
+          "far_plane": 100,
+          "fov": 60,
+          "near_plane": 0.1000000015,
+          "up": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 5,
+            "z": 5
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestCamera",
+      "parent": "SceneRoot"
+    },
+    "TestCapsule": {
+      "components": {
+        "CapsulePrimitive": {
+          "height": 1.5,
+          "radius": 0.400000006
+        },
+        "Transform": {
+          "position": {
+            "x": 5,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestCapsule",
+      "parent": "SceneRoot"
+    },
+    "TestFSMAgent": {
+      "components": {
+        "FSMAgent": {
+          "current_state": "idle",
+          "previous_state": "",
+          "state_changed": false,
+          "state_elapsed": 0
+        }
+      },
+      "name": "TestFSMAgent",
+      "parent": "SceneRoot"
+    },
+    "TestGOAPAgent": {
+      "components": {
+        "GOAPAgent": {
+          "needs_replan": true,
+          "plan_failed": false
+        }
+      },
+      "name": "TestGOAPAgent",
+      "parent": "SceneRoot"
+    },
+    "TestGraphEdge": {
+      "components": {
+        "GraphEdgeWeight": {
+          "tag": "strong",
+          "weight": 0.75
+        }
+      },
+      "name": "TestGraphEdge",
+      "parent": "SceneRoot"
+    },
+    "TestGraphNode": {
+      "components": {
+        "GraphNode": {
+          "label": "MainNode",
+          "order": 1
+        }
+      },
+      "name": "TestGraphNode",
+      "parent": "SceneRoot"
+    },
+    "TestGrid": {
+      "components": {
+        "GridPosition": {
+          "x": 2,
+          "z": 3
+        }
+      },
+      "name": "TestGrid",
+      "parent": "SceneRoot"
+    },
+    "TestLight": {
+      "components": {
+        "DirectionalLight": {
+          "casts_shadows": true,
+          "color": {
+            "a": 255,
+            "b": 220,
+            "g": 245,
+            "r": 255
+          },
+          "direction": {
+            "x": -0.5500000119,
+            "y": -1,
+            "z": -0.400000006
+          },
+          "intensity": 1,
+          "shadow_color": {
+            "a": 115,
+            "b": 14,
+            "g": 10,
+            "r": 8
+          },
+          "shadow_ground_y": 0,
+          "shininess": 24,
+          "specular_strength": 0.349999994
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestLight",
+      "parent": "SceneRoot"
+    },
+    "TestMaterial": {
+      "components": {
+        "Material": {
+          "cast_shadow": true,
+          "color": {
+            "a": 255,
+            "b": 50,
+            "g": 100,
+            "r": 200
+          },
+          "wireframe": false
+        }
+      },
+      "name": "TestMaterial",
+      "parent": "SceneRoot"
+    },
+    "TestMesh": {
+      "components": {
+        "MeshPrimitive": {
+          "handle": -1,
+          "path": "./models/cube.glb"
+        }
+      },
+      "name": "TestMesh",
+      "parent": "SceneRoot"
+    },
+    "TestMusic": {
+      "components": {
+        "Music": {
+          "handle": -1,
+          "loop": true,
+          "path": "./audio/music/theme.ogg"
+        }
+      },
+      "name": "TestMusic",
+      "parent": "SceneRoot"
+    },
+    "TestParticles": {
+      "components": {
+        "ParticleEmitter": {
+          "accumulator": 0,
+          "colorEnd": {
+            "a": 0,
+            "b": 30,
+            "g": 80,
+            "r": 255
+          },
+          "colorStart": {
+            "a": 255,
+            "b": 80,
+            "g": 200,
+            "r": 255
+          },
+          "direction": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "emitting": false,
+          "particleLifetime": 0.6000000238,
+          "rate": 30,
+          "speed": 2.5,
+          "spread": 0.6000000238,
+          "startSize": 0.0799999982
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 5
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestParticles",
+      "parent": "SceneRoot"
+    },
+    "TestQuad": {
+      "components": {
+        "QuadPrimitive": {
+          "size": {
+            "x": 2,
+            "y": 3
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 3,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestQuad",
+      "parent": "SceneRoot"
+    },
+    "TestShape": {
+      "components": {
+        "CollisionShape": {
+          "offset": {
+            "x": 0,
+            "y": 0.1000000015,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": -3,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestShape",
+      "parent": "SceneRoot"
+    },
+    "TestSphere": {
+      "components": {
+        "SpherePrimitive": {
+          "radius": 0.5
+        },
+        "Transform": {
+          "position": {
+            "x": -2.5,
+            "y": 0.5,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestSphere",
+      "parent": "SceneRoot"
+    },
+    "TestSteering": {
+      "components": {
+        "SteeringAgent": {
+          "mass": 1.5,
+          "max_force": 10,
+          "max_speed": 5
+        },
+        "SteeringTarget": {
+          "position": {
+            "x": 1,
+            "y": 0,
+            "z": 3
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 7,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestSteering",
+      "parent": "SceneRoot"
+    },
+    "TestTilemap": {
+      "components": {
+        "Tilemap": null,
+        "TilemapViewport": {
+          "buffer_height": 0,
+          "buffer_width": 0,
+          "origin_tile_x": -2147483648,
+          "origin_tile_z": -2147483648
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestTilemap",
+      "parent": "SceneRoot"
+    },
+    "TestTilemapAtlas": {
+      "components": {
+        "AlbedoMap": {
+          "handle": -1,
+          "path": ""
+        },
+        "Material": {
+          "cast_shadow": true,
+          "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+          },
+          "wireframe": false
+        },
+        "SpriteAtlas": {
+          "image_height_px": 128,
+          "image_width_px": 128,
+          "texture_path": "./textures/tileset.png"
+        }
+      },
+      "name": "TestTilemapAtlas",
+      "parent": "SceneRoot"
+    },
+    "TestTilemapRegistry": {
+      "components": {
+        "TileSet": null
+      },
+      "name": "TestTilemapRegistry",
+      "parent": "SceneRoot"
+    },
+    "TestTimer": {
+      "components": {
+        "Cooldown": {
+          "duration": 2,
+          "remaining": 2
+        },
+        "Timer": {
+          "duration": 5,
+          "expired": false,
+          "remaining": 5,
+          "repeat": false
+        }
+      },
+      "name": "TestTimer",
+      "parent": "SceneRoot"
+    },
+    "TestTween": {
+      "components": {
+        "Tween": {
+          "done": false,
+          "duration": 2,
+          "easing": 0,
+          "elapsed": 0,
+          "from": 0,
+          "to": 1,
+          "value": 0
+        }
+      },
+      "name": "TestTween",
+      "parent": "SceneRoot"
+    },
+    "TestUtility": {
+      "components": {
+        "UtilityAgent": {
+          "current_action": ""
+        }
+      },
+      "name": "TestUtility",
+      "parent": "SceneRoot"
+    },
+    "TestVelocity": {
+      "components": {
+        "PhysicsVelocity": {
+          "angular": {
+            "x": 0,
+            "y": 0.5,
+            "z": 0
+          },
+          "linear": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": -3
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestVelocity",
+      "parent": "SceneRoot"
+    }
+  },
+  "scene_root": "SceneRoot"
+}

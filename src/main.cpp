@@ -7,6 +7,7 @@
 
 #include "constants.hpp"
 #include "engine/app/app.hpp"
+#include "engine/ecs/flecs_remote.hpp"
 #include "engine/engine.hpp"
 #include "engine/platform/raylib/raylib_backend.hpp"
 #include "game/game.hpp"
@@ -62,6 +63,11 @@ int main(int argc, char** argv) {
 	platform->Init(app::constants::kWindowWidth, app::constants::kWindowHeight, app::constants::kWindowTitle);
 
 	const auto context = std::make_unique<engine::EngineContext>(std::move(platform));
+
+#if !defined(__EMSCRIPTEN__)
+	// REST API requires TCP sockets — unavailable in WASM browsers.
+	engine::ecs::InitializeRemoteAPI(*context->GetWorld());
+#endif
 
 	engine::App app(context.get());
 

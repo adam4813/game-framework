@@ -49,4 +49,8 @@ void RegisterTag(const flecs::world& world, const std::string_view name) {
 // Returns the number of top-level entities created (-1 on load failure).
 int LoadLevel(const flecs::world& world, std::string_view path, flecs::entity parent = {});
 
+// Load a level from an inline JSON string rather than a file. Useful for tests and
+// procedurally generated level definitions. Returns the number of top-level entities (-1 on parse error).
+int LoadLevelFromSource(const flecs::world& world, std::string_view json_source, flecs::entity parent = {});
+
 } // namespace engine::level

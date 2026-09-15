@@ -1,0 +1,147 @@
+{
+	"entities": [
+		{
+			"name": "BtWandererNPC",
+			"components": {
+				"bt_wanderer": {},
+				"grid_position": {
+					"x": 28,
+					"z": 60
+				},
+				"grid_mover": {},
+				"transform": {
+					"position": [
+						14.25,
+						0.5,
+						30.25
+					]
+				},
+				"cube": {
+					"size": [
+						0.4,
+						0.8,
+						0.4
+					]
+				},
+				"behavior_tree": {
+					"file": "assets/ai/npc_wanderer_bt.json",
+					"tick_interval": 1.0
+				},
+				"blackboard": {}
+			},
+			"refs": {
+				"use_registry": "Tilemap"
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								60,
+								100,
+								220,
+								255
+							],
+							"cast_shadow": false
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "FsmWandererNPC",
+			"components": {
+				"grid_position": {
+					"x": 31,
+					"z": 58
+				},
+				"grid_mover": {},
+				"transform": {
+					"position": [
+						15.75,
+						0.5,
+						29.25
+					]
+				},
+				"cube": {
+					"size": [
+						0.4,
+						0.8,
+						0.4
+					]
+				},
+				"fsm_agent": {
+					"file": "assets/ai/npc_patrol_fsm.json",
+					"initial_state": "Idle"
+				}
+			},
+			"refs": {
+				"use_registry": "Tilemap"
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								60,
+								60,
+								255
+							],
+							"cast_shadow": false
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "UtilityWandererNPC",
+			"components": {
+				"grid_position": {
+					"x": 31,
+					"z": 62
+				},
+				"grid_mover": {},
+				"transform": {
+					"position": [
+						15.75,
+						0.5,
+						31.25
+					]
+				},
+				"cube": {
+					"size": [
+						0.4,
+						0.8,
+						0.4
+					]
+				},
+				"utility_agent": {
+					"file": "assets/ai/npc_utility.json",
+					"eval_interval": 0.5
+				}
+			},
+			"refs": {
+				"use_registry": "Tilemap"
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								200,
+								60,
+								255
+							],
+							"cast_shadow": false
+						}
+					}
+				}
+			]
+		}
+	]
+}

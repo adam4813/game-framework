@@ -1,0 +1,18 @@
+{
+	"actions": [
+		{
+			"name": "Wander",
+			"cooldown": 1.5,
+			"considerations": [
+				{ "context_key": "boredom", "min": 0.0, "max": 1.0, "weight": 1.0 }
+			]
+		},
+		{
+			"name": "Idle",
+			"cooldown": 0.0,
+			"considerations": [
+				{ "context_key": "calm", "min": 0.0, "max": 1.0, "weight": 0.5 }
+			]
+		}
+	]
+}

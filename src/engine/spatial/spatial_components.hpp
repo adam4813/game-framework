@@ -14,6 +14,14 @@ struct Transform {
 };
 
 // WorldTransform component: world-space position, rotation, and scale.
+//
+// TODO(perf/design): consider replacing `rotation` (Euler vec3) with an `orientation` quaternion.
+// Physics (Jolt) and matrix extraction (glm::quat_cast) both produce quaternions directly, so an
+// orientation quat would remove the eulerAngles() conversions in the parented-extraction and
+// physics-sync paths and avoid gimbal ambiguity. Note the tradeoff: the TransformPropagation root
+// fast-path currently copies the authored Euler `rotation` for free; a quat would add a per-entity
+// euler->quat conversion there, so weigh the parented/physics win against the root-path cost. Touch
+// points: this struct + ComputeMatrix, spatial_module reflection/seed/propagation, jolt_module sync.
 struct WorldTransform {
 	glm::vec3 position{0.0F};
 	glm::vec3 rotation{0.0F};

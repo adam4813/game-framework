@@ -9,6 +9,7 @@
 #include "cube_scene.hpp"
 #include "dialog/dialog.hpp"
 #include "engine/engine.hpp"
+#include "grid_movement.hpp"
 #include "meta_save_example.hpp"
 #include "noise_scene.hpp"
 #include "tilemap_scene.hpp"
@@ -33,6 +34,14 @@ GameModule::GameModule(flecs::world& world) {
 
 	// Register the default button click sound so every CreateButton factory call auto-attaches it.
 	ui::SetDefaultClickSound(world, sfxDir + "/click.wav");
+
+	// Grid movement (player_controlled tag + grid_mover loader) is shared by the tilemap demo and
+	// the farm scene, so register its loaders once here. The next-farm selection lives in FarmSession.
+	RegisterGridMovementLoaders(world);
+	level::RegisterComponentLoader(world, "minimap_tracked", [](const flecs::entity e, const nlohmann::json& j) {
+		e.set<MinimapTracked>({.color = core::JRgba(j, "color", {.r = 255, .g = 60, .b = 60, .a = 255})});
+	});
+	world.set<FarmSession>({});
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();

@@ -37,7 +37,7 @@ void PlatformUnload(platform::Platform* platform, const AssetType type, const in
 
 } // namespace
 
-AssetModule::AssetModule(flecs::world& world) {
+AssetModule::AssetModule(const flecs::world& world) {
 	world.set<AssetRegistry>({});
 	spdlog::info("[AssetModule] Registered asset registry");
 }

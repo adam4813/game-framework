@@ -203,4 +203,7 @@ constexpr int PrintScreen = 0x0601;
 constexpr int Pause = 0x0602;
 } // namespace KeyCode
 
+/// Engine-wide key that toggles debug rendering overlays (physics wireframes, nav paths, etc.)
+inline constexpr int kDebugRenderKey = KeyCode::F3;
+
 } // namespace engine::input
