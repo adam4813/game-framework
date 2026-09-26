@@ -75,6 +75,9 @@ private:
 	flecs::entity pauseModal_;
 	flecs::entity dialog_modal_;
 
+	unsigned int spawned_npc_count_{0};
+	std::vector<glm::vec3> walkable;
+
 	void SetupTilemap(const flecs::world& world);
 	void SetupPlayer(const flecs::world& world) const;
 	void SetupNPCs(const flecs::world& world) const;

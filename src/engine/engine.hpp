@@ -14,6 +14,7 @@
 #include "pathfinding/pathfinding.hpp"
 #include "physics/physics.hpp"
 #include "platform/platform.hpp"
+#include "profiling/profiling.hpp"
 #include "render/render.hpp"
 #include "save/save.hpp"
 #include "scene/scene.hpp"

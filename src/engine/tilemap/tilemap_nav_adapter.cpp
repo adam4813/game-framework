@@ -29,6 +29,7 @@ BuildNavGraphFromTilemap(const Tilemap& tilemap, const TileSet& tileset, const g
 		tilemap.height,
 		graph->cell_size
 	);
+	graph->BuildAdjacency();
 	return graph;
 }
 

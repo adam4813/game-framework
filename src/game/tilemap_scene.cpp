@@ -17,6 +17,11 @@ using namespace engine;
 
 namespace game {
 
+namespace {
+constexpr int MAX_NPC_COUNT = 100000;
+
+} // namespace
+
 void TilemapScene::RegisterLoaders(const flecs::world& world) {
 	// Grid movement (player_controlled tag + grid_mover loader) is shared with the farm scene and
 	// registered once at startup in game.cpp; the tilemap scene only adds its own demo loaders here.
@@ -46,8 +51,9 @@ void TilemapScene::InitializePipeline(const flecs::world& world) {
 
 void TilemapScene::Load(flecs::world& world) {
 	sceneRoot_ = world.entity("TilemapSceneRoot");
+	world.dim(MAX_NPC_COUNT);
+	spawned_npc_count_ = 0;
 
-	// Scene-owned singletons: set AmbientLight and DirectionalLight for this scene
 	world.set<render::AmbientLight>({.color = {.r = 180, .g = 180, .b = 200, .a = 255}, .intensity = 0.5F});
 
 	SetupTilemap(world);
@@ -58,6 +64,23 @@ void TilemapScene::Load(flecs::world& world) {
 
 	SetupPlayer(world);
 	SetupNPCs(world);
+
+	// Spawner system: creates kbatchSize stress-test NPCs per frame until MAX_NPC_COUNT is reached,
+	// then self-disables. No rate() throttle — 5 entities/frame keeps structural-change cost small
+	// and avoids the 1000-entity spawn-spike that caused a single-frame PathRequestSystem hitch.
+	auto spawner = world.system("PathfindingStressTestSpawner")
+					   .kind(flecs::OnUpdate)
+					   .run([this](flecs::iter& it) {
+						   if (spawned_npc_count_ >= MAX_NPC_COUNT) {
+							   it.system().disable();
+							   return;
+						   }
+						   SetupPathfindingStressTest();
+					   })
+					   .add<ecs::Pausable>()
+					   .add<scene::GameScene>();
+	spawner.child_of(sceneRoot_);
+
 	world.get<EngineContextRef>().ptr->GetDeferredTaskQueue().Enqueue([this]() { SetupPathfindingAgent(); });
 	RegisterInputSystems(world);
 	BuildUI(world);
@@ -292,14 +315,33 @@ void TilemapScene::SetupPathfindingAgent() {
 		return;
 	}
 
+	auto& nav_env = world.get_mut<pathfinding::NavEnvironment>();
 	// Register the nav graph (tilemap origin is at world (0,0,0))
-	world.get_mut<pathfinding::NavEnvironment>().graph =
-		tilemap::BuildNavGraphFromTilemap(*tilemap, *tileset, glm::vec3{0.0f});
+	nav_env.graph = tilemap::BuildNavGraphFromTilemap(*tilemap, *tileset, glm::vec3{0.0f});
 	// get_mut does not emit an event, so signal the swap explicitly; the pathfinding module observes
 	// this to invalidate its path cache.
 	// TODO(ux): encapsulate assign + modified in a pathfinding helper (e.g. SetNavGraph) so callers
 	// can't forget the event and scenes don't need NavEnvironment/module knowledge.
 	world.modified<pathfinding::NavEnvironment>();
+
+	const auto* grid = dynamic_cast<const pathfinding::GridNavGraph*>(nav_env.graph.get());
+	if (!grid) {
+		spdlog::warn("[TilemapScene] StressTest: nav graph is not a GridNavGraph");
+		return;
+	}
+
+	// Precompute world-space centres of all walkable tiles
+	walkable.reserve(static_cast<size_t>(grid->width) * static_cast<size_t>(grid->height));
+	for (int z = 0; z < grid->height; ++z) {
+		for (int x = 0; x < grid->width; ++x) {
+			if (!grid->IsWalkable(x, z)) continue;
+			walkable.push_back({
+				grid->origin.x + (static_cast<float>(x) + 0.5f) * grid->cell_size,
+				grid->origin.y,
+				grid->origin.z + (static_cast<float>(z) + 0.5f) * grid->cell_size,
+			});
+		}
+	}
 
 	// Castle hopper agent: a visible sphere that cycles NW → NE → S → NW
 	castle_hopper_entity_ = world.entity("CastleHopper").child_of(sceneRoot_);
@@ -338,15 +380,15 @@ void TilemapScene::SetupPathfindingAgent() {
 					 GridMover& mover,
 					 tilemap::GridPosition& grid_pos,
 					 const spatial::Transform& transform) {
-				if (agent.reached_goal || agent.waypoints.empty()) return;
+				if (agent.reached_goal || !agent.HasPath()) return;
 				if (mover.moving) return;
 
-				if (agent.current_waypoint >= agent.waypoints.size()) {
+				if (agent.current_waypoint >= agent.WaypointCount()) {
 					agent.reached_goal = true;
 					return;
 				}
 
-				const glm::vec3& target = agent.waypoints[agent.current_waypoint];
+				const glm::vec3& target = agent.Waypoint(agent.current_waypoint);
 				++agent.current_waypoint;
 
 				grid_pos.x = static_cast<int>(target.x / mover.step_size);
@@ -395,56 +437,26 @@ void TilemapScene::SetupPathfindingAgent() {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 	waypoint_cycle_sys.child_of(sceneRoot_);
-
-	SetupPathfindingStressTest();
 }
 
 void TilemapScene::SetupPathfindingStressTest() {
 	auto world = this->sceneRoot_.world();
-
-	const auto& nav_env = world.get<pathfinding::NavEnvironment>();
-	if (!nav_env.IsReady()) {
-		spdlog::warn("[TilemapScene] StressTest: nav environment not ready");
-		return;
-	}
-
-	const auto* grid = dynamic_cast<const pathfinding::GridNavGraph*>(nav_env.graph.get());
-	if (!grid) {
-		spdlog::warn("[TilemapScene] StressTest: nav graph is not a GridNavGraph");
-		return;
-	}
-
-	// Precompute world-space centres of all walkable tiles
-	std::vector<glm::vec3> walkable;
-	walkable.reserve(static_cast<size_t>(grid->width) * static_cast<size_t>(grid->height));
-	for (int z = 0; z < grid->height; ++z) {
-		for (int x = 0; x < grid->width; ++x) {
-			if (!grid->IsWalkable(x, z)) continue;
-			walkable.push_back({
-				grid->origin.x + (static_cast<float>(x) + 0.5f) * grid->cell_size,
-				grid->origin.y,
-				grid->origin.z + (static_cast<float>(z) + 0.5f) * grid->cell_size,
-			});
-		}
-	}
 
 	if (walkable.empty()) {
 		spdlog::error("[TilemapScene] StressTest: no walkable tiles");
 		return;
 	}
 
-	std::mt19937 rng{12345U}; // fixed seed for reproducibility
+	constexpr int kbatchSize = 5;
+
+	std::mt19937 rng{12345U + spawned_npc_count_ / kbatchSize}; // fixed seed for reproducibility
 	std::uniform_int_distribution<size_t> pos_dist{0, walkable.size() - 1};
 	std::uniform_int_distribution<int> wp_count_dist{3, 4};
 	std::uniform_real_distribution<float> speed_dist{1.0f, 6.0f};
 	std::uniform_real_distribution<float> radius_dist{0.08f, 0.28f};
 	std::uniform_int_distribution<uint16_t> ch_dist{60, 255};
 
-	constexpr int kCount = 10000;
-	world.dim(kCount);
-	spdlog::info("[TilemapScene] Spawning {} stress-test agents...", kCount);
-
-	for (int i = 0; i < kCount; ++i) {
+	for (int i = 0; i < kbatchSize; ++i) {
 		const glm::vec3 start = walkable[pos_dist(rng)];
 
 		const int n = wp_count_dist(rng);
@@ -475,11 +487,14 @@ void TilemapScene::SetupPathfindingStressTest() {
 			.set<render::QuadPrimitive>({.size = {quad_size, quad_size}})
 			.set<render::Material>({.color = color, .cast_shadow = false})
 			.set<pathfinding::PathFollow>({.mode = pathfinding::PathFollowMode::Direct, .speed = speed})
+			.set<pathfinding::PathAgent>({}) // pre-added so PathRequestSystem writes it as a direct field
 			.set<WaypointCycler>(std::move(cycler))
 			.set<pathfinding::PathRequest>({.goal = first_goal});
 	}
 
-	spdlog::info("[TilemapScene] Spawned {} stress-test agents", kCount);
+	spawned_npc_count_ += kbatchSize;
+
+	spdlog::info("[TilemapScene] Spawned {} of {} stress-test agents", spawned_npc_count_, MAX_NPC_COUNT);
 }
 
 void TilemapScene::SetupDialogSystem(const flecs::world& world) {
@@ -745,6 +760,10 @@ void TilemapScene::BuildUI(const flecs::world& world) {
 
 	uiRoot_ = world.entity("TilemapUI").child_of(sceneRoot_);
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
+
+	// Per-system Flecs timing overlay (toggle with F4).
+	std::ignore =
+		ui::CreateSystemStatsPanel(world, {.x = 20.0F, .y = 20.0F, .w = 420.0F, .h = h - 40.0F}).child_of(uiRoot_);
 
 	// Pause menu, composed as a prompt (Modal + Stack + buttons). Starts closed; Tick opens it
 	// while the scene is paused.

@@ -23,12 +23,21 @@ struct PathRequest {
 	std::string algorithm; ///< Empty = use PathfinderRegistry::default_algorithm
 };
 
+/// Shared, immutable waypoint list. Path results are handed out by shared_ptr so a cache hit is a
+/// refcount bump instead of a vector copy, and every agent travelling the same (start,goal) route
+/// shares a single allocation. Never mutated after creation.
+using SharedWaypoints = std::shared_ptr<const std::vector<glm::vec3>>;
+
 /// Computed path and follow state. Written by PathRequestSystem; advanced by PathFollowSystem.
 struct PathAgent {
-	std::vector<glm::vec3> waypoints; ///< World-space positions from start to goal
+	SharedWaypoints waypoints; ///< Shared world-space positions from start to goal (null until solved)
 	size_t current_waypoint{0};
 	float arrival_radius{0.3f}; ///< Distance at which a waypoint is considered reached
 	bool reached_goal{false};
+
+	[[nodiscard]] bool HasPath() const { return waypoints && !waypoints->empty(); }
+	[[nodiscard]] size_t WaypointCount() const { return waypoints ? waypoints->size() : 0; }
+	[[nodiscard]] const glm::vec3& Waypoint(const size_t index) const { return (*waypoints)[index]; }
 };
 
 /// Output mode for PathFollowSystem.

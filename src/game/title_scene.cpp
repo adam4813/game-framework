@@ -180,6 +180,10 @@ void TitleScene::Load(flecs::world& world) {
 	world.entity("UIFactoryDemoHost")
 		.child_of(uiRoot_)
 		.set<scripting::ScriptComponent>({.source_path = assetDir + "/scripts/ui_factory_demo.as"});
+
+	// Per-system Flecs timing overlay (toggle with F4).
+	std::ignore = ui::CreateSystemStatsPanel(world, {.x = 40.0F, .y = h / 2.0F - 175.0F, .w = 420.0F, .h = 350.0F})
+					  .child_of(uiRoot_);
 }
 
 void TitleScene::Unload(flecs::world&) {

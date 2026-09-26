@@ -1,6 +1,7 @@
 #include "grid_nav_graph.hpp"
 
 #include <algorithm>
+#include <bit>
 
 namespace engine::pathfinding {
 
@@ -11,6 +12,13 @@ void GridNavGraph::Resize(const int w, const int h) {
 	walkable.assign(n, true);
 	costs.assign(n, 1.0f);
 	heights.clear(); // empty = flat (Y = origin.y)
+	adjacency_.clear(); // invalidated — caller must call BuildAdjacency() again
+
+	// Precompute fast-path for ToXZ when width is a power of 2 (e.g. 64).
+	// Replaces integer division + modulo with a bitshift + AND (1 cycle vs ~20–40 cycles).
+	const bool pow2 = w > 0 && (w & (w - 1)) == 0;
+	width_shift_ = pow2 ? std::countr_zero(static_cast<unsigned int>(w)) : -1;
+	width_mask_  = pow2 ? (w - 1) : 0;
 }
 
 void GridNavGraph::SetWalkable(const int x, const int z, const bool value) {
@@ -71,6 +79,21 @@ std::vector<NavEdge> GridNavGraph::Neighbors(const graph::NodeId from) const {
 }
 
 void GridNavGraph::NeighborsInto(const graph::NodeId from, std::vector<NavEdge>& out) const {
+	if (!adjacency_.empty()) {
+		// Fast path: return precomputed list (BuildAdjacency was called).
+		// Reserve first so the ws.neighbors reuse-buffer gets capacity on its first use per
+		// worker thread, avoiding a silent heap allocation that contradicts the no-alloc design.
+		if (from < adjacency_.size()) {
+			out.reserve(adjacency_[from].size());
+			out = adjacency_[from];
+		}
+		else {
+			out.clear();
+		}
+		return;
+	}
+
+	// Fallback: on-the-fly computation (before BuildAdjacency is called).
 	out.clear();
 	if (!Valid(from)) return;
 	const auto [x, z] = ToXZ(from);
@@ -105,6 +128,44 @@ void GridNavGraph::NeighborsInto(const graph::NodeId from, std::vector<NavEdge>&
 	}
 }
 
+void GridNavGraph::BuildAdjacency() {
+	const size_t node_count = static_cast<size_t>(width) * static_cast<size_t>(height);
+	adjacency_.assign(node_count + 1, {}); // 1-indexed; adjacency_[0] stays empty (NullNode)
+
+	for (int z = 0; z < height; ++z) {
+		for (int x = 0; x < width; ++x) {
+			const graph::NodeId id = ToNodeId(x, z);
+			auto& edges = adjacency_[id];
+			if (!IsWalkable(x, z)) continue;
+
+			edges.reserve(allow_diagonals ? 8 : 4);
+
+			for (int d = 0; d < 4; ++d) {
+				constexpr int kDX[] = {0, 0, -1, 1};
+				constexpr int kDZ[] = {-1, 1, 0, 0};
+				const int nx = x + kDX[d];
+				const int nz = z + kDZ[d];
+				if (!IsWalkable(nx, nz)) continue;
+				edges.push_back({ToNodeId(nx, nz), GetCost(nx, nz) * cell_size});
+			}
+
+			if (allow_diagonals) {
+				constexpr float kDiagCost = 1.41421356f;
+				for (int d = 0; d < 4; ++d) {
+					constexpr int kDiagX[] = {-1, 1, -1, 1};
+					constexpr int kDiagZ[] = {-1, -1, 1, 1};
+					const int nx = x + kDiagX[d];
+					const int nz = z + kDiagZ[d];
+					if (!IsWalkable(nx, nz)) continue;
+					if (!IsWalkable(x + kDiagX[d], z)) continue;
+					if (!IsWalkable(x, z + kDiagZ[d])) continue;
+					edges.push_back({ToNodeId(nx, nz), GetCost(nx, nz) * cell_size * kDiagCost});
+				}
+			}
+		}
+	}
+}
+
 float GridNavGraph::Heuristic(const graph::NodeId from, const graph::NodeId goal) const {
 	const auto [fx, fz] = ToXZ(from);
 	const auto [gx, gz] = ToXZ(goal);
@@ -127,6 +188,12 @@ graph::NodeId GridNavGraph::ToNodeId(const int x, const int z) const {
 
 std::pair<int, int> GridNavGraph::ToXZ(const graph::NodeId id) const {
 	const size_t idx = id - 1;
+	if (width_shift_ >= 0) {
+		return {
+			static_cast<int>(idx & static_cast<size_t>(width_mask_)),
+			static_cast<int>(idx >> static_cast<size_t>(width_shift_)),
+		};
+	}
 	return {
 		static_cast<int>(idx % static_cast<size_t>(width)),
 		static_cast<int>(idx / static_cast<size_t>(width)),

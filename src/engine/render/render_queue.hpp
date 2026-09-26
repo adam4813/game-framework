@@ -20,13 +20,18 @@ struct RenderQueue {
 
 // Singleton: render statistics for the on-screen overlay, refreshed each frame.
 struct RenderStats {
-	int queued{0};      // commands enqueued this frame (after culling)
-	int culled{0};      // commands rejected by frustum culling
-	int draw_calls{0};  // GL draw calls issued by the batch
-	int instances{0};   // instances drawn by the batch
+	int queued{0};          // commands enqueued this frame (after culling)
+	int culled{0};          // commands rejected by frustum culling
+	int draw_calls{0};      // GL draw calls issued by the batch
+	int instances{0};       // instances drawn by the batch
 	double enqueue_ms{0.0}; // CPU time building the queue (all primitive enqueue systems)
 	double group_ms{0.0};   // CPU time grouping/sorting commands into batches
 	double draw_ms{0.0};    // CPU time issuing the instanced draws
+	// Per-type enqueue counts (reset each frame in Render3DBegin).
+	int queued_quads{0};
+	int queued_cubes{0};
+	int queued_spheres{0};
+	int queued_capsules{0};
 };
 
 // Six world-space frustum planes extracted from a view-projection matrix, for sphere culling.

@@ -1,9 +1,16 @@
 #include <memory>
 
 #include <flecs.h>
-#include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
+
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyC.h>
+#include <unordered_map>
+#include <vector>
+#endif
 
 #include "constants.hpp"
 #include "engine/app/app.hpp"
@@ -26,12 +33,6 @@ void tickWrapper() {
 
 namespace {
 
-/* The level should be interpreted as:
- * >0: Debug tracing. Only enabled in debug builds.
- *  0: Tracing. Enabled in debug/release builds.
- * -2: Warning. An issue occurred, but operation was successful.
- * -3: Error. An issue occurred, and operation was unsuccessful.
- * -4: Fatal. An issue occurred, and application must quit. */
 void FlecsLogHandler(const int32_t level, const char* file, int32_t line, const char* msg) {
 	switch (level) {
 	case 0: spdlog::trace("[Flecs] {}:{}: {}", file, line, msg); break;
@@ -42,21 +43,64 @@ void FlecsLogHandler(const int32_t level, const char* file, int32_t line, const 
 	}
 }
 
+#ifdef TRACY_ENABLE
+#include <shared_mutex>
+
+// Per-system-name stable source-location entries so Tracy can correlate zones across frames
+// without allocating a new entry on every push. Flecs system names are permanent strings
+// (owned by the ECS world) so using std::string keys by value is safe and cheap.
+// g_tracy_locs_mutex serialises the rare first-write (new system name seen for the first time);
+// concurrent reads on the hot path (name already present) share the lock and never block each other.
+std::unordered_map<std::string, ___tracy_source_location_data> g_tracy_locs;
+std::shared_mutex g_tracy_locs_mutex;
+thread_local std::vector<TracyCZoneCtx> g_tracy_zone_stack;
+
+void PerfTracePush(const char* file, const size_t line, const char* name) {
+	// Hot path: shared lock — most calls find an existing entry. Multiple threads can read
+	// concurrently; a rehash (exclusive write) cannot happen while any shared lock is held,
+	// so &it->second is stable for the duration of this scope.
+	{
+		std::shared_lock read(g_tracy_locs_mutex);
+		if (const auto it = g_tracy_locs.find(name); it != g_tracy_locs.end()) {
+			g_tracy_zone_stack.push_back(___tracy_emit_zone_begin(&it->second, 1));
+			return;
+		}
+	}
+	// First registration for this name — exclusive lock to insert. Double-checked: another thread
+	// may have inserted between the shared-lock release and here.
+	std::unique_lock write(g_tracy_locs_mutex);
+	auto& loc = g_tracy_locs[name];
+	if (!loc.name) {
+		loc = {name, name, file, static_cast<uint32_t>(line), 0};
+	}
+	g_tracy_zone_stack.push_back(___tracy_emit_zone_begin(&loc, 1));
+}
+
+void PerfTracePop(const char*, size_t, const char*) {
+	if (!g_tracy_zone_stack.empty()) {
+		___tracy_emit_zone_end(g_tracy_zone_stack.back());
+		g_tracy_zone_stack.pop_back();
+	}
+}
+#endif
+
 } // namespace
 
 int main(int argc, char** argv) {
 	// Tee logs to both console (colour) and a persistent file so crashes are captured.
 	auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("game.log", true /*truncate*/);
-	auto logger = std::make_shared<spdlog::logger>(
-		"default", spdlog::sinks_init_list{console_sink, file_sink}
-	);
+	auto logger = std::make_shared<spdlog::logger>("default", spdlog::sinks_init_list{console_sink, file_sink});
 	logger->set_level(spdlog::level::trace);
 	spdlog::set_default_logger(logger);
 
 	ecs_os_set_api_defaults();
 	ecs_os_api_t os_api = ecs_os_get_api();
 	os_api.log_ = FlecsLogHandler;
+#ifdef TRACY_ENABLE
+	os_api.perf_trace_push_ = PerfTracePush;
+	os_api.perf_trace_pop_ = PerfTracePop;
+#endif
 	ecs_os_set_api(&os_api);
 
 	auto platform = std::make_unique<engine::platform::RaylibBackend>();
@@ -73,6 +117,7 @@ int main(int argc, char** argv) {
 
 	// The game layer is a Flecs module: it reads the EngineContext from the world singleton set by
 	// the context constructor, then registers its scenes and activates the title scene.
+	context->GetWorld()->set_threads(4);
 	context->GetWorld()->import<game::GameModule>();
 
 #if defined(__EMSCRIPTEN__)
@@ -82,6 +127,7 @@ int main(int argc, char** argv) {
 	while (!context->GetPlatform()->ShouldClose()) {
 		app.Tick();
 		app.PostTick();
+		engine::profiling::MarkFrame();
 	}
 	context->GetPlatform()->Shutdown();
 #endif

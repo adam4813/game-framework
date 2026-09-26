@@ -87,6 +87,19 @@ SpatialModule::SpatialModule(const flecs::world& world) {
 
 				world_transform.matrix = parent_wt->matrix * local_matrix;
 
+				// Fast path: when neither the local entity nor its parent introduces rotation, the world
+				// transform is a pure translate+scale — skip the sqrt/quat_cast/eulerAngles decomposition
+				// below and derive the components directly. This is the hot path for large numbers of
+				// unrotated agents parented to an unrotated scene root.
+				if (local.rotation.x == 0.0F && local.rotation.y == 0.0F && local.rotation.z == 0.0F &&
+					parent_wt->rotation.x == 0.0F && parent_wt->rotation.y == 0.0F &&
+					parent_wt->rotation.z == 0.0F) {
+					world_transform.position = glm::vec3(world_transform.matrix[3]);
+					world_transform.scale = parent_wt->scale * local.scale;
+					world_transform.rotation = glm::vec3(0.0F);
+					return;
+				}
+
 				// Parented entity: extract world-space components from the composed matrix. This is a
 				// lightweight, affine-only substitute for glm::decompose (which additionally solves for
 				// skew and perspective that these transforms never contain).

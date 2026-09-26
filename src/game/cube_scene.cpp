@@ -63,6 +63,10 @@ void CubeScene::BuildUI(const flecs::world& world) {
 	uiRoot_ = world.entity("GameUI");
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
 
+	// Per-system Flecs timing overlay (toggle with F4).
+	std::ignore =
+		ui::CreateSystemStatsPanel(world, {.x = 20.0F, .y = 20.0F, .w = 420.0F, .h = h - 40.0F}).child_of(uiRoot_);
+
 	// HUD container — toggled visible/hidden by Tick based on pause state.
 	hud_ = world.entity("GameHUD")
 			   .set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}})

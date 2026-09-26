@@ -34,7 +34,13 @@ using json = nlohmann::json;
 struct TestWorld {
 	std::unique_ptr<engine::EngineContext> ctx;
 
-	TestWorld() { ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>()); }
+	TestWorld() {
+		ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+		ctx->GetModuleRegistry().Import(
+			*ctx->GetWorld(),
+			{"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles"}
+		);
+	}
 
 	flecs::world& World() const { return *ctx->GetWorld(); }
 };
@@ -662,6 +668,155 @@ json BuildCppWorld() {
 			.interval = 0.5F,
 		});
 
+	// --- UI (script-registered components authorable in all three paths) ---
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIPanel")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 20.0F, .w = 200.0F, .h = 100.0F}})
+		.set<engine::ui::UIElement>({.z_index = 5, .visible = true})
+		.set<engine::ui::Panel>({
+			.color = {.r = 40, .g = 46, .b = 40, .a = 255},
+			.border_color = {.r = 90, .g = 100, .b = 90, .a = 255},
+			.border_thickness = 2.0F,
+			.roundness = 0.1F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIButton")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 140.0F, .w = 160.0F, .h = 48.0F}})
+		.set<engine::ui::Button>({
+			.label = "OK",
+			.font_size = 22.0F,
+			.normal = {.r = 70, .g = 140, .b = 70, .a = 255},
+			.hover = {.r = 56, .g = 64, .b = 56, .a = 255},
+			.pressed_color = {.r = 40, .g = 46, .b = 40, .a = 255},
+			.border_color = {.r = 90, .g = 100, .b = 90, .a = 255},
+			.text_color = {.r = 220, .g = 225, .b = 220, .a = 255},
+			.roundness = 0.25F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIProgressBar")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 200.0F, .w = 200.0F, .h = 24.0F}})
+		.set<engine::ui::ProgressBar>({
+			.value = 0.6F,
+			.min = 0.0F,
+			.max = 1.0F,
+			.fill_color = {.r = 70, .g = 140, .b = 70, .a = 255},
+			.track_color = {.r = 18, .g = 20, .b = 18, .a = 235},
+			.border_color = {.r = 90, .g = 100, .b = 90, .a = 255},
+			.border_thickness = 2.0F,
+			.roundness = 0.35F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUISpinner")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 240.0F, .w = 48.0F, .h = 48.0F}})
+		.set<engine::ui::Spinner>({
+			.color = {.r = 70, .g = 140, .b = 70, .a = 255},
+			.radius = 18.0F,
+			.dot_radius = 4.0F,
+			.dots = 8,
+			.speed = 6.0F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIStack")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 300.0F, .w = 200.0F, .h = 100.0F}})
+		.set<engine::ui::Stack>({.spacing = 8.0F, .padding = 4.0F, .stretch = true});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIScrollRect")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 420.0F, .w = 200.0F, .h = 150.0F}})
+		.set<engine::ui::ScrollRect>({
+			.vertical = true,
+			.horizontal = false,
+			.scrollbar_thickness = 10.0F,
+			.wheel_speed = 28.0F,
+			.track_color = {.r = 18, .g = 20, .b = 18, .a = 235},
+			.thumb_color = {.r = 56, .g = 64, .b = 56, .a = 255},
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIModal")
+		.set<engine::ui::UIRect>({{.x = 300.0F, .y = 100.0F, .w = 400.0F, .h = 300.0F}})
+		.set<engine::ui::Modal>({
+			.open = true,
+			.backdrop_color = {.r = 6, .g = 8, .b = 6, .a = 200},
+			.close_on_backdrop = false,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUILabel")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 580.0F, .w = 200.0F, .h = 28.0F}})
+		.set<engine::ui::Label>({
+			.text = "Hello",
+			.font_size = 24.0F,
+			.color = {.r = 200, .g = 210, .b = 200, .a = 255},
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUISlider")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 620.0F, .w = 200.0F, .h = 24.0F}})
+		.set<engine::ui::Slider>({.value = 0.75F, .min = 0.0F, .max = 1.0F, .step = 0.05F});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUICheckbox")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 652.0F, .w = 200.0F, .h = 24.0F}})
+		.set<engine::ui::Checkbox>({.checked = true, .label = "Mute", .font_size = 18.0F, .box_size = 20.0F});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIRadio")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 684.0F, .w = 200.0F, .h = 24.0F}})
+		.set<engine::ui::Radio>({
+			.group = "difficulty",
+			.value = "hard",
+			.selected = true,
+			.label = "Hard",
+			.font_size = 18.0F,
+			.radius = 12.0F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUITextInput")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 716.0F, .w = 200.0F, .h = 28.0F}})
+		.set<engine::ui::TextInput>({
+			.text = "Hello",
+			.placeholder = "Name",
+			.max_length = 32,
+			.font_size = 18.0F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUITextArea")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 752.0F, .w = 200.0F, .h = 80.0F}})
+		.set<engine::ui::TextArea>({
+			.text = "Line1",
+			.placeholder = "Notes",
+			.max_length = 128,
+			.font_size = 18.0F,
+			.line_spacing = 5.0F,
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIDropdown")
+		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 840.0F, .w = 200.0F, .h = 28.0F}})
+		.set<engine::ui::Dropdown>({.placeholder = "Choose", .font_size = 18.0F, .row_height = 30.0F});
+
 	return SerializeSceneRoot(test_world.World(), scene_root);
 }
 
@@ -764,13 +919,13 @@ int main(const int argc, char** argv) {
 		std::filesystem::create_directories(output_dir);
 
 		const json json_world = BuildJsonWorld();
-		const json as_world = BuildScriptWorld();
-		const json cpp_world = BuildCppWorld();
-		const std::vector<DiffRow> rows = ComputeDiff(json_world, as_world, cpp_world);
-
 		WriteJsonFile(output_dir / "world_json.json", json_world);
+		const json as_world = BuildScriptWorld();
 		WriteJsonFile(output_dir / "world_as.json", as_world);
+		const json cpp_world = BuildCppWorld();
 		WriteJsonFile(output_dir / "world_cpp.json", cpp_world);
+
+		const std::vector<DiffRow> rows = ComputeDiff(json_world, as_world, cpp_world);
 		WriteDiffTable(output_dir / "diff_table.txt", rows);
 
 		size_t mismatches = 0;

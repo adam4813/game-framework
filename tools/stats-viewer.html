@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>Flecs System Stats Viewer</title>
+	<style>
+		:root {
+			--bg: #181c18;
+			--panel: #232823;
+			--panel-hi: #2f362f;
+			--border: #3a423a;
+			--text: #dce1dc;
+			--subtle: #8c968c;
+			--title: #78c878;
+			--accent: #468c46;
+			--hazard: #c84646;
+			--boost: #dc963c;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			margin: 0;
+			height: 100%;
+			background: var(--bg);
+			color: var(--text);
+			font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		}
+
+		header {
+			padding: 8px 14px;
+			border-bottom: 1px solid var(--border);
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		header h1 {
+			font-size: 15px;
+			margin: 0;
+			color: var(--title);
+			font-weight: 600;
+		}
+
+		header .spacer {
+			flex: 1;
+		}
+
+		label.ctl {
+			color: var(--subtle);
+			display: inline-flex;
+			gap: 5px;
+			align-items: center;
+		}
+
+		input[type="text"] {
+			background: #12140f;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			padding: 3px 6px;
+			width: 280px;
+		}
+
+		select, button {
+			background: var(--panel);
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			padding: 3px 7px;
+			cursor: pointer;
+		}
+
+		button:hover, select:hover {
+			background: var(--panel-hi);
+		}
+
+		main {
+			display: grid;
+			grid-template-columns: 240px 1fr;
+			gap: 10px;
+			padding: 10px;
+			height: calc(100% - 44px);
+			overflow: hidden;
+		}
+
+		#sidebar {
+			overflow: auto;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--panel);
+			padding: 8px;
+		}
+
+		#sidebar h2 {
+			font-size: 11px;
+			color: var(--subtle);
+			margin: 4px 4px 6px;
+			text-transform: uppercase;
+			letter-spacing: .5px;
+		}
+
+		.syslist {
+			display: flex;
+			flex-direction: column;
+			gap: 1px;
+		}
+
+		.sysrow {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 2px 4px;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		.sysrow:hover {
+			background: var(--panel-hi);
+		}
+
+		.sysrow .swatch {
+			width: 9px;
+			height: 9px;
+			border-radius: 2px;
+			flex: 0 0 auto;
+		}
+
+		.sysrow .name {
+			flex: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-size: 12px;
+		}
+
+		.sysrow .ms {
+			color: var(--subtle);
+			font-variant-numeric: tabular-nums;
+			font-size: 11px;
+		}
+
+		#content {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			overflow-y: auto;
+			overflow-x: hidden;
+			min-width: 0;
+		}
+
+		/* Card: default height ~25 % viewport; "expanded" = full-screen overlay */
+		.card {
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--panel);
+			padding: 8px 10px;
+			flex-shrink: 0;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+		}
+
+		.card-head {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 6px;
+		}
+
+		.card-head h2 {
+			font-size: 11px;
+			color: var(--subtle);
+			margin: 0;
+			text-transform: uppercase;
+			letter-spacing: .5px;
+			flex: 1;
+		}
+
+		.expand-btn {
+			font-size: 12px;
+			padding: 1px 6px;
+			line-height: 1.6;
+		}
+
+		.card canvas {
+			flex: 1;
+			display: block;
+			width: 100%;
+			background: #12140f;
+			border-radius: 4px;
+			min-height: 0;
+			height: 0;
+		}
+
+		/* default: each chart card takes ~25% vh */
+		.chart-card {
+			height: calc(25vh - 20px);
+		}
+
+		.chart-card canvas {
+			height: 100%;
+		}
+
+		/* detail card: two side-by-side canvases */
+		.detail-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+			flex: 1;
+			min-height: 0;
+		}
+
+		.detail-grid canvas {
+			display: block;
+			width: 100%;
+			height: 100%;
+			min-height: 0;
+			background: #12140f;
+			border-radius: 4px;
+		}
+
+		/* table card: fixed-height scrollable body */
+		.table-card {
+			max-height: calc(30vh - 16px);
+			overflow: hidden;
+		}
+
+		.table-wrap {
+			overflow-y: auto;
+			flex: 1;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-variant-numeric: tabular-nums;
+		}
+
+		th, td {
+			text-align: right;
+			padding: 2px 7px;
+			border-bottom: 1px solid var(--border);
+			white-space: nowrap;
+			font-size: 12px;
+		}
+
+		th:first-child, td:first-child {
+			text-align: left;
+		}
+
+		th {
+			color: var(--subtle);
+			cursor: pointer;
+			user-select: none;
+			position: sticky;
+			top: 0;
+			background: var(--panel);
+			z-index: 1;
+		}
+
+		th:hover {
+			color: var(--text);
+		}
+
+		td.name {
+			max-width: 320px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.status {
+			color: var(--subtle);
+			font-size: 11px;
+		}
+
+		.hot {
+			color: var(--hazard);
+		}
+
+		/* full-screen expanded overlay */
+		.card.fullscreen {
+			position: fixed;
+			inset: 0;
+			z-index: 9999;
+			border-radius: 0;
+			margin: 0;
+			padding: 10px 14px;
+			display: flex;
+			flex-direction: column;
+			height: 100% !important;
+			max-height: 100% !important;
+		}
+
+		.card.fullscreen canvas {
+			flex: 1;
+			height: 0;
+		}
+
+		.card.fullscreen .table-wrap {
+			flex: 1;
+		}
+
+		.card.fullscreen .detail-grid {
+			flex: 1;
+		}
+
+		.card.fullscreen .detail-grid canvas {
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<header>
+	<h1>Flecs System Stats</h1>
+	<label class="ctl">File <input type="file" id="file" accept=".jsonl,.json,.txt"/></label>
+	<label class="ctl">or URL <input type="text" id="url"
+	                                 placeholder="http://localhost:8000/stats-telemetry.jsonl"/></label>
+	<button id="fetchBtn">Load URL</button>
+	<label class="ctl"><input type="checkbox" id="auto"/> auto-refresh 1s</label>
+	<div class="spacer"></div>
+	<label class="ctl">x-axis
+		<select id="xaxis">
+			<option value="t">time (s)</option>
+			<option value="frame">frame</option>
+		</select>
+	</label>
+	<span class="status" id="status">Load a stats-telemetry.jsonl file to begin.</span>
+</header>
+<main>
+	<aside id="sidebar">
+		<h2>Systems (click to toggle)</h2>
+		<div style="display:flex; gap:5px; margin:0 4px 7px;">
+			<button id="selTop" title="Select the 8 hottest">Top 8</button>
+			<button id="selAll">All</button>
+			<button id="selNone">None</button>
+		</div>
+		<div class="syslist" id="syslist"></div>
+	</aside>
+	<section id="content">
+		<div class="card chart-card" id="card-ts">
+			<div class="card-head">
+				<h2 id="tsTitle">Timing over time</h2>
+				<button class="expand-btn" onclick="toggleExpand('card-ts','ts')">⤢</button>
+			</div>
+			<canvas id="ts"></canvas>
+		</div>
+		<div class="card chart-card" id="card-sc">
+			<div class="card-head">
+				<h2>Matched entities over time</h2>
+				<button class="expand-btn" onclick="toggleExpand('card-sc','sc')">⤢</button>
+			</div>
+			<canvas id="sc"></canvas>
+		</div>
+		<div class="card table-card" id="card-tbl">
+			<div class="card-head">
+				<h2>Hotspots <span style="color:var(--subtle);font-size:10px;font-weight:normal">(click a row for drill-down)</span>
+				</h2>
+				<button class="expand-btn" onclick="toggleExpand('card-tbl',null)">⤢</button>
+			</div>
+			<div class="table-wrap">
+				<table id="tbl">
+					<thead>
+					<tr>
+						<th data-k="system">system</th>
+						<th data-k="last">last ms</th>
+						<th data-k="avg">avg ms</th>
+						<th data-k="max">max ms</th>
+						<th data-k="entities">entities</th>
+						<th data-k="perk">ms/1k ent</th>
+						<th data-k="samples">samples</th>
+					</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+		<!-- per-system drill-down: ms + entities over time, hidden until a row is clicked -->
+		<div class="card chart-card" id="card-detail" style="display:none; height:calc(25vh - 20px)">
+			<div class="card-head">
+				<h2 id="detailTitle">System detail</h2>
+				<button class="expand-btn" onclick="toggleExpand('card-detail',null)">⤢</button>
+				<button class="expand-btn" onclick="document.getElementById('card-detail').style.display='none'">✕
+				</button>
+			</div>
+			<div class="detail-grid">
+				<canvas id="detail-ms"></canvas>
+				<canvas id="detail-ent"></canvas>
+			</div>
+		</div>
+	</section>
+</main>
+<script>
+	"use strict";
+
+	// ---- expand / contract ----
+	function toggleExpand(cardId, canvasId) {
+		const card = document.getElementById(cardId);
+		const btn = card.querySelector(".expand-btn");
+		const isFs = card.classList.toggle("fullscreen");
+		btn.textContent = isFs ? "⤡" : "⤢";
+		document.body.style.overflow = isFs ? "hidden" : "";
+		if (canvasId) setTimeout(() => {
+			if (canvasId === "ts") drawTimeSeries();
+			else if (canvasId === "sc") drawEntitiesOverTime();
+		}, 50);
+	}
+
+	// ---- state ----
+	let rows = [];
+	let bySystem = new Map();
+	let stats = [];
+	let selected = new Set();
+	let sortKey = "max", sortDir = -1;
+	const palette = ["#78c878", "#dc963c", "#c84646", "#4682c8", "#aa78d2", "#5aaa5a", "#d2c85a", "#78c8c8",
+		"#c878aa", "#a0a0a0", "#8cc850", "#c85078", "#50c8a0", "#c8a050", "#7890d2", "#d25050"];
+	const colorOf = new Map();
+
+	// ---- parsing ----
+	function parse(text) {
+		const out = [];
+		for (const line of text.split("\n")) {
+			const s = line.trim();
+			if (!s) continue;
+			try {
+				const o = JSON.parse(s);
+				if (o && typeof o.system === "string") out.push(o);
+			} catch (_) {
+			}
+		}
+		return out;
+	}
+
+	function rebuild() {
+		bySystem = new Map();
+		for (const r of rows) {
+			let s = bySystem.get(r.system);
+			if (!s) {
+				s = {t: [], frame: [], ms: [], entities: [], tables: []};
+				bySystem.set(r.system, s);
+			}
+			s.t.push(+r.t || 0);
+			s.frame.push(+r.frame || 0);
+			s.ms.push(+r.ms || 0);
+			s.entities.push(+r.entities || 0);
+			s.tables.push(+r.tables || 0);
+		}
+		stats = [];
+		for (const [system, s] of bySystem) {
+			if (!colorOf.has(system)) colorOf.set(system, palette[colorOf.size % palette.length]);
+			const n = s.ms.length;
+			const last = n ? s.ms[n - 1] : 0;
+			const avg = n ? s.ms.reduce((a, b) => a + b, 0) / n : 0;
+			const max = n ? Math.max(...s.ms) : 0;
+			const entities = n ? s.entities[n - 1] : 0;
+			const perk = entities > 0 ? (last / entities) * 1000 : 0;
+			stats.push({system, last, avg, max, entities, perk, samples: n});
+		}
+		if (selected.size === 0) selectTop(8);
+	}
+
+	function selectTop(k) {
+		selected = new Set([...stats].sort((a, b) => b.max - a.max).slice(0, k).map(s => s.system));
+	}
+
+	// ---- canvas helpers ----
+	function fitCanvas(c) {
+		const dpr = window.devicePixelRatio || 1;
+		const rect = c.getBoundingClientRect();
+		const w = Math.max(1, Math.floor(rect.width));
+		const h = Math.max(1, Math.floor(rect.height));
+		c.width = Math.floor(w * dpr);
+		c.height = Math.floor(h * dpr);
+		const ctx = c.getContext("2d");
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		return {ctx, w, h};
+	}
+
+	function niceMax(v) {
+		if (v <= 0) return 1;
+		const p = Math.pow(10, Math.floor(Math.log10(v)));
+		const n = v / p;
+		return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+	}
+
+	function drawAxes(ctx, w, h, pad, xmin, xmax, ymax, xlabel, ylabel) {
+		ctx.clearRect(0, 0, w, h);
+		ctx.strokeStyle = "#2a302a";
+		ctx.fillStyle = "#8c968c";
+		ctx.lineWidth = 1;
+		ctx.font = "10px ui-monospace, monospace";
+		for (let i = 0; i <= 4; i++) {
+			const y = pad.t + (h - pad.t - pad.b) * (i / 4);
+			const val = ymax * (1 - i / 4);
+			ctx.beginPath();
+			ctx.moveTo(pad.l, y);
+			ctx.lineTo(w - pad.r, y);
+			ctx.stroke();
+			ctx.textAlign = "right";
+			ctx.textBaseline = "middle";
+			ctx.fillText(val.toFixed(val < 1 ? 3 : val < 100 ? 1 : 0), pad.l - 4, y);
+		}
+		ctx.textAlign = "center";
+		ctx.textBaseline = "top";
+		for (let i = 0; i <= 5; i++) {
+			const x = pad.l + (w - pad.l - pad.r) * (i / 5);
+			const val = xmin + (xmax - xmin) * (i / 5);
+			ctx.fillText(val.toFixed(xmax - xmin < 10 ? 2 : 0), x, h - pad.b + 4);
+		}
+		ctx.fillStyle = "#6a746a";
+		ctx.textAlign = "left";
+		ctx.fillText(ylabel, pad.l, 2);
+		ctx.textAlign = "right";
+		ctx.fillText(xlabel, w - pad.r, h - 12);
+	}
+
+	function project(pad, w, h, xmin, xmax, ymax) {
+		return {
+			px: x => pad.l + (w - pad.l - pad.r) * (xmax === xmin ? 0.5 : (x - xmin) / (xmax - xmin)),
+			py: y => pad.t + (h - pad.t - pad.b) * (1 - (ymax ? y / ymax : 0))
+		};
+	}
+
+	function drawTimeSeries() {
+		const c = document.getElementById("ts");
+		const {ctx, w, h} = fitCanvas(c);
+		const xKey = document.getElementById("xaxis").value;
+		const pad = {l: 52, r: 10, t: 14, b: 22};
+		const sysList = [...selected].filter(s => bySystem.has(s));
+		let xmin = Infinity, xmax = -Infinity, ymax = 0;
+		for (const s of sysList) {
+			const d = bySystem.get(s);
+			for (let i = 0; i < d.ms.length; i++) {
+				const x = d[xKey][i];
+				if (x < xmin) xmin = x;
+				if (x > xmax) xmax = x;
+				if (d.ms[i] > ymax) ymax = d.ms[i];
+			}
+		}
+		if (!isFinite(xmin)) {
+			ctx.clearRect(0, 0, w, h);
+			return;
+		}
+		ymax = niceMax(ymax);
+		drawAxes(ctx, w, h, pad, xmin, xmax, ymax, xKey === "t" ? "s" : "frame", "ms");
+		const {px, py} = project(pad, w, h, xmin, xmax, ymax);
+		for (const s of sysList) {
+			const d = bySystem.get(s);
+			ctx.strokeStyle = colorOf.get(s);
+			ctx.lineWidth = 1.4;
+			ctx.beginPath();
+			for (let i = 0; i < d.ms.length; i++) {
+				const X = px(d[xKey][i]), Y = py(d.ms[i]);
+				if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+			}
+			ctx.stroke();
+		}
+	}
+
+	// Entities over time — same layout as the ms chart, letting the user compare both visually.
+	function drawEntitiesOverTime() {
+		const c = document.getElementById("sc");
+		const {ctx, w, h} = fitCanvas(c);
+		const xKey = document.getElementById("xaxis").value;
+		const pad = {l: 52, r: 10, t: 14, b: 22};
+		const sysList = [...selected].filter(s => bySystem.has(s));
+		let xmin = Infinity, xmax = -Infinity, ymax = 0;
+		for (const s of sysList) {
+			const d = bySystem.get(s);
+			for (let i = 0; i < d.entities.length; i++) {
+				const x = d[xKey][i];
+				if (x < xmin) xmin = x;
+				if (x > xmax) xmax = x;
+				if (d.entities[i] > ymax) ymax = d.entities[i];
+			}
+		}
+		if (!isFinite(xmin)) {
+			ctx.clearRect(0, 0, w, h);
+			return;
+		}
+		ymax = niceMax(ymax);
+		drawAxes(ctx, w, h, pad, xmin, xmax, ymax, xKey === "t" ? "s" : "frame", "entities");
+		const {px, py} = project(pad, w, h, xmin, xmax, ymax);
+		for (const s of sysList) {
+			const d = bySystem.get(s);
+			ctx.strokeStyle = colorOf.get(s);
+			ctx.lineWidth = 1.4;
+			ctx.beginPath();
+			for (let i = 0; i < d.entities.length; i++) {
+				const X = px(d[xKey][i]), Y = py(d.entities[i]);
+				if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+			}
+			ctx.stroke();
+		}
+	}
+
+	// ---- per-system detail: ms over time (left) + entities over time (right) ----
+	let detailSystem = null;
+
+	function drawDetail(system) {
+		const d = bySystem.get(system);
+		if (!d) return;
+		const xKey = document.getElementById("xaxis").value;
+		const col = colorOf.get(system);
+		const pad = {l: 52, r: 8, t: 14, b: 20};
+
+		function drawLine(canvasId, values, ylabel) {
+			const c = document.getElementById(canvasId);
+			const {ctx, w, h} = fitCanvas(c);
+			const xs = d[xKey];
+			const n = values.length;
+			if (!n) return;
+			const ymax = niceMax(Math.max(...values));
+			const xmin = xs[0] || 0, xmax = xs[n - 1] || 1;
+			drawAxes(ctx, w, h, pad, xmin, xmax, ymax, xKey === "t" ? "s" : "frame", ylabel);
+			const {px, py} = project(pad, w, h, xmin, xmax, ymax);
+			// filled area
+			ctx.beginPath();
+			ctx.moveTo(px(xs[0]), py(values[0]));
+			for (let i = 1; i < n; i++) ctx.lineTo(px(xs[i]), py(values[i]));
+			ctx.lineTo(px(xs[n - 1]), py(0));
+			ctx.lineTo(px(xs[0]), py(0));
+			ctx.closePath();
+			ctx.fillStyle = col + "28";
+			ctx.fill();
+			// line on top
+			ctx.beginPath();
+			ctx.moveTo(px(xs[0]), py(values[0]));
+			for (let i = 1; i < n; i++) ctx.lineTo(px(xs[i]), py(values[i]));
+			ctx.strokeStyle = col;
+			ctx.lineWidth = 1.4;
+			ctx.stroke();
+		}
+
+		drawLine("detail-ms", d.ms, "ms");
+		drawLine("detail-ent", d.entities, "entities");
+	}
+
+	function showDetail(system) {
+		detailSystem = system;
+		const card = document.getElementById("card-detail");
+		document.getElementById("detailTitle").textContent =
+			system.replace(/^.*[.:]/, "") + "  —  ms (left)  ·  entities (right)";
+		card.style.display = "";
+		card.scrollIntoView({behavior: "smooth", block: "nearest"});
+		// Wait for layout to settle before reading canvas dimensions.
+		requestAnimationFrame(() => requestAnimationFrame(() => drawDetail(system)));
+	}
+
+	// ---- DOM renders ----
+	function renderSidebar() {
+		const el = document.getElementById("syslist");
+		el.innerHTML = "";
+		for (const s of [...stats].sort((a, b) => b.max - a.max)) {
+			const on = selected.has(s.system);
+			const row = document.createElement("div");
+			row.className = "sysrow";
+			row.innerHTML =
+				`<span class="swatch" style="background:${on ? colorOf.get(s.system) : "#3a423a"}"></span>` +
+				`<span class="name" title="${s.system}">${s.system.replace(/^.*[.:]/, "")}</span>` +
+				`<span class="ms">${s.max.toFixed(3)}</span>`;
+			row.onclick = () => {
+				if (selected.has(s.system)) selected.delete(s.system); else selected.add(s.system);
+				renderAll();
+			};
+			el.appendChild(row);
+		}
+	}
+
+	function renderTable() {
+		const tb = document.querySelector("#tbl tbody");
+		tb.innerHTML = "";
+		for (const s of [...stats].sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : -1) * sortDir)) {
+			const tr = document.createElement("tr");
+			tr.style.cursor = "pointer";
+			tr.onclick = () => showDetail(s.system);
+			tr.innerHTML =
+				`<td class="name" title="${s.system}">${s.system}</td>` +
+				`<td>${s.last.toFixed(3)}</td><td>${s.avg.toFixed(3)}</td><td>${s.max.toFixed(3)}</td>` +
+				`<td>${Math.round(s.entities)}</td>` +
+				`<td class="${s.perk > 0.5 ? "hot" : ""}">${s.perk.toFixed(3)}</td>` +
+				`<td>${s.samples}</td>`;
+			tb.appendChild(tr);
+		}
+	}
+
+	function renderAll() {
+		renderSidebar();
+		renderTable();
+		drawTimeSeries();
+		drawEntitiesOverTime();
+		if (detailSystem) drawDetail(detailSystem);
+	}
+
+	function ingest(text, label) {
+		rows = parse(text);
+		rebuild();
+		document.getElementById("status").textContent =
+			`${rows.length.toLocaleString()} samples · ${bySystem.size} systems${label ? " · " + label : ""}`;
+		renderAll();
+	}
+
+	// ---- inputs ----
+	document.getElementById("file").addEventListener("change", e => {
+		const f = e.target.files[0];
+		if (!f) return;
+		const r = new FileReader();
+		r.onload = () => ingest(r.result, f.name);
+		r.readAsText(f);
+	});
+
+	let timer = null;
+
+	async function fetchUrl() {
+		const url = document.getElementById("url").value.trim();
+		if (!url) return;
+		try {
+			const res = await fetch(url, {cache: "no-store"});
+			ingest(await res.text(), "fetched " + new Date().toLocaleTimeString());
+		} catch (err) {
+			document.getElementById("status").textContent =
+				"Fetch failed: " + err + " (serve via `python -m http.server` in build dir)";
+		}
+	}
+
+	document.getElementById("fetchBtn").onclick = fetchUrl;
+	document.getElementById("auto").addEventListener("change", e => {
+		clearInterval(timer);
+		timer = null;
+		if (e.target.checked) {
+			fetchUrl();
+			timer = setInterval(fetchUrl, 1000);
+		}
+	});
+	document.getElementById("xaxis").onchange = () => {
+		drawTimeSeries();
+		drawEntitiesOverTime();
+		if (detailSystem) drawDetail(detailSystem);
+	};
+	document.getElementById("selTop").onclick = () => {
+		selectTop(8);
+		renderAll();
+	};
+	document.getElementById("selAll").onclick = () => {
+		selected = new Set(bySystem.keys());
+		renderAll();
+	};
+	document.getElementById("selNone").onclick = () => {
+		selected = new Set();
+		renderAll();
+	};
+	document.querySelectorAll("#tbl th").forEach(th => th.onclick = () => {
+		const k = th.dataset.k;
+		if (sortKey === k) sortDir = -sortDir; else {
+			sortKey = k;
+			sortDir = -1;
+		}
+		renderTable();
+	});
+	window.addEventListener("resize", () => {
+		drawTimeSeries();
+		drawEntitiesOverTime();
+		if (detailSystem) drawDetail(detailSystem);
+	});
+</script>
+</body>
+</html>

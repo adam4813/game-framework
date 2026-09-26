@@ -129,20 +129,37 @@ Legend:
 
 ---
 
-## ui *(not imported in TestWorld — add UIModule when UI component testing is needed)*
+## ui
 
-| Component     | Meta fields                                                                                                                                     | Status | Notes                                                |
-|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------|--------|------------------------------------------------------|
-| `UIRect`      | rect(Rect)                                                                                                                                      | 🔧     | Needs UIModule import; `core::Rect` already has meta |
-| `UIElement`   | z_index(int), visible(bool)                                                                                                                     | 🔧     |                                                      |
-| `Panel`       | color(Rgba), border_color(Rgba), border_thickness, roundness                                                                                    | 🔧     | `texture` field (int handle) is runtime              |
-| `Label`       | text(string), font_size, color(Rgba), align(TextAlign)                                                                                          | 🔧     | TextAlign is an enum (int in meta)                   |
-| `Button`      | label(string), font_size, normal/hover/pressed/border/text colors(Rgba), roundness, hovered, pressed, clicked                                   | 🔧     | `hovered`/`pressed`/`clicked` are runtime state      |
-| `ProgressBar` | value, min, max, fill_color/track_color/border_color(Rgba), border_thickness, roundness                                                         | 🔧     |                                                      |
-| `Spinner`     | color(Rgba), radius, dot_radius, dots(int), speed, phase                                                                                        | 🔧     | `phase` is runtime animated state                    |
-| `Stack`       | spacing, padding, stretch                                                                                                                       | 🔧     |                                                      |
-| `ScrollRect`  | scroll(vec2), content_size(vec2), vertical, horizontal, scrollbar_thickness, wheel_speed, track_color/thumb_color(Rgba), dragging_v, dragging_h | 🔧     | `scroll`/`dragging_*` are runtime interaction state  |
-| `Modal`       | open(bool), backdrop_color(Rgba), close_on_backdrop                                                                                             | 🔧     |                                                      |
+`UIModule` is imported by `EngineContext`, so UI components are registered in `TestWorld`. The sixteen
+script-registered components below are authored in all three paths (`TestUIPanel`/`TestUIButton`/
+`TestUIProgressBar`/`TestUISpinner`/`TestUIStack`/`TestUIScrollRect`/`TestUIModal`/`TestUILabel`/
+`TestUISlider`/`TestUICheckbox`/`TestUIRadio`/`TestUITextInput`/`TestUITextArea`/`TestUIDropdown`). Runtime
+fields (`hovered`/`pressed`/`clicked`/`phase`/`scroll`/`content_size`/`dragging_*`/`caret_blink`/`hover_index`) are
+left at defaults — no path runs systems, so they match. Each widget's unreflected members (`std::function`
+callbacks, `Dropdown.options` vector, `Stack.direction`/`Label.align` enums) are automatically skipped by the
+script and JSON layers, so only the plain-data fields are compared.
+
+| Component     | Meta fields                                                                                                                                     | Status | Notes                                                           |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------|--------|-----------------------------------------------------------------|
+| `UIRect`      | rect(Rect)                                                                                                                                      | ✅     | `core::Rect` value type; set via `.rect.x` etc. in AS           |
+| `UIElement`   | z_index(int), visible(bool)                                                                                                                     | ✅     |                                                                 |
+| `Panel`       | color(Rgba), border_color(Rgba), border_thickness, roundness                                                                                    | ✅     | `texture` (int handle) not meta-reflected                       |
+| `Button`      | label(string), font_size, normal/hover/pressed/border/text colors(Rgba), roundness, hovered, pressed, clicked                                   | ✅     | `hovered`/`pressed`/`clicked` runtime; default-match            |
+| `ProgressBar` | value, min, max, fill_color/track_color/border_color(Rgba), border_thickness, roundness                                                         | ✅     |                                                                 |
+| `Spinner`     | color(Rgba), radius, dot_radius, dots(int), speed, phase                                                                                        | ✅     | `phase` runtime; default-match (no systems run)                 |
+| `Stack`       | spacing, padding, stretch                                                                                                                       | ✅     | `direction` enum not meta-reflected                             |
+| `ScrollRect`  | scroll(vec2), content_size(vec2), vertical, horizontal, scrollbar_thickness, wheel_speed, track_color/thumb_color(Rgba), dragging_v, dragging_h | ✅     | `scroll`/`content_size`/`dragging_*` runtime; default-match     |
+| `Modal`       | open(bool), backdrop_color(Rgba), close_on_backdrop                                                                                             | ✅     |                                                                 |
+| `Label`       | text(string), font_size, color(Rgba), align(TextAlign)                                                                                          | ✅     | `align` enum skipped (left default); text/font_size/color       |
+| `Slider`      | value, min, max, step, hovered, dragging                                                                                                        | ✅     | `std::function on_change` skipped; `hovered`/`dragging` runtime |
+| `Checkbox`    | checked, label(string), font_size, box_size, colors(Rgba), roundness, hovered                                                                   | ✅     | `std::function on_change` skipped; colors left default          |
+| `Radio`       | group(string), value(string), selected, label(string), font_size, radius, colors(Rgba), hovered                                                 | ✅     | `std::function on_change` skipped; colors left default          |
+| `TextInput`   | text(string), placeholder(string), max_length, font_size, colors(Rgba), roundness, hovered, caret_blink                                         | ✅     | `std::function` callbacks skipped; `caret_blink` runtime        |
+| `TextArea`    | text(string), placeholder(string), max_length, font_size, line_spacing, colors(Rgba), roundness, hovered, caret_blink                           | ✅     | `std::function on_change` skipped; `caret_blink` runtime        |
+| `Dropdown`    | selected(int), placeholder(string), open, font_size, row_height, colors(Rgba), roundness, hovered, hover_index                                  | ✅     | `options`(vector) + `std::function` skipped; not compared       |
+| `DataBinding` | (std::function + entity handles)                                                                                                                | 🚫     | Binding wiring (callbacks/entity refs); not author-compared     |
+| `UIFocus`     | (singleton; flecs::entity)                                                                                                                      | 🚫     | Runtime keyboard-focus handle; not authored                     |
 
 ---
 

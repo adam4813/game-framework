@@ -24,6 +24,7 @@ public:
 	[[nodiscard]] bool MouseReleased(engine::platform::MouseButton) const override { return false; }
 	[[nodiscard]] bool MouseDown(engine::platform::MouseButton) const override { return false; }
 	[[nodiscard]] bool IsKeyDown(int) const override { return false; }
+	[[nodiscard]] bool IsKeyPressedRepeat(int) const override { return false; }
 	[[nodiscard]] bool IsMouseButtonDown(int) const override { return false; }
 	[[nodiscard]] int CharInput() const override { return 0; }
 	[[nodiscard]] std::string TextInput() const override { return {}; }

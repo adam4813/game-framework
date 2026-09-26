@@ -117,6 +117,10 @@ void NoiseScene::BuildUI(const flecs::world& world) {
 	uiRoot_ = world.entity("NoiseSceneUI");
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = sw, .h = sh}});
 
+	// Per-system Flecs timing overlay (toggle with F4).
+	std::ignore =
+		ui::CreateSystemStatsPanel(world, {.x = 20.0F, .y = 20.0F, .w = 420.0F, .h = sh - 40.0F}).child_of(uiRoot_);
+
 	// ── Header ──
 	std::ignore = ui::CreateLabel(world, {.x = kPad, .y = 10.0F, .w = 400.0F, .h = 36.0F}, "Noise Visualizer", 28.0F)
 					  .set<ui::Label>({.text = "Noise Visualizer", .font_size = 28.0F, .color = core::colors::Title})

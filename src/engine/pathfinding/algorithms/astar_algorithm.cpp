@@ -1,9 +1,10 @@
 #include "astar_algorithm.hpp"
 
 #include <algorithm>
-#include <queue>
 #include <utility>
 #include <vector>
+
+#include "engine/profiling/profiling.hpp"
 
 namespace engine::pathfinding {
 
@@ -18,9 +19,10 @@ struct AStarWorkspace {
 	std::vector<std::uint32_t> seen;      // seen[id] == version → id has a g_score this search
 	std::vector<std::uint32_t> closed;    // closed[id] == version → id finalised this search
 	std::vector<NavEdge> neighbors;       // reused neighbour buffer
+	// Heap stored as a flat vector so clear() is O(1) (just resets size, preserves capacity).
+	// std::priority_queue wraps a vector but doesn't expose clear(); popping all entries is O(N log N).
+	std::vector<std::pair<float, graph::NodeId>> open_heap;
 	std::uint32_t version = 0;
-	std::priority_queue< std::pair<float, graph::NodeId>, std::vector<std::pair<float, graph::NodeId>>, std::greater<>>
-		open;
 
 	void EnsureCapacity(const size_t node_count) {
 		if (g_score.size() >= node_count + 1) return;
@@ -43,12 +45,27 @@ struct AStarWorkspace {
 	}
 
 	void ResetOpen() {
-		while (!open.empty()) open.pop();
+		open_heap.clear(); // O(1) — preserves heap vector capacity across searches
 	}
+
+	void PushOpen(const float f, const graph::NodeId n) {
+		open_heap.emplace_back(f, n);
+		std::push_heap(open_heap.begin(), open_heap.end(), std::greater<>{});
+	}
+
+	[[nodiscard]] std::pair<float, graph::NodeId> PopOpen() {
+		std::pop_heap(open_heap.begin(), open_heap.end(), std::greater<>{});
+		const auto top = open_heap.back();
+		open_heap.pop_back();
+		return top;
+	}
+
+	[[nodiscard]] bool OpenEmpty() const { return open_heap.empty(); }
 };
 } // namespace
 
 NavPath AStarAlgorithm::FindPath(const INavGraph& g, const graph::NodeId start, const graph::NodeId goal) const {
+	profiling::Zone _zone{"A*::FindPath"};
 	if (!g.Valid(start) || !g.Valid(goal)) return {};
 	if (start == goal) return NavPath{.waypoints = {g.Position(start)}, .found = true};
 
@@ -59,16 +76,18 @@ NavPath AStarAlgorithm::FindPath(const INavGraph& g, const graph::NodeId start, 
 
 	ws.g_score[start] = 0.0f;
 	ws.seen[start] = version;
-	ws.open.emplace(g.Heuristic(start, goal), start);
+	ws.PushOpen(g.Heuristic(start, goal), start);
 
-	while (!ws.open.empty()) {
-		const auto [f, current] = ws.open.top();
-		ws.open.pop();
+	int nodes_expanded = 0;
+	while (!ws.OpenEmpty()) {
+		const auto [f, current] = ws.PopOpen();
 
 		if (ws.closed[current] == version) continue; // stale duplicate from lazy deletion
 		ws.closed[current] = version;
+		++nodes_expanded;
 
 		if (current == goal) {
+			profiling::Plot("PathfindingModule", "astar.nodes_expanded", static_cast<int64_t>(nodes_expanded));
 			std::vector<glm::vec3> waypoints;
 			for (graph::NodeId node = goal; node != start; node = ws.came_from[node]) {
 				waypoints.push_back(g.Position(node));
@@ -87,11 +106,12 @@ NavPath AStarAlgorithm::FindPath(const INavGraph& g, const graph::NodeId start, 
 				ws.came_from[to] = current;
 				ws.g_score[to] = tentative_g;
 				ws.seen[to] = version;
-				ws.open.emplace(tentative_g + g.Heuristic(to, goal), to);
+				ws.PushOpen(tentative_g + g.Heuristic(to, goal), to);
 			}
 		}
 	}
 
+	profiling::Plot("PathfindingModule", "astar.nodes_expanded", static_cast<int64_t>(nodes_expanded));
 	return {}; // no path found
 }
 

@@ -20,6 +20,7 @@
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
 #include "engine/platform/render_batch.hpp"
+#include "engine/profiling/profiling.hpp"
 
 using engine::core::Rect;
 using engine::core::Rgba;
@@ -616,9 +617,7 @@ void EnsureInstanceBuffers(RenderMesh& rm, const int count) {
 	const auto tx = static_cast<unsigned int>(g_inst.attr_transform);
 	rm.transform_vbo = rlLoadVertexBuffer(nullptr, count * static_cast<int>(sizeof(glm::mat4)), true);
 	for (unsigned int c = 0; c < 4; ++c) {
-		rlSetVertexAttribute(
-			tx + c, 4, RL_FLOAT, false, sizeof(glm::mat4), static_cast<int>(c * sizeof(glm::vec4))
-		);
+		rlSetVertexAttribute(tx + c, 4, RL_FLOAT, false, sizeof(glm::mat4), static_cast<int>(c * sizeof(glm::vec4)));
 		rlSetVertexAttributeDivisor(tx + c, 1);
 		rlEnableVertexAttribute(tx + c);
 	}
@@ -788,11 +787,15 @@ std::string RaylibBackend::AssetDirectory() const {
 }
 
 void RaylibBackend::BeginFrame(const Rgba clear) {
+	profiling::Zone _zone{"Platform::BeginFrame"};
 	BeginDrawing();
 	ClearBackground(ToRay(clear));
 }
 
-void RaylibBackend::EndFrame() { EndDrawing(); }
+void RaylibBackend::EndFrame() {
+	profiling::Zone _zone{"Platform::EndFrame"}; // includes GPU present/vsync wait
+	EndDrawing();
+}
 
 glm::vec2 RaylibBackend::MousePosition() const {
 	const auto [x, y] = GetMousePosition();
@@ -911,6 +914,7 @@ void RaylibBackend::BeginScissor(const Rect r) {
 void RaylibBackend::EndScissor() { EndScissorMode(); }
 
 void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
+	profiling::Zone _zone{"Platform::BeginMode3D"};
 	const Camera3D cam{
 		.position = ToRay(camera.position),
 		.target = ToRay(camera.target),
@@ -929,7 +933,10 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	}
 }
 
-void RaylibBackend::EndMode3D() { ::EndMode3D(); }
+void RaylibBackend::EndMode3D() {
+	profiling::Zone _zone{"Platform::EndMode3D"};
+	::EndMode3D();
+}
 
 void RaylibBackend::SetLighting(const LightParams& lighting) {
 	g_light_params = lighting; // cached so the instanced shader can be fed the same values
@@ -1154,6 +1161,7 @@ int RaylibBackend::PrimitiveMesh(const PrimitiveShape shape) const {
 }
 
 BatchStats RaylibBackend::SubmitBatch(const std::span<const RenderCommand> commands) {
+	profiling::Zone _zone{"Platform::SubmitBatch"};
 	BatchStats stats{};
 	if (commands.empty()) return stats;
 

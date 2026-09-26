@@ -17,6 +17,13 @@
 		"nlohmann-json",
 		"spdlog",
 		{
+			"name": "tracy",
+			"platform": "!emscripten",
+			"features": [
+				"gui-tools"
+			]
+		},
+		{
 			"name": "joltphysics",
 			"features": [
 				"debugrenderer",

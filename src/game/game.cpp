@@ -23,6 +23,10 @@ GameModule::GameModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
 	const std::string sfxDir = platform->AssetDirectory() + "/audio/sfx";
 
+	// Import the optional engine subsystems this game uses.
+	auto& registry = world.get<EngineContextRef>().ptr->GetModuleRegistry();
+	registry.Import(world, {"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles"});
+
 	world.set<GameData>({});
 
 	// Interaction/dialog-tree system (data-driven node graph) usable by any game scene.

@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(BUILD_SCENE_EQUIVALENCE_TEST "Build the scene equivalence test application" ON)
+# Enable Tracy frame profiler integration. Only meaningful on desktop (no WASM support).
+# Activates the Flecs OS API perf hooks, explicit render zones, and the FrameMark.
+option(ENABLE_TRACY "Enable Tracy profiler integration" OFF)
+# Auto-start JSONL telemetry on launch so stats-telemetry.jsonl is written immediately.
+# The in-game checkbox still works; this just flips the initial state.
+option(ENABLE_PROFILE_LOGGING "Auto-start JSONL system-stats telemetry on launch" OFF)
+
+include(cmake/Tracy.cmake)
 
 find_package(Angelscript CONFIG REQUIRED)
 find_package(raylib CONFIG REQUIRED)
@@ -39,6 +47,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Jolt::Jolt
     spdlog::spdlog
 )
+
+if (ENABLE_PROFILE_LOGGING)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PROFILE_LOGGING_ENABLED)
+    message(STATUS "JSONL profile logging auto-start enabled")
+endif ()
+
+setup_tracy(${PROJECT_NAME})
 
 if (BUILD_SCENE_EQUIVALENCE_TEST AND NOT EMSCRIPTEN)
     add_subdirectory(tests/scene_equivalence)
