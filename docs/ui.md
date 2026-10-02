@@ -1,10 +1,12 @@
 # UI Components
 
 Data-driven 2D UI for Flecs. A UI element is an entity pairing a `UIRect` (position + size) with one or more visual
-components (`Panel`/`Label`/`Button`/`ProgressBar`/`Spinner`) and/or layout/behaviour components (`Stack`/`ScrollRect`/
-`Modal`/`OnClick`/`audio::SoundEffect`). Rendering is **deferred**
-through a `UIDrawList` singleton so draw order is explicit: FIFO, refined by the entity hierarchy and an optional
-`UIElement.z_index`.
+components (`Panel`/`Label`/`Button`/`ProgressBar`/`Slider`/`Spinner`), input widgets (`Checkbox`/`Radio`/`TextInput`/
+`TextArea`/`Dropdown`) and/or layout/behaviour components (`Stack`/`ScrollRect`/`Modal`/`OnClick`/`audio::SoundEffect`).
+The module splits **view** (building the UI tree into an ordered draw list in `PreStore`) from **presentation**
+(submitting it in `OnUI`); draw order is a total order over `(layer, seq)` — `UIElement.z_index` layer, then tree
+pre-order — so children paint over parents independent of archetype/iteration order. UI can be bound to data points
+(`DataBinding`) and authored from C++, JSON, or scripts.
 
 Authoritative deep-dive: [ui/README.md](../src/engine/ui/README.md). This page is the framework-level summary; see
 also [systems-reference.md](systems-reference.md#ui-srcengineuiui_modulecpp) for the system table.
@@ -21,18 +23,25 @@ also [systems-reference.md](systems-reference.md#ui-srcengineuiui_modulecpp) for
 | `ProgressBar`    | Determinate value bar (`value` in `[min, max]`).                                                  |
 | `Slider`         | Horizontal interactive slider (`value`, `min`, `max`, `step`, `on_change`). Drag thumb to update. |
 | `Spinner`        | Indeterminate loading spinner, animated by the module.                                            |
+| `Checkbox`       | Toggleable boolean + optional label; fires `on_change(bool)`.                                     |
+| `Radio`          | Grouped, mutually-exclusive toggle (shared `group` string); fires `on_change`.                    |
+| `TextInput`      | Single-line editable text; click-to-focus, caret, Backspace; Enter → `on_submit`.                 |
+| `TextArea`       | Multi-line editable text; Enter inserts a newline; click-to-focus, caret.                         |
+| `Dropdown`       | Selector with an expandable option list; fires `on_change(index)`.                                |
 | `Stack`          | Auto-layout: positions direct UI children vertically/horizontally.                                |
 | `ScrollRect`     | Clipped, scrollable viewport with a scrollbar.                                                    |
 | `Modal`          | Dialog over a full-screen backdrop; blocks input to non-modal UI while open.                      |
 | `OnClick`        | `std::function<void(flecs::entity)>` run on a completed click.                                    |
+| `DataBinding`    | Binds a widget's value to a blackboard key / component field / script callback.                   |
+| `UIFocus`        | Singleton: the text field currently receiving typed text.                                         |
 | `UIClickRequest` | Tag; add to a Button to fire its click programmatically (scripts/tests/tools).                    |
 
 Deferred-render types (`UIDrawCommand`, `UIDrawList` with `Push*`/`BeginClip`/`EndClip`) live in
-`ui_components.hpp`; game/scripting code may enqueue custom overlay draws before `UIRenderDrawList`.
+`ui_draw_list.hpp` (`SetLayer` sets the compositing layer); game/scripting code may enqueue custom overlay draws.
 
 ## Factories
 
-`ui_module.hpp` provides `Create*` convenience factories: `CreatePanel`, `CreateLabel`,
+`ui_factories.hpp` provides `Create*` convenience factories: `CreatePanel`, `CreateLabel`,
 `CreateButton`, `CreateProgressBar`, `CreateSlider`, `CreateSpinner`, `CreateStack`, `CreateScrollRect`,
 `CreateModal`, `CreatePrompt`. Parent elements with `.child_of(parent)` to control layout and draw order (children
 composite on top of parents).

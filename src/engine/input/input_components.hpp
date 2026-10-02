@@ -1,14 +1,16 @@
 #pragma once
 
 #include <array>
+#include <string>
 
 namespace engine::input {
 
 // Key state tracking (similar to flecs-components-input)
 struct KeyState {
-	bool pressed{false}; // Key was pressed this frame
+	bool pressed{false}; // Key was pressed this frame (rising edge)
 	bool state{false};   // Current key state (down/up)
 	bool current{false}; // Current frame state
+	bool repeat{false};  // Pressed this frame OR an OS auto-repeat fired while held (for text editing)
 };
 
 // Mouse coordinate tracking
@@ -48,8 +50,22 @@ struct InputState {
 		return key >= 0 && key < static_cast<int>(MaxKeys) && keys[static_cast<size_t>(key)].pressed;
 	}
 
+	// True on the initial press and on each OS auto-repeat while held (for held-to-repeat editing).
+	[[nodiscard]] bool WasKeyPressedOrRepeated(const int key) const {
+		return key >= 0 && key < static_cast<int>(MaxKeys) && keys[static_cast<size_t>(key)].repeat;
+	}
+
 	// True while the key is not held down.
 	[[nodiscard]] bool IsKeyUp(const int key) const { return !IsKeyDown(key); }
+};
+
+// Printable text typed this frame (UTF-8, in order), drained from the platform character queue by
+// InputPoll and cleared each frame by InputResetFrameState. Kept in its own singleton — not as an
+// InputState member — because InputState is exposed to scripts as a by-value POD type (scripts do
+// `InputState input = GetInputState();`), which requires it to stay trivially copyable; a std::string
+// member would break that. Focused text-input UI reads this singleton via its `text`.
+struct TypedText {
+	std::string text;
 };
 
 // === TAG COMPONENTS ===

@@ -565,6 +565,10 @@ bool RaylibBackend::IsKeyDown(const int key_code) const {
 	return ::IsKeyDown(KeyCodeToRay(key_code));
 }
 
+bool RaylibBackend::IsKeyPressedRepeat(const int key_code) const {
+	return ::IsKeyPressed(KeyCodeToRay(key_code)) || ::IsKeyPressedRepeat(KeyCodeToRay(key_code));
+}
+
 bool RaylibBackend::IsMouseButtonDown(const int button) const {
 	// 0 = left, 1 = right, 2 = middle
 	switch (button) {

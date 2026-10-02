@@ -156,6 +156,30 @@ void TitleScene::Load(flecs::world& world) {
 				loading.get_mut<ui::Label>().text = "Picked item " + std::to_string(i);
 			}).child_of(list);
 	}
+
+	// UI data-binding demo authored entirely in JSON (see assets/levels/ui_widgets_demo.level.json):
+	// a closed Modal of data-bound widgets, opened by this button and dismissed by clicking outside.
+	// The modal entity is looked up under uiRoot_ at click time (level entities are created deferred).
+	std::ignore = level::LoadLevel(world, assets::ResolveAsset(world, "levels/ui_widgets_demo.level.json"), uiRoot_);
+	std::ignore =
+		ui::CreateButton(
+			world,
+			{.x = 40.0F, .y = 20.0F, .w = 180.0F, .h = 40.0F},
+			"UI Demo",
+			[root = uiRoot_](const flecs::entity&) {
+				if (const flecs::entity modal = root.lookup("UIBindingDemoModal"); modal && modal.has<ui::Modal>()) {
+					modal.get_mut<ui::Modal>().open = true;
+				}
+			}
+		)
+			.set_name("UIDemoButton")
+			.child_of(uiRoot_);
+
+	// Script-built UI demo: a host whose script creates a panel/label/button via the Create* script
+	// factories (see assets/scripts/ui_factory_demo.as).
+	world.entity("UIFactoryDemoHost")
+		.child_of(uiRoot_)
+		.set<scripting::ScriptComponent>({.source_path = assetDir + "/scripts/ui_factory_demo.as"});
 }
 
 void TitleScene::Unload(flecs::world&) {

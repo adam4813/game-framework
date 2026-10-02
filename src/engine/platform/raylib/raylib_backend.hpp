@@ -27,6 +27,7 @@ public:
 	[[nodiscard]] bool MouseReleased(MouseButton button) const override;
 	[[nodiscard]] bool MouseDown(MouseButton button) const override;
 	[[nodiscard]] bool IsKeyDown(int key_code) const override;
+	[[nodiscard]] bool IsKeyPressedRepeat(int key_code) const override;
 	[[nodiscard]] bool IsMouseButtonDown(int button) const override;
 	[[nodiscard]] int CharInput() const override;
 	[[nodiscard]] std::string TextInput() const override;

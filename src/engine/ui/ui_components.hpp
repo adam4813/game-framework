@@ -1,24 +1,27 @@
 #pragma once
 
-#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
 
-#include <flecs.h>
 #include <glm/glm.hpp>
 
 #include "engine/core/core.hpp"
 
 // Data-driven 2D UI. An entity becomes a UI element by pairing a UIRect (its position + size)
 // with one or more visual components (Panel, Label, Button). Behaviour is attached as extra
-// components on the same entity (OnClick handler, audio::SoundEffect, ...), so a "button" is
-// simply the composition UIRect + Button + OnClick + SoundEffect — no bespoke widget classes.
+// components on the same entity (OnClick handler from ui_events.hpp, audio::SoundEffect, ...), so
+// a "button" is simply the composition UIRect + Button + OnClick + SoundEffect — no bespoke widget
+// classes.
 //
-// Rendering is deferred: the visual systems never call the platform directly. They append draw
-// commands to the UIDrawList singleton during the OnUI phase, then a single flush system issues
-// the platform draw calls in order. Draw order is FIFO, refined by the entity hierarchy (a child
-// composites on top of its parent) and an optional UIElement.z_index layer.
+// Rendering is deferred (see ui_draw_list.hpp): the visual systems never call the platform
+// directly. They append draw commands to the UIDrawList singleton, then a single flush system
+// issues the platform draw calls in order. Draw order is FIFO, refined by the entity hierarchy (a
+// child composites on top of its parent) and an optional UIElement.z_index layer.
+//
+// This header holds only plain-data components (and pure-data singletons/tags). The deferred-render
+// types live in ui_draw_list.hpp, callback/behaviour components in ui_events.hpp, the Create*
+// factories in ui_factories.hpp, and the systems in ui_systems.hpp.
 namespace engine::ui {
 
 // Position + size of a UI element in screen-space pixels. Every UI entity carries exactly one.
@@ -81,22 +84,30 @@ struct Button {
 	bool clicked{false}; // true only on the frame a click completes (press + release while hovered)
 };
 
-// Event handler invoked once when a Button on the same entity registers a completed click. The
-// clicked entity is passed so one shared callback can service many buttons.
-struct OnClick {
-	std::function<void(flecs::entity)> callback;
-};
-
 // Global UI configuration singleton. Set once at game startup via ui::SetDefaultClickSound or by
 // setting this singleton directly. The CreateButton factory reads it to auto-attach a SoundEffect.
 struct UIConfig {
 	std::string default_click_sound_path; // empty = no default sound
 };
 
-// Cached modal state singleton. Updated once per frame by UIUpdateModalState to avoid querying all
-// modals for every button during interaction testing.
+// Cached per-frame UI input state singleton, recomputed at the very start of the interaction phase
+// by UIUpdateModalState. `any_open` lets button/widget hit-tests cheaply honour modal input-blocking
+// without querying all modals. `pointer_consumed` is a short-term "stop propagation" flag: a widget
+// on top (a dismissing modal backdrop, an open dropdown's list) sets it when it handles the press,
+// and every widget's interactability check skips once it is set — so the click isn't also delivered
+// to whatever sits beneath. (A full per-event capture/bubble model would supersede this.)
 struct UIModalState {
 	bool any_open{false};
+	bool pointer_consumed{false};
+};
+
+// Keyboard-focus singleton: the UI entity currently receiving typed text (a focused text field), or
+// an invalid entity when nothing is focused. Text-input systems apply InputState.text_input and the
+// editing keys only to the focused element; clicking a field moves focus, clicking elsewhere clears
+// it. Holds an entity handle — validate with `focused.is_alive()` before use, since the focused
+// element may be destroyed on scene teardown.
+struct UIFocus {
+	flecs::entity focused;
 };
 
 // Programmatic click request. Add this tag to a Button entity (from a script, a test, or the
@@ -182,123 +193,134 @@ struct Modal {
 	bool close_on_backdrop{false};
 };
 
-// === Draw list ===
+// Toggleable boolean control: a small box that shows a check mark when `checked`, with an optional
+// `label` drawn to its right. UICheckboxInteraction toggles `checked` on click and fires `on_change`
+// with the new state. Radio is the grouped, mutually-exclusive variant.
+struct Checkbox {
+	bool checked{false};
+	std::string label;
+	float font_size{18.0F};
+	float box_size{22.0F};
+	core::Rgba box_color{core::colors::PanelHi};
+	core::Rgba check_color{core::colors::Accent};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba text_color{core::colors::Text};
+	float roundness{0.2F};
 
-// Kind of 2D primitive a queued UIDrawCommand represents.
-enum class UIDrawKind : std::uint8_t {
-	Rect,
-	RoundedRect,
-	RectLines,
-	RoundedRectLines,
-	Text,
-	Line,
-	Circle,
-	TexturedRect, // a texture tiled into a rect, modulated by `color` (tint)
-	BeginClip,    // push a scissor rectangle (intersected with any active clip)
-	EndClip,      // pop the last scissor rectangle
+	// === Runtime state (written by UICheckboxInteraction) ===
+	bool hovered{false};
+
+	// Called with the new checked state when toggled via interaction.
+	std::function<void(bool)> on_change;
 };
 
-// One queued 2D draw call. Only the fields relevant to `kind` are meaningful. `order` is the
-// sort key (lower draws first); commands sharing an order keep their insertion order (FIFO).
-struct UIDrawCommand {
-	UIDrawKind kind{UIDrawKind::Rect};
-	core::Rect rect{};      // rect-based kinds
-	core::Rgba color{};     // all kinds
-	float roundness{0.0F};  // (Rounded)Rect(Lines)
-	float thickness{1.0F};  // *Lines, Line
-	glm::vec2 p0{0.0F};     // Text position / Line start / Circle centre
-	glm::vec2 p1{0.0F};     // Line end
-	float radius{0.0F};     // Circle
-	int texture{-1};        // TexturedRect (handle from LoadTexture)
-	std::string text;       // Text
-	float font_size{20.0F}; // Text
-	int order{0};           // sort key (z_index)
+// Grouped, mutually-exclusive toggle (a "radio button"): all Radios sharing the same non-empty
+// `group` string form one set — selecting one (`selected = true`) deselects the others.
+// UIRadioInteraction renders a circle with a filled dot when selected and an optional `label`. When
+// clicked it selects this option, clears the rest of the group, and fires `on_change` with `value`.
+struct Radio {
+	std::string group; // radios with the same group are mutually exclusive
+	std::string value; // identifies this option (passed to on_change)
+	bool selected{false};
+	std::string label;
+	float font_size{18.0F};
+	float radius{11.0F};
+	core::Rgba circle_color{core::colors::PanelHi};
+	core::Rgba dot_color{core::colors::Accent};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba text_color{core::colors::Text};
+
+	// === Runtime state (written by UIRadioInteraction) ===
+	bool hovered{false};
+
+	// Called with this radio's `value` when it becomes selected via interaction.
+	std::function<void(const std::string&)> on_change;
 };
 
-// Singleton frame buffer of queued UI draw commands. Cleared and refilled every frame by the UI
-// systems, then flushed to the platform. The Push* helpers only mutate their own storage, so
-// game/scripting code may also enqueue custom overlay draws through the same list.
-struct UIDrawList {
-	std::vector<UIDrawCommand> commands;
+// Single-line editable text field. Click to focus (tracked by the UIFocus singleton); while focused
+// it consumes InputState.text_input (appending to `text`) and Backspace (held-to-repeat), and Enter
+// fires `on_submit`. `on_change` fires whenever the text changes. Shows dimmed `placeholder` when
+// empty, and a blinking caret while focused. The displayed text is clipped to the field.
+struct TextInput {
+	std::string text;
+	std::string placeholder;
+	int max_length{0}; // 0 = unlimited
+	float font_size{18.0F};
+	core::Rgba bg_color{core::colors::PanelBg};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba focus_border_color{core::colors::Accent};
+	core::Rgba text_color{core::colors::Text};
+	core::Rgba placeholder_color{core::colors::Subtle};
+	core::Rgba caret_color{core::colors::Text};
+	float roundness{0.15F};
 
-	void Clear() { commands.clear(); }
+	// === Runtime state (written by the text-input systems) ===
+	bool hovered{false};
+	float caret_blink{0.0F}; // advances while focused; drives the caret blink
 
-	void PushRect(const core::Rect r, const core::Rgba color, const int order = 0) {
-		commands.push_back({.kind = UIDrawKind::Rect, .rect = r, .color = color, .order = order});
+	// Called with the current text whenever it changes via editing.
+	std::function<void(const std::string&)> on_change;
+	// Called with the current text when Enter is pressed while focused.
+	std::function<void(const std::string&)> on_submit;
+};
+
+// Multi-line editable text field. Behaves like TextInput, but Enter inserts a newline (the text is
+// word-wrapped to the field width) rather than submitting. Click to focus; consumes typed text and
+// Backspace while focused; shows a blinking caret.
+struct TextArea {
+	std::string text;
+	std::string placeholder;
+	int max_length{0}; // 0 = unlimited
+	float font_size{18.0F};
+	float line_spacing{4.0F};
+	core::Rgba bg_color{core::colors::PanelBg};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba focus_border_color{core::colors::Accent};
+	core::Rgba text_color{core::colors::Text};
+	core::Rgba placeholder_color{core::colors::Subtle};
+	core::Rgba caret_color{core::colors::Text};
+	float roundness{0.08F};
+
+	// === Runtime state (written by the text-input systems) ===
+	bool hovered{false};
+	float caret_blink{0.0F};
+
+	// Called with the current text whenever it changes via editing.
+	std::function<void(const std::string&)> on_change;
+};
+
+// Drop-down selector: a closed box showing the selected option (or `placeholder`); clicking toggles
+// `open`, revealing the option list below. UIDropdownInteraction sets `selected` (an index into
+// `options`) on choosing an option, closes the list, and fires `on_change`. The open list renders
+// above sibling UI and closes on selection or an outside click.
+struct Dropdown {
+	std::vector<std::string> options;
+	int selected{-1}; // index into options; -1 = none selected
+	std::string placeholder{"Select..."};
+	bool open{false};
+	float font_size{18.0F};
+	float row_height{28.0F};
+	core::Rgba bg_color{core::colors::PanelBg};
+	core::Rgba border_color{core::colors::Border};
+	core::Rgba text_color{core::colors::Text};
+	core::Rgba panel_color{core::colors::Panel};
+	core::Rgba hover_color{core::colors::PanelHi};
+	float roundness{0.15F};
+
+	// === Runtime state (written by UIDropdownInteraction) ===
+	bool hovered{false};
+	int hover_index{-1}; // option row under the cursor while open, or -1
+
+	// Called with the newly selected index when an option is chosen.
+	std::function<void(int)> on_change;
+
+	// Text shown in the closed box: the selected option, or the placeholder when nothing is selected.
+	[[nodiscard]] const std::string& DisplayText() const {
+		if (selected >= 0 && static_cast<size_t>(selected) < options.size()) {
+			return options[static_cast<size_t>(selected)];
+		}
+		return placeholder;
 	}
-
-	void PushRoundedRect(const core::Rect r, const float roundness, const core::Rgba color, const int order = 0) {
-		commands.push_back(
-			{.kind = UIDrawKind::RoundedRect, .rect = r, .color = color, .roundness = roundness, .order = order}
-		);
-	}
-
-	void PushRectLines(const core::Rect r, const float thickness, const core::Rgba color, const int order = 0) {
-		commands.push_back(
-			{.kind = UIDrawKind::RectLines, .rect = r, .color = color, .thickness = thickness, .order = order}
-		);
-	}
-
-	void PushRoundedRectLines(
-		const core::Rect r,
-		const float roundness,
-		const float thickness,
-		const core::Rgba color,
-		const int order = 0
-	) {
-		commands.push_back(
-			{.kind = UIDrawKind::RoundedRectLines,
-			 .rect = r,
-			 .color = color,
-			 .roundness = roundness,
-			 .thickness = thickness,
-			 .order = order}
-		);
-	}
-
-	void PushText(
-		std::string text,
-		const float x,
-		const float y,
-		const float font_size,
-		const core::Rgba color,
-		const int order = 0
-	) {
-		commands.push_back(
-			{.kind = UIDrawKind::Text,
-			 .color = color,
-			 .p0 = {x, y},
-			 .text = std::move(text),
-			 .font_size = font_size,
-			 .order = order}
-		);
-	}
-
-	void
-	PushLine(const glm::vec2 a, const glm::vec2 b, const float thickness, const core::Rgba color, const int order = 0) {
-		commands.push_back(
-			{.kind = UIDrawKind::Line, .color = color, .thickness = thickness, .p0 = a, .p1 = b, .order = order}
-		);
-	}
-
-	void PushCircle(const glm::vec2 center, const float radius, const core::Rgba color, const int order = 0) {
-		commands.push_back(
-			{.kind = UIDrawKind::Circle, .color = color, .p0 = center, .radius = radius, .order = order}
-		);
-	}
-
-	// Queue a textured rect: `texture` (a LoadTexture handle) tiled into `r`, modulated by `tint`.
-	void PushTexturedRect(const int texture, const core::Rect r, const core::Rgba tint, const int order = 0) {
-		commands.push_back(
-			{.kind = UIDrawKind::TexturedRect, .rect = r, .color = tint, .texture = texture, .order = order}
-		);
-	}
-
-	void PushBeginClip(const core::Rect r, const int order = 0) {
-		commands.push_back({.kind = UIDrawKind::BeginClip, .rect = r, .order = order});
-	}
-
-	void PushEndClip(const int order = 0) { commands.push_back({.kind = UIDrawKind::EndClip, .order = order}); }
 };
 
 } // namespace engine::ui

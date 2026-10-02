@@ -62,9 +62,13 @@ InputModule::InputModule(const flecs::world& world) {
 	// Initialize InputState singleton
 	// Platform will update this each frame
 	world.set<InputState>({});
+	// Per-frame typed-text buffer (kept separate so InputState stays a trivially-copyable value type).
+	world.set<TypedText>({});
 
 	world.component<MouseCoord>().member<float>("x").member<float>("y");
-	world.component<KeyState>().member<bool>("pressed").member<bool>("state").member<bool>("current");
+	world.component<KeyState>().member<bool>("pressed").member<bool>("state").member<bool>("current").member<bool>(
+		"repeat"
+	);
 	world.component<MouseState>()
 		.member<KeyState>("left")
 		.member<KeyState>("right")
@@ -85,6 +89,10 @@ InputModule::InputModule(const flecs::world& world) {
 	scripting::RegisterSingletonForScripts(world, world.component<InputState>());
 	scripting::RegisterComponentMethodForScripts<&InputState::IsKeyDown>(world, "IsKeyDown");
 	scripting::RegisterComponentMethodForScripts<&InputState::WasKeyPressed>(world, "WasKeyPressed");
+	scripting::RegisterComponentMethodForScripts<&InputState::WasKeyPressedOrRepeated>(
+		world,
+		"WasKeyPressedOrRepeated"
+	);
 	scripting::RegisterComponentMethodForScripts<&InputState::IsKeyUp>(world, "IsKeyUp");
 
 	RegisterScriptConstants(world);
@@ -92,7 +100,9 @@ InputModule::InputModule(const flecs::world& world) {
 	// === SYSTEM: Poll input from platform each frame ===
 	// Updates the InputState singleton with current keyboard and mouse input
 	world.system("InputPoll").kind(flecs::PreUpdate).write<InputState>().run([](const flecs::iter& it) {
-		auto& [keys, mouse] = it.world().get_mut<InputState>();
+		auto& input_state = it.world().get_mut<InputState>();
+		auto& keys = input_state.keys;
+		auto& mouse = input_state.mouse;
 		const auto& platform = it.world().get<platform::PlatformRef>();
 
 		// Poll keyboard input
@@ -105,6 +115,7 @@ InputModule::InputModule(const flecs::world& world) {
 			key_state.pressed = !was_pressed && now_pressed;
 			key_state.state = now_pressed;
 			key_state.current = now_pressed;
+			key_state.repeat = platform.ptr->IsKeyPressedRepeat(static_cast<int>(i));
 		}
 
 		// Mouse buttons
@@ -149,6 +160,10 @@ InputModule::InputModule(const flecs::world& world) {
 		const auto scroll = platform.ptr->MouseWheel();
 		mouse.scroll.x = scroll.x;
 		mouse.scroll.y = scroll.y;
+
+		// Printable text typed this frame (drains the platform character queue exactly once per frame,
+		// so focused text-input UI reads it from the TypedText singleton like any other input).
+		it.world().get_mut<TypedText>().text = platform.ptr->TextInput();
 	});
 
 	// === SYSTEM: Reset frame-state input flags at end of frame ===
@@ -160,7 +175,11 @@ InputModule::InputModule(const flecs::world& world) {
 		// Reset key pressed flags
 		for (auto& key_state : input_state.keys) {
 			key_state.pressed = false;
+			key_state.repeat = false;
 		}
+
+		// Clear text typed this frame
+		ecs_world.get_mut<TypedText>().text.clear();
 
 		// Reset mouse button pressed flags
 		input_state.mouse.left.pressed = false;

@@ -1,0 +1,115 @@
+{
+	"comment": "UI data-binding demo authored entirely in JSON (engine::ui level loaders). A closed Modal (opened by the title screen's 'UI Demo' button, dismissed by clicking the backdrop) holds widgets bound to keys on the 'UIDemoState' blackboard via the 'binding_source' ref. The slider writes 'volume' (two_way) while the progress bar and a label read it (to_ui) — showing how unrelated widgets stay in sync through a shared data point with no glue code.",
+	"entities": [
+		{
+			"name": "UIDemoState"
+		},
+		{
+			"name": "UIBindingDemoModal",
+			"components": {
+				"ui_rect": [440, 90, 400, 470],
+				"ui_element": {"z_index": 1500},
+				"modal": {"open": false, "close_on_backdrop": true},
+				"panel": {"color": [40, 46, 40, 255], "roundness": 0.06}
+			},
+			"children": [
+				{
+					"components": {
+						"ui_rect": [460, 106, 360, 30],
+						"label": {"text": "Data Binding Demo", "font_size": 22, "color": [120, 200, 120, 255]}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 150, 300, 22],
+						"label": {"text": "Volume (slider sets it, bar mirrors it)", "font_size": 14, "align": "left"}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 176, 360, 24],
+						"slider": {"value": 50, "min": 0, "max": 100},
+						"data_binding": {"source": "blackboard", "key": "volume", "mode": "two_way"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 206, 360, 18],
+						"progress_bar": {"value": 50, "min": 0, "max": 100},
+						"data_binding": {"source": "blackboard", "key": "volume", "mode": "to_ui"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 236, 360, 26],
+						"checkbox": {"label": "Muted"},
+						"data_binding": {"source": "blackboard", "key": "muted", "mode": "two_way"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 274, 150, 22],
+						"label": {"text": "Name (type -> echoes below)", "font_size": 14, "align": "left"}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 298, 360, 32],
+						"text_input": {"placeholder": "Type your name"},
+						"data_binding": {"source": "blackboard", "key": "name", "mode": "two_way"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 334, 360, 24],
+						"label": {"text": "", "font_size": 18, "align": "left", "color": [120, 200, 120, 255]},
+						"data_binding": {"source": "blackboard", "key": "name", "mode": "to_ui"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 368, 150, 22],
+						"label": {"text": "Choice (dropdown)", "font_size": 14, "align": "left"}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 392, 360, 32],
+						"dropdown": {"options": ["Red", "Green", "Blue"], "placeholder": "Pick a colour"},
+						"data_binding": {"source": "blackboard", "key": "choice", "mode": "two_way"}
+					},
+					"refs": {"binding_source": "UIDemoState"}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 436, 110, 26],
+						"radio": {"group": "difficulty", "value": "easy", "label": "Easy", "selected": true}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [580, 436, 110, 26],
+						"radio": {"group": "difficulty", "value": "normal", "label": "Normal"}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [700, 436, 110, 26],
+						"radio": {"group": "difficulty", "value": "hard", "label": "Hard"}
+					}
+				},
+				{
+					"components": {
+						"ui_rect": [460, 474, 360, 20],
+						"label": {"text": "Click outside this panel to close", "font_size": 13, "color": [140, 150, 140, 255]}
+					}
+				}
+			]
+		}
+	]
+}

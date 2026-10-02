@@ -87,6 +87,7 @@ public:
 	[[nodiscard]] virtual bool MouseReleased(MouseButton button) const = 0;
 	[[nodiscard]] virtual bool MouseDown(MouseButton button) const = 0;
 	[[nodiscard]] virtual bool IsKeyDown(int key_code) const = 0;
+	[[nodiscard]] virtual bool IsKeyPressedRepeat(int key_code) const = 0;
 	[[nodiscard]] virtual bool IsMouseButtonDown(int button) const = 0;
 	// Returns the next character typed this frame (Unicode codepoint), or 0 if none.
 	// Useful for text input boxes. Returns one character per frame even if user holds a key.
