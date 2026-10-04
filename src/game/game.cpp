@@ -7,8 +7,10 @@
 #include <spdlog/spdlog.h>
 
 #include "cube_scene.hpp"
+#include "dialog/dialog.hpp"
 #include "engine/engine.hpp"
 #include "meta_save_example.hpp"
+#include "noise_scene.hpp"
 #include "tilemap_scene.hpp"
 #include "title_scene.hpp"
 
@@ -21,6 +23,9 @@ GameModule::GameModule(flecs::world& world) {
 	const std::string sfxDir = platform->AssetDirectory() + "/audio/sfx";
 
 	world.set<GameData>({});
+
+	// Interaction/dialog-tree system (data-driven node graph) usable by any game scene.
+	world.import<dialog::DialogModule>();
 
 	// Worked example of the JSON save system: registers the save schema and the script-facing save
 	// verbs used by assets/scripts/save_demo.as.
@@ -45,6 +50,12 @@ GameModule::GameModule(flecs::world& world) {
 		const auto tilemapScene = std::make_shared<TilemapScene>();
 		tilemapScene->RegisterLoaders(world); // register the tilemap scene's level loaders (player, grid_mover, etc.)
 		scene::RegisterScene<TilemapSceneTag>(world, tilemapScene);
+	}
+
+	{
+		const auto noiseScene = std::make_shared<NoiseScene>();
+		noiseScene->onBackPressed = [w = &world]() { scene::ActivateScene<TitleSceneTag>(*w); };
+		scene::RegisterScene<NoiseSceneTag>(world, noiseScene);
 	}
 
 	// Start with the title scene.

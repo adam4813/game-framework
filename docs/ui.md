@@ -11,20 +11,21 @@ also [systems-reference.md](systems-reference.md#ui-srcengineuiui_modulecpp) for
 
 ## Components
 
-| Component        | Purpose                                                                        |
-|------------------|--------------------------------------------------------------------------------|
-| `UIRect`         | Screen-space position + size. **Every** UI entity carries one.                 |
-| `UIElement`      | Optional `z_index` (layer) + `visible`; inherited by descendants as a floor.   |
-| `Panel`          | Filled box with optional border/rounding.                                      |
-| `Label`          | Text with alignment; vertically centred in its rect.                           |
-| `Button`         | Clickable; runtime `hovered`/`pressed`/`clicked`; fires `OnClick` + sound.     |
-| `ProgressBar`    | Determinate value bar (`value` in `[min, max]`).                               |
-| `Spinner`        | Indeterminate loading spinner, animated by the module.                         |
-| `Stack`          | Auto-layout: positions direct UI children vertically/horizontally.             |
-| `ScrollRect`     | Clipped, scrollable viewport with a scrollbar.                                 |
-| `Modal`          | Dialog over a full-screen backdrop; blocks input to non-modal UI while open.   |
-| `OnClick`        | `std::function<void(flecs::entity)>` run on a completed click.                 |
-| `UIClickRequest` | Tag; add to a Button to fire its click programmatically (scripts/tests/tools). |
+| Component        | Purpose                                                                                           |
+|------------------|---------------------------------------------------------------------------------------------------|
+| `UIRect`         | Screen-space position + size. **Every** UI entity carries one.                                    |
+| `UIElement`      | Optional `z_index` (layer) + `visible`; inherited by descendants as a floor.                      |
+| `Panel`          | Filled box with optional border/rounding.                                                         |
+| `Label`          | Text with alignment; vertically centred in its rect.                                              |
+| `Button`         | Clickable; runtime `hovered`/`pressed`/`clicked`; fires `OnClick` + sound.                        |
+| `ProgressBar`    | Determinate value bar (`value` in `[min, max]`).                                                  |
+| `Slider`         | Horizontal interactive slider (`value`, `min`, `max`, `step`, `on_change`). Drag thumb to update. |
+| `Spinner`        | Indeterminate loading spinner, animated by the module.                                            |
+| `Stack`          | Auto-layout: positions direct UI children vertically/horizontally.                                |
+| `ScrollRect`     | Clipped, scrollable viewport with a scrollbar.                                                    |
+| `Modal`          | Dialog over a full-screen backdrop; blocks input to non-modal UI while open.                      |
+| `OnClick`        | `std::function<void(flecs::entity)>` run on a completed click.                                    |
+| `UIClickRequest` | Tag; add to a Button to fire its click programmatically (scripts/tests/tools).                    |
 
 Deferred-render types (`UIDrawCommand`, `UIDrawList` with `Push*`/`BeginClip`/`EndClip`) live in
 `ui_components.hpp`; game/scripting code may enqueue custom overlay draws before `UIRenderDrawList`.
@@ -32,7 +33,7 @@ Deferred-render types (`UIDrawCommand`, `UIDrawList` with `Push*`/`BeginClip`/`E
 ## Factories
 
 `ui_module.hpp` provides `Create*` convenience factories: `CreatePanel`, `CreateLabel`,
-`CreateButton`, `CreateProgressBar`, `CreateSpinner`, `CreateStack`, `CreateScrollRect`,
+`CreateButton`, `CreateProgressBar`, `CreateSlider`, `CreateSpinner`, `CreateStack`, `CreateScrollRect`,
 `CreateModal`, `CreatePrompt`. Parent elements with `.child_of(parent)` to control layout and draw order (children
 composite on top of parents).
 

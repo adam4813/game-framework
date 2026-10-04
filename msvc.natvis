@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="std::_Hash&lt;*&gt;">
+		<DisplayString>{{ size={_List._Mypair._Myval2._Mysize} }}</DisplayString>
+		<Expand>
+			<Item Name="[size]">_List._Mypair._Myval2._Mysize</Item>
+			<LinkedListItems>
+				<Size>_List._Mypair._Myval2._Mysize</Size>
+				<HeadPointer>_List._Mypair._Myval2._Myhead-&gt;_Next</HeadPointer>
+				<NextPointer>_Next</NextPointer>
+				<ValueNode Name="[{_Myval.first}]">_Myval.second</ValueNode>
+			</LinkedListItems>
+		</Expand>
+	</Type>
+
+	<Type Name="std::basic_string&lt;char,*&gt;">
+		<Intrinsic Name="size" Expression="_Mypair._Myval2._Mysize"/>
+		<Intrinsic Name="capacity" Expression="_Mypair._Myval2._Myres"/>
+		<DisplayString Condition="capacity() &lt; 16">{_Mypair._Myval2._Bx._Buf,s}</DisplayString>
+		<DisplayString Condition="capacity() &gt;= 16">{_Mypair._Myval2._Bx._Ptr,s}</DisplayString>
+	</Type>
+
+	<Type Name="std::vector&lt;*&gt;">
+		<DisplayString>{{ size={_Mypair._Myval2._Mylast - _Mypair._Myval2._Myfirst} }}</DisplayString>
+		<Expand>
+			<Item Name="[size]">_Mypair._Myval2._Mylast - _Mypair._Myval2._Myfirst</Item>
+			<Item Name="[capacity]">_Mypair._Myval2._Myend - _Mypair._Myval2._Myfirst</Item>
+			<ArrayItems>
+				<Size>_Mypair._Myval2._Mylast - _Mypair._Myval2._Myfirst</Size>
+				<ValuePointer>_Mypair._Myval2._Myfirst</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+
+	<Type Name="std::_Tree&lt;*&gt;">
+		<DisplayString>{{ size={_Mypair._Myval2._Myval2._Mysize} }}</DisplayString>
+		<Expand>
+			<Item Name="[size]">_Mypair._Myval2._Myval2._Mysize</Item>
+			<TreeItems>
+				<Size>_Mypair._Myval2._Myval2._Mysize</Size>
+				<HeadPointer>_Mypair._Myval2._Myval2._Myhead-&gt;_Parent</HeadPointer>
+				<LeftPointer>_Left</LeftPointer>
+				<RightPointer>_Right</RightPointer>
+				<ValueNode Condition="!_Isnil" Name="[{_Myval.first}]">_Myval.second</ValueNode>
+			</TreeItems>
+		</Expand>
+	</Type>
+
+	<!-- nlohmann::json - flatten child pairs into [value]: POD_value -->
+	<Type Name="nlohmann::json_abi_v3_12_0::basic_json&lt;*&gt;">
+		<AlternativeName Name="nlohmann::basic_json&lt;*&gt;"/>
+
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::null">null
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::boolean">
+			{m_data.m_value.boolean}
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_integer">
+			{m_data.m_value.number_integer}
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_unsigned">
+			{m_data.m_value.number_unsigned}
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_float">
+			{m_data.m_value.number_float}
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::string">
+			{*m_data.m_value.string}
+		</DisplayString>
+
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::object">
+			{*m_data.m_value.object}
+		</DisplayString>
+		<DisplayString Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::array">
+			{*m_data.m_value.array}
+		</DisplayString>
+
+		<Expand>
+			<Item Name="[value]" Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::boolean">
+				m_data.m_value.boolean
+			</Item>
+			<Item Name="[value]"
+				  Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_integer">
+				m_data.m_value.number_integer
+			</Item>
+			<Item Name="[value]"
+				  Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_unsigned">
+				m_data.m_value.number_unsigned
+			</Item>
+			<Item Name="[value]" Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::number_float">
+				m_data.m_value.number_float
+			</Item>
+			<Item Name="[value]" Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::string">
+				*m_data.m_value.string
+			</Item>
+
+			<ExpandedItem Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::object">
+				*m_data.m_value.object
+			</ExpandedItem>
+			<ExpandedItem Condition="m_data.m_type == nlohmann::json_abi_v3_12_0::detail::value_t::array">
+				*m_data.m_value.array
+			</ExpandedItem>
+		</Expand>
+	</Type>
+</AutoVisualizer>

@@ -36,13 +36,14 @@ scripts. The exact signature depends on whether the entity reference is mutable 
 
 **On a const Entity&:**
 
-| Method                | Returns      | Behaviour                                            |
-|-----------------------|--------------|------------------------------------------------------|
-| `const T@ GetT() const` | const handle | Read-only pointer into ECS storage.                  |
+| Method                  | Returns      | Behaviour                           |
+|-------------------------|--------------|-------------------------------------|
+| `const T@ GetT() const` | const handle | Read-only pointer into ECS storage. |
 
 ### When to use each method:
 
-**`GetT()`** — Safe mutable access without notifications. Use for private mutations or reads where observer notifications would be unwanted:
+**`GetT()`** — Safe mutable access without notifications. Use for private mutations or reads where observer
+notifications would be unwanted:
 
 ```angelscript
 // Read and modify without observer side effects
@@ -171,3 +172,6 @@ scripting::RegisterGlobalFunctionForScripts(world,
   (registered as the opaque `"string"` type) — is script-accessible.
 - `AddT()` in deferred mode returns a pointer into the command buffer; the write is applied on flush (the standard Flecs
   pattern for adding components from a system).
+
+For the complete catalogue of exposed script types, globals, and component methods per module, see
+[script-api-reference.md](script-api-reference.md).

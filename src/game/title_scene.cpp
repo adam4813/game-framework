@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 #include "engine/engine.hpp"
+#include "noise_scene.hpp"
 #include "tilemap_scene.hpp"
 
 using namespace engine;
@@ -78,6 +79,16 @@ void TitleScene::Load(flecs::world& world) {
 					  [](const flecs::entity e) { scene::ActivateScene<TilemapSceneTag>(e.world()); }
 	)
 					  .set_name("PlayTilemapButton")
+					  .child_of(uiRoot_);
+
+	// Noise Demo button
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = w / 2.0F - 100.0F, .y = h / 2.0F - 90.0F, .w = 200.0F, .h = 44.0F},
+					  "Noise Demo",
+					  [](const flecs::entity e) { scene::ActivateScene<NoiseSceneTag>(e.world()); }
+	)
+					  .set_name("NoiseDemoButton")
 					  .child_of(uiRoot_);
 
 	// Script-bound button: it is created with no C++ handler; a script assigns its onClick via

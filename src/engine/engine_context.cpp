@@ -7,6 +7,7 @@
 #include "engine/ecs/flecs_remote.hpp"
 #include "engine/input/input.hpp"
 #include "engine/level/level.hpp"
+#include "engine/noise/noise.hpp"
 #include "engine/particles/particles.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/spatial/spatial.hpp"
@@ -39,6 +40,8 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : pla
 	world_.import<input::InputModule>();
 	world_.import<physics::PhysicsModule>();
 	world_.import<physics::jolt::JoltModule>();
+	world_.import<noise::NoiseModule>();
+	world_.import<noise::builtin::BuiltinNoiseModule>();
 	world_.import<render::RenderModule>();
 	world_.import<ui::UIModule>();
 	world_.import<save::SaveModule>();

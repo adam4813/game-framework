@@ -7,6 +7,7 @@
 #include "engine_context.hpp"
 #include "input/input.hpp"
 #include "level/level.hpp"
+#include "noise/noise.hpp"
 #include "particles/particles.hpp"
 #include "physics/physics.hpp"
 #include "platform/platform.hpp"

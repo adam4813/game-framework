@@ -38,6 +38,8 @@ engine. Hand-authoring `WorldTransform` is error-prone and will be overwritten.
 | `save::SaveRegistry`                | save      | Schema of what persists and how.                                                                              |
 | `level::LevelRegistry`              | level     | Component/singleton JSON loader callbacks.                                                                    |
 | `scripting::ScriptBackendSingleton` | scripting | Owns the active scripting backend.                                                                            |
+| `noise::NoiseRegistry`              | noise     | Named generator factories; call `GetSampler(name, seed)` to create an isolated `NoiseSampler`.                |
+| `noise::NoiseConfig`                | noise     | Active algorithm name + seed for scripting globals (`Noise_SetAlgorithm`, `Noise_SetSeed`).                   |
 
 Access pattern is uniform: `world.get<T>()` for read, `world.get_mut<T>()` for write.
 

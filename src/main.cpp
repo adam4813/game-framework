@@ -2,6 +2,8 @@
 
 #include <flecs.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "constants.hpp"
 #include "engine/app/app.hpp"
@@ -42,6 +44,15 @@ void FlecsLogHandler(const int32_t level, const char* file, int32_t line, const 
 } // namespace
 
 int main(int argc, char** argv) {
+	// Tee logs to both console (colour) and a persistent file so crashes are captured.
+	auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("game.log", true /*truncate*/);
+	auto logger = std::make_shared<spdlog::logger>(
+		"default", spdlog::sinks_init_list{console_sink, file_sink}
+	);
+	logger->set_level(spdlog::level::trace);
+	spdlog::set_default_logger(logger);
+
 	ecs_os_set_api_defaults();
 	ecs_os_api_t os_api = ecs_os_get_api();
 	os_api.log_ = FlecsLogHandler;

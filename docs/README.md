@@ -10,14 +10,15 @@ This folder is the framework-level reference. It consolidates and cross-links th
 
 ## Start here
 
-| Doc                                          | What it covers                                                                                                                                                 |
-|----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [architecture.md](architecture.md)           | The big picture: `EngineContext`, module import order, the frame loop, the pipeline **phases**, and the **pause** model.                                       |
-| [ecs-components.md](ecs-components.md)       | Core ECS conventions, the shared `Transform`/`WorldTransform`, singletons (`RngState`, refs), tags (`Pausable`, scene tags), and per-module component catalog. |
-| [scenes.md](scenes.md)                       | The `Scene` interface and its **lifecycle methods**, scene registration/activation/reload, per-scene pipelines, and the deferred-write hazard.                 |
-| [systems-reference.md](systems-reference.md) | Every registered **system** and **observer**, its phase, scene scope, and pausability — one table per module.                                                  |
-| [scripting-api.md](scripting-api.md)         | The backend-agnostic **scripting API**: component accessors, singletons, globals, key codes, and the script lifecycle.                                         |
-| [ui.md](ui.md)                               | The data-driven **UI components**, factories, layout/interaction/render systems, and scripting/tooling hooks.                                                  |
+| Doc                                                | What it covers                                                                                                                                                 |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [architecture.md](architecture.md)                 | The big picture: `EngineContext`, module import order, the frame loop, the pipeline **phases**, and the **pause** model.                                       |
+| [ecs-components.md](ecs-components.md)             | Core ECS conventions, the shared `Transform`/`WorldTransform`, singletons (`RngState`, refs), tags (`Pausable`, scene tags), and per-module component catalog. |
+| [scenes.md](scenes.md)                             | The `Scene` interface and its **lifecycle methods**, scene registration/activation/reload, per-scene pipelines, and the deferred-write hazard.                 |
+| [systems-reference.md](systems-reference.md)       | Every registered **system** and **observer**, its phase, scene scope, and pausability — one table per module.                                                  |
+| [scripting-api.md](scripting-api.md)               | The backend-agnostic **scripting API**: component accessors, singletons, globals, key codes, and the script lifecycle.                                         |
+| [script-api-reference.md](script-api-reference.md) | **Complete catalogue** of every type, global, component method, and constant exposed to scripts, grouped by module.                                            |
+| [ui.md](ui.md)                                     | The data-driven **UI components**, factories, layout/interaction/render systems, and scripting/tooling hooks.                                                  |
 
 ## Directory structure
 
@@ -42,22 +43,23 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
 `EngineContext` (`src/engine/engine_context.cpp`) imports all modules in dependency order. The **frame loop**
 (`src/engine/app/`) owns `EngineContext`, calls `world.progress(dt)` each tick, and drains the deferred task queue.
 
-| Module      | Kind         | Registers                                                    | README                                                                                                        |
-|-------------|--------------|--------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| `assets`    | data/service | `AssetRegistry` singleton; free `Acquire/Get/Release` API    | [assets](../src/engine/assets/README.md)                                                                      |
-| `audio`     | simulation   | `SoundEffect`/`Music`, resolve observers, playback system    | [audio](../src/engine/audio/README.md)                                                                        |
-| `input`     | simulation   | `InputState` singleton, poll + reset systems                 | [input](../src/engine/input/README.md)                                                                        |
-| `level`     | data/service | `LevelRegistry` singleton; JSON → entity tree loaders        | [level](../src/engine/level/README.md)                                                                        |
-| `particles` | simulation   | `ParticleEmitter`/`Particle`, emit + update systems          | [particles](../src/engine/particles/README.md)                                                                |
-| `physics`   | simulation   | Jolt bodies, step/sync systems, collision events             | [physics](../src/engine/physics/README.md)                                                                    |
-| `save`      | data/service | `SaveRegistry` singleton; schema-driven JSON save/load       | [save](../src/engine/save/README.md)                                                                          |
-| `scene`     | management   | scene lifecycle observers + tick/input/UI systems            | [scene](../src/engine/scene/README.md)                                                                        |
-| `scripting` | runtime      | backend singleton, script lifecycle observers + tick systems | [scripting](../src/engine/scripting/README.md) · [angelscript](../src/engine/scripting/angelscript/README.md) |
-| `spatial`   | simulation   | `Transform`/`WorldTransform`, transform propagation system   | [spatial](../src/engine/spatial/README.md)                                                                    |
-| `tilemap`   | simulation   | `TileMap`/`Tile`, tilemap update system                      | [tilemap](../src/engine/tilemap/README.md)                                                                    |
-| `timer`     | simulation   | `Timer`/`Cooldown`/`Tween`, three advance systems            | [timer](../src/engine/timer/README.md)                                                                        |
-| `render`    | simulation   | primitives, lights, camera, draw systems, resolve observers  | [render](../src/engine/render/README.md)                                                                      |
-| `ui`        | simulation   | UI components, layout/interaction/render systems             | [ui](../src/engine/ui/README.md)                                                                              |
+| Module      | Kind         | Registers                                                                                              | README                                                                                                        |
+|-------------|--------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `assets`    | data/service | `AssetRegistry` singleton; free `Acquire/Get/Release` API                                              | [assets](../src/engine/assets/README.md)                                                                      |
+| `audio`     | simulation   | `SoundEffect`/`Music`, resolve observers, playback system                                              | [audio](../src/engine/audio/README.md)                                                                        |
+| `input`     | simulation   | `InputState` singleton, poll + reset systems                                                           | [input](../src/engine/input/README.md)                                                                        |
+| `level`     | data/service | `LevelRegistry` singleton; JSON → entity tree loaders                                                  | [level](../src/engine/level/README.md)                                                                        |
+| `noise`     | data/service | `NoiseRegistry`/`NoiseConfig` singletons; Perlin, Simplex, Value, Worley generators; scripting globals | [noise](../src/engine/noise/README.md)                                                                        |
+| `particles` | simulation   | `ParticleEmitter`/`Particle`, emit + update systems                                                    | [particles](../src/engine/particles/README.md)                                                                |
+| `physics`   | simulation   | Jolt bodies, step/sync systems, collision events                                                       | [physics](../src/engine/physics/README.md)                                                                    |
+| `save`      | data/service | `SaveRegistry` singleton; schema-driven JSON save/load                                                 | [save](../src/engine/save/README.md)                                                                          |
+| `scene`     | management   | scene lifecycle observers + tick/input/UI systems                                                      | [scene](../src/engine/scene/README.md)                                                                        |
+| `scripting` | runtime      | backend singleton, script lifecycle observers + tick systems                                           | [scripting](../src/engine/scripting/README.md) · [angelscript](../src/engine/scripting/angelscript/README.md) |
+| `spatial`   | simulation   | `Transform`/`WorldTransform`, transform propagation system                                             | [spatial](../src/engine/spatial/README.md)                                                                    |
+| `tilemap`   | simulation   | `TileMap`/`Tile`, tilemap update system                                                                | [tilemap](../src/engine/tilemap/README.md)                                                                    |
+| `timer`     | simulation   | `Timer`/`Cooldown`/`Tween`, three advance systems                                                      | [timer](../src/engine/timer/README.md)                                                                        |
+| `render`    | simulation   | primitives, lights, camera, draw systems, resolve observers                                            | [render](../src/engine/render/README.md)                                                                      |
+| `ui`        | simulation   | UI components, layout/interaction/render systems                                                       | [ui](../src/engine/ui/README.md)                                                                              |
 
 ## Conventions in one screen
 
