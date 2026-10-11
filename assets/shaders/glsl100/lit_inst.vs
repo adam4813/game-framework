@@ -3,7 +3,7 @@
 // Instanced Phong vertex shader (GLSL ES 1.00 / WebGL). Per-instance model matrix and colour
 // arrive as vertex attributes (attribute divisor 1) so thousands of primitives draw in a single
 // instanced call. Pairs with the regular lit.fs fragment shader.
-precision highp float;
+precision mediump float;
 
 attribute vec3 vertexPosition;
 attribute vec2 vertexTexCoord;

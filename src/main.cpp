@@ -117,7 +117,10 @@ int main(int argc, char** argv) {
 
 	// The game layer is a Flecs module: it reads the EngineContext from the world singleton set by
 	// the context constructor, then registers its scenes and activates the title scene.
+
+#if !defined(__EMSCRIPTEN__)
 	context->GetWorld()->set_threads(4);
+#endif
 	context->GetWorld()->import<game::GameModule>();
 
 #if defined(__EMSCRIPTEN__)
