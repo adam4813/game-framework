@@ -42,10 +42,6 @@ GameModule::GameModule(flecs::world& world) {
 	// Grid movement (player_controlled tag + grid_mover loader) is shared by the tilemap demo and
 	// the farm scene, so register its loaders once here. The next-farm selection lives in FarmSession.
 	RegisterGridMovementLoaders(world);
-	level::RegisterComponentLoader(world, "minimap_tracked", [](const flecs::entity e, const nlohmann::json& j) {
-		e.set<MinimapTracked>({.color = core::JRgba(j, "color", {.r = 255, .g = 60, .b = 60, .a = 255})});
-	});
-	world.set<FarmSession>({});
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();
