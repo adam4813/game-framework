@@ -114,7 +114,7 @@ void TilemapScene::Unload(flecs::world& world) {
 	world.remove<scene::Paused>();
 }
 
-void TilemapScene::Tick(const flecs::world& world, float deltaTime) {
+void TilemapScene::Tick(const flecs::world& world, float) {
 	// Per-frame logic
 	// Toggle pause modal visibility based on pause state
 	const bool paused = world.has<scene::Paused>();

@@ -86,11 +86,11 @@ void PerfTracePop(const char*, size_t, const char*) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main() {
 	// Tee logs to both console (colour) and a persistent file so crashes are captured.
 	auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("game.log", true /*truncate*/);
-	auto logger = std::make_shared<spdlog::logger>("default", spdlog::sinks_init_list{console_sink, file_sink});
+	const auto logger = std::make_shared<spdlog::logger>("default", spdlog::sinks_init_list{console_sink, file_sink});
 	logger->set_level(spdlog::level::trace);
 	spdlog::set_default_logger(logger);
 

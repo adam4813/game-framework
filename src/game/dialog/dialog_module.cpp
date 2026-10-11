@@ -593,21 +593,19 @@ DialogModule::DialogModule(const flecs::world& world) {
 	std::ignore =
 		world.system<DialogFollower, spatial::Transform>("DialogFollowerSystem")
 			.kind(flecs::OnUpdate)
-			.each(
-				[](const flecs::iter& it, const size_t i, const DialogFollower& follow, spatial::Transform& transform) {
-					if (!follow.leader.is_valid() || !follow.leader.has<spatial::Transform>()) return;
-					glm::vec3 delta = follow.leader.get<spatial::Transform>().position - transform.position;
-					delta.y = 0.0F;
-					if (const float dist = glm::length(delta); dist > follow.stop_distance) {
-						auto move_dist = follow.speed * it.delta_time();
-						// Clamp to stop_distance if the leader is very close (avoid overshoot).
-						if (dist - move_dist < follow.stop_distance) {
-							move_dist = dist - follow.stop_distance;
-						}
-						transform.position += (delta / dist) * move_dist;
+			.each([](const flecs::iter& it, const size_t, const DialogFollower& follow, spatial::Transform& transform) {
+				if (!follow.leader.is_valid() || !follow.leader.has<spatial::Transform>()) return;
+				glm::vec3 delta = follow.leader.get<spatial::Transform>().position - transform.position;
+				delta.y = 0.0F;
+				if (const float dist = glm::length(delta); dist > follow.stop_distance) {
+					auto move_dist = follow.speed * it.delta_time();
+					// Clamp to stop_distance if the leader is very close (avoid overshoot).
+					if (dist - move_dist < follow.stop_distance) {
+						move_dist = dist - follow.stop_distance;
 					}
+					transform.position += (delta / dist) * move_dist;
 				}
-			)
+			})
 			.add<ecs::Pausable>();
 
 	// (5) Observers — build/tear down the dialog box as interactions gain/lose the UI.

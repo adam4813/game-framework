@@ -37,10 +37,10 @@ public:
 	}
 
 	// Called once when the scene becomes active.
-	virtual void Load(flecs::world& world) {}
+	virtual void Load([[maybe_unused]] flecs::world& world) {}
 
 	// Called once when the scene is being deactivated.
-	virtual void Unload(flecs::world& world) {}
+	virtual void Unload([[maybe_unused]] flecs::world& world) {}
 
 	// Called every frame to update scene logic.
 	// deltaTime: elapsed time since last frame in seconds.
