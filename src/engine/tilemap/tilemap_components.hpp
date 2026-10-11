@@ -5,6 +5,7 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <flecs.h>
@@ -60,9 +61,10 @@ struct TilemapMeshData {
 	std::vector<glm::vec2> uvs;
 };
 
-// TileRegistry: global registry of tile descriptors
-struct TileRegistry {
-	std::map<uint32_t, TileDescriptor> tiles; // Tile ID -> Descriptor mapping
+// TileSet: global registry of tile descriptors
+struct TileSet {
+	std::map<uint32_t, TileDescriptor> tiles;             // Tile ID -> Descriptor mapping
+	std::unordered_map<std::string, uint32_t> name_to_id; // Tile name -> ID (populated by tileset loader)
 
 	[[nodiscard]] const TileDescriptor* GetTile(const uint32_t id) const {
 		const auto it = tiles.find(id);
@@ -72,14 +74,55 @@ struct TileRegistry {
 		return nullptr;
 	}
 
-	void RegisterTile(const TileDescriptor& descriptor) { tiles[descriptor.id] = descriptor; }
+	void RegisterTile(const TileDescriptor& descriptor) {
+		tiles[descriptor.id] = descriptor;
+		if (!descriptor.name.empty()) {
+			name_to_id[descriptor.name] = descriptor.id;
+		}
+	}
+
+	[[nodiscard]] std::optional<uint32_t> ResolveTileId(const std::string& name) const {
+		if (name.empty()) {
+			return std::nullopt; // Empty means no alias; use the ID if defined
+		}
+		if (const auto it = name_to_id.find(name); it != name_to_id.end()) {
+			return it->second;
+		}
+
+		spdlog::warn("[Tileset] Unknown tile name '{}'", name);
+		return std::nullopt;
+	}
 };
 
-// TileSet component: the tileset texture used to draw this tilemap.
-struct TileSet {
-	std::string texture_path;      // Path to the tileset texture
-	uint32_t image_width_px{128};  // Full texture width in pixels
-	uint32_t image_height_px{256}; // Full texture height in pixels
+/// A single resolved grid painting operation. Tile references are stored as resolved IDs when
+/// possible; a tile_name is preserved when name resolution wasn't available at parse time and
+/// resolved lazily at bake time via TileSet.
+struct TilemapOp {
+	enum class Kind : uint8_t { Set, FillRect, HLine, VLine };
+	Kind kind{Kind::Set};
+	uint32_t tile_id{0};   ///< Resolved tile ID; valid when tile_name is empty
+	std::string tile_name; ///< Original name if unresolved
+	int x{0};              ///< Set/VLine column; FillRect x0; HLine x0
+	int z{0};              ///< Set/HLine row;    FillRect z0; VLine z0
+	int x1{0};             ///< FillRect x1 (exclusive); HLine x1 (inclusive)
+	int z1{0};             ///< FillRect z1 (exclusive); VLine z1 (inclusive)
+};
+
+/// Declarative tilemap specification — the "recipe" half of the spec/baked-data split.
+/// Holds all information needed to produce a Tilemap: grid dimensions, fill tile, and a flat list
+/// of painting operations (tile names already resolved to IDs). Scripts and C++ can build or
+/// patch TilemapSpec directly for procedural generation.
+///
+/// Populate via the "tilemap" level loader (reads from a map JSON file) or construct directly.
+/// The TilemapBake observer converts a TilemapSpec + TileSet into a flat Tilemap automatically.
+struct TilemapSpec {
+	uint32_t width{0};
+	uint32_t height{0};
+	uint32_t tile_size_px{16};
+	float pixels_per_world_unit{kDefaultPixelsPerWorldUnit};
+	uint32_t fill_id{0};
+	std::string fill_name; ///< Original name if unresolved
+	std::vector<TilemapOp> ops;
 };
 
 // Tilemap component: a 2D grid of tile descriptors

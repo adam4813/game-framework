@@ -6,6 +6,7 @@
 #include <flecs.h>
 
 #include "app/deferred_task_queue.hpp"
+#include "core/module_registry.hpp"
 #include "platform/platform.hpp"
 
 namespace engine {
@@ -33,10 +34,16 @@ public:
 	DeferredTaskQueue& GetDeferredTaskQueue() { return deferredTasks_; }
 	[[nodiscard]] const DeferredTaskQueue& GetDeferredTaskQueue() const { return deferredTasks_; }
 
+	// Registry of optional engine modules. Game code calls Import() here to opt into
+	// subsystems (physics, AI, pathfinding, etc.) rather than all modules loading unconditionally.
+	core::ModuleRegistry& GetModuleRegistry() { return moduleRegistry_; }
+	[[nodiscard]] const core::ModuleRegistry& GetModuleRegistry() const { return moduleRegistry_; }
+
 private:
 	std::unique_ptr<platform::Platform> platform_;
 	flecs::world world_;
 	DeferredTaskQueue deferredTasks_;
+	core::ModuleRegistry moduleRegistry_;
 };
 
 } // namespace engine

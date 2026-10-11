@@ -15,7 +15,7 @@ namespace engine::assets {
 // handle maps so ownership, deduplication and unloading live in one place.
 class AssetModule {
 public:
-	explicit AssetModule(flecs::world& world);
+	explicit AssetModule(const flecs::world& world);
 };
 
 // Acquire an asset by path: loads it through the platform on first request (or returns the cached

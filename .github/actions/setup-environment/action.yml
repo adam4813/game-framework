@@ -35,6 +35,7 @@ runs:
           libxi-dev \
           libgl1-mesa-dev \
           libglu1-mesa-dev \
+          libltdl-dev \
           xvfb \
           xorg-dev
 

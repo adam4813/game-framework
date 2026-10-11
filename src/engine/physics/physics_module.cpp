@@ -100,6 +100,11 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 	world.component<PhysicsVelocityOverride>()
 		.member("linear", &PhysicsVelocityOverride::linear)
 		.member("angular", &PhysicsVelocityOverride::angular);
+	// Tags and event components — no meta members, but must be explicitly registered so
+	// queries and observers using them never attempt implicit registration during world fini.
+	world.component<CollisionEvents>();
+	world.component<IsTrigger>();
+	world.component<IsSleeping>();
 
 	// === Scripting ===
 	scripting::RegisterComponentForScripts(world, world.component<PhysicsImpulse>());

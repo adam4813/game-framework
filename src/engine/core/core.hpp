@@ -4,3 +4,4 @@
 #include "core_module.hpp"
 #include "core_types.hpp"
 #include "json_util.hpp"
+#include "module_registry.hpp"

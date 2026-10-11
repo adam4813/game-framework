@@ -103,11 +103,6 @@ public:
 	// Only the primitive kinds (Int, Float, Bool, String) and Object (value types only) are supported.
 	virtual void RegisterGlobalConstants(std::vector<ScriptConstant> constants) = 0;
 
-	// Register a callback to run just before Shutdown(). Use this to release any
-	// ScriptFunctionHandle references held by C++ objects (e.g. TileCallback lambdas) before
-	// the backend's script engine is torn down, preventing "external reference" warnings.
-	virtual void RegisterShutdownCallback(const std::function<void(flecs::world& world)>& /*callback*/) {}
-
 	// Register a free function that binds a script callback to a C++ sink. Declared to scripts as
 	// `void <name>(<fixed_params...>, <callback funcdef>@)`; the trailing argument is a script
 	// function handle. When the script calls it, the backend marshals the fixed arguments into a

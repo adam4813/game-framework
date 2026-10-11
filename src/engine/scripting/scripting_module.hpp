@@ -121,16 +121,6 @@ inline void RegisterObjectConstructorForScripts(
 	}
 }
 
-// Free helper — register a callback to run just before the backend's Shutdown().
-// Use this to nullify any ScriptFunctionHandle-holding std::functions owned by C++ objects
-// (e.g. TileCallback lambdas) so the backend's script functions can be released cleanly.
-inline void
-RegisterScriptShutdownCallback(const flecs::world& world, const std::function<void(flecs::world&)>& callback) {
-	if (world.has<ScriptBackendSingleton>()) {
-		world.get_mut<ScriptBackendSingleton>().backend->RegisterShutdownCallback(callback);
-	}
-}
-
 // Free helper — register a callback-binding free function. See
 // IScriptBackend::RegisterCallbackFunction for full documentation. The function is declared to
 // scripts as `void <name>(<fixed_params...>, <callback funcdef>@)`; `sink` receives the fixed
@@ -166,6 +156,13 @@ inline void RegisterCallbackViewTypeForScripts(
 	}
 }
 
+// Free helper — calculate the byte offset of a member field within a class/struct.
+template<typename ClassType, typename FieldType>
+int CalculateOffset(FieldType ClassType::* field) {
+	ClassType dummy;
+	return static_cast<int>(reinterpret_cast<const char*>(&(dummy.*field)) - reinterpret_cast<const char*>(&dummy));
+}
+
 // Free helper — register a component/value-type method backed by a custom thunk (rather than a
 // deduced member-function pointer). Use this when the method needs bespoke marshalling, e.g.
 // returning a reference-view handle into C++ storage. `sig` is the neutral signature; `thunk`
@@ -174,7 +171,7 @@ inline void RegisterComponentMethodForScripts(
 	const flecs::world& world,
 	const flecs::entity& component_entity,
 	const ScriptMethodSignature& sig,
-	ScriptGenericThunk thunk
+	const ScriptGenericThunk thunk
 ) {
 	if (world.has<ScriptBackendSingleton>()) {
 		world.get_mut<ScriptBackendSingleton>().backend->RegisterComponentMethod(component_entity, sig, thunk);
@@ -212,7 +209,6 @@ public:
 	}
 
 private:
-	void RegisterObservers(const flecs::world& world);
 	void RegisterSystems(const flecs::world& world);
 };
 

@@ -1,10 +1,6 @@
 {
 	"name": "basic",
 	"description": "Terrain tileset – grass, forest, path, water, stone floor/wall, sand, deep forest",
-	"texture": "textures/tileset_basic.png",
-	"tile_size_px": 64,
-	"tiles_per_row": 2,
-	"tiles_per_col": 4,
 	"tiles": [
 		{
 			"id": 0,

@@ -56,7 +56,7 @@ struct ShaderMap {
 
 // Surface appearance shared by every primitive.
 struct Material {
-	core::Rgba color{200, 200, 200, 255};
+	core::Rgba color{.r = 200, .g = 200, .b = 200, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
 };
@@ -76,7 +76,7 @@ struct AlbedoMap {
 // Ambient light singleton: a uniform base illumination applied to every lit surface so shadowed
 // faces never go fully black. Set one on the world.
 struct AmbientLight {
-	core::Rgba color{120, 130, 150, 255};
+	core::Rgba color{.r = 120, .g = 130, .b = 150, .a = 255};
 	float intensity{0.35F};
 };
 
@@ -85,13 +85,13 @@ struct AmbientLight {
 // onto the plane y = `shadow_ground_y`.
 struct DirectionalLight {
 	glm::vec3 direction{-0.5F, -1.0F, -0.35F}; // direction the light travels
-	core::Rgba color{255, 244, 214, 255};
+	core::Rgba color{.r = 255, .g = 244, .b = 214, .a = 255};
 	float intensity{1.0F};
 	float specular_strength{0.4F};
 	float shininess{24.0F};
 	bool casts_shadows{true};
 	float shadow_ground_y{0.0F};
-	core::Rgba shadow_color{10, 12, 16, 120};
+	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
 };
 
 // Relationship: links a renderable entity to a dedicated material entity that carries Material,
@@ -120,5 +120,23 @@ struct Camera {
 // Relationship: `camera.add<LookAt>(target)` aims the camera at `target`'s WorldTransform position.
 // Exclusive — a camera looks at exactly one entity. Consumed by Render3DBegin and the debug renderer.
 struct LookAt {};
+
+// A sprite atlas (texture sheet with uniform or irregular tile layout).
+// Carries the atlas image path and its pixel dimensions. Entities that ARE a sprite atlas also
+// carry AlbedoMap, Material, and ShaderMap directly — the atlas entity is the material entity.
+//
+// JSON level loader key: "sprite_atlas" (registered by the module that uses it, e.g. tilemap).
+struct SpriteAtlas {
+	std::string texture_path;
+	uint32_t    image_width_px{128};
+	uint32_t    image_height_px{256};
+};
+
+// Relationship: `consumer.add<UseSpriteAtlas>(atlas_entity)` pairs a consumer with a sprite-atlas
+// entity. The atlas entity carries SpriteAtlas + AlbedoMap + Material + ShaderMap; an observer
+// wires consumer.add<RenderWith>(atlas_entity) so the render system uses it as the material source.
+// Not exclusive — multiple tilemaps/sprites can share one atlas.
+// JSON: "refs": { "use_sprite_atlas": "AtlasEntityName" }
+struct UseSpriteAtlas {};
 
 } // namespace engine::render

@@ -11,18 +11,18 @@ depends on whether the entity reference is mutable or const:
 
 **On a mutable Entity&:**
 
-| Method            | Returns        | Marks Modified? | Behaviour                                                              |
-|-------------------|----------------|-----------------|------------------------------------------------------------------------|
-| `T@ GetT()`       | mutable handle | No              | Direct pointer into ECS storage; allows mutation but no notifications  |
-| `T@ MutT()`       | mutable handle | Yes (every call)| Direct pointer into ECS storage; marks component modified on each call |
-| `T@ AddT()`       | mutable handle | —               | Ensures the component exists (adds with defaults if absent)            |
-| `void SetT(T@ v)` | —              | —               | Upsert: adds the component if absent, replaces value if present        |
+| Method            | Returns        | Marks Modified?  | Behaviour                                                              |
+|-------------------|----------------|------------------|------------------------------------------------------------------------|
+| `T@ GetT()`       | mutable handle | No               | Direct pointer into ECS storage; allows mutation but no notifications  |
+| `T@ MutT()`       | mutable handle | Yes (every call) | Direct pointer into ECS storage; marks component modified on each call |
+| `T@ AddT()`       | mutable handle | —                | Ensures the component exists (adds with defaults if absent)            |
+| `void SetT(T@ v)` | —              | —                | Upsert: adds the component if absent, replaces value if present        |
 
 **On a const Entity&:**
 
-| Method            | Returns      | Behaviour                                                       |
-|-------------------|--------------|----------|
-| `const T@ GetT()` | const handle | Read-only pointer into ECS storage; cannot be modified         |
+| Method            | Returns      | Behaviour                                              |
+|-------------------|--------------|--------------------------------------------------------|
+| `const T@ GetT()` | const handle | Read-only pointer into ECS storage; cannot be modified |
 
 ### `GetT()` — mutable access without notifications (mutable entity only)
 
@@ -151,8 +151,8 @@ void OnClicked(Entity button) { Print("clicked " + button.GetName()); }
 
 Exposes a C++ struct as a **non-owning reference view** (`asOBJ_REF | asOBJ_NOCOUNT`) with plain
 fields by offset plus callback slots. Each slot registers a setter method `view.Set<Name>(@fn)` and
-an optional invoker `view.<Name>(<params>)`. The setter's sink stores the callback on the C++ object
-(no separate proxy struct or funcdef-handle field); the invoker fires the stored callback — which may
+an optional invoker `view.<Name>(<params>)`. The setter's sink stores the callback on the C++ object (no separate proxy
+struct or funcdef-handle field); the invoker fires the stored callback — which may
 be script- or C++-registered. The tilemap module uses this for `TileDescriptor.SetOnEnter` /
 `TileDescriptor.OnEnter` (see `engine/tilemap/README.md`).
 
@@ -168,24 +168,14 @@ it in a `shared_ptr` with a `Release` deleter, as above). `Invoke(args, count)` 
 `args[i]` (a pointer to the C++ value) to the matching AngelScript type from the registered parameter
 list.
 
-### Shutdown ordering
-
-At final world teardown Flecs may release the AngelScript engine before the component/registry that
-owns a stored callback, which would release a script function through a dead engine. Modules that
-retain callbacks register a `RegisterScriptShutdownCallback` that clears them just before the engine
-is torn down (scene unload is already safe — the owning storage is destroyed while the engine lives).
-
-A benign `asMSGTYPE_WARNING: There is an external reference ...` may still appear during shutdown if
-AngelScript's context pool/GC briefly holds a reference across `ShutDownAndRelease()`; all resources
-are released by process exit. `ctx->Unprepare()` before `Release()` and a full GC cycle before
-`ShutDownAndRelease()` minimise it.
+### Safe shutdown requirements
 
 **Important**: always pass funcdef handles with `@` to avoid implicit delegate creation:
+
 ```angelscript
 td.SetOnEnter(@OnPromptTileEnter);   // ✓ direct function handle
 // td.SetOnEnter(OnPromptTileEnter);  // ✗ creates an implicit delegate (GC-tracked, harder to clean up)
 ```
-
 
 | Function                          | Phase                   | Typical use                            |
 |-----------------------------------|-------------------------|----------------------------------------|

@@ -1,30 +1,59 @@
 #pragma once
 
+#include <functional>
+#include <string>
+
 #include <glm/glm.hpp>
 
 #include "engine/engine.hpp"
+#include "grid_movement.hpp"
 
 namespace game {
 
-// Identity tag for the tilemap scene (used to identify and switch to this scene)
 struct TilemapSceneTag {};
+struct BtWandererNPC {};
 
-// Tag: marks the player entity so input systems can query it directly.
-struct PlayerControlled {};
-
-// Drives smooth per-tile interpolation. Set moving=true with origin/target to start a move.
-struct GridMover {
-	glm::vec3 origin{};
-	glm::vec3 target{};
-	float step_size{0.5f}; // world-space size of one tile (geometry, not speed)
-	float duration{0.15f}; // seconds to cross one tile; vary per tile type for mud/ice effects
-	float elapsed{0.0f};
-	bool moving{false};
-	float hold_elapsed{0.0f};  // how long the current direction has been held
-	float initial_delay{0.1f}; // hold time before repeat kicks in (must be < duration to avoid a gap)
+/// Tag for the castle-hopping pathfinding demo agent.
+/// Tracks which castle center is the current navigation target.
+struct CastleHopper {
+	int current_index{1}; ///< Index of next target in kCastleCenters
 };
 
-// 2D tilemap demo scene with a playable character
+/// Cycles a PathAgent through a fixed list of world-space waypoints.
+/// When PathAgent.reached_goal becomes true, the system advances to the next waypoint
+/// and issues a new PathRequest.
+struct WaypointCycler {
+	std::vector<glm::vec3> waypoints;
+	size_t current_index{0};
+};
+
+/// World-space centres of the three map castles (computed from overworld.json stamp positions).
+inline constexpr std::array<glm::vec3, 3> kCastleCenters = {
+	glm::vec3{12.25f, 0.0f, 4.75f},  // Castle NW  (stamp at tile 19,4  — centre tile 24,9)
+	glm::vec3{19.75f, 0.0f, 4.75f},  // Castle NE  (stamp at tile 34,4  — centre tile 39,9)
+	glm::vec3{15.75f, 0.0f, 26.75f}, // Castle S   (stamp at tile 26,48 — centre tile 31,53)
+};
+
+// Smooth per-tile interpolation.
+// (GridMover + PlayerControlled now live in grid_movement.hpp, shared with the farm scene.)
+
+/// Dialog text + two optional script-driven choices. Attach alongside GraphEdge children to
+/// visualize the dialog graph in the Flecs Explorer. The choice callbacks are set by scripts
+/// via SetDialogChoice(entity, index, label, @fn). Call ShowDialog(entity) to display it.
+struct DialogNode {
+	std::string text;
+	std::string speaker;
+	std::string choice_0_label;
+	std::string choice_1_label;
+	std::function<void(flecs::entity)> on_choice_0;
+	std::function<void(flecs::entity)> on_choice_1;
+};
+
+/// World singleton set by ShowDialog(entity); removed by CloseDialog().
+struct DialogActiveSingleton {
+	flecs::entity current_node;
+};
+
 class TilemapScene : public engine::scene::SceneBase {
 public:
 	explicit TilemapScene() = default;
@@ -41,12 +70,22 @@ private:
 	flecs::entity sceneRoot_;
 	flecs::entity tilemap_entity_;
 	flecs::entity player_entity_;
+	flecs::entity castle_hopper_entity_;
 	flecs::entity uiRoot_;
 	flecs::entity pauseModal_;
+	flecs::entity dialog_modal_;
+
+	unsigned int spawned_npc_count_{0};
+	std::vector<glm::vec3> walkable;
 
 	void SetupTilemap(const flecs::world& world);
-	void SetupPlayer(const flecs::world& world);
-	void RegisterInputSystems(const flecs::world& world);
+	void SetupPlayer(const flecs::world& world) const;
+	void SetupNPCs(const flecs::world& world) const;
+	void SetupPathfindingAgent();
+	void SetupPathfindingStressTest();
+	void SetupDialogSystem(const flecs::world& world);
+	void BuildDialogUI(const flecs::world& world);
+	void RegisterInputSystems(const flecs::world& world) const;
 	void BuildUI(const flecs::world& world);
 };
 

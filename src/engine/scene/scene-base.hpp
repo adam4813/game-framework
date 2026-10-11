@@ -17,7 +17,7 @@ public:
 	virtual ~SceneBase() = default;
 
 	// Register any scene-specific loaders (e.g., level loaders, component loaders) with the world.
-	virtual void RegisterLoaders(const flecs::world& world) {}
+	virtual void RegisterLoaders([[maybe_unused]] const flecs::world& world) {}
 
 	// Initializes and creates the scene's pipeline.
 	// Called when the scene component is added.
@@ -37,17 +37,18 @@ public:
 	}
 
 	// Called once when the scene becomes active.
-	virtual void Load(flecs::world& world) {}
+	virtual void Load([[maybe_unused]] flecs::world& world) {}
 
 	// Called once when the scene is being deactivated.
-	virtual void Unload(flecs::world& world) {}
+	virtual void Unload([[maybe_unused]] flecs::world& world) {}
 
 	// Called every frame to update scene logic.
 	// deltaTime: elapsed time since last frame in seconds.
-	virtual void Tick(const flecs::world& world, float deltaTime) {}
+	virtual void Tick([[maybe_unused]] const flecs::world& world, [[maybe_unused]] float deltaTime) {}
 
 	// Called every frame to handle input events.
-	virtual void HandleInput(const flecs::world& world, const input::InputState& input) {}
+	virtual void
+	HandleInput([[maybe_unused]] const flecs::world& world, [[maybe_unused]] const input::InputState& input) {}
 
 	// Called every frame to render debug UI.
 	virtual void DrawDebugUI() const {}
@@ -55,7 +56,7 @@ public:
 	// Called every frame to draw 2D scene UI (overlays, buttons, HUD). Runs in the engine
 	// OnUI phase (after all OnStore systems) so 2D elements always composite on top of 3D
 	// geometry regardless of module registration order.
-	virtual void DrawUI(const flecs::world& world, const input::InputState& input) {}
+	virtual void DrawUI([[maybe_unused]] const flecs::world& world, [[maybe_unused]] const input::InputState& input) {}
 
 	// Gets the pipeline entity for this scene (set during InitializePipeline).
 	[[nodiscard]] flecs::entity GetPipeline() const { return pipeline_; }

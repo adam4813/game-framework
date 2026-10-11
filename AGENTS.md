@@ -20,38 +20,31 @@ VCPKG.
 
 - **Always use the `flecs-systems` skill** when creating, modifying, or registering Flecs systems, components, or
   singletons. Flecs 4 differs significantly from Flecs 3 — the skill has the correct API patterns.
-- Components are plain data structs — no logic, no virtual methods.
+- Components are generally plain data structs, only use methods for complex datatypes properties (e.g. std::map).
 - Systems are stateless functions that query components; use `it.delta_time()` for timing.
 - Singletons via `world.get<T>()` / `world.get_mut<T>()` for global state (GameData, AudioAssets, etc.).
 - Tags are zero-size structs for filtering, not for carrying data.
-- Scene-specific systems use a single `.kind(phase)` for ordering, then `.add<scene::YourSceneTag>()` on the returned
-  entity for pipeline filtering. Untagged systems run in every scene pipeline.
+- Scene-specific systems use `.add<scene::YourSceneTag>()` on the returned entity for pipeline filtering.
 - Prefer composition (add/remove components) over inheritance.
-- Register systems in dedicated `Register*System()` functions.
 - **Flecs template/parameter parity:** If you include a component or singleton type in the system template arguments
   (e.g., `world.system<const MyComponent>()` or `.term_at<MySingleton>().singleton()`), you MUST include it as a
   parameter in your `.each()` or `.run()` callback. The parameter list must match the template list exactly. For
   example:
   ```cpp
   world.system<const InputState>("MySystem")
-      .term_at<InputState>()
-      .singleton()
-      .each([](const flecs::iter&, size_t, const InputState& input) { ... });  // ✓ correct
-      // .each([](const flecs::iter&, size_t) { ... });  // ✗ wrong — InputState in template but not in params
-  ```
-  - Alternatively you can spin through the iter
-  ```
-    // Spin through the iterator to ensure ECS systems are aware of the iteration
-    while (it.next());
+    .term_at<InputState>()
+    .singleton()
+    .each([](const flecs::iter&, size_t, const InputState& input) { ... });  // ✓ correct
+    // .each([](const flecs::iter&, size_t) { ... });  // ✗ wrong — InputState in template but not in params
+
+  // OR Spin through the iterator to ensure ECS systems are aware of the iteration
+  while (it.next());
   ```
 
 ### Transform Authoring
 
-- **Author only `Transform`** (local position/rotation/scale) — never hand-write `WorldTransform`. The engine seeds
-  `WorldTransform` once via `TransformSeedWorldTransform` observer, then keeps it in sync via `TransformPropagation`
-  or the physics backend.
-- This prevents out-of-phase sync bugs (e.g., stale camera matrices or physics bodies left desynchronized after a
-  transform change).
+- **Author only `Transform`** (local position/rotation/scale) — never hand-write `WorldTransform`. The keeps it in sync
+  via `TransformPropagation`  or the physics backend.
 
 ### Entity Relationships and Linkage
 
@@ -83,30 +76,27 @@ VCPKG.
 ### Simplicity Over Complexity
 
 - **Simplicity is the default.** Only introduce complexity (a pattern, an abstraction layer, an extensibility
-  mechanism) when it *measurably* pays off: it removes code, or it improves developer/authoring UX by tens of percent —
-  not single digits. A registry/strategy for 5 variants with maybe 2 more ever is usually not worth it; a plain
-  `if`/`else` dispatch or a small lookup is clearer. Reach for the pattern when the variant count is genuinely
-  open-ended
-  or third-party extension is a real requirement.
+  mechanism) when it *measurably* pays off: it removes code, or it improves developer/authoring UX by tens of
+  percent. Reach for the pattern when the variant count is genuinely open-ended or third-party extension is best.
 - **Weigh before abstracting:** how many variants realistically exist, does this reduce total code, and does it make the
   code considerably easier to work with? If the answer is "a handful / not really / marginally," keep it simple.
 
 ### Suggestions Are Guidance, Not Mandates
 
 - When the user (or this file) *suggests* an approach, treat it as guidance: evaluate whether it is actually the best
-  fit
-  for the situation and say so, proposing the simpler/better option with a short rationale. Do **not** implement a
-  suggested design just because it was mentioned if a simpler approach serves better.
+  fit for the situation and say so, proposing the simpler/better option with a short rationale.
 - Only treat direction as non-negotiable when the user **explicitly** states it is required (e.g. "you must do this",
   "do it this way"). Otherwise, optimize for the best outcome, not literal compliance.
 
 ## Code Style
 
-- C++23 features welcome (`std::erase_if`, structured bindings, `std::expected`, etc.).
+- C++23 features welcome (`std::erase_if`, structured bindings, `std::expected`, designated initializers, etc.).
 - `snake_case` for files, `PascalCase` for types, methods, and functions, `camelCase` for locals and fields.
 - One concern per file.
 - Keep nesting shallow — early returns over deep if/else trees.
 - Tabs not spaces, look at clang-format and editorconfig
+- Single line statements only if the expression is a control statement, a return, increment/decrement, or a simple
+  assignment. Otherwise, use braces and newlines.
 
 ## Build
 
@@ -116,75 +106,18 @@ VCPKG.
 - Configure the WASM build with:
   - `cmake --preset wasm`
   - `cmake --build --preset wasm-release`
-- To serve the WASM build locally:
-  - `cd build/wasm/Release && python -m http.server 8080`
 - CMake uses `GLOB_RECURSE` — new `.cpp` files in `src/` are auto-discovered.
 - VCPKG manages dependencies (Raylib, nlohmann-json, Flecs).
 
-## Planning
-
-- Use a root `plan.md` file for the implementation plan.
-- Keep per-phase detail files in `plan/` and link them from the root plan's Implementation Progress table.
-
 ## Git
 
-- Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file. Verify
-  with `git diff --cached --stat`.
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `chore:`, `test:`
-- Every commit: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
+- Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file.
+- Conventional commits.
 
 ## Debugging and Inspection
 
 ### Flecs Remote API
 
-The Flecs Remote API is integrated and runs automatically. Use it to inspect the running ECS state without modifying
-code:
-
-- **Explorer:** https://flecs.dev/explorer — auto-connects to `localhost:27750`
-- **Script helper:** `tools/flecs-api.js` — Node.js wrapper (no deps) for querying and mutating the running game. Full
-  usage documented in the file header.
-
-#### Switching from Title to Game scene
-
-Each scene entity carries a stable `SceneId` identity pair (e.g. `(SceneId, Game)`), so switch by identity **name** — no
-need to discover the runtime-assigned entity id:
-
-```bash
-# List scenes with their identity name, runtime id, and active flag
-node tools/flecs-api.js list-scenes
-
-# Switch active scene by SceneId identity name (stable across launches)
-node tools/flecs-api.js switch-scene Game
-```
-
-`switch-scene` resolves the identity via the scene's `(SceneId, <name>)` pair, removes the `Active`
-tag from the current scene, and adds it to the target — mirrors `engine::scene::ActivateScene`. It waits until the
-target is actually active before returning; give the new scene's `Load()` a moment before querying the entities it
-creates. A raw `#<id>` is still accepted if you need it.
-
-#### Navigating the UI instead of "cheating"
-
-`switch-scene` forces the active scene directly. Often it is better to drive the **actual UI flow** — clicking the
-same buttons a player would — so the scene's own transition logic, teardown, and side effects run exactly as shipped.
-This exercises real code paths (e.g. a pause menu's "Quit to Title" `OnClick`) rather than bypassing them:
-
-```bash
-# List UI buttons (id, name, label), then fire one's OnClick by name or #id
-node tools/flecs-api.js list-buttons
-node tools/flecs-api.js click PlayTilemapButton   # or: click "#1006"
-```
-
-`click` fires the button's `OnClick` via a `UIClickRequest` (same path as a real click, including script-assigned
-handlers). Prefer this UI navigation when validating end-to-end flows; fall back to `switch-scene` when you just need
-to jump directly. You can also drive raw input with `override-input` / `restore-input`, and set component values via
-the REST API (`PUT /component/<path>?component=<c>&value=<json>`) — e.g. to place an entity on a specific tile.
-
-> **MCP:** `tools/flecs-mcp.js` exposes the same capabilities as MCP tools (`flecs_switch_scene`,
-> `flecs_list_scenes`, `flecs_pause`, `flecs_query`, …). When those `flecs_*` tools are available in
-> your session, prefer them over shelling out to the CLI; otherwise use the `tools/flecs-api.js` CLI
-> above. They are not loaded by default in Copilot CLI — if they're absent and would help, tell the
-> **user** they can restart the CLI with `copilot --additional-mcp-config @.github/mcp-config.json`
-> (from the repo root). Client setup snippets (Copilot CLI, Claude Desktop, Cursor) live in the
-> `tools/flecs-mcp.js` header.
-
-See [Flecs Remote API docs](https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html) for full reference.
+Use the **`flecs-remote-api` skill** to inspect and control a running Flecs game without modifying code. The skill
+guides you through scene switching, UI navigation, input overrides, component queries, and other debugging/introspection
+tasks.

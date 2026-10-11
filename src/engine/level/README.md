@@ -110,6 +110,8 @@ the entity).
 
 `look_at` — wires `LookAt(self → target)` so a camera aims at the target entity.
 
+`use_registry` — wires `UseRegistry(consumer → provider)` so the consumer navigates to its registry-owning provider via `e.target<level::UseRegistry>()`. Use this to decouple consumers (e.g. NPCs, particles) from global component queries: instead of querying all `TileSet` entities, an NPC resolves its tilemap via `e.target<UseRegistry>().get<TileSet>()`. Applies to any registry-owning entity (TileSet on a registry entity, AssetRegistry on a cache entity, etc.).
+
 ## Usage
 
 ```cpp

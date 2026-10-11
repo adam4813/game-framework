@@ -54,31 +54,31 @@ public:
 
 	/// Sync body from ECS to physics backend
 	void SyncBodyToBackend(
-		EntityId entity,
+		flecs::entity_t entity,
 		const PhysicsTransform& transform,
 		const RigidBody& body,
 		const CollisionShape& shape
 	);
 
-	void SetBodyTransform(EntityId entity, const PhysicsTransform& transform);
+	void SetBodyTransform(flecs::entity_t entity, const PhysicsTransform& transform);
 
 	/// Sync body state from physics backend to ECS
-	[[nodiscard]] PhysicsSyncResult GetPhysicsSyncResult(EntityId entity) const;
+	[[nodiscard]] PhysicsSyncResult GetPhysicsSyncResult(flecs::entity_t entity) const;
 
 	/// Remove body from backend
-	void RemoveBody(EntityId entity);
+	void RemoveBody(flecs::entity_t entity);
 
 	/// Check if backend has body
-	[[nodiscard]] bool HasBody(EntityId entity) const;
+	[[nodiscard]] bool HasBody(flecs::entity_t entity) const;
 
 	/// Apply force and torque to body
-	void ApplyForce(EntityId entity, const glm::vec3& force, const glm::vec3& torque);
+	void ApplyForce(flecs::entity_t entity, const glm::vec3& force, const glm::vec3& torque);
 
 	/// Apply impulse to body
-	void ApplyImpulse(EntityId entity, const glm::vec3& impulse, const glm::vec3& point);
+	void ApplyImpulse(flecs::entity_t entity, const glm::vec3& impulse, const glm::vec3& point);
 
 	/// Set linear and angular velocity directly (physics module internal — consume PhysicsVelocityOverride).
-	void SetBodyVelocity(EntityId entity, const glm::vec3& linear, const glm::vec3& angular);
+	void SetBodyVelocity(flecs::entity_t entity, const glm::vec3& linear, const glm::vec3& angular);
 
 	/// Get collision events from this frame
 	[[nodiscard]] std::vector<CollisionInfo> GetCollisionEvents() const;
@@ -114,7 +114,7 @@ private:
 	std::unique_ptr<JPH::ContactListener> contact_listener_;
 
 	// Entity to Jolt body mapping
-	std::unordered_map<EntityId, uint32_t> entity_to_body_;
+	std::unordered_map<flecs::entity_t, uint32_t> entity_to_body_;
 
 #ifdef JPH_DEBUG_RENDERER
 	JPH::DebugRenderer* debug_renderer_ = nullptr;

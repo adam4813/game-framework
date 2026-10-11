@@ -23,6 +23,17 @@
 			"inherits": "default"
 		},
 		{
+			"name": "desktop-profile",
+			"displayName": "Desktop — Tracy + JSONL Profiling",
+			"inherits": "desktop",
+			"cacheVariables": {
+				"ENABLE_TRACY": "ON",
+				"ENABLE_PROFILE_LOGGING": "ON",
+				"VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
+				"VCPKG_TARGET_TRIPLET": "x64-windows-perf"
+			}
+		},
+		{
 			"name": "wasm",
 			"displayName": "WebAssembly Build",
 			"inherits": "default",
@@ -52,6 +63,12 @@
 			"displayName": "Desktop Release",
 			"configurePreset": "desktop",
 			"configuration": "Release"
+		},
+		{
+			"name": "desktop-profile-relwithdebinfo",
+			"displayName": "Desktop Profile (RelWithDebInfo)",
+			"configurePreset": "desktop-profile",
+			"configuration": "RelWithDebInfo"
 		},
 		{
 			"name": "wasm-debug",

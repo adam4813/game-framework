@@ -107,6 +107,76 @@ Both are resolved by the level loader's `EntityBuilder`, which builds the tree f
 second pass. This decouples the definition order and allows cross-references (e.g., a camera can reference a player
 entity defined anywhere in the level).
 
+## File references in levels
+
+The level loader supports `@file:path` references to compose entity definitions and component data across multiple
+JSON files. This enables reusable entity templates, shared component data, and nested file structures at any nesting
+level.
+
+The `@file:` sigil can appear:
+
+- **In entity/children arrays**: `"entities": [ "@file:entities/player.json", { ... } ]`
+- **In component values**: `"tileset": "@file:components/tileset_data.json"`
+
+When a file is loaded, its path is resolved **relative to the referencing file's directory**. This makes entity files
+self-contained and portable: an entity file in `entities/player.json` can load its own children from
+`children/player_material.json` without caring where the root level file lives.
+
+### Example
+
+**`tilemap_map.level.json`** (root level):
+
+```json
+{
+  "entities": [
+    {
+      "name": "BasicRegistry",
+      "components": {
+        "tileset": "@file:components/basic_tileset.json"
+      }
+    },
+    "@file:entities/bt_wanderer_npc.json"
+  ]
+}
+```
+
+**`components/basic_tileset.json`**:
+
+```json
+{
+  "path": "data/tilesets/basic.json"
+}
+```
+
+**`entities/bt_wanderer_npc.json`** (defines an entity; its paths resolve from `entities/`):
+
+```json
+{
+  "name": "BtWandererNPC",
+  "components": {...},
+  "children": [
+    "@file:../children/npc_material_blue.json"
+  ]
+}
+```
+
+**`children/npc_material_blue.json`**:
+
+```json
+{
+  "link": "render_with",
+  "components": {
+    "material": {
+      "color": [60, 100, 220, 255],
+      "cast_shadow": false
+    }
+  }
+}
+```
+
+Bare strings in entity/children arrays (without the `@file:` sigil) are reserved for future entity-by-name references
+and are not treated as file paths.
+
 ## The pause model
 
 Pausing is **data**, not a branch in every system. A system that advances the simulation carries the zero-size tag

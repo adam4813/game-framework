@@ -1,0 +1,1364 @@
+{
+  "children": {
+    "TestAlbedo": {
+      "components": {
+        "AlbedoMap": {
+          "handle": -1,
+          "path": "./textures/checker.png"
+        }
+      },
+      "name": "TestAlbedo",
+      "parent": "SceneRoot"
+    },
+    "TestAudio": {
+      "components": {
+        "SoundEffect": {
+          "handle": -1,
+          "path": "./audio/sfx/jump.wav",
+          "playing": false
+        }
+      },
+      "name": "TestAudio",
+      "parent": "SceneRoot"
+    },
+    "TestBTree": {
+      "components": {
+        "BehaviorTree": {
+          "tick_interval": 0.1000000015,
+          "tick_timer": 0
+        }
+      },
+      "name": "TestBTree",
+      "parent": "SceneRoot"
+    },
+    "TestBox": {
+      "components": {
+        "CollisionShape": {
+          "offset": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "CubePrimitive": {
+          "size": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "PhysicsVelocity": {
+          "angular": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "linear": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "RigidBody": {
+          "friction": 0.5,
+          "gravity_scale": 1,
+          "mass": 1,
+          "restitution": 0.3000000119,
+          "use_gravity": true
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 3,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestBox",
+      "parent": "SceneRoot"
+    },
+    "TestCamera": {
+      "components": {
+        "Camera": {
+          "aspect_ratio": 1.777777791,
+          "far_plane": 100,
+          "fov": 60,
+          "near_plane": 0.1000000015,
+          "up": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 5,
+            "z": 5
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestCamera",
+      "parent": "SceneRoot"
+    },
+    "TestCapsule": {
+      "components": {
+        "CapsulePrimitive": {
+          "height": 1.5,
+          "radius": 0.400000006
+        },
+        "Transform": {
+          "position": {
+            "x": 5,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestCapsule",
+      "parent": "SceneRoot"
+    },
+    "TestFSMAgent": {
+      "components": {
+        "FSMAgent": {
+          "current_state": "idle",
+          "previous_state": "",
+          "state_changed": false,
+          "state_elapsed": 0
+        }
+      },
+      "name": "TestFSMAgent",
+      "parent": "SceneRoot"
+    },
+    "TestGOAPAgent": {
+      "components": {
+        "GOAPAgent": {
+          "needs_replan": true,
+          "plan_failed": false
+        }
+      },
+      "name": "TestGOAPAgent",
+      "parent": "SceneRoot"
+    },
+    "TestGraphEdge": {
+      "components": {
+        "GraphEdgeWeight": {
+          "tag": "strong",
+          "weight": 0.75
+        }
+      },
+      "name": "TestGraphEdge",
+      "parent": "SceneRoot"
+    },
+    "TestGraphNode": {
+      "components": {
+        "GraphNode": {
+          "label": "MainNode",
+          "order": 1
+        }
+      },
+      "name": "TestGraphNode",
+      "parent": "SceneRoot"
+    },
+    "TestGrid": {
+      "components": {
+        "GridPosition": {
+          "x": 2,
+          "z": 3
+        }
+      },
+      "name": "TestGrid",
+      "parent": "SceneRoot"
+    },
+    "TestLight": {
+      "components": {
+        "DirectionalLight": {
+          "casts_shadows": true,
+          "color": {
+            "a": 255,
+            "b": 220,
+            "g": 245,
+            "r": 255
+          },
+          "direction": {
+            "x": -0.5500000119,
+            "y": -1,
+            "z": -0.400000006
+          },
+          "intensity": 1,
+          "shadow_color": {
+            "a": 115,
+            "b": 14,
+            "g": 10,
+            "r": 8
+          },
+          "shadow_ground_y": 0,
+          "shininess": 24,
+          "specular_strength": 0.349999994
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestLight",
+      "parent": "SceneRoot"
+    },
+    "TestMaterial": {
+      "components": {
+        "Material": {
+          "cast_shadow": true,
+          "color": {
+            "a": 255,
+            "b": 50,
+            "g": 100,
+            "r": 200
+          },
+          "wireframe": false
+        }
+      },
+      "name": "TestMaterial",
+      "parent": "SceneRoot"
+    },
+    "TestMesh": {
+      "components": {
+        "MeshPrimitive": {
+          "handle": -1,
+          "path": "./models/cube.glb"
+        }
+      },
+      "name": "TestMesh",
+      "parent": "SceneRoot"
+    },
+    "TestMusic": {
+      "components": {
+        "Music": {
+          "handle": -1,
+          "loop": true,
+          "path": "./audio/music/theme.ogg"
+        }
+      },
+      "name": "TestMusic",
+      "parent": "SceneRoot"
+    },
+    "TestParticles": {
+      "components": {
+        "ParticleEmitter": {
+          "accumulator": 0,
+          "colorEnd": {
+            "a": 0,
+            "b": 30,
+            "g": 80,
+            "r": 255
+          },
+          "colorStart": {
+            "a": 255,
+            "b": 80,
+            "g": 200,
+            "r": 255
+          },
+          "direction": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "emitting": false,
+          "particleLifetime": 0.6000000238,
+          "rate": 30,
+          "speed": 2.5,
+          "spread": 0.6000000238,
+          "startSize": 0.0799999982
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 5
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestParticles",
+      "parent": "SceneRoot"
+    },
+    "TestPathAgent": {
+      "components": {
+        "PathAgent": {
+          "arrival_radius": 0.5
+        }
+      },
+      "name": "TestPathAgent",
+      "parent": "SceneRoot"
+    },
+    "TestPathAutoReplan": {
+      "components": {
+        "PathAutoReplan": {
+          "algorithm": "",
+          "goal": {
+            "x": 3,
+            "y": 0,
+            "z": 5
+          },
+          "interval": 0.5
+        }
+      },
+      "name": "TestPathAutoReplan",
+      "parent": "SceneRoot"
+    },
+    "TestPathFollow": {
+      "components": {
+        "PathFollow": {
+          "speed": 4
+        }
+      },
+      "name": "TestPathFollow",
+      "parent": "SceneRoot"
+    },
+    "TestQuad": {
+      "components": {
+        "QuadPrimitive": {
+          "size": {
+            "x": 2,
+            "y": 3
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 3,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestQuad",
+      "parent": "SceneRoot"
+    },
+    "TestShape": {
+      "components": {
+        "CollisionShape": {
+          "offset": {
+            "x": 0,
+            "y": 0.1000000015,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": -3,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestShape",
+      "parent": "SceneRoot"
+    },
+    "TestSphere": {
+      "components": {
+        "SpherePrimitive": {
+          "radius": 0.5
+        },
+        "Transform": {
+          "position": {
+            "x": -2.5,
+            "y": 0.5,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestSphere",
+      "parent": "SceneRoot"
+    },
+    "TestSteering": {
+      "components": {
+        "SteeringAgent": {
+          "mass": 1.5,
+          "max_force": 10,
+          "max_speed": 5
+        },
+        "SteeringTarget": {
+          "position": {
+            "x": 1,
+            "y": 0,
+            "z": 3
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 7,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestSteering",
+      "parent": "SceneRoot"
+    },
+    "TestTilemap": {
+      "components": {
+        "Tilemap": null,
+        "TilemapViewport": {
+          "buffer_height": 0,
+          "buffer_width": 0,
+          "origin_tile_x": -2147483648,
+          "origin_tile_z": -2147483648
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestTilemap",
+      "parent": "SceneRoot"
+    },
+    "TestTilemapAtlas": {
+      "components": {
+        "AlbedoMap": {
+          "handle": -1,
+          "path": ""
+        },
+        "Material": {
+          "cast_shadow": true,
+          "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+          },
+          "wireframe": false
+        },
+        "SpriteAtlas": {
+          "image_height_px": 128,
+          "image_width_px": 128,
+          "texture_path": "./textures/tileset.png"
+        }
+      },
+      "name": "TestTilemapAtlas",
+      "parent": "SceneRoot"
+    },
+    "TestTilemapRegistry": {
+      "components": {
+        "TileSet": null
+      },
+      "name": "TestTilemapRegistry",
+      "parent": "SceneRoot"
+    },
+    "TestTimer": {
+      "components": {
+        "Cooldown": {
+          "duration": 2,
+          "remaining": 2
+        },
+        "Timer": {
+          "duration": 5,
+          "expired": false,
+          "remaining": 5,
+          "repeat": false
+        }
+      },
+      "name": "TestTimer",
+      "parent": "SceneRoot"
+    },
+    "TestTween": {
+      "components": {
+        "Tween": {
+          "done": false,
+          "duration": 2,
+          "easing": 0,
+          "elapsed": 0,
+          "from": 0,
+          "to": 1,
+          "value": 0
+        }
+      },
+      "name": "TestTween",
+      "parent": "SceneRoot"
+    },
+    "TestUIButton": {
+      "components": {
+        "Button": {
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "clicked": false,
+          "font_size": 22,
+          "hover": {
+            "a": 255,
+            "b": 56,
+            "g": 64,
+            "r": 56
+          },
+          "hovered": false,
+          "label": "OK",
+          "normal": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "pressed": false,
+          "pressed_color": {
+            "a": 255,
+            "b": 40,
+            "g": 46,
+            "r": 40
+          },
+          "roundness": 0.25,
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 48,
+            "w": 160,
+            "x": 10,
+            "y": 140
+          }
+        }
+      },
+      "name": "TestUIButton",
+      "parent": "SceneRoot"
+    },
+    "TestUICheckbox": {
+      "components": {
+        "Checkbox": {
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "box_color": {
+            "a": 255,
+            "b": 56,
+            "g": 64,
+            "r": 56
+          },
+          "box_size": 20,
+          "check_color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "checked": true,
+          "font_size": 18,
+          "hovered": false,
+          "label": "Mute",
+          "roundness": 0.200000003,
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 24,
+            "w": 200,
+            "x": 10,
+            "y": 652
+          }
+        }
+      },
+      "name": "TestUICheckbox",
+      "parent": "SceneRoot"
+    },
+    "TestUIDropdown": {
+      "components": {
+        "Dropdown": {
+          "bg_color": {
+            "a": 235,
+            "b": 18,
+            "g": 20,
+            "r": 18
+          },
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "font_size": 18,
+          "hover_color": {
+            "a": 255,
+            "b": 56,
+            "g": 64,
+            "r": 56
+          },
+          "hover_index": -1,
+          "hovered": false,
+          "open": false,
+          "panel_color": {
+            "a": 255,
+            "b": 40,
+            "g": 46,
+            "r": 40
+          },
+          "placeholder": "Choose",
+          "roundness": 0.150000006,
+          "row_height": 30,
+          "selected": -1,
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 28,
+            "w": 200,
+            "x": 10,
+            "y": 840
+          }
+        }
+      },
+      "name": "TestUIDropdown",
+      "parent": "SceneRoot"
+    },
+    "TestUILabel": {
+      "components": {
+        "Label": {
+          "color": {
+            "a": 255,
+            "b": 200,
+            "g": 210,
+            "r": 200
+          },
+          "font_size": 24,
+          "text": "Hello"
+        },
+        "UIRect": {
+          "rect": {
+            "h": 28,
+            "w": 200,
+            "x": 10,
+            "y": 580
+          }
+        }
+      },
+      "name": "TestUILabel",
+      "parent": "SceneRoot"
+    },
+    "TestUIModal": {
+      "components": {
+        "Modal": {
+          "backdrop_color": {
+            "a": 200,
+            "b": 6,
+            "g": 8,
+            "r": 6
+          },
+          "close_on_backdrop": false,
+          "open": true
+        },
+        "UIRect": {
+          "rect": {
+            "h": 300,
+            "w": 400,
+            "x": 300,
+            "y": 100
+          }
+        }
+      },
+      "name": "TestUIModal",
+      "parent": "SceneRoot"
+    },
+    "TestUIPanel": {
+      "components": {
+        "Panel": {
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "border_thickness": 2,
+          "color": {
+            "a": 255,
+            "b": 40,
+            "g": 46,
+            "r": 40
+          },
+          "roundness": 0.1000000015
+        },
+        "UIElement": {
+          "visible": true,
+          "z_index": 5
+        },
+        "UIRect": {
+          "rect": {
+            "h": 100,
+            "w": 200,
+            "x": 10,
+            "y": 20
+          }
+        }
+      },
+      "name": "TestUIPanel",
+      "parent": "SceneRoot"
+    },
+    "TestUIProgressBar": {
+      "components": {
+        "ProgressBar": {
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "border_thickness": 2,
+          "fill_color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "max": 1,
+          "min": 0,
+          "roundness": 0.349999994,
+          "track_color": {
+            "a": 235,
+            "b": 18,
+            "g": 20,
+            "r": 18
+          },
+          "value": 0.6000000238
+        },
+        "UIRect": {
+          "rect": {
+            "h": 24,
+            "w": 200,
+            "x": 10,
+            "y": 200
+          }
+        }
+      },
+      "name": "TestUIProgressBar",
+      "parent": "SceneRoot"
+    },
+    "TestUIRadio": {
+      "components": {
+        "Radio": {
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "circle_color": {
+            "a": 255,
+            "b": 56,
+            "g": 64,
+            "r": 56
+          },
+          "dot_color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "font_size": 18,
+          "group": "difficulty",
+          "hovered": false,
+          "label": "Hard",
+          "radius": 12,
+          "selected": true,
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          },
+          "value": "hard"
+        },
+        "UIRect": {
+          "rect": {
+            "h": 24,
+            "w": 200,
+            "x": 10,
+            "y": 684
+          }
+        }
+      },
+      "name": "TestUIRadio",
+      "parent": "SceneRoot"
+    },
+    "TestUIScrollRect": {
+      "components": {
+        "ScrollRect": {
+          "content_size": {
+            "x": 0,
+            "y": 0
+          },
+          "dragging_h": false,
+          "dragging_v": false,
+          "horizontal": false,
+          "scroll": {
+            "x": 0,
+            "y": 0
+          },
+          "scrollbar_thickness": 10,
+          "thumb_color": {
+            "a": 255,
+            "b": 56,
+            "g": 64,
+            "r": 56
+          },
+          "track_color": {
+            "a": 235,
+            "b": 18,
+            "g": 20,
+            "r": 18
+          },
+          "vertical": true,
+          "wheel_speed": 28
+        },
+        "UIRect": {
+          "rect": {
+            "h": 150,
+            "w": 200,
+            "x": 10,
+            "y": 420
+          }
+        }
+      },
+      "name": "TestUIScrollRect",
+      "parent": "SceneRoot"
+    },
+    "TestUISlider": {
+      "components": {
+        "Slider": {
+          "dragging": false,
+          "hovered": false,
+          "max": 1,
+          "min": 0,
+          "step": 0.0500000007,
+          "value": 0.75
+        },
+        "UIRect": {
+          "rect": {
+            "h": 24,
+            "w": 200,
+            "x": 10,
+            "y": 620
+          }
+        }
+      },
+      "name": "TestUISlider",
+      "parent": "SceneRoot"
+    },
+    "TestUISpinner": {
+      "components": {
+        "Spinner": {
+          "color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "dot_radius": 4,
+          "dots": 8,
+          "phase": 0,
+          "radius": 18,
+          "speed": 6
+        },
+        "UIRect": {
+          "rect": {
+            "h": 48,
+            "w": 48,
+            "x": 10,
+            "y": 240
+          }
+        }
+      },
+      "name": "TestUISpinner",
+      "parent": "SceneRoot"
+    },
+    "TestUIStack": {
+      "components": {
+        "Stack": {
+          "padding": 4,
+          "spacing": 8,
+          "stretch": true
+        },
+        "UIRect": {
+          "rect": {
+            "h": 100,
+            "w": 200,
+            "x": 10,
+            "y": 300
+          }
+        }
+      },
+      "name": "TestUIStack",
+      "parent": "SceneRoot"
+    },
+    "TestUITextArea": {
+      "components": {
+        "TextArea": {
+          "bg_color": {
+            "a": 235,
+            "b": 18,
+            "g": 20,
+            "r": 18
+          },
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "caret_blink": 0,
+          "caret_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          },
+          "focus_border_color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "font_size": 18,
+          "hovered": false,
+          "line_spacing": 5,
+          "max_length": 128,
+          "placeholder": "Notes",
+          "placeholder_color": {
+            "a": 255,
+            "b": 140,
+            "g": 150,
+            "r": 140
+          },
+          "roundness": 0.0799999982,
+          "text": "Line1",
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 80,
+            "w": 200,
+            "x": 10,
+            "y": 752
+          }
+        }
+      },
+      "name": "TestUITextArea",
+      "parent": "SceneRoot"
+    },
+    "TestUITextInput": {
+      "components": {
+        "TextInput": {
+          "bg_color": {
+            "a": 235,
+            "b": 18,
+            "g": 20,
+            "r": 18
+          },
+          "border_color": {
+            "a": 255,
+            "b": 90,
+            "g": 100,
+            "r": 90
+          },
+          "caret_blink": 0,
+          "caret_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          },
+          "focus_border_color": {
+            "a": 255,
+            "b": 70,
+            "g": 140,
+            "r": 70
+          },
+          "font_size": 18,
+          "hovered": false,
+          "max_length": 32,
+          "placeholder": "Name",
+          "placeholder_color": {
+            "a": 255,
+            "b": 140,
+            "g": 150,
+            "r": 140
+          },
+          "roundness": 0.150000006,
+          "text": "Hello",
+          "text_color": {
+            "a": 255,
+            "b": 220,
+            "g": 225,
+            "r": 220
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 28,
+            "w": 200,
+            "x": 10,
+            "y": 716
+          }
+        }
+      },
+      "name": "TestUITextInput",
+      "parent": "SceneRoot"
+    },
+    "TestUtility": {
+      "components": {
+        "UtilityAgent": {
+          "current_action": ""
+        }
+      },
+      "name": "TestUtility",
+      "parent": "SceneRoot"
+    },
+    "TestVelocity": {
+      "components": {
+        "PhysicsVelocity": {
+          "angular": {
+            "x": 0,
+            "y": 0.5,
+            "z": 0
+          },
+          "linear": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": -3
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestVelocity",
+      "parent": "SceneRoot"
+    }
+  },
+  "scene_root": "SceneRoot"
+}

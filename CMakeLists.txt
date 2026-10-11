@@ -4,6 +4,16 @@ project(game LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BUILD_SCENE_EQUIVALENCE_TEST "Build the scene equivalence test application" ON)
+# Enable Tracy frame profiler integration. Only meaningful on desktop (no WASM support).
+# Activates the Flecs OS API perf hooks, explicit render zones, and the FrameMark.
+option(ENABLE_TRACY "Enable Tracy profiler integration" OFF)
+# Auto-start JSONL telemetry on launch so stats-telemetry.jsonl is written immediately.
+# The in-game checkbox still works; this just flips the initial state.
+option(ENABLE_PROFILE_LOGGING "Auto-start JSONL system-stats telemetry on launch" OFF)
+
+include(cmake/Tracy.cmake)
+
 find_package(Angelscript CONFIG REQUIRED)
 find_package(raylib CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -22,8 +32,10 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE src ${STB_INCLUDE_DIRS})
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL GLM_GTC_INLINE_NAMESPACE GLM_EXT_INLINE_NAMESPACE GLM_GTX_INLINE_NAMESPACE)
 target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:/Zi>
-    $<$<AND:$<NOT:$<CXX_COMPILER_ID:MSVC>>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:-g>
+    $<$<AND:$<COMPILE_LANG_AND_ID:CXX,MSVC>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:/Zi>
+    $<$<AND:$<NOT:$<COMPILE_LANG_AND_ID:CXX,MSVC>>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:-g>
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/permissive-;/W4;/w14322> #  Enforces strict C++ standard conformance and stricter enum conformance checks
+    $<$<CXX_COMPILER_ID:Clang>:-Wall;-Wpedantic;-Werror=return-type>  # Enforces strict ISO C++ standard compliance
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -37,6 +49,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Jolt::Jolt
     spdlog::spdlog
 )
+
+if (ENABLE_PROFILE_LOGGING)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PROFILE_LOGGING_ENABLED)
+    message(STATUS "JSONL profile logging auto-start enabled")
+endif ()
+
+setup_tracy(${PROJECT_NAME})
+
+if (BUILD_SCENE_EQUIVALENCE_TEST AND NOT EMSCRIPTEN)
+    add_subdirectory(tests/scene_equivalence)
+endif ()
 
 if (EMSCRIPTEN)
     # Preload assets for WASM

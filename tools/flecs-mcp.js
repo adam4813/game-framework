@@ -254,6 +254,26 @@ const tools = [
 		inputSchema: {type: "object", properties: {}},
 		handler: () => flecs.restoreInput(),
 	},
+	{
+		name: "flecs_list_buttons",
+		description:
+			'List every UI Button entity in the running scene — id, name, and label. Use the name or #id with flecs_click to fire a button\'s OnClick handler. Call this whenever you need to navigate UI or find a button by label.',
+		inputSchema: {type: "object", properties: {}},
+		handler: () => flecs.listButtons(),
+	},
+	{
+		name: "flecs_click",
+		description:
+			'Fire a UI button\'s OnClick handler and SoundEffect exactly as a real mouse click would (via UIClickRequest). Use a button name (e.g. "PlayTilemapButton"), a full entity path, or a raw #id. Run flecs_list_buttons first to discover button names and ids.',
+		inputSchema: {
+			type: "object",
+			properties: {
+				button: {type: "string", description: 'Button name (e.g. "PlayCubeButton"), full path, or #id.'},
+			},
+			required: ["button"],
+		},
+		handler: (a) => flecs.click(a.button),
+	},
 ];
 
 const toolByName = new Map(tools.map((t) => [t.name, t]));

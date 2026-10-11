@@ -55,13 +55,16 @@ public:
 	// -------------------------------------------------------------------------
 
 	[[nodiscard]] float GetFloat(const std::string& component, const std::string& field) const;
-	void SetFloat(const std::string& component, const std::string& field, float value);
+	void SetFloat(const std::string& component, const std::string& field, float value) const;
 
 	[[nodiscard]] int GetInt(const std::string& component, const std::string& field) const;
-	void SetInt(const std::string& component, const std::string& field, int value);
+	void SetInt(const std::string& component, const std::string& field, int value) const;
 
 	[[nodiscard]] bool GetBool(const std::string& component, const std::string& field) const;
-	void SetBool(const std::string& component, const std::string& field, bool value);
+	void SetBool(const std::string& component, const std::string& field, bool value) const;
+
+	[[nodiscard]] std::string GetString(const std::string& component, const std::string& field) const;
+	void SetString(const std::string& component, const std::string& field, const std::string& value) const;
 
 	// -------------------------------------------------------------------------
 	// Observer factory

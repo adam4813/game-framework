@@ -41,4 +41,16 @@ struct LevelRegistry {
 	std::unordered_map<std::string, RefLoader> refLoaders;
 };
 
+/// Directional "uses registry from" relationship.
+/// `consumer.add<UseRegistry>(provider)` pairs a consumer entity with a registry-owning provider,
+/// decoupling it from global queries. Navigate from any consumer to its provider via
+/// `e.target<UseRegistry>()` then query whichever registry components live there
+/// (TileSet, AssetRegistry, etc.).
+///
+/// Analogous to LookAt (camera → target) and RenderWith (renderable → material).
+/// Not exclusive — a consumer may use registries from multiple providers.
+///
+/// JSON: "refs": { "use_registry": "TilemapEntityName" }
+struct UseRegistry {};
+
 } // namespace engine::level

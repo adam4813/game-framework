@@ -1,6 +1,6 @@
 {
 	"name": "game",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"dependencies": [
 		{
 			"name": "angelscript",
@@ -16,6 +16,13 @@
 		"imgui",
 		"nlohmann-json",
 		"spdlog",
+		{
+			"name": "tracy",
+			"platform": "!emscripten",
+			"features": [
+				"gui-tools"
+			]
+		},
 		{
 			"name": "joltphysics",
 			"features": [

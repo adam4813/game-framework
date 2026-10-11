@@ -25,45 +25,23 @@ float JoltDebugRendererAdapter::ToGlmAlpha(const JPH::ColorArg c) { return stati
 
 core::Rgba JoltDebugRendererAdapter::ToRgba(const glm::vec3 color, const float alpha) {
 	return {
-		static_cast<uint8_t>(color.x * 255.0F),
-		static_cast<uint8_t>(color.y * 255.0F),
-		static_cast<uint8_t>(color.z * 255.0F),
-		static_cast<uint8_t>(alpha * 255.0F),
+		.r = static_cast<uint8_t>(color.x * 255.0F),
+		.g = static_cast<uint8_t>(color.y * 255.0F),
+		.b = static_cast<uint8_t>(color.z * 255.0F),
+		.a = static_cast<uint8_t>(alpha * 255.0F),
 	};
 }
 
 glm::vec2 JoltDebugRendererAdapter::ProjectToScreen(const glm::vec3 world_pos) const {
 	if (!platform_) return {0.0F, 0.0F};
-
-	// Find camera entity
 	const auto camera = world_.query<const spatial::WorldTransform, const render::Camera>().first();
 	if (!camera) return {0.0F, 0.0F};
-
-	const auto& cam_wt = camera.get<const spatial::WorldTransform>();
-	const auto& cam_data = camera.get<const render::Camera>();
-
-	// Aim at the LookAt target's position if the camera has one; otherwise look along the camera's own
-	// forward axis (from its world rotation), so a look-at target is never strictly required.
-	glm::vec3 target = cam_wt.position + glm::vec3(cam_wt.matrix * glm::vec4(0.0F, 0.0F, -1.0F, 0.0F));
-	if (const auto look = camera.target<render::LookAt>(); look && look.has<spatial::WorldTransform>()) {
-		target = look.get<const spatial::WorldTransform>().position;
-	}
-
-	// Derive view/projection live from the camera's current world transform so debug lines stay
-	// correct when the camera moves (e.g. a follow-camera parented to the player).
-	const glm::mat4 view = glm::lookAt(cam_wt.position, target, cam_data.up);
-	const glm::mat4 projection =
-		glm::perspective(glm::radians(cam_data.fov), cam_data.aspect_ratio, cam_data.near_plane, cam_data.far_plane);
-
-	// Transform world position to clip space
-	const glm::vec4 clip_pos = projection * view * glm::vec4(world_pos, 1.0F);
-	const glm::vec3 ndc = glm::vec3(clip_pos) / clip_pos.w;
-
-	// Map from NDC [-1, 1] to screen space [0, width/height]
-	const float screen_x = (ndc.x + 1.0F) * 0.5F * static_cast<float>(platform_->Width());
-	const float screen_y = (1.0F - ndc.y) * 0.5F * static_cast<float>(platform_->Height()); // Flip Y
-
-	return {screen_x, screen_y};
+	const auto projector = render::ScreenProjector::FromCamera(
+		camera,
+		static_cast<float>(platform_->Width()),
+		static_cast<float>(platform_->Height())
+	);
+	return projector.Project(world_pos);
 }
 
 void JoltDebugRendererAdapter::DrawLine(JPH::RVec3Arg from, JPH::RVec3Arg to, const JPH::ColorArg color) {

@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 
 #include "engine/ecs/ecs.hpp"
+#include "engine/level/level.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/render/render.hpp"
 #include "engine/spatial/spatial.hpp"
@@ -80,12 +81,23 @@ void PushTileQuad(
 void TilemapMeshBuilder::Register(const flecs::world& world) {
 	// Observer: generates viewport-sized or full-map mesh data when Tilemap is set/changed.
 	world.observer<Tilemap>("TilemapBuildMesh").event(flecs::OnSet).each([](const flecs::entity e, const Tilemap& tm) {
-		const auto* registry_data = e.try_get<TileRegistry>();
-		if (!registry_data) return;
+		const auto* tile_set = e.try_get<TileSet>();
+		if (!tile_set) {
+			if (const flecs::entity reg_e = e.target<level::UseRegistry>(); reg_e.is_valid()) {
+				tile_set = reg_e.try_get<TileSet>();
+			}
+		}
+		if (!tile_set) return;
 
-		const auto* tileset = e.try_get<TileSet>();
-		const float tex_w = tileset ? static_cast<float>(tileset->image_width_px) : 1.0f;
-		const float tex_h = tileset ? static_cast<float>(tileset->image_height_px) : 1.0f;
+		const auto* tile_sheet = e.try_get<render::SpriteAtlas>();
+		if (!tile_sheet) {
+			if (const flecs::entity sheet_e = e.target<render::UseSpriteAtlas>(); sheet_e.is_valid()) {
+				tile_sheet = sheet_e.try_get<render::SpriteAtlas>();
+			}
+		}
+
+		const float tex_w = tile_sheet ? static_cast<float>(tile_sheet->image_width_px) : 1.0f;
+		const float tex_h = tile_sheet ? static_cast<float>(tile_sheet->image_height_px) : 1.0f;
 
 		if (tm.tile_ids.size() != static_cast<size_t>(tm.width) * tm.height) {
 			spdlog::warn(
@@ -113,15 +125,15 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 			const int bw = viewport->buffer_width;
 			const int bh = viewport->buffer_height;
 
-			mesh_data.vertices.reserve(static_cast<size_t>(bw * bh * 4));
-			mesh_data.indices.reserve(static_cast<size_t>(bw * bh * 6));
-			mesh_data.colors.reserve(static_cast<size_t>(bw * bh * 4));
-			mesh_data.uvs.reserve(static_cast<size_t>(bw * bh * 4));
+			mesh_data.vertices.reserve(bw * bh * 4);
+			mesh_data.indices.reserve(bw * bh * 6);
+			mesh_data.colors.reserve(bw * bh * 4);
+			mesh_data.uvs.reserve(bw * bh * 4);
 
 			for (int bz = 0; bz < bh; ++bz) {
 				for (int bx = 0; bx < bw; ++bx) {
 					const uint32_t tile_id = GetTileIdAt(tm, bx, bz);
-					const auto* desc = registry_data->GetTile(tile_id);
+					const auto* desc = tile_set->GetTile(tile_id);
 					const auto [uv0, uv1] =
 						desc ? TileUVs(*desc, tex_w, tex_h) : std::pair{glm::vec2{0.0f}, glm::vec2{0.0f}};
 					const glm::vec4 color = desc ? desc->color : glm::vec4{1.0f};
@@ -139,7 +151,7 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 			for (uint32_t z = 0; z < tm.height; ++z) {
 				for (uint32_t x = 0; x < tm.width; ++x) {
 					const uint32_t tile_id = tm.tile_ids[z * tm.width + x];
-					const auto* desc = registry_data->GetTile(tile_id);
+					const auto* desc = tile_set->GetTile(tile_id);
 					if (!desc) continue;
 					const auto [uv0, uv1] = TileUVs(*desc, tex_w, tex_h);
 					PushTileQuad(mesh_data, static_cast<int>(x), static_cast<int>(z), tile_size, uv0, uv1, desc->color);
@@ -174,7 +186,9 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 				e.set<render::DynamicMesh>({handle});
 
 				if (!e.has<spatial::Transform>()) {
-					e.set<spatial::Transform>({{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+					e.set<spatial::Transform>(
+						{.position = {0.0f, 0.0f, 0.0f}, .rotation = {0.0f, 0.0f, 0.0f}, .scale = {1.0f, 1.0f, 1.0f}}
+					);
 				}
 			}
 

@@ -14,7 +14,6 @@
 #include "tilemap_mesh_builder.hpp"
 
 #include "engine/assets/assets.hpp"
-#include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
 #include "engine/render/render.hpp"
 #include "engine/scene/scene.hpp"
@@ -37,27 +36,44 @@ void RegisterTilemapLevelLoaders(const flecs::world& world) {
 		e.set<GridPosition>({.x = j.value("x", 0), .z = j.value("z", 0)});
 	});
 	level::RegisterTag<TilemapFollowTarget>(world, "tilemap_follow_target");
+	level::RegisterComponentLoader(world, "tileset", [](const flecs::entity e, const json& j) {
+		TileSet tile_set;
+		for (const auto& tile_def : j.at("tiles")) {
+			TileDescriptor td{};
+			td.id = tile_def.value("id", 0U);
+			td.name = tile_def.value("name", std::string{});
+			td.color = core::JColorNormalized(tile_def, "color", {1.0F, 1.0F, 1.0F, 1.0F});
+			td.tex_coords = core::JRect(tile_def, "tex_coords");
+			td.walkable = tile_def.value("walkable", true);
+			tile_set.RegisterTile(td);
+		}
+		e.set<TileSet>(tile_set);
+	});
+	level::RegisterComponentLoader(world, "tilemap_spec", [](const flecs::entity e, const json& j) {
+		const std::string map_path = assets::ResolveAsset(e.world(), j.value("map", std::string{}));
 
-	level::RegisterComponentLoader(world, "tilemap", [](const flecs::entity e, const json& j) {
-		auto result = BuildMap(e.world(), assets::ResolveAsset(e.world(), j.value("map", std::string{})));
-		if (!result) {
-			spdlog::error("[Tilemap] Level loader failed to build map '{}'", j.value("map", std::string{}));
+		const auto spec = ParseTilemapSpec(map_path);
+		if (!spec) {
+			spdlog::error("[TilemapSpec] Failed to parse spec from '{}'", map_path);
 			return;
 		}
-		e.set<spatial::Transform>({});
-		e.set<TileSet>(result->tileset.info);
-		e.set<TileRegistry>(result->tileset.registry);
-		e.set<TilemapViewport>({});
-		e.set<Tilemap>(result->tilemap);
+		e.set<TilemapSpec>(*spec);
+	});
+	level::RegisterComponentLoader(world, "tilemap", [](const flecs::entity e, const json& j) {
+		e.set<Tilemap>(TilemapFromJson(j));
 	});
 }
 } // namespace
 
 TilemapModule::TilemapModule(const flecs::world& world) {
-	world.component<TileSet>("TileSet");
+	world.component<TileSet>("TileSet").add<scripting::ScriptTraversal>(world.component<level::UseRegistry>());
 	world.component<Tilemap>("Tilemap");
-	// C++ TileDescriptor: registered for Flecs meta/reflection (serialization, editor) AND exposed
-	// to scripts (below) as a non-owning "TileDescriptor" view handed out by TileRegistry.CreateTile.
+	world.component<TilemapSpec>("TilemapSpec")
+		.member<uint32_t>("width")
+		.member<uint32_t>("height")
+		.member<uint32_t>("tile_size_px")
+		.member<float>("pixels_per_world_unit")
+		.member<uint32_t>("fill_id");
 	const auto td_entity = world.component<TileDescriptor>("TileDescriptor")
 							   .member<uint32_t>("id")
 							   .member<std::string>("name")
@@ -65,7 +81,6 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 							   .member<std::string>("texture_path")
 							   .member<bool>("walkable");
 	world.component<TilemapMeshData>("TilemapMeshData");
-	world.component<TileRegistry>("TileRegistry");
 	world.component<TileCallbackState>("TileCallbackState").member<int>("current_tile_x").member<int>("current_tile_z");
 	world.component<TilemapViewport>("TilemapViewport")
 		.member<int>("buffer_width")
@@ -73,10 +88,13 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 		.member<int>("origin_tile_x")
 		.member<int>("origin_tile_z");
 	world.component<GridPosition>("GridPosition").member<int>("x").member<int>("z");
+	world.component<Tilemap>()
+		.add(flecs::With, world.component<TilemapViewport>())
+		.add(flecs::With, world.component<spatial::Transform>());
 
 	scripting::RegisterComponentForScripts(world, world.component<TileSet>());
 	scripting::RegisterComponentForScripts(world, world.component<Tilemap>());
-	scripting::RegisterComponentForScripts(world, world.component<TileRegistry>());
+	scripting::RegisterComponentForScripts(world, world.component<TilemapSpec>());
 	scripting::RegisterComponentForScripts(world, world.component<TileCallbackState>());
 	scripting::RegisterComponentForScripts(world, world.component<TilemapViewport>());
 	scripting::RegisterComponentForScripts(world, world.component<GridPosition>());
@@ -100,7 +118,7 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 
 	// Expose selected TileDescriptor fields by offset. `color` is a glm::vec4 (contiguous floats),
 	// so r/g/b/a map onto its four components; `id` is set by CreateTile and left read-only.
-	const auto color_offset = static_cast<int>(offsetof(TileDescriptor, color));
+	const auto color_offset = scripting::CalculateOffset(&TileDescriptor::color);
 	const std::vector<scripting::ScriptMethodParam> tile_enter_params = {
 		{.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
 		 .by_reference = false,
@@ -112,55 +130,87 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 		world,
 		td_entity,
 		{
-			{.decl = "bool walkable", .offset = static_cast<int>(offsetof(TileDescriptor, walkable))},
+			{.decl = "bool walkable", .offset = scripting::CalculateOffset(&TileDescriptor::walkable)},
 			{.decl = "float r", .offset = color_offset + 0 * static_cast<int>(sizeof(float))},
 			{.decl = "float g", .offset = color_offset + 1 * static_cast<int>(sizeof(float))},
 			{.decl = "float b", .offset = color_offset + 2 * static_cast<int>(sizeof(float))},
 			{.decl = "float a", .offset = color_offset + 3 * static_cast<int>(sizeof(float))},
 		},
-		{
-			{
-				.name = "OnEnter",
-				.funcdef_name = "TileEnterCallback",
-				.params = tile_enter_params,
-				.sink =
-					[](void* object, scripting::ScriptFunctionHandle* handle) {
-						auto* desc = static_cast<TileDescriptor*>(object);
-						if (!desc) return;
-						if (!handle) {
-							desc->onenter = nullptr; // td.SetOnEnter(null) clears the callback
-							return;
-						}
-						handle->AddRef();
-						const auto handle_sp = std::shared_ptr<scripting::ScriptFunctionHandle>(
-							handle,
-							[](scripting::ScriptFunctionHandle* h) {
-								if (h) h->Release();
-							}
-						);
-						desc->onenter = [handle_sp](const flecs::entity& entity, int tx, int tz) {
-							scripting::ScriptEntityRef entity_ref{entity};
-							const void* args[] = {&entity_ref, &tx, &tz};
-							handle_sp->Invoke(args, 3);
-						};
-					},
-				.invoke =
-					[](void* object, scripting::ScriptCallContext& ctx) {
-						auto* desc = static_cast<TileDescriptor*>(object);
-						if (!desc || !desc->onenter) return;
-						const auto* player = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
-						if (!player) return;
-						desc->onenter(player->GetEntity(), ctx.GetArgInt(1), ctx.GetArgInt(2));
-					},
-			},
-		}
+		{{
+			 .name = "OnEnter",
+			 .funcdef_name = "TileEnterCallbackOnEnter",
+			 .params = tile_enter_params,
+			 .sink =
+				 [](void* object, scripting::ScriptFunctionHandle* handle) {
+					 auto* desc = static_cast<TileDescriptor*>(object);
+					 if (!desc) return;
+					 if (!handle) {
+						 desc->onenter = nullptr; // td.SetOnEnter(null) clears the callback
+						 return;
+					 }
+					 handle->AddRef();
+					 const auto handle_sp = std::shared_ptr<scripting::ScriptFunctionHandle>(
+						 handle,
+						 [](scripting::ScriptFunctionHandle* h) {
+							 if (h) h->Release();
+						 }
+					 );
+					 desc->onenter = [handle_sp](const flecs::entity& entity, int tx, int tz) {
+						 scripting::ScriptEntityRef entity_ref{entity};
+						 const void* args[] = {&entity_ref, &tx, &tz};
+						 handle_sp->Invoke(args, 3);
+					 };
+				 },
+			 .invoke =
+				 [](void* object, const scripting::ScriptCallContext& ctx) {
+					 const auto* desc = static_cast<TileDescriptor*>(object);
+					 if (!desc || !desc->onenter) return;
+					 const auto* player = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
+					 if (!player) return;
+					 desc->onenter(player->GetEntity(), ctx.GetArgInt(1), ctx.GetArgInt(2));
+				 },
+		 },
+		 {
+			 .name = "OnLeave",
+			 .funcdef_name = "TileEnterCallbackOnLeave",
+			 .params = tile_enter_params,
+			 .sink =
+				 [](void* object, scripting::ScriptFunctionHandle* handle) {
+					 auto* desc = static_cast<TileDescriptor*>(object);
+					 if (!desc) return;
+					 if (!handle) {
+						 desc->onleave = nullptr; // td.SetOnLeave(null) clears the callback
+						 return;
+					 }
+					 handle->AddRef();
+					 const auto handle_sp = std::shared_ptr<scripting::ScriptFunctionHandle>(
+						 handle,
+						 [](scripting::ScriptFunctionHandle* h) {
+							 if (h) h->Release();
+						 }
+					 );
+					 desc->onleave = [handle_sp](const flecs::entity& entity, int tx, int tz) {
+						 scripting::ScriptEntityRef entity_ref{entity};
+						 const void* args[] = {&entity_ref, &tx, &tz};
+						 handle_sp->Invoke(args, 3);
+					 };
+				 },
+			 .invoke =
+				 [](void* object, const scripting::ScriptCallContext& ctx) {
+					 const auto* desc = static_cast<TileDescriptor*>(object);
+					 if (!desc || !desc->onleave) return;
+					 const auto* player = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
+					 if (!player) return;
+					 desc->onleave(player->GetEntity(), ctx.GetArgInt(1), ctx.GetArgInt(2));
+				 },
+		 }}
 	);
 
 	// TileRegistry.CreateTile(id) — returns a non-owning handle to the registry's descriptor for
 	// `id` (creating it if absent). The script sets fields and the onEnter callback on the handle.
 	scripting::RegisterComponentMethodForScripts(
 		world,
-		world.component<TileRegistry>(),
+		world.component<TileSet>(),
 		{
 			.name = "CreateTile",
 			.return_type = scripting::ScriptValueType::MakeObjectHandle(td_entity),
@@ -168,7 +218,7 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 			.is_const = false,
 		},
 		[](scripting::ScriptCallContext& ctx) {
-			auto* registry = static_cast<TileRegistry*>(ctx.GetObject());
+			auto* registry = static_cast<TileSet*>(ctx.GetObject());
 			if (!registry) return;
 			const auto id = static_cast<uint32_t>(ctx.GetArgInt(0));
 			TileDescriptor& desc = registry->tiles[id];
@@ -177,98 +227,94 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 		}
 	);
 
-	// Tile callbacks are std::functions holding script-function handles, so they are released
-	// naturally when a TileRegistry (its tile map) is destroyed — e.g. on scene unload, while the
-	// script engine is still alive. This shutdown hook covers the *final* world teardown instead:
-	// at ecs_fini the AngelScript backend may be released before the tilemap entity, so clear the
-	// handles here (deterministically, before ShutDownAndRelease) to avoid releasing a script
-	// function through a dead engine. A TileRegistry destructor could not guarantee this ordering.
-	scripting::RegisterScriptShutdownCallback(world, [](flecs::world& shutdown_world) {
-		shutdown_world.query<TileRegistry>().each([](flecs::entity, TileRegistry& registry) {
-			for (auto& desc : registry.tiles | std::views::values) {
-				desc.onenter = nullptr;
-				desc.onleave = nullptr;
-				desc.within = nullptr;
+	TilemapMeshBuilder::Register(world);
+	TileCallbackSystem::Register(world);
+	RegisterTilemapLevelLoaders(world);
+
+	// === OBSERVERS ===
+	auto tilemap_query = world.query_builder<const Tilemap, TilemapViewport>().cached().build();
+
+	world.observer<const spatial::Transform>("TilemapComputeViewportFromCamera")
+		.with<render::Camera>() // only camera entities
+		.event(flecs::OnSet)
+		.each([tilemap_query](const flecs::entity e, const spatial::Transform& transform) {
+			const auto& camera = e.get<const render::Camera>();
+			const float cam_y = std::abs(transform.position.y);
+			if (cam_y <= 0.0f) return;
+
+			const float half_vfov = glm::radians(camera.fov * 0.5f);
+			const float half_hfov = std::atan(camera.aspect_ratio * std::tan(half_vfov));
+
+			tilemap_query.each([&](const flecs::entity tilemap_entity, const Tilemap& tm, TilemapViewport& vp) {
+				if (vp.buffer_width > 0) return; // already sized (e.g. multiple cameras)
+
+				const float tile_size = TileWorldSize(tm);
+				const int vis_w = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_hfov) / tile_size));
+				const int vis_h = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_vfov) / tile_size));
+				vp.buffer_width = std::min(vis_w + 4, static_cast<int>(tm.width));
+				vp.buffer_height = std::min(vis_h + 4, static_cast<int>(tm.height));
+
+				tilemap_entity.modified<Tilemap>(); // triggers TilemapBuildMesh with correct buffer
+			});
+		});
+
+	world.observer<const TilemapSpec>("TilemapBakeOnSpec")
+		.event(flecs::OnSet)
+		.each([](const flecs::entity e, const TilemapSpec& spec) {
+			if (e.has<Tilemap>() || spec.width == 0 || spec.height == 0) return;
+			const TileSet* registry = nullptr;
+			if (const flecs::entity reg_e = e.target<level::UseRegistry>(); reg_e.is_valid()) {
+				registry = reg_e.try_get<TileSet>();
+			}
+			if (!registry) return; // defer until registry is available
+			e.set<Tilemap>(BakeSpec(spec, registry));
+		});
+
+	world.observer<const TileSet>("TilemapBakeOnRegistry")
+		.event(flecs::OnSet)
+		.with<TilemapSpec>()
+		.each([](const flecs::entity e, const TileSet& registry) {
+			if (e.has<Tilemap>()) return;
+			const auto* spec = e.try_get<TilemapSpec>();
+			if (!spec || spec->width == 0 || spec->height == 0) return;
+			e.set<Tilemap>(BakeSpec(*spec, &registry));
+		});
+
+	world.observer<>("TilemapBakeOnUseRegistry")
+		.event(flecs::OnAdd)
+		.with<level::UseRegistry>(flecs::Wildcard)
+		.with<TilemapSpec>()
+		.run([](flecs::iter& it) {
+			while (it.next()) {
+				for (const size_t i : it) {
+					const flecs::entity e = it.entity(i);
+					if (e.has<Tilemap>()) continue;
+					const auto* spec = e.try_get<TilemapSpec>();
+					const auto* registry = e.target<level::UseRegistry>().try_get<TileSet>();
+					if (!spec || !registry || spec->width == 0 || spec->height == 0) continue;
+					e.set<Tilemap>(BakeSpec(*spec, registry));
+				}
 			}
 		});
-	});
-
-	// Register tilemap mesh-building observers
-	TilemapMeshBuilder::Register(world);
-
-	// === OBSERVER: Apply NEAREST + CLAMP_TO_EDGE to tileset atlas textures ===
-	// With the RenderWith pattern, AlbedoMap lives on a material entity that is a child of the
-	// tilemap entity (which has TileSet). The .self().up() on TileSet matches entities whose
-	// own or ChildOf-ancestor entity has TileSet — no manual parent traversal needed.
-	// NEAREST prevents bilinear bleeding across atlas boundaries; CLAMP_TO_EDGE stops wrapping.
-	world.observer<const render::AlbedoMap>("TilesetTextureParams")
-		.with<TileSet>()
-		.self()
-		.up()
-		.event(flecs::OnSet)
-		.each([](const flecs::iter& it, size_t, const render::AlbedoMap& albedo) {
-			if (albedo.handle < 0) return;
-			auto& platform_ref = it.world().get<platform::PlatformRef>();
-			platform_ref.ptr->SetTextureFilter(albedo.handle, false); // NEAREST
-			platform_ref.ptr->SetTextureWrap(albedo.handle, true);    // CLAMP_TO_EDGE
-		});
-
-	// === OBSERVER: Compute TilemapViewport buffer size from camera configuration ===
-	// Fires when Transform is set on a camera entity (which already has render::Camera set).
-	// Reads the actual camera's FOV, aspect ratio, and height to size the streaming buffer to cover
-	// the full 3D viewport plus a few tiles of padding. Triggers a Tilemap mesh rebuild so the
-	// buffer-sized mesh is built before the first streaming update.
-	{
-		auto tilemap_query = world.query_builder<const Tilemap, TilemapViewport>().cached().build();
-
-		world.observer<const spatial::Transform>("TilemapComputeViewportFromCamera")
-			.with<render::Camera>() // only camera entities
-			.event(flecs::OnSet)
-			.each([tilemap_query](const flecs::entity e, const spatial::Transform& transform) {
-				const auto& camera = e.get<const render::Camera>();
-				const float cam_y = std::abs(transform.position.y);
-				if (cam_y <= 0.0f) return;
-
-				const float half_vfov = glm::radians(camera.fov * 0.5f);
-				const float half_hfov = std::atan(camera.aspect_ratio * std::tan(half_vfov));
-
-				tilemap_query.each([&](const flecs::entity tilemap_entity, const Tilemap& tm, TilemapViewport& vp) {
-					if (vp.buffer_width > 0) return; // already sized (e.g. multiple cameras)
-
-					const float tile_size = TileWorldSize(tm);
-					const int vis_w = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_hfov) / tile_size));
-					const int vis_h = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_vfov) / tile_size));
-					vp.buffer_width = std::min(vis_w + 4, static_cast<int>(tm.width));
-					vp.buffer_height = std::min(vis_h + 4, static_cast<int>(tm.height));
-
-					tilemap_entity.modified<Tilemap>(); // triggers TilemapBuildMesh with correct buffer
-				});
-			});
-	}
 
 	// === SYSTEM: Streaming update for viewport-mode tilemaps ===
-	// Centers on the TilemapFollowTarget entity: when it crosses a tile boundary, repositions the
-	// fixed ring-buffer mesh via its local Transform and refreshes the buffer's UVs+colors to show the
-	// tiles at the new origin. With no follow target it simply doesn't move (the mesh is still built by
-	// the observer pipeline). Skips until the buffer is sized by the camera observer above.
-	auto follow_query = world.query_builder<const spatial::WorldTransform>().with<TilemapFollowTarget>().cached().build();
+	auto follow_query =
+		world.query_builder<const spatial::WorldTransform>().with<TilemapFollowTarget>().cached().build();
 
 	std::ignore =
 		world
-			.system<
-				Tilemap,
-				TilemapViewport,
-				const TileRegistry,
-				const TileSet,
-				const render::DynamicMesh,
-				spatial::Transform>("TilemapStreamingUpdate")
+			.system<Tilemap, TilemapViewport, const TileSet, const render::DynamicMesh, spatial::Transform>(
+				"TilemapStreamingUpdate"
+			)
+			.term_at(2)
+			.self()
+			.up<level::UseRegistry>()
 			.kind(flecs::OnUpdate)
 			.each([follow_query](
 					  const flecs::iter& it,
-					  size_t,
+					  size_t i,
 					  const Tilemap& tm,
 					  TilemapViewport& vp,
-					  const TileRegistry& registry,
 					  const TileSet& tileset,
 					  const render::DynamicMesh& dyn_mesh,
 					  spatial::Transform& transform
@@ -310,19 +356,21 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 				// parented like any other entity instead of pinning its world matrix here.
 				transform.position = origin_pos;
 
+				const auto sprite_atlas = it.entity(i).target<render::UseSpriteAtlas>().try_get<render::SpriteAtlas>();
+
 				// Rebuild UVs and vertex colors for all buffer slots
-				const auto tex_w = static_cast<float>(tileset.image_width_px);
-				const auto tex_h = static_cast<float>(tileset.image_height_px);
+				const auto tex_w = static_cast<float>(sprite_atlas->image_width_px);
+				const auto tex_h = static_cast<float>(sprite_atlas->image_height_px);
 
 				std::vector<glm::vec2> uvs;
 				std::vector<glm::vec4> colors;
-				uvs.reserve(static_cast<size_t>(bw * bh * 4));
-				colors.reserve(static_cast<size_t>(bw * bh * 4));
+				uvs.reserve(bw * bh * 4);
+				colors.reserve(bw * bh * 4);
 
 				for (int bz = 0; bz < bh; ++bz) {
 					for (int bx = 0; bx < bw; ++bx) {
 						const uint32_t tile_id = GetTileIdAt(tm, desired_x + bx, desired_z + bz);
-						const auto* desc = registry.GetTile(tile_id);
+						const auto* desc = tileset.GetTile(tile_id);
 
 						glm::vec2 uv0{0.0f}, uv1{0.0f};
 						glm::vec4 color{1.0f};
@@ -351,11 +399,6 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 				platform_ref.ptr->UpdateDynamicMeshColors(dyn_mesh.handle, colors);
 			})
 			.add<scene::GameScene>();
-
-	// Register tile callback system
-	TileCallbackSystem::Register(world);
-
-	RegisterTilemapLevelLoaders(world);
 
 	spdlog::info("[TilemapModule] Registered tilemap components and systems with Flecs");
 }

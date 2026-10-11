@@ -22,8 +22,8 @@ struct ParticleEmitter {
 	float startSize{0.15F};
 	float spread{0.5F};
 	glm::vec3 direction{0.0F, 1.0F, 0.0F};
-	core::Rgba colorStart{255, 255, 255, 255};
-	core::Rgba colorEnd{255, 255, 255, 0};
+	core::Rgba colorStart{.r = 255, .g = 255, .b = 255, .a = 255};
+	core::Rgba colorEnd{.r = 255, .g = 255, .b = 255, .a = 0};
 	bool emitting{true};
 };
 
@@ -34,8 +34,8 @@ struct Particle {
 	float age{0.0F};
 	float lifetime{1.0F};
 	float startSize{0.15F};
-	core::Rgba colorStart{255, 255, 255, 255};
-	core::Rgba colorEnd{255, 255, 255, 0};
+	core::Rgba colorStart{.r = 255, .g = 255, .b = 255, .a = 255};
+	core::Rgba colorEnd{.r = 255, .g = 255, .b = 255, .a = 0};
 };
 
 } // namespace engine::particles

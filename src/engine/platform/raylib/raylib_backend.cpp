@@ -1,6 +1,7 @@
 #include "raylib_backend.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -12,11 +13,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <raylib.h>
+#include <raymath.h>
 #include <rlgl.h>
 #include <spdlog/spdlog.h>
 
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
+#include "engine/platform/render_batch.hpp"
+#include "engine/profiling/profiling.hpp"
 
 using engine::core::Rect;
 using engine::core::Rgba;
@@ -132,6 +136,51 @@ struct LitState {
 
 LitState g_lit;
 
+// Instanced-rendering resources: a variant of the lit shader whose vertex stage reads the model
+// matrix and colour from per-instance vertex attributes, so many copies of one primitive draw in a
+// single call. Populated alongside g_lit once GL is ready. Backend-local: these are raw GL/raylib
+// resource handles; a future GLFW/Vulkan backend implements SubmitBatch with its own machinery.
+struct InstancedState {
+	bool ready = false;
+	Shader shader{};
+
+	// Custom vertex-attribute locations for the per-instance data (queried after link).
+	int attr_transform = -1; // "instanceTransform" (mat4 → occupies attr_transform .. +3)
+	int attr_color = -1;     // "instanceColor" (vec4)
+
+	// Uniform locations. mvp/colDiffuse/texture0 are bound by raylib; the rest match lit.fs/vs.
+	int loc_mvp = -1;
+	int loc_col_diffuse = -1;
+	int loc_light_dir = -1;
+	int loc_light_color = -1;
+	int loc_ambient = -1;
+	int loc_view_pos = -1;
+	int loc_specular = -1;
+	int loc_shininess = -1;
+	int loc_shadow_pass = -1;
+	int loc_shadow_color = -1;
+	int loc_shadow_matrix = -1;
+};
+
+InstancedState g_inst;
+
+// A mesh that can be GPU-instanced. Owns the base geometry plus persistent per-instance VBOs
+// (transform + colour) attached to the mesh VAO, grown on demand. Built-in primitives register
+// here at init; RenderCommand::mesh indexes this vector.
+struct RenderMesh {
+	Mesh mesh{};
+	unsigned int transform_vbo = 0;
+	unsigned int color_vbo = 0;
+	int instance_capacity = 0;
+};
+
+std::vector<RenderMesh> g_render_meshes;
+
+// Cached lighting state so the instanced shader (a separate program from g_lit) can be fed the same
+// uniforms at batch time. Updated by SetLighting / BeginMode3D.
+LightParams g_light_params;
+glm::vec3 g_view_pos{0.0f};
+
 Texture2D ResolveTextureHandle(const int texture, const Texture2D& fallback) {
 	return (texture >= 0 && texture < static_cast<int>(g_textures.size())) ? g_textures[static_cast<size_t>(texture)]
 																		   : fallback;
@@ -167,7 +216,7 @@ Matrix ToRayMatrix(const glm::mat4& m) {
 	return r;
 }
 
-void DrawMeshWithMaterial(const Mesh& mesh, Material& material, const glm::mat4& model, const bool wireframe) {
+void DrawMeshWithMaterial(const Mesh& mesh, const Material& material, const glm::mat4& model, const bool wireframe) {
 	if (wireframe) {
 		rlEnableWireMode();
 	}
@@ -438,7 +487,7 @@ bool DrawCustomMesh(
 	const DrawMaterial& material,
 	const Texture2D& fallback_texture
 ) {
-	auto* entry = ResolveCustomShaderEntry(material.shader);
+	const auto* entry = ResolveCustomShaderEntry(material.shader);
 	if (entry == nullptr) {
 		return false;
 	}
@@ -451,13 +500,215 @@ bool DrawCustomMesh(
 }
 
 bool DrawCustomMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial& material) {
-	if (auto* entry = ResolveCustomShaderEntry(material.shader)) {
+	if (const auto* entry = ResolveCustomShaderEntry(material.shader)) {
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(material.texture, entry->white);
 		DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
 		return true;
 	}
 	return false;
+}
+
+// Builds the instanced lit shader and registers the built-in unit primitive meshes used for
+// GPU-instanced batching. Call after InitLitResources; on shader-load failure g_inst.ready stays
+// false and SubmitBatch falls back to per-item immediate draws.
+void InitInstancedResources() {
+	if (g_inst.ready) return;
+
+#if defined(__EMSCRIPTEN__)
+	const std::string dir = std::string("/assets/shaders/") + kGlslDir;
+#else
+	const std::string dir = std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
+#endif
+	const std::string vs = dir + "/lit_inst.vs";
+	const std::string fs = dir + "/lit.fs";
+
+	g_inst.shader = LoadShader(vs.c_str(), fs.c_str());
+	if (g_inst.shader.id == rlGetShaderIdDefault()) {
+		TraceLog(LOG_WARNING, "[RaylibBackend] Instanced shader failed to load; batching uses per-item draws");
+		return;
+	}
+
+	// Per-instance attribute locations are assigned by the linker; query them by name.
+	g_inst.attr_transform = GetShaderLocationAttrib(g_inst.shader, "instanceTransform");
+	g_inst.attr_color = GetShaderLocationAttrib(g_inst.shader, "instanceColor");
+	// raylib auto-binds mvp/colDiffuse/texture0 into shader.locs; the rest are custom uniforms.
+	g_inst.loc_mvp = g_inst.shader.locs[SHADER_LOC_MATRIX_MVP];
+	g_inst.loc_col_diffuse = g_inst.shader.locs[SHADER_LOC_COLOR_DIFFUSE];
+	g_inst.loc_light_dir = GetShaderLocation(g_inst.shader, "lightDir");
+	g_inst.loc_light_color = GetShaderLocation(g_inst.shader, "lightColor");
+	g_inst.loc_ambient = GetShaderLocation(g_inst.shader, "ambient");
+	g_inst.loc_view_pos = GetShaderLocation(g_inst.shader, "viewPos");
+	g_inst.loc_specular = GetShaderLocation(g_inst.shader, "specularStrength");
+	g_inst.loc_shininess = GetShaderLocation(g_inst.shader, "shininess");
+	g_inst.loc_shadow_pass = GetShaderLocation(g_inst.shader, "shadowPass");
+	g_inst.loc_shadow_color = GetShaderLocation(g_inst.shader, "shadowColor");
+	g_inst.loc_shadow_matrix = GetShaderLocation(g_inst.shader, "shadowMatrix");
+
+	if (g_inst.attr_transform < 0 || g_inst.attr_color < 0) {
+		TraceLog(LOG_WARNING, "[RaylibBackend] Instanced shader missing per-instance attributes; batching disabled");
+		UnloadShader(g_inst.shader);
+		g_inst = InstancedState{};
+		return;
+	}
+
+	// Register the built-in primitives. Order MUST match PrimitiveShape. These meshes are dedicated
+	// to instancing so their VAO instance-attribute state never affects the immediate-mode path.
+	g_render_meshes.clear();
+	g_render_meshes.push_back({.mesh = GenMeshCube(1.0f, 1.0f, 1.0f)});   // PrimitiveShape::Cube
+	g_render_meshes.push_back({.mesh = GenMeshSphere(1.0f, 24, 24)});     // PrimitiveShape::Sphere
+	g_render_meshes.push_back({.mesh = GenMeshPlane(1.0f, 1.0f, 1, 1)});  // PrimitiveShape::Plane
+	g_render_meshes.push_back({.mesh = GenMeshCylinder(1.0f, 1.0f, 24)}); // PrimitiveShape::Cylinder
+
+	g_inst.ready = true;
+}
+
+void ShutdownInstancedResources() {
+	if (!g_inst.ready) return;
+	for (RenderMesh& rm : g_render_meshes) {
+		if (rm.transform_vbo != 0) rlUnloadVertexBuffer(rm.transform_vbo);
+		if (rm.color_vbo != 0) rlUnloadVertexBuffer(rm.color_vbo);
+		if (rm.mesh.vertexCount != 0) UnloadMesh(rm.mesh);
+	}
+	g_render_meshes.clear();
+	UnloadShader(g_inst.shader);
+	g_inst = InstancedState{};
+}
+
+// Pushes the cached scene lighting onto the instanced shader (a separate program from g_lit, so it
+// needs its own uniform uploads).
+void UploadInstancedLighting() {
+	const glm::vec3 dir = glm::normalize(g_light_params.direction);
+	const float dir_v[3] = {dir.x, dir.y, dir.z};
+	SetShaderValue(g_inst.shader, g_inst.loc_light_dir, dir_v, SHADER_UNIFORM_VEC3);
+
+	const float light_col[4] = {
+		static_cast<float>(g_light_params.light_color.r) / 255.0f,
+		static_cast<float>(g_light_params.light_color.g) / 255.0f,
+		static_cast<float>(g_light_params.light_color.b) / 255.0f,
+		g_light_params.light_intensity,
+	};
+	SetShaderValue(g_inst.shader, g_inst.loc_light_color, light_col, SHADER_UNIFORM_VEC4);
+
+	const float ambient[4] = {
+		static_cast<float>(g_light_params.ambient_color.r) / 255.0f,
+		static_cast<float>(g_light_params.ambient_color.g) / 255.0f,
+		static_cast<float>(g_light_params.ambient_color.b) / 255.0f,
+		g_light_params.ambient_intensity,
+	};
+	SetShaderValue(g_inst.shader, g_inst.loc_ambient, ambient, SHADER_UNIFORM_VEC4);
+
+	const float view_pos[3] = {g_view_pos.x, g_view_pos.y, g_view_pos.z};
+	SetShaderValue(g_inst.shader, g_inst.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
+	SetShaderValue(g_inst.shader, g_inst.loc_specular, &g_light_params.specular_strength, SHADER_UNIFORM_FLOAT);
+	SetShaderValue(g_inst.shader, g_inst.loc_shininess, &g_light_params.shininess, SHADER_UNIFORM_FLOAT);
+}
+
+// (Re)allocates the per-instance VBOs on a RenderMesh when capacity must grow, attaching them to the
+// mesh VAO with attribute divisor 1. instanceTransform occupies 4 consecutive vec4 attribute slots.
+void EnsureInstanceBuffers(RenderMesh& rm, const int count) {
+	if (count <= rm.instance_capacity && rm.transform_vbo != 0) return;
+
+	rlEnableVertexArray(rm.mesh.vaoId);
+
+	if (rm.transform_vbo != 0) rlUnloadVertexBuffer(rm.transform_vbo);
+	if (rm.color_vbo != 0) rlUnloadVertexBuffer(rm.color_vbo);
+
+	const auto tx = static_cast<unsigned int>(g_inst.attr_transform);
+	rm.transform_vbo = rlLoadVertexBuffer(nullptr, count * static_cast<int>(sizeof(glm::mat4)), true);
+	for (unsigned int c = 0; c < 4; ++c) {
+		rlSetVertexAttribute(tx + c, 4, RL_FLOAT, false, sizeof(glm::mat4), static_cast<int>(c * sizeof(glm::vec4)));
+		rlSetVertexAttributeDivisor(tx + c, 1);
+		rlEnableVertexAttribute(tx + c);
+	}
+
+	const auto cl = static_cast<unsigned int>(g_inst.attr_color);
+	rm.color_vbo = rlLoadVertexBuffer(nullptr, count * static_cast<int>(sizeof(glm::vec4)), true);
+	rlSetVertexAttribute(cl, 4, RL_FLOAT, false, sizeof(glm::vec4), 0);
+	rlSetVertexAttributeDivisor(cl, 1);
+	rlEnableVertexAttribute(cl);
+
+	rm.instance_capacity = count;
+	rlDisableVertexArray();
+}
+
+// Issues one instanced draw (plus an optional planar-shadow pass) for a group of same-key commands.
+// Returns the number of GL draw calls made.
+int DrawInstancedGroup(
+	RenderMesh& rm,
+	const DrawMaterial& material,
+	const std::vector<glm::mat4>& transforms,
+	const std::vector<glm::vec4>& colors
+) {
+	const int count = static_cast<int>(transforms.size());
+	if (count == 0) return 0;
+
+	EnsureInstanceBuffers(rm, count);
+	rlUpdateVertexBuffer(rm.transform_vbo, transforms.data(), count * static_cast<int>(sizeof(glm::mat4)), 0);
+	rlUpdateVertexBuffer(rm.color_vbo, colors.data(), count * static_cast<int>(sizeof(glm::vec4)), 0);
+
+	rlEnableShader(g_inst.shader.id);
+
+	// mvp = view * projection; the per-instance model matrix is applied inside the shader.
+	const Matrix mat_view = rlGetMatrixModelview();
+	const Matrix mat_proj = rlGetMatrixProjection();
+	rlSetUniformMatrix(g_inst.loc_mvp, MatrixMultiply(mat_view, mat_proj));
+
+	UploadInstancedLighting();
+
+	// The tint is carried per-instance, so colDiffuse stays white.
+	const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+	if (g_inst.loc_col_diffuse >= 0) {
+		SetShaderValue(g_inst.shader, g_inst.loc_col_diffuse, white, SHADER_UNIFORM_VEC4);
+	}
+
+	// Bind the albedo texture (or the 1x1 white fallback) to sampler slot 0.
+	const Texture2D tex = ResolveTextureHandle(material.texture, g_lit.white);
+	rlActiveTextureSlot(0);
+	rlEnableTexture(tex.id);
+	const int slot0 = 0;
+	if (g_inst.shader.locs[SHADER_LOC_MAP_DIFFUSE] >= 0) {
+		SetShaderValue(g_inst.shader, g_inst.shader.locs[SHADER_LOC_MAP_DIFFUSE], &slot0, SHADER_UNIFORM_INT);
+	}
+
+	constexpr float kOff = 0.0f;
+	constexpr float kOn = 1.0f;
+	SetShaderValue(g_inst.shader, g_inst.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+
+	auto issue = [&] {
+		rlEnableVertexArray(rm.mesh.vaoId);
+		if (rm.mesh.indices != nullptr) {
+			rlDrawVertexArrayElementsInstanced(0, rm.mesh.triangleCount * 3, nullptr, count);
+		}
+		else {
+			rlDrawVertexArrayInstanced(0, rm.mesh.vertexCount, count);
+		}
+		rlDisableVertexArray();
+	};
+
+	issue();
+	int draws = 1;
+
+	if (material.cast_shadow && g_lit.shadows_enabled) {
+		rlSetUniformMatrix(g_inst.loc_shadow_matrix, ToRayMatrix(g_lit.shadow_matrix));
+		const float shadow_col[4] = {
+			static_cast<float>(g_light_params.shadow_color.r) / 255.0f,
+			static_cast<float>(g_light_params.shadow_color.g) / 255.0f,
+			static_cast<float>(g_light_params.shadow_color.b) / 255.0f,
+			static_cast<float>(g_light_params.shadow_color.a) / 255.0f,
+		};
+		SetShaderValue(g_inst.shader, g_inst.loc_shadow_color, shadow_col, SHADER_UNIFORM_VEC4);
+		SetShaderValue(g_inst.shader, g_inst.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
+		rlDisableDepthMask();
+		issue();
+		rlEnableDepthMask();
+		SetShaderValue(g_inst.shader, g_inst.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+		++draws;
+	}
+
+	rlDisableTexture();
+	rlDisableShader();
+	return draws;
 }
 } // namespace
 
@@ -467,11 +718,13 @@ void RaylibBackend::Init(const int width, const int height, const std::string_vi
 	SetTargetFPS(60);
 	InitAudioDevice();
 	InitLitResources();
+	InitInstancedResources();
 }
 
 bool RaylibBackend::ShouldClose() const { return WindowShouldClose(); }
 
 void RaylibBackend::Shutdown() {
+	ShutdownInstancedResources();
 	ShutdownLitResources();
 	for (const Texture2D& t : g_textures) {
 		if (t.id != 0) {
@@ -523,6 +776,8 @@ float RaylibBackend::DeltaTime() const { return GetFrameTime(); }
 
 double RaylibBackend::Time() const { return GetTime(); }
 
+int RaylibBackend::Fps() const { return GetFPS(); }
+
 std::string RaylibBackend::AssetDirectory() const {
 #if defined(__EMSCRIPTEN__)
 	return "/assets";
@@ -532,11 +787,15 @@ std::string RaylibBackend::AssetDirectory() const {
 }
 
 void RaylibBackend::BeginFrame(const Rgba clear) {
+	profiling::Zone _zone{"Platform::BeginFrame"};
 	BeginDrawing();
 	ClearBackground(ToRay(clear));
 }
 
-void RaylibBackend::EndFrame() { EndDrawing(); }
+void RaylibBackend::EndFrame() {
+	profiling::Zone _zone{"Platform::EndFrame"}; // includes GPU present/vsync wait
+	EndDrawing();
+}
 
 glm::vec2 RaylibBackend::MousePosition() const {
 	const auto [x, y] = GetMousePosition();
@@ -563,6 +822,10 @@ bool RaylibBackend::IsKeyDown(const int key_code) const {
 	// Map our platform-agnostic key codes to Raylib key codes
 	// For now, support ASCII keys and special keys from Raylib
 	return ::IsKeyDown(KeyCodeToRay(key_code));
+}
+
+bool RaylibBackend::IsKeyPressedRepeat(const int key_code) const {
+	return ::IsKeyPressed(KeyCodeToRay(key_code)) || ::IsKeyPressedRepeat(KeyCodeToRay(key_code));
 }
 
 bool RaylibBackend::IsMouseButtonDown(const int button) const {
@@ -639,9 +902,9 @@ void RaylibBackend::DrawTexturedRect(const int texture, const Rect dest, const R
 	const Texture2D& tex = g_textures[static_cast<std::size_t>(texture)];
 	// Source rect the size of the destination: texels beyond the texture wrap (default REPEAT), so
 	// the art tiles at 1:1 texel:pixel instead of stretching.
-	const Rectangle src{0.0F, 0.0F, dest.w, dest.h};
-	const Rectangle dst{dest.x, dest.y, dest.w, dest.h};
-	DrawTexturePro(tex, src, dst, Vector2{0.0F, 0.0F}, 0.0F, ToRay(tint));
+	const Rectangle src{.x = 0.0F, .y = 0.0F, .width = dest.w, .height = dest.h};
+	const Rectangle dst{.x = dest.x, .y = dest.y, .width = dest.w, .height = dest.h};
+	DrawTexturePro(tex, src, dst, Vector2{.x = 0.0F, .y = 0.0F}, 0.0F, ToRay(tint));
 }
 
 void RaylibBackend::BeginScissor(const Rect r) {
@@ -651,6 +914,7 @@ void RaylibBackend::BeginScissor(const Rect r) {
 void RaylibBackend::EndScissor() { EndScissorMode(); }
 
 void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
+	profiling::Zone _zone{"Platform::BeginMode3D"};
 	const Camera3D cam{
 		.position = ToRay(camera.position),
 		.target = ToRay(camera.target),
@@ -660,6 +924,8 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	};
 	::BeginMode3D(cam);
 
+	g_view_pos = camera.position;
+
 	// Feed the camera position to the lit shader for specular highlights.
 	if (g_lit.ready) {
 		const float view_pos[3] = {camera.position.x, camera.position.y, camera.position.z};
@@ -667,9 +933,13 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	}
 }
 
-void RaylibBackend::EndMode3D() { ::EndMode3D(); }
+void RaylibBackend::EndMode3D() {
+	profiling::Zone _zone{"Platform::EndMode3D"};
+	::EndMode3D();
+}
 
 void RaylibBackend::SetLighting(const LightParams& lighting) {
+	g_light_params = lighting; // cached so the instanced shader can be fed the same values
 	if (!g_lit.ready) return;
 
 	const glm::vec3 dir = glm::normalize(lighting.direction);
@@ -885,12 +1155,83 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 	}
 }
 
+int RaylibBackend::PrimitiveMesh(const PrimitiveShape shape) const {
+	const auto index = static_cast<int>(shape);
+	return index < static_cast<int>(g_render_meshes.size()) ? index : -1;
+}
+
+BatchStats RaylibBackend::SubmitBatch(const std::span<const RenderCommand> commands) {
+	profiling::Zone _zone{"Platform::SubmitBatch"};
+	BatchStats stats{};
+	if (commands.empty()) return stats;
+
+	const auto t0 = std::chrono::steady_clock::now();
+	std::vector<uint32_t> order;
+	const std::vector<RenderBatchGroup> groups = GroupRenderCommands(commands, order);
+	const auto t1 = std::chrono::steady_clock::now();
+	stats.group_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+	// Scratch buffers reused across groups to avoid per-group allocation.
+	std::vector<glm::mat4> transforms;
+	std::vector<glm::vec4> colors;
+
+	for (const RenderBatchGroup& group : groups) {
+		const RenderCommand& head = commands[order[group.begin]];
+		const DrawMaterial& material = head.material;
+		RenderMesh* rm = (head.mesh >= 0 && head.mesh < static_cast<int>(g_render_meshes.size()))
+							 ? &g_render_meshes[static_cast<size_t>(head.mesh)]
+							 : nullptr;
+
+		// Instancing handles the default lit path (no custom shader, not wireframe). Everything else
+		// falls back to per-item immediate draws, which already support those cases.
+		const bool instanceable = rm != nullptr && g_inst.ready && material.shader < 0 && !material.wireframe;
+
+		if (!instanceable) {
+			for (uint32_t k = 0; k < group.count; ++k) {
+				const RenderCommand& cmd = commands[order[group.begin + k]];
+				if (rm == nullptr) continue;
+				if (!DrawCustomMesh(rm->mesh, cmd.transform, cmd.material)) {
+					if (g_lit.ready) {
+						DrawLitMesh(rm->mesh, cmd.transform, cmd.material);
+					}
+				}
+				stats.draw_calls += 1;
+				stats.instances += 1;
+			}
+			continue;
+		}
+
+		transforms.clear();
+		colors.clear();
+		transforms.reserve(group.count);
+		colors.reserve(group.count);
+		for (uint32_t k = 0; k < group.count; ++k) {
+			const RenderCommand& cmd = commands[order[group.begin + k]];
+			transforms.push_back(cmd.transform);
+			const core::Rgba t = cmd.material.tint;
+			colors.emplace_back(
+				static_cast<float>(t.r) / 255.0f,
+				static_cast<float>(t.g) / 255.0f,
+				static_cast<float>(t.b) / 255.0f,
+				static_cast<float>(t.a) / 255.0f
+			);
+		}
+
+		stats.draw_calls += DrawInstancedGroup(*rm, material, transforms, colors);
+		stats.instances += static_cast<int>(group.count);
+	}
+
+	const auto t2 = std::chrono::steady_clock::now();
+	stats.draw_ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+	return stats;
+}
+
 int RaylibBackend::LoadMesh(const std::string_view path) {
 	const std::string key{path};
 	if (const auto it = g_model_paths.find(key); it != g_model_paths.end()) {
 		return it->second;
 	}
-	Model model = ::LoadModel(key.c_str());
+	const Model model = ::LoadModel(key.c_str());
 	// Route the model through the lit shader so it receives the same Phong lighting as primitives.
 	if (g_lit.ready) {
 		for (int i = 0; i < model.materialCount; ++i) {
@@ -1022,7 +1363,7 @@ void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform
 		for (int i = 0; i < mesh.triangleCount; i++) {
 			rlBegin(RL_TRIANGLES);
 			for (int v = 0; v < 3; v++) {
-				int vidx = mesh.indices[i * 3 + v];
+				const int vidx = mesh.indices[i * 3 + v];
 				if (mesh.colors) {
 					rlColor4ub(
 						mesh.colors[vidx * 4],
@@ -1146,6 +1487,33 @@ int RaylibBackend::LoadTexture(const std::string_view path) {
 	g_textures.push_back(texture);
 	g_texture_paths[key] = handle;
 	return handle;
+}
+
+int RaylibBackend::UploadTexture(const int width, const int height, const std::vector<uint8_t>& rgba) {
+	Image img{};
+	img.data = const_cast<uint8_t*>(rgba.data()); // LoadTextureFromImage copies data; safe to use const ptr here
+	img.width = width;
+	img.height = height;
+	img.mipmaps = 1;
+	img.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+	const Texture2D tex = ::LoadTextureFromImage(img);
+	if (tex.id == 0) {
+		return -1;
+	}
+	const int handle = static_cast<int>(g_textures.size());
+	g_textures.push_back(tex);
+	return handle;
+}
+
+void RaylibBackend::UpdateTexture(const int handle, const std::vector<uint8_t>& rgba) {
+	if (handle < 0 || handle >= static_cast<int>(g_textures.size())) {
+		return;
+	}
+	const Texture2D& tex = g_textures[static_cast<size_t>(handle)];
+	if (tex.id == 0) {
+		return;
+	}
+	::UpdateTexture(tex, rgba.data());
 }
 
 int RaylibBackend::LoadSound(const std::string_view path) {

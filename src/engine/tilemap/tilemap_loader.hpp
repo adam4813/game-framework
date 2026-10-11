@@ -1,43 +1,31 @@
 #pragma once
 
 #include <optional>
-#include <string>
 #include <string_view>
-#include <unordered_map>
 
-#include <flecs.h>
+#include <nlohmann/json.hpp>
 
 #include "tilemap_components.hpp"
 
 namespace engine::tilemap {
 
-// A parsed tileset: the TileSet component (texture + atlas dimensions), the tile registry
-// (descriptors keyed by id), and a name → id lookup for resolving tile references in map ops. The
-// caller owns the registry and may inject tile behaviour (onenter/within/onleave) into it before it
-// is placed on an entity.
-struct LoadedTileset {
-	TileSet info;
-	TileRegistry registry;
-	std::unordered_map<std::string, std::uint32_t> name_to_id;
-};
+/// Parse a map ops JSON file into a TilemapSpec, resolving tile names to IDs via `name_to_id`.
+/// Stamps (brush references) are fully expanded — the resulting ops list is flat.
+/// Unresolved names are stored as `TilemapOp::tile_name` for late resolution at bake time.
+[[nodiscard]] std::optional<TilemapSpec> ParseTilemapSpec(std::string_view map_path);
 
-// Load and parse a JSON tileset file (see assets/data/tilesets/*.json). Kept separate from the map
-// loader so the caller can load the tileset, inject tile behaviour into its registry, and then build
-// the grid. Returns std::nullopt on failure (missing file / malformed JSON).
-[[nodiscard]] std::optional<LoadedTileset> LoadTileset(const flecs::world& world, std::string_view tileset_path);
+/// Bake a TilemapSpec into a flat Tilemap (fill + ops applied). Pure data transform — no file I/O.
+/// Optionally pass a TileSet to resolve any tile_name entries left unresolved at parse time.
+[[nodiscard]] Tilemap BakeSpec(const TilemapSpec& spec, const TileSet* tile_set = nullptr);
 
-// Map-tileset pair: BuildTilemap returns both to ensure they stay in sync.
-// The map JSON's "tileset" field drives which tileset is loaded.
-struct MapResult {
-	Tilemap tilemap;
-	LoadedTileset tileset;
-};
+/// Serialize a baked Tilemap into a JSON object: { width, height, tile_size_px,
+/// pixels_per_world_unit, tile_ids[] }. This is the inverse of TilemapFromJson and matches the
+/// "tilemap" level-loader schema, so a saved grid round-trips through disk unchanged.
+[[nodiscard]] nlohmann::json TilemapToJson(const Tilemap& tm);
 
-// Build both tileset and tilemap from a JSON map file (see assets/data/maps/*.json).
-// The map must declare a "tileset" field with the path to its tileset JSON.
-// The map declares width/height/tile scale, a default `fill` tile, optional
-// reusable `brushes`, and an `ops` list of grid primitives (`rect`, `hline`, `vline`, `set`,
-// `stamp`). Returns std::nullopt if tileset load fails or map ops fail.
-[[nodiscard]] std::optional<MapResult> BuildMap(const flecs::world& world, std::string_view map_path);
+/// Deserialize a Tilemap from a JSON object produced by TilemapToJson (or authored in the
+/// "tilemap" level-loader schema). Missing fields fall back to the Tilemap defaults; a malformed
+/// or wrong-sized tile_ids array yields an empty grid (caller can validate via width*height).
+[[nodiscard]] Tilemap TilemapFromJson(const nlohmann::json& j);
 
 } // namespace engine::tilemap

@@ -62,23 +62,23 @@ struct ArgReader {
 		"Unsupported arithmetic type in script method parameter. Add explicit specialization for this type "
 		"(e.g., uint32_t, int64_t, double, size_t, etc.)."
 	);
-	static T& Read(ScriptCallContext& ctx, const int index) { return *static_cast<T*>(ctx.GetArgObject(index)); }
+	static T& Read(const ScriptCallContext& ctx, const int index) { return *static_cast<T*>(ctx.GetArgObject(index)); }
 };
 template<>
 struct ArgReader<bool> {
-	static bool Read(ScriptCallContext& ctx, const int index) { return ctx.GetArgBool(index); }
+	static bool Read(const ScriptCallContext& ctx, const int index) { return ctx.GetArgBool(index); }
 };
 template<>
 struct ArgReader<int> {
-	static int Read(ScriptCallContext& ctx, const int index) { return ctx.GetArgInt(index); }
+	static int Read(const ScriptCallContext& ctx, const int index) { return ctx.GetArgInt(index); }
 };
 template<>
 struct ArgReader<float> {
-	static float Read(ScriptCallContext& ctx, const int index) { return ctx.GetArgFloat(index); }
+	static float Read(const ScriptCallContext& ctx, const int index) { return ctx.GetArgFloat(index); }
 };
 template<>
 struct ArgReader<std::string> {
-	static std::string Read(ScriptCallContext& ctx, const int index) { return ctx.GetArgString(index); }
+	static std::string Read(const ScriptCallContext& ctx, const int index) { return ctx.GetArgString(index); }
 };
 
 // Write the method's return value of bare type R into the call context. Primary template covers
@@ -128,9 +128,11 @@ struct MemberFnCore {
 		else {
 			sig.return_type = ToScriptValueType<std::remove_cvref_t<R>>(world);
 		}
-		sig.params = {
-			ScriptMethodParam{ToScriptValueType<std::remove_cvref_t<Args>>(world), std::is_reference_v<Args>, {}}...
-		};
+		sig.params = {ScriptMethodParam{
+			.type = ToScriptValueType<std::remove_cvref_t<Args>>(world),
+			.by_reference = std::is_reference_v<Args>,
+			.name = {}
+		}...};
 		return sig;
 	}
 

@@ -47,10 +47,10 @@ through the cached `IScriptInstance*` (no backend lookup in the hot path).
 
 ## spatial (`src/engine/spatial/spatial_module.cpp`)
 
-| Name                           | Kind             | Phase / Event | Scope     | Pausable |
-|--------------------------------|------------------|---------------|-----------|----------|
-| `TransformPropagation`         | system `.each()` | `PreStore`    | GameScene | ✘       |
-| `TransformSeedWorldTransform`  | observer         | `OnSet`       | —         | —        |
+| Name                          | Kind             | Phase / Event | Scope     | Pausable |
+|-------------------------------|------------------|---------------|-----------|----------|
+| `TransformPropagation`        | system `.each()` | `PreStore`    | GameScene | ✘       |
+| `TransformSeedWorldTransform` | observer         | `OnSet`       | —         | —        |
 
 **Transform propagation**: Cascades `Transform` (local space) changes to `WorldTransform` (world space) for
 parented and root entities. Respects parent matrix when computing world-space values. Runs in `PreStore` so
@@ -147,9 +147,10 @@ through the asset registry on `OnSet`.
 | `TilemapMeshBuilder` | observer         | `OnSet`       | —         | —        |
 | `TileCallbackSystem` | system `.each()` | `PostUpdate`  | GameScene | ✔       |
 
-`TilemapMeshBuilder` observes when `Tilemap` is set and bakes the grid into a `DynamicMesh` using the tilemap entity's
-scoped `TileRegistry`. `TileCallbackSystem` detects tile transitions for entities with `GridPosition` and fires
-`onenter`/`onleave`/`within` callbacks from descriptors.
+`TilemapMeshBuilder` observes when `Tilemap` is set and composes it with the resolved `TileSet` (via `UseRegistry`
+ref) and `SpriteAtlas` (via `UseSpriteAtlas` ref), baking the grid geometry and UV data into a `DynamicMesh`.
+`TileCallbackSystem` detects tile transitions for entities with `GridPosition` and fires `onenter`/`onleave`/`within`
+callbacks from tile descriptors.
 
 ## Service modules (no systems)
 

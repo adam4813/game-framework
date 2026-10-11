@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 #include "engine/engine.hpp"
+#include "noise_scene.hpp"
 #include "tilemap_scene.hpp"
 
 using namespace engine;
@@ -80,6 +81,16 @@ void TitleScene::Load(flecs::world& world) {
 					  .set_name("PlayTilemapButton")
 					  .child_of(uiRoot_);
 
+	// Noise Demo button
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = w / 2.0F - 100.0F, .y = h / 2.0F - 90.0F, .w = 200.0F, .h = 44.0F},
+					  "Noise Demo",
+					  [](const flecs::entity e) { scene::ActivateScene<NoiseSceneTag>(e.world()); }
+	)
+					  .set_name("NoiseDemoButton")
+					  .child_of(uiRoot_);
+
 	// Script-bound button: it is created with no C++ handler; a script assigns its onClick via
 	// SetOnClick (see assets/scripts/button_click_demo.as), demonstrating callback binding to a
 	// flecs component's existing storage.
@@ -145,6 +156,34 @@ void TitleScene::Load(flecs::world& world) {
 				loading.get_mut<ui::Label>().text = "Picked item " + std::to_string(i);
 			}).child_of(list);
 	}
+
+	// UI data-binding demo authored entirely in JSON (see assets/levels/ui_widgets_demo.level.json):
+	// a closed Modal of data-bound widgets, opened by this button and dismissed by clicking outside.
+	// The modal entity is looked up under uiRoot_ at click time (level entities are created deferred).
+	std::ignore = level::LoadLevel(world, assets::ResolveAsset(world, "levels/ui_widgets_demo.level.json"), uiRoot_);
+	std::ignore =
+		ui::CreateButton(
+			world,
+			{.x = 40.0F, .y = 20.0F, .w = 180.0F, .h = 40.0F},
+			"UI Demo",
+			[root = uiRoot_](const flecs::entity&) {
+				if (const flecs::entity modal = root.lookup("UIBindingDemoModal"); modal && modal.has<ui::Modal>()) {
+					modal.get_mut<ui::Modal>().open = true;
+				}
+			}
+		)
+			.set_name("UIDemoButton")
+			.child_of(uiRoot_);
+
+	// Script-built UI demo: a host whose script creates a panel/label/button via the Create* script
+	// factories (see assets/scripts/ui_factory_demo.as).
+	world.entity("UIFactoryDemoHost")
+		.child_of(uiRoot_)
+		.set<scripting::ScriptComponent>({.source_path = assetDir + "/scripts/ui_factory_demo.as"});
+
+	// Per-system Flecs timing overlay (toggle with F4).
+	std::ignore = ui::CreateSystemStatsPanel(world, {.x = 40.0F, .y = h / 2.0F - 175.0F, .w = 420.0F, .h = 350.0F})
+					  .child_of(uiRoot_);
 }
 
 void TitleScene::Unload(flecs::world&) {

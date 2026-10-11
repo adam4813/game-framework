@@ -10,8 +10,6 @@ namespace engine::physics {
 
 // === PHYSICS TYPES & ENUMS ===
 
-using EntityId = uint32_t;
-
 enum class MotionType : uint8_t { Static, Kinematic, Dynamic };
 
 enum class ShapeType : uint8_t { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compound };
@@ -89,8 +87,8 @@ struct ContactPoint {
 };
 
 struct CollisionInfo {
-	EntityId entity_a{0};
-	EntityId entity_b{0};
+	flecs::entity_t entity_a{0};
+	flecs::entity_t entity_b{0};
 	std::vector<ContactPoint> contacts;
 };
 
@@ -110,15 +108,15 @@ struct Ray {
 };
 
 struct RaycastResult {
-	EntityId entity{0};
+	flecs::entity_t entity{0};
 	glm::vec3 hit_point{0.0F};
 	float distance{0.0F};
 };
 
 // Constraint configuration
 struct ConstraintConfig {
-	EntityId entity_a{0};
-	EntityId entity_b{0};
+	flecs::entity_t entity_a{0};
+	flecs::entity_t entity_b{0};
 	ConstraintType type{ConstraintType::Fixed};
 	glm::vec3 anchor_a{0.0F};
 	glm::vec3 anchor_b{0.0F};

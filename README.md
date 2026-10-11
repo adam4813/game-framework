@@ -254,6 +254,45 @@ If you're starting a new game:
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
 5. **Define your data** — game content goes in JSON configs under `assets/`
 
+## Scene Equivalence Test
+
+The `tests/scene_equivalence/` target verifies that a scene authored in JSON, scripting, and C++ all produce **identical
+ECS component values**. It is the primary regression guard for the engine — run it whenever you add a new
+module or change a component's structure.
+
+### Build and Run
+
+```powershell
+# Build (desktop-only, part of the main cmake --build):
+cmake --preset desktop
+cmake --build --preset desktop-release --target scene_equivalence_test
+
+# Run from the project root (output lands in scene_test_output/):
+.\build\desktop\tests\scene_equivalence\Release\scene_equivalence_test.exe scene_test_output
+```
+
+Passing output lands in `scene_test_output/`:
+
+| File              | Contents                                  |
+|-------------------|-------------------------------------------|
+| `world_json.json` | Serialized scene (JSON path)              |
+| `world_as.json`   | Serialized scene (AngelScript path)       |
+| `world_cpp.json`  | Serialized scene (C++ path)               |
+| `diff_table.txt`  | 4-column property diff: JSON \| AS \| C++ |
+
+The test exits 0 when all properties match across all three paths, and 1 on any mismatch.
+
+### Committing Results
+
+The output files in `scene_test_output/` are committed to the repository. Running the test after changes and committing
+the updated outputs makes regressions visible in code review — a diff that unexpectedly changes
+`scene_test_output/diff_table.txt` is a signal that component authoring parity was broken.
+
+### Coverage Catalog
+
+See **[tests/scene_equivalence/COMPONENT_COVERAGE.md](tests/scene_equivalence/COMPONENT_COVERAGE.md)** for the full
+component coverage table, known bugs, and the adding-a-new-module checklist.
+
 ## Testing Workflows Locally
 
 GitHub Actions workflows can be tested locally using **`act`**, which simulates the CI/CD environment on your machine.
@@ -365,6 +404,114 @@ node tools/flecs-api.js switch-scene Game
 
 Held-down keys trigger debug features (check `src/engine/input/` for which keys). Physics debug rendering, entity
 outlines, and profiler stats are all behind debug-only systems.
+
+## Profiling
+
+The project ships two complementary profiling tools: a **live Tracy integration** for frame-accurate timeline
+tracing, and a **JSONL telemetry log** that records per-system timing trends over time for analysis in a browser.
+
+### Profiling Build
+
+A dedicated preset enables both tools simultaneously with `RelWithDebInfo` (optimised timings, full stack traces):
+
+```bash
+cmake --preset desktop-profile
+cmake --build --preset desktop-profile-relwithdebinfo
+```
+
+What the profiling preset enables:
+
+- **`ENABLE_TRACY=ON`** — Flecs OS API hooks feed every system/observer into Tracy zones automatically; explicit
+  zones wrap `BeginFrame`, `EndFrame`, `BeginMode3D`, `EndMode3D`, and `SubmitBatch`; draw-call and instance counts
+  are emitted as live `TracyPlot` graphs.
+- **`ENABLE_PROFILE_LOGGING=ON`** — `stats-telemetry.jsonl` is created and written from frame 1 (no in-game
+  toggle needed).
+
+Both options can also be used independently with the normal desktop build by passing `-DENABLE_TRACY=ON` or
+`-DENABLE_PROFILE_LOGGING=ON` to CMake.
+
+### Tracy Frame Profiler
+
+[Tracy](https://github.com/wolfpld/tracy) is a real-time frame profiler. It shows the exact timeline of every Flecs
+system and observer, plus the outer render calls, so you can spot hitches at frame granularity.
+
+#### Setup
+
+1. Download or build the **Tracy capture app** from the
+   [Tracy releases page](https://github.com/wolfpld/tracy/releases). The profiling build connects to it over TCP.
+2. Start the Tracy capture app — it listens on port **8086** by default.
+3. Launch the profiling build of the game. Tracy connects automatically on startup.
+
+> **Note:** The Flecs perf-trace hooks (`perf_trace_push_`/`pop_`) require Flecs to be compiled with
+> `FLECS_PERF_TRACE` defined. The `desktop-profile` preset handles this automatically via the custom vcpkg triplet
+> `triplets/x64-windows-perf.cmake`, which adds `-DFLECS_PERF_TRACE` to the compiler flags for all vcpkg packages.
+> The first configure with this preset rebuilds vcpkg packages into a separate ABI slot (`x64-windows-perf`), so
+> standard `desktop` builds are unaffected.
+
+#### What you get
+
+| Zone                          | Description                                              |
+|-------------------------------|----------------------------------------------------------|
+| All Flecs systems + observers | Automatic via `perf_trace_push_`/`pop_` OS API hooks     |
+| `Platform::BeginFrame`        | Frame setup + clear (including any vsync stall)          |
+| `Platform::EndFrame`          | GPU present — the dominant frame-time contributor        |
+| `Platform::BeginMode3D`       | Camera + shader setup                                    |
+| `Platform::EndMode3D`         | Closing the 3D pass                                      |
+| `Platform::SubmitBatch`       | Batch grouping + instanced draw calls                    |
+| `draw_calls` plot             | Live draw-call count per frame (graph in Tracy timeline) |
+| `instances` plot              | Live instanced-primitive count per frame                 |
+
+`FrameMark` is emitted after `PostTick()` so Tracy's frame boundaries include deferred tasks.
+
+### System Stats Overlay (In-Game)
+
+Press **F4** in any scene to toggle the stats panel. It shows:
+
+- FPS, render draw calls, instance count, and batch CPU times
+- Per-module rollup of Flecs system timings, with rolling average and spike/variability colour-coding (green = steady,
+  orange = variable, red = spiking)
+- Per-system matched entity count alongside the timing, so expensive-per-entity systems stand out
+
+The **"Record telemetry"** checkbox at the top of the panel writes `stats-telemetry.jsonl` to the working directory (the
+build output folder). The profiling preset starts recording automatically from frame 1.
+
+### Stats Viewer
+
+`tools/stats-viewer.html` is a self-contained browser viewer for the JSONL telemetry. Open it directly from disk
+to review a past run, or serve the build output folder over HTTP for live auto-refresh.
+
+#### Past-run review (no server needed)
+
+Open `tools/stats-viewer.html` in a browser and use the **File** picker to load `stats-telemetry.jsonl`.
+
+#### Live refresh during a profiling session
+
+The JSONL file lives in the build output folder. Serve that folder over HTTP, then point the viewer at it:
+
+```powershell
+# PowerShell — serve the profiling build output
+cd build/desktop-profile/RelWithDebInfo
+npx http-server -p 8000 --cors
+```
+
+Then open `tools/stats-viewer.html`, paste `http://localhost:8000/stats-telemetry.jsonl` into the URL field, and
+tick **auto-refresh 1s**.
+
+> **Node.js required** for `npx http-server`. Alternatively: `python -m http.server 8000` from the same folder
+> (no CORS header, so only works for same-origin — use `npx http-server` for the auto-refresh URL mode).
+
+#### What the viewer shows
+
+| Panel                  | Description                                                                                 |
+|------------------------|---------------------------------------------------------------------------------------------|
+| **ms over time**       | Rolling per-system timing; click ⤢ to expand full-screen                                    |
+| **Entities over time** | Matched entity count per system — compare with the ms chart to see if cost scales with work |
+| **Hotspots table**     | Sortable; includes **ms / 1k entities** (per-entity cost — the key scaling metric)          |
+| **Drill-down**         | Click any table row → side-by-side ms + entities time series for that system                |
+
+Use the sidebar to select which systems are plotted; **Top 8** picks the 8 highest-max-ms systems.
+
+---
 
 ## Dependencies
 

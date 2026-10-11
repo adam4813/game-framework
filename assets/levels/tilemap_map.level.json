@@ -1,0 +1,135 @@
+{
+	"entities": [
+		{
+			"name": "BasicRegistry",
+			"components": {
+				"tileset": "@file:../data/tilesets/basic.json"
+			}
+		},
+		{
+			"name": "BasicSheet",
+			"components": {
+				"sprite_atlas": "@file:../data/spriteatlas/basic.json",
+				"shader": {
+					"stages": [
+						{
+							"type": "vertex",
+							"path": "tilemap.vs"
+						},
+						{
+							"type": "fragment",
+							"path": "tilemap.fs"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "Tilemap",
+			"components": {
+				"tilemap_spec": {
+					"map": "data/maps/overworld.json"
+				}
+			},
+			"refs": {
+				"use_registry": "BasicRegistry",
+				"use_sprite_atlas": "BasicSheet"
+			}
+		},
+		"@file:entities/bt_wanderer_npc.json",
+		{
+			"name": "FsmWandererNPC",
+			"components": {
+				"grid_position": {
+					"x": 31,
+					"z": 58
+				},
+				"grid_mover": {},
+				"transform": {
+					"position": [
+						15.75,
+						0.5,
+						29.25
+					]
+				},
+				"cube": {
+					"size": [
+						0.4,
+						0.8,
+						0.4
+					]
+				},
+				"fsm_agent": {
+					"file": "assets/ai/npc_patrol_fsm.json",
+					"initial_state": "Idle"
+				}
+			},
+			"refs": {
+				"use_registry": "Tilemap"
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								60,
+								60,
+								255
+							],
+							"cast_shadow": false
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "UtilityWandererNPC",
+			"components": {
+				"grid_position": {
+					"x": 31,
+					"z": 62
+				},
+				"grid_mover": {},
+				"transform": {
+					"position": [
+						15.75,
+						0.5,
+						31.25
+					]
+				},
+				"cube": {
+					"size": [
+						0.4,
+						0.8,
+						0.4
+					]
+				},
+				"utility_agent": {
+					"file": "assets/ai/npc_utility.json",
+					"eval_interval": 0.5
+				}
+			},
+			"refs": {
+				"use_registry": "Tilemap"
+			},
+			"children": [
+				{
+					"link": "render_with",
+					"components": {
+						"material": {
+							"color": [
+								220,
+								200,
+								60,
+								255
+							],
+							"cast_shadow": false
+						}
+					}
+				}
+			]
+		}
+	]
+}

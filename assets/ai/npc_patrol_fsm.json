@@ -1,0 +1,13 @@
+{
+	"states": [
+		{ "name": "Idle", "max_duration": 2.0, "timeout_target": "Wander" },
+		{
+			"name": "Wander",
+			"max_duration": 5.0,
+			"timeout_target": "Idle",
+			"transitions": [
+				{ "condition": "move_done", "expected": true, "target": "Idle", "min_time": 0.5 }
+			]
+		}
+	]
+}

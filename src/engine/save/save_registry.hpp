@@ -190,7 +190,7 @@ SingletonBinder<T> SaveRegistry::Singleton(std::string keyPrefix) {
 }
 
 inline FieldBinder SaveRegistry::Field(std::string key) {
-	fields.push_back(SaveField{std::move(key), nullptr, nullptr});
+	fields.push_back(SaveField{.key = std::move(key), .get = nullptr, .set = nullptr});
 	return {*this, fields.size() - 1};
 }
 

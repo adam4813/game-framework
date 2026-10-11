@@ -2,14 +2,15 @@
 
 #include <spdlog/spdlog.h>
 
+#include "engine/level/level.hpp"
 #include "tilemap_components.hpp"
 
 namespace engine::tilemap {
 
 void TileCallbackSystem::Register(const flecs::world& world) {
-	// The registry is scoped to the tilemap entity, so query it alongside the Tilemap. Built once
-	// here (cached) rather than rebuilt every entity every frame inside the system body.
-	auto tilemap_query = world.query<const Tilemap, const TileRegistry>();
+	// The tilemap owns Tilemap directly, while the descriptor set may live on the same entity or on
+	// a linked UseRegistry target.
+	auto tilemap_query = world.query<const Tilemap>();
 
 	std::ignore =
 		world.system<const GridPosition>("TileCallbackSystem")
@@ -29,17 +30,21 @@ void TileCallbackSystem::Register(const flecs::world& world) {
 				// for single-tilemap scenes (typical), we take the first/only result.
 				const TileDescriptor* current_descriptor = nullptr;
 				const Tilemap* active_tilemap = nullptr;
-				const TileRegistry* active_registry = nullptr;
+				const TileSet* active_tile_set = nullptr;
 
-				tilemap_query.each([&](const Tilemap& tilemap, const TileRegistry& registry) {
+				tilemap_query.each([&](const flecs::entity tilemap_entity, const Tilemap& tilemap) {
+					const auto* tile_set = tilemap_entity.target<level::UseRegistry>().try_get<TileSet>();
+
+					if (!tile_set) return;
+
 					if (!active_tilemap) {
 						active_tilemap = &tilemap;
-						active_registry = &registry;
-						current_descriptor = registry.GetTile(GetTileIdAt(tilemap, grid_pos.x, grid_pos.z));
+						active_tile_set = tile_set;
+						current_descriptor = tile_set->GetTile(GetTileIdAt(tilemap, grid_pos.x, grid_pos.z));
 					}
 				});
 
-				if (!active_tilemap || !active_registry) return;
+				if (!active_tilemap || !active_tile_set) return;
 
 				const bool entered_new_tile =
 					(grid_pos.x != callback_state->current_tile_x || grid_pos.z != callback_state->current_tile_z);
@@ -47,7 +52,7 @@ void TileCallbackSystem::Register(const flecs::world& world) {
 				if (entered_new_tile) {
 					// Fire onleave — look up the previous tile ID from the tilemap grid
 					if (callback_state->current_tile_x >= 0 && callback_state->current_tile_z >= 0) {
-						const TileDescriptor* prev_descriptor = active_registry->GetTile(
+						const TileDescriptor* prev_descriptor = active_tile_set->GetTile(
 							GetTileIdAt(*active_tilemap, callback_state->current_tile_x, callback_state->current_tile_z)
 						);
 						if (prev_descriptor && prev_descriptor->onleave) {
