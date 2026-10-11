@@ -33,9 +33,11 @@ public:
 	Zone& operator=(Zone&&) = delete;
 
 private:
+#ifdef TRACY_ENABLE
 	// Opaque backend zone handle, stored without leaking backend types into this header.
 	std::uint32_t id_{0};
 	int active_{0};
+#endif
 };
 
 // Emit a scalar plot immediately (thread-safe). Use this from contexts that cannot queue into a

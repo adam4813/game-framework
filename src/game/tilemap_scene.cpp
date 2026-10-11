@@ -517,10 +517,10 @@ void TilemapScene::SetupDialogSystem(const flecs::world& world) {
 		world,
 		dn_entity,
 		{
-			{.decl = "string text", .offset = static_cast<int>(offsetof(DialogNode, text))},
-			{.decl = "string speaker", .offset = static_cast<int>(offsetof(DialogNode, speaker))},
-			{.decl = "string choice_0_label", .offset = static_cast<int>(offsetof(DialogNode, choice_0_label))},
-			{.decl = "string choice_1_label", .offset = static_cast<int>(offsetof(DialogNode, choice_1_label))},
+			{.decl = "string text", .offset = scripting::CalculateOffset(&DialogNode::text)},
+			{.decl = "string speaker", .offset = scripting::CalculateOffset(&DialogNode::speaker)},
+			{.decl = "string choice_0_label", .offset = scripting::CalculateOffset(&DialogNode::choice_0_label)},
+			{.decl = "string choice_1_label", .offset = scripting::CalculateOffset(&DialogNode::choice_1_label)},
 		},
 		{
 			{

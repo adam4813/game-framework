@@ -32,8 +32,10 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE src ${STB_INCLUDE_DIRS})
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL GLM_GTC_INLINE_NAMESPACE GLM_EXT_INLINE_NAMESPACE GLM_GTX_INLINE_NAMESPACE)
 target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:/Zi>
-    $<$<AND:$<NOT:$<CXX_COMPILER_ID:MSVC>>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:-g>
+    $<$<AND:$<COMPILE_LANG_AND_ID:CXX,MSVC>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:/Zi>
+    $<$<AND:$<NOT:$<COMPILE_LANG_AND_ID:CXX,MSVC>>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:-g>
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/permissive-;/W4;/w14322> #  Enforces strict C++ standard conformance and stricter enum conformance checks
+    $<$<CXX_COMPILER_ID:Clang>:-Wall;-Wpedantic;-Werror=return-type>  # Enforces strict ISO C++ standard compliance
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

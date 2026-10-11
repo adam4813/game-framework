@@ -88,25 +88,19 @@ jobs:
           fi
           echo "Running test from: $TEST_EXE_PATH"
           $TEST_EXE_PATH scene_test_output
-          TEST_EXIT=$?
           
-          # Count checked components from diff_table.txt
+          # Count checked components and mismatches from diff_table.txt
           if [ -f "scene_test_output/diff_table.txt" ]; then
-            CHECKED_COMPONENTS=$(grep -c "^" scene_test_output/diff_table.txt || echo "0")
-            # Subtract header lines (assume 2 header lines in diff_table.txt)
-            CHECKED_COMPONENTS=$((CHECKED_COMPONENTS - 2))
-            [ "$CHECKED_COMPONENTS" -lt 0 ] && CHECKED_COMPONENTS=0
+            # Skip first 2 lines (header + separator), count non-empty data lines
+            CHECKED_COMPONENTS=$(tail -n +3 scene_test_output/diff_table.txt | grep -c . || echo "0")
             echo "CHECKED_COMPONENTS=$CHECKED_COMPONENTS" >> $GITHUB_ENV
-          else
-            echo "CHECKED_COMPONENTS=0" >> $GITHUB_ENV
-          fi
-          
-          # Count mismatches (lines with differences in diff_table.txt)
-          if [ -f "scene_test_output/diff_table.txt" ]; then
-            # Mismatches are rows where not all columns match (skip header)
-            MISMATCHES=$(tail -n +3 scene_test_output/diff_table.txt | grep -v "^[[:space:]]*$" | awk -F'|' '$2 != $3 || $2 != $4 {count++} END {print count+0}')
+            
+            # Count lines where column 6 (status) does NOT contain [MATCH]
+            # Format: | entity | JSON | AS | C++ | | [MATCH] |
+            MISMATCHES=$(tail -n +3 scene_test_output/diff_table.txt | awk -F'|' '$6 !~ /MATCH/ && NF > 0 {count++} END {print count+0}')
             echo "MISMATCHES=$MISMATCHES" >> $GITHUB_ENV
           else
+            echo "CHECKED_COMPONENTS=0" >> $GITHUB_ENV
             echo "MISMATCHES=0" >> $GITHUB_ENV
           fi
           

@@ -118,7 +118,7 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 
 	// Expose selected TileDescriptor fields by offset. `color` is a glm::vec4 (contiguous floats),
 	// so r/g/b/a map onto its four components; `id` is set by CreateTile and left read-only.
-	constexpr auto color_offset = static_cast<int>(offsetof(TileDescriptor, color));
+	const auto color_offset = scripting::CalculateOffset(&TileDescriptor::color);
 	const std::vector<scripting::ScriptMethodParam> tile_enter_params = {
 		{.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
 		 .by_reference = false,
@@ -130,7 +130,7 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 		world,
 		td_entity,
 		{
-			{.decl = "bool walkable", .offset = static_cast<int>(offsetof(TileDescriptor, walkable))},
+			{.decl = "bool walkable", .offset = scripting::CalculateOffset(&TileDescriptor::walkable)},
 			{.decl = "float r", .offset = color_offset + 0 * static_cast<int>(sizeof(float))},
 			{.decl = "float g", .offset = color_offset + 1 * static_cast<int>(sizeof(float))},
 			{.decl = "float b", .offset = color_offset + 2 * static_cast<int>(sizeof(float))},

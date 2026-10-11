@@ -156,6 +156,13 @@ inline void RegisterCallbackViewTypeForScripts(
 	}
 }
 
+// Free helper — calculate the byte offset of a member field within a class/struct.
+template<typename ClassType, typename FieldType>
+int CalculateOffset(FieldType ClassType::* field) {
+	ClassType dummy;
+	return static_cast<int>(reinterpret_cast<const char*>(&(dummy.*field)) - reinterpret_cast<const char*>(&dummy));
+}
+
 // Free helper — register a component/value-type method backed by a custom thunk (rather than a
 // deduced member-function pointer). Use this when the method needs bespoke marshalling, e.g.
 // returning a reference-view handle into C++ storage. `sig` is the neutral signature; `thunk`
