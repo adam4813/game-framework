@@ -334,7 +334,7 @@ static JPH::ShapeRefC CreateShape(const ShapeConfig& cfg) {
 }
 
 void JoltBackend::SyncBodyToBackend(
-	EntityId entity,
+	flecs::entity_t entity,
 	const PhysicsTransform& transform,
 	const RigidBody& body,
 	const CollisionShape& shape
@@ -417,7 +417,7 @@ void JoltBackend::SyncBodyToBackend(
 		}
 	}
 }
-void JoltBackend::SetBodyTransform(const EntityId entity, const PhysicsTransform& transform) {
+void JoltBackend::SetBodyTransform(const flecs::entity_t entity, const PhysicsTransform& transform) {
 	auto& body_interface = physics_system_->GetBodyInterface();
 
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
@@ -436,7 +436,7 @@ void JoltBackend::SetBodyTransform(const EntityId entity, const PhysicsTransform
 	}
 }
 
-PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const EntityId entity) const {
+PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const flecs::entity_t entity) const {
 	PhysicsSyncResult result;
 
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
@@ -459,7 +459,7 @@ PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const EntityId entity) const
 	return result;
 }
 
-void JoltBackend::RemoveBody(const EntityId entity) {
+void JoltBackend::RemoveBody(const flecs::entity_t entity) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
 		const JPH::BodyID bid(it->second);
@@ -473,9 +473,9 @@ void JoltBackend::RemoveBody(const EntityId entity) {
 	}
 }
 
-bool JoltBackend::HasBody(const EntityId entity) const { return entity_to_body_.contains(entity); }
+bool JoltBackend::HasBody(const flecs::entity_t entity) const { return entity_to_body_.contains(entity); }
 
-void JoltBackend::ApplyForce(const EntityId entity, const glm::vec3& force, const glm::vec3& torque) {
+void JoltBackend::ApplyForce(const flecs::entity_t entity, const glm::vec3& force, const glm::vec3& torque) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
 		const JPH::BodyID bid(it->second);
@@ -488,7 +488,7 @@ void JoltBackend::ApplyForce(const EntityId entity, const glm::vec3& force, cons
 	}
 }
 
-void JoltBackend::ApplyImpulse(const EntityId entity, const glm::vec3& impulse, const glm::vec3& point) {
+void JoltBackend::ApplyImpulse(const flecs::entity_t entity, const glm::vec3& impulse, const glm::vec3& point) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
 		const JPH::BodyID bid(it->second);
@@ -502,7 +502,7 @@ void JoltBackend::ApplyImpulse(const EntityId entity, const glm::vec3& impulse, 
 	}
 }
 
-void JoltBackend::SetBodyVelocity(const EntityId entity, const glm::vec3& linear, const glm::vec3& angular) {
+void JoltBackend::SetBodyVelocity(const flecs::entity_t entity, const glm::vec3& linear, const glm::vec3& angular) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
 		const JPH::BodyID bid(it->second);

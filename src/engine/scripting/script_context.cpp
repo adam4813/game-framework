@@ -77,7 +77,7 @@ float ScriptEntityRef::GetFloat(const std::string& component, const std::string&
 		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
 		return 0.0f;
 	}
-	return ecs_meta_get_float(&cur);
+	return static_cast<float>(ecs_meta_get_float(&cur));
 }
 
 void ScriptEntityRef::SetFloat(const std::string& component, const std::string& field, const float value) const {
@@ -178,7 +178,10 @@ std::string ScriptEntityRef::GetString(const std::string& component, const std::
 	return value ? value : std::string{};
 }
 
-void ScriptEntityRef::SetString(const std::string& component, const std::string& field, const std::string& value
+void ScriptEntityRef::SetString(
+	const std::string& component,
+	const std::string& field,
+	const std::string& value
 ) const {
 	auto [comp_id, ptr] = ResolveMutableComponent(entity_, component);
 	if (!ptr) {
