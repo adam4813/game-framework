@@ -71,6 +71,59 @@ jobs:
           configurePreset: ${{ matrix.preset_configure }}
           buildPreset: ${{ matrix.preset_build }}
 
+      # Build and run scene equivalence test (desktop only)
+      - name: Build Scene Equivalence Test
+        if: matrix.target != 'WebAssembly'
+        shell: bash
+        run: cmake --build --preset ${{ matrix.preset_build }} --target scene_equivalence_test
+
+      - name: Run Scene Equivalence Test
+        if: matrix.target != 'WebAssembly'
+        shell: bash
+        run: |
+          TEST_EXE_PATH=$(find build/${{ matrix.preset_configure }}/tests/scene_equivalence/Release -name "scene_equivalence_test*" -type f | head -1)
+          if [ -z "$TEST_EXE_PATH" ]; then
+            echo "scene_equivalence_test executable not found!"
+            exit 1
+          fi
+          echo "Running test from: $TEST_EXE_PATH"
+          $TEST_EXE_PATH scene_test_output
+          TEST_EXIT=$?
+          
+          # Count checked components from diff_table.txt
+          if [ -f "scene_test_output/diff_table.txt" ]; then
+            CHECKED_COMPONENTS=$(grep -c "^" scene_test_output/diff_table.txt || echo "0")
+            # Subtract header lines (assume 2 header lines in diff_table.txt)
+            CHECKED_COMPONENTS=$((CHECKED_COMPONENTS - 2))
+            [ "$CHECKED_COMPONENTS" -lt 0 ] && CHECKED_COMPONENTS=0
+            echo "CHECKED_COMPONENTS=$CHECKED_COMPONENTS" >> $GITHUB_ENV
+          else
+            echo "CHECKED_COMPONENTS=0" >> $GITHUB_ENV
+          fi
+          
+          # Count mismatches (lines with differences in diff_table.txt)
+          if [ -f "scene_test_output/diff_table.txt" ]; then
+            # Mismatches are rows where not all columns match (skip header)
+            MISMATCHES=$(tail -n +3 scene_test_output/diff_table.txt | grep -v "^[[:space:]]*$" | awk -F'|' '$2 != $3 || $2 != $4 {count++} END {print count+0}')
+            echo "MISMATCHES=$MISMATCHES" >> $GITHUB_ENV
+          else
+            echo "MISMATCHES=0" >> $GITHUB_ENV
+          fi
+          
+          exit 0  # Don't fail the workflow on test mismatches
+
+      - name: Generate Scene Equivalence Status
+        if: matrix.target != 'WebAssembly'
+        shell: bash
+        run: |
+          echo "### 🔍 Scene Equivalence Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "* **Checked Components:** \`${{ env.CHECKED_COMPONENTS }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Component Mismatches:** \`${{ env.MISMATCHES }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f "scene_test_output/diff_table.txt" ]; then
+            echo "* **Diff Table:** Available in artifacts" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       # Verify build outputs for desktop builds
       - name: List desktop build outputs
         if: matrix.target != 'WebAssembly'
@@ -80,6 +133,15 @@ jobs:
           if [ -d "build/${{ matrix.preset_configure }}" ]; then
             find build/${{ matrix.preset_configure }} -type f \( -name "game*" -o -name "*.html" -o -name "*.wasm" \) | head -20
           fi
+
+      # Upload test artifacts
+      - name: Upload Scene Equivalence Test Artifacts
+        if: matrix.target != 'WebAssembly' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scene-equivalence-test-${{ matrix.os }}
+          path: scene_test_output/
+          if-no-files-found: warn
 
       # Upload artifacts for desktop builds
       - name: Upload Desktop Build Artifact
