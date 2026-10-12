@@ -176,9 +176,12 @@ void TitleScene::Load(flecs::world& world) {
 			.child_of(uiRoot_);
 
 	// Script-built UI demo: a host whose script creates a panel/label/button via the Create* script
-	// factories (see assets/scripts/ui_factory_demo.as).
+	// factories (see assets/scripts/ui_factory_demo.as). The host carries a full-screen UIRect and
+	// the script parents its widgets to the host (not the title root), so the whole demo subtree is
+	// destroyed with uiRoot_ on Unload — scoping it to the title scene (no cross-scene leak).
 	world.entity("UIFactoryDemoHost")
 		.child_of(uiRoot_)
+		.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}})
 		.set<scripting::ScriptComponent>({.source_path = assetDir + "/scripts/ui_factory_demo.as"});
 
 	// Per-system Flecs timing overlay (toggle with F4).

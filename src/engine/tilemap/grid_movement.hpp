@@ -4,7 +4,7 @@
 
 #include <flecs.h>
 
-namespace game {
+namespace engine::tilemap {
 
 /// Tag marking the entity the player directly controls via keyboard input. Pure data-less tag —
 /// the movement system queries `.with<PlayerControlled>()` to find the single driven entity.
@@ -38,4 +38,4 @@ void RegisterGridMovementSystems(
 	flecs::entity tilemapEntity
 );
 
-} // namespace game
+} // namespace engine::tilemap

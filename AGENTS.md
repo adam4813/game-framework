@@ -15,6 +15,11 @@ VCPKG.
 - When you find yourself writing `if (type == "foo") ... else if (type == "bar")`, the behavior difference probably
   belongs in data.
 - Tuning constants live in a shared header as `constexpr`, not scattered through logic.
+- **Procedural generation taxonomy types** (biomes, terrain features, history event categories) are almost always
+  open-ended — a designer will want to add a new variant without a C++ rebuild. Prefer a string-keyed registry or
+  table with per-entry data over a closed `enum class`. A closed enum earns its place only when the full set is fixed
+  by an external specification (e.g. a wire protocol). When you see `enum class Biome { ... }` in a procgen module,
+  ask: *could a designer add a new variant without touching C++?*
 
 ### ECS Conventions (Flecs 4.x)
 
@@ -40,6 +45,21 @@ VCPKG.
   // OR Spin through the iterator to ensure ECS systems are aware of the iteration
   while (it.next());
   ```
+- **Singleton access inside `.each()`:** use `it.world().get<T>()` inside the lambda body. Adding T as a template
+  argument forces it into params and causes a compile error when combined with `.term_at<T>().singleton()` on some
+  system shapes. The safe pattern:
+  ```cpp
+  world.system<MyComponent>("MySystem")
+      .kind(flecs::OnUpdate)
+      .each([](const flecs::iter& it, size_t, MyComponent& c) {
+          const auto& singleton = it.world().get<MySingleton>(); // ✓ correct
+      });
+  ```
+- **Component pre-registration in multi-stage worlds:** Any component type first reached inside a system via
+  `try_get<T>()`, `has<T>()`, `entity.add<T>()` etc. will be lazily registered by Flecs — this calls
+  `ecs_new_low_id` which **crashes** (`INVALID_WHILE_READONLY`) when the world is readonly and the physics module
+  has set `stage_count > 1`. Pre-register every farm/game component type in a non-system context (e.g., module
+  constructor or `Load()`) via `world.component<T>()` before systems run.
 
 ### Transform Authoring
 
@@ -113,11 +133,49 @@ VCPKG.
 
 - Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file.
 - Conventional commits.
+- **Always work on a branch** — never commit directly to `main`. Open a pull request to merge.
 
 ## Debugging and Inspection
 
 ### Flecs Remote API
 
-Use the **`flecs-remote-api` skill** to inspect and control a running Flecs game without modifying code. The skill
-guides you through scene switching, UI navigation, input overrides, component queries, and other debugging/introspection
-tasks.
+**After implementing any new playable scene or gameplay loop, launch the game and verify it via
+the Flecs Remote API before declaring the work done.** Build success and passing unit tests are
+insufficient — crashes, wrong item IDs, broken interactions, and scale problems only appear at
+runtime. Use the `flecs_*` MCP tools (preferred when available) or `tools/flecs-api.js`:
+
+```bash
+# Switch to the new scene and confirm it loads
+node tools/flecs-api.js switch-scene <SceneName>
+
+# Walk the player around; confirm the core loop works
+# Query entity state to verify component values
+node tools/flecs-api.js query <ComponentType>
+```
+
+For all other debugging and inspection tasks, use the **`flecs-remote-api` skill** — it covers
+scene switching, UI navigation, input overrides, component queries, and ECS introspection.
+
+## Interaction style
+
+- **Use the `ask_user` tool** for all questions during any skill session (grilling, planning, clarification, etc.) —
+  never ask via plain text. Bundle a full question round into a single `ask_user` call (one form, multiple fields); one
+  round = one tool call = one user response.
+- **Scope expansion during active ticket work:** if a request clearly falls outside the current ticket's acceptance
+  criteria, name it. Implement it if it's small and the user explicitly accepts the scope change; otherwise note it as
+  a follow-up ticket before starting work on it.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `docs/GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.

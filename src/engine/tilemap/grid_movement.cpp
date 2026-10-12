@@ -5,11 +5,16 @@
 
 #include <glm/glm.hpp>
 
-#include "engine/engine.hpp"
+#include "engine/ecs/ecs.hpp"
+#include "engine/input/input.hpp"
+#include "engine/level/level.hpp"
+#include "engine/scripting/scripting.hpp"
+#include "engine/spatial/spatial.hpp"
+#include "tilemap_components.hpp"
 
 using namespace engine;
 
-namespace game {
+namespace engine::tilemap {
 
 void RegisterGridMovementLoaders(const flecs::world& world) {
 	// PlayerControlled is a pure tag, and GridMover is default-constructable runtime movement state
@@ -20,6 +25,7 @@ void RegisterGridMovementLoaders(const flecs::world& world) {
 	// entity.HasComponent("PlayerControlled") robustly — explicit name prevents path-lookup ambiguity.
 	const auto player_controlled_comp = world.component<PlayerControlled>("PlayerControlled");
 	scripting::RegisterComponentForScripts(world, player_controlled_comp);
+	world.component<GridMover>(); // pre-register before level loaders run (readonly-world safety)
 
 	level::RegisterComponentLoader(world, "grid_mover", [](const flecs::entity e, const nlohmann::json& j) {
 		GridMover m{};
@@ -193,4 +199,4 @@ void RegisterGridMovementSystems(
 			.child_of(sceneRoot);
 }
 
-} // namespace game
+} // namespace engine::tilemap

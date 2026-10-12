@@ -34,6 +34,14 @@
 			}
 		},
 		{
+			"name": "desktop-test",
+			"displayName": "Desktop Test",
+			"inherits": "desktop",
+			"cacheVariables": {
+				"BUILD_TESTING": "ON"
+			}
+		},
+		{
 			"name": "wasm",
 			"displayName": "WebAssembly Build",
 			"inherits": "default",
@@ -71,6 +79,18 @@
 			"configuration": "RelWithDebInfo"
 		},
 		{
+			"name": "desktop-test-debug",
+			"displayName": "Desktop Test Debug",
+			"configurePreset": "desktop-test",
+			"configuration": "Debug"
+		},
+		{
+			"name": "desktop-test-release",
+			"displayName": "Desktop Test Release",
+			"configurePreset": "desktop-test",
+			"configuration": "Release"
+		},
+		{
 			"name": "wasm-debug",
 			"displayName": "WebAssembly Debug",
 			"configurePreset": "wasm",
@@ -81,6 +101,35 @@
 			"displayName": "WebAssembly Release",
 			"configurePreset": "wasm",
 			"configuration": "Release"
+		}
+	],
+	"testPresets": [
+		{
+			"name": "desktop-test-debug",
+			"displayName": "Desktop Tests (Debug)",
+			"configurePreset": "desktop-test",
+			"configuration": "Debug",
+			"output": {
+				"outputOnFailure": true,
+				"verbosity": "verbose"
+			},
+			"execution": {
+				"noTestsAction": "error",
+				"stopOnFailure": false
+			}
+		},
+		{
+			"name": "desktop-test-release",
+			"displayName": "Desktop Tests (Release)",
+			"configurePreset": "desktop-test",
+			"configuration": "Release",
+			"output": {
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error",
+				"stopOnFailure": false
+			}
 		}
 	]
 }

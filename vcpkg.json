@@ -13,6 +13,7 @@
 		"stb",
 		"glfw3",
 		"glm",
+		"gtest",
 		"imgui",
 		"nlohmann-json",
 		"spdlog",

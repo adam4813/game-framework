@@ -1,6 +1,11 @@
 ---
 name: flecs-remote-api
-description: Guide for inspecting and controlling a running Flecs ECS game using the Flecs Remote API, including scene switching, UI navigation, input overrides, and component queries. Use this when you need to inspect game state, navigate scenes, test UI flows, or debug the ECS runtime without modifying code.
+description: >
+  Guide for verifying and controlling a running Flecs ECS game using the Flecs Remote API.
+  Use this PROACTIVELY after implementing a new scene or gameplay loop — switch to the scene,
+  exercise the core loop, confirm no runtime crashes before declaring the ticket done.
+  Also use reactively for scene switching, UI navigation, input overrides, component queries,
+  and ECS debugging when something is broken.
 ---
 
 # Flecs Remote API Skill

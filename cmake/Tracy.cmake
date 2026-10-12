@@ -34,22 +34,26 @@ function(setup_tracy GAME_TARGET)
         )
     endif ()
 
-    # Cross-platform background launch: Windows uses 'start' so the GUI doesn't block;
-    # macOS/Linux fork it via a shell.
-    if (WIN32)
-        set(LAUNCH_TRACY cmd /c start "" "${TRACY_PROFILER_EXE}")
-    else ()
-        set(LAUNCH_TRACY sh -c "\"${TRACY_PROFILER_EXE}\" &")
-    endif ()
+    # Only create run-profiled for executable targets; static/shared libraries have no entry point.
+    get_target_property(_target_type ${GAME_TARGET} TYPE)
+    if (NOT TARGET run-profiled AND _target_type STREQUAL "EXECUTABLE")
+        # Cross-platform background launch: Windows uses 'start' so the GUI doesn't block;
+        # macOS/Linux fork it via a shell.
+        if (WIN32)
+            set(LAUNCH_TRACY cmd /c start "" "${TRACY_PROFILER_EXE}")
+        else ()
+            set(LAUNCH_TRACY sh -c "\"${TRACY_PROFILER_EXE}\" &")
+        endif ()
 
-    # run-profiled: starts the Tracy GUI in the background, then launches the game so Tracy is
-    # already listening on port 8086 before the game connects.
-    add_custom_target(run-profiled
-        COMMAND ${LAUNCH_TRACY}
-        COMMAND $<TARGET_FILE:${GAME_TARGET}>
-        WORKING_DIRECTORY $<TARGET_FILE_DIR:${GAME_TARGET}>
-        COMMENT "Starting Tracy profiler GUI, then launching '${GAME_TARGET}'..."
-        VERBATIM
-        DEPENDS ${GAME_TARGET}
-    )
+        # run-profiled: starts the Tracy GUI in the background, then launches the game so Tracy is
+        # already listening on port 8086 before the game connects.
+        add_custom_target(run-profiled
+            COMMAND ${LAUNCH_TRACY}
+            COMMAND $<TARGET_FILE:${GAME_TARGET}>
+            WORKING_DIRECTORY $<TARGET_FILE_DIR:${GAME_TARGET}>
+            COMMENT "Starting Tracy profiler GUI, then launching '${GAME_TARGET}'..."
+            VERBATIM
+            DEPENDS ${GAME_TARGET}
+        )
+    endif ()
 endfunction()

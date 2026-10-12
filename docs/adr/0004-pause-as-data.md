@@ -1,0 +1,3 @@
+﻿# Pause Implemented as Data (the `Pausable` Tag), Not Branching Logic
+
+Simulation systems that should stop while the game is paused carry the zero-size `engine::ecs::Pausable` tag. Each scene builds a secondary "paused" pipeline that filters those systems out. Toggling pause adds or removes `scene::Paused` from the world; an observer in the scene-management module swaps the active pipeline accordingly. The alternative — checking an `isPaused` flag inside each simulation system — was rejected because it scatters pause logic across the entire codebase, cannot be enforced by convention alone, and breaks as soon as a new system forgets to check the flag.
