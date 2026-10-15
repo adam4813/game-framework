@@ -141,7 +141,7 @@ void TilemapScene::HandleInput(const flecs::world& world, const input::InputStat
 void TilemapScene::RegisterInputSystems(const flecs::world& world) const {
 	// The grid-movement systems are shared with the farm scene; register them scoped to this
 	// scene's root so they tear down with the scene.
-	RegisterGridMovementSystems(world, sceneRoot_, tilemap_entity_);
+	tilemap::RegisterGridMovementSystems(world, sceneRoot_, tilemap_entity_);
 }
 
 void TilemapScene::SetupTilemap(const flecs::world& world) {

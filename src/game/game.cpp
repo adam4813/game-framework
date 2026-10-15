@@ -9,7 +9,6 @@
 #include "cube_scene.hpp"
 #include "dialog/dialog.hpp"
 #include "engine/engine.hpp"
-#include "grid_movement.hpp"
 #include "meta_save_example.hpp"
 #include "noise_scene.hpp"
 #include "tilemap_scene.hpp"
@@ -23,7 +22,7 @@ GameModule::GameModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
 	const std::string sfxDir = platform->AssetDirectory() + "/audio/sfx";
 
-	// Import the optional engine subsystems this game uses.
+	// Import engine subsystems used by sandbox scenes.
 	auto& registry = world.get<EngineContextRef>().ptr->GetModuleRegistry();
 	registry.Import(world, {"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles"});
 
@@ -36,12 +35,8 @@ GameModule::GameModule(flecs::world& world) {
 	// verbs used by assets/scripts/save_demo.as.
 	RegisterMetaSaveExample(world);
 
-	// Register the default button click sound so every CreateButton factory call auto-attaches it.
+	// Register the default button click sound.
 	ui::SetDefaultClickSound(world, sfxDir + "/click.wav");
-
-	// Grid movement (player_controlled tag + grid_mover loader) is shared by the tilemap demo and
-	// the farm scene, so register its loaders once here. The next-farm selection lives in FarmSession.
-	RegisterGridMovementLoaders(world);
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();
@@ -57,7 +52,7 @@ GameModule::GameModule(flecs::world& world) {
 
 	{
 		const auto tilemapScene = std::make_shared<TilemapScene>();
-		tilemapScene->RegisterLoaders(world); // register the tilemap scene's level loaders (player, grid_mover, etc.)
+		tilemapScene->RegisterLoaders(world);
 		scene::RegisterScene<TilemapSceneTag>(world, tilemapScene);
 	}
 
@@ -67,10 +62,9 @@ GameModule::GameModule(flecs::world& world) {
 		scene::RegisterScene<NoiseSceneTag>(world, noiseScene);
 	}
 
-	// Start with the title scene.
 	scene::ActivateScene<TitleSceneTag>(world);
 
-	spdlog::info("[GameModule] Registered game data, scenes, and activated the title scene");
+	spdlog::info("[GameModule] Registered sandbox scenes and activated the title scene");
 }
 
 } // namespace game

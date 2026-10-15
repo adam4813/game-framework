@@ -80,8 +80,14 @@ For each pending todo (in dependency order):
 1. Clean build using desktop and wasm presets
   - If build fails: read error, fix code, rebuild
   - If stuck after 2-3 attempts: stop and ask user for help
-2. Walk through `## Verification Checklist` items — verify code implements each one (manually; you can't run interactive
-   tests)
+2. Walk through `## Verification Checklist` items — verify code implements each one.
+   **Interactive tests are possible**: launch the game and use the `flecs-remote-api` skill
+   (`flecs_*` MCP tools or `tools/flecs-api.js`) to switch scenes, move the player, open UI,
+   and confirm runtime behavior. Do not skip this — crashes, wrong item names, missing
+   interactions, and broken game-feel only appear at runtime, not in a build or unit test.
+   - If the phase adds a playable scene: switch to it via `flecs_switch_scene`, walk around,
+     confirm the core loop runs without errors.
+   - If the phase adds gameplay (farming, interaction, inventory): exercise the loop end-to-end.
 3. Read `## 🛑 GATE` section from phase file (must exist; if missing, stop and inform user)
 4. Use `ask_user` with schema:
   - Boolean for each GATE question

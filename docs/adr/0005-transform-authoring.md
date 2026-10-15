@@ -1,0 +1,3 @@
+﻿# Author `Transform`, Never `WorldTransform` Directly
+
+`WorldTransform` (world-space position, rotation, scale, and matrix) is exclusively computed and owned by the engine: seeded once from `Transform` by the `SetInitialWorldTransform` observer, then updated every frame by `TransformPropagation` (for all entities) or by the physics backend (for dynamic rigid bodies). Game and engine code write only `Transform` (local-space). Any direct write to `WorldTransform` after initialisation is silently overwritten on the next frame by `TransformPropagation`, producing bugs that are very hard to trace because the value appears correct at the point of writing.

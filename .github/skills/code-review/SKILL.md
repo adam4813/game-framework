@@ -99,6 +99,18 @@ here are concrete, citable findings — prioritize them over generic advice.
 - [ ] **Event-driven vs. per-frame** — discrete state changes should use observers/events, not per-frame
       polling; continuous simulation (movement, tweens, rendering) stays per-frame.
 - [ ] **Singletons** via `world.get<T>()` / `world.get_mut<T>()`; no ad-hoc mutable globals.
+- [ ] **Singleton access in `.each()`** — use `it.world().get<T>()` inside the lambda. Adding T as a
+      template argument and combining with `.term_at<T>().singleton()` causes a compile error on some system
+      shapes; the `it.world()` pattern is always safe.
+- [ ] **Component pre-registration** — any type first reached inside a system via `try_get<T>()`,
+      `has<T>()`, or `entity.add<T>()` triggers lazy `ecs_new_low_id`, which crashes
+      (`INVALID_WHILE_READONLY`) in a multi-stage world (physics module sets `stage_count > 1`). Flag
+      component types used only in system callbacks with no prior `world.component<T>()` call.
+- [ ] **`modified<T>()` observer side-effects** — calling `entity.modified<T>()` after in-place data
+      mutation on an **engine** component (e.g. `Tilemap`, `DynamicMesh`) fires that module's `OnSet<T>`
+      observer, which may reset streaming state, re-initialize viewports, or rebuild meshes from scratch.
+      Flag any game-code `modified<T>()` call on engine components; prefer in-place mutation without
+      `modified<>()` when only data changes, and check the module's observer list first.
 - [ ] **Determinism** — randomness pulls from `world.get_mut<ecs::RngState>()` (splitmix64), never `rand()`
       or a private generator, so seeded runs reproduce.
 

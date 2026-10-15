@@ -6,9 +6,11 @@
 #include <glm/glm.hpp>
 
 #include "engine/engine.hpp"
-#include "grid_movement.hpp"
 
 namespace game {
+
+using engine::tilemap::GridMover;
+using engine::tilemap::PlayerControlled;
 
 struct TilemapSceneTag {};
 struct BtWandererNPC {};

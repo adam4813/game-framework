@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+#include "grid_movement.hpp"
 #include "tilemap_callbacks.hpp"
 #include "tilemap_components.hpp"
 #include "tilemap_loader.hpp"
@@ -91,6 +92,8 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 	world.component<Tilemap>()
 		.add(flecs::With, world.component<TilemapViewport>())
 		.add(flecs::With, world.component<spatial::Transform>());
+
+	RegisterGridMovementLoaders(world);
 
 	scripting::RegisterComponentForScripts(world, world.component<TileSet>());
 	scripting::RegisterComponentForScripts(world, world.component<Tilemap>());
