@@ -28,3 +28,33 @@ _Avoid_: bot, NPC, companion
 In solo play, the human moving control from one Operator to another. The Operator left behind becomes an AI Operator
 that finishes what the human was doing, then picks its next job.
 _Avoid_: switch, possess
+
+### The floor
+
+**Station**:
+A machine on the bunker floor that Operators work. It runs at most one Job at a time and holds that Job's items until they are picked up.
+_Avoid_: machine (in identifiers), workstation, island
+
+**Item**:
+A physical thing an Operator carries, one at a time: a Raw Card, a Decoded Card, a Morse Tape. An intercept Item carries the frequency it was copied from.
+_Avoid_: ingredient, object, pickup
+
+**Transform**:
+A Station's rule turning a set of input Items into output Items through a verb (Instant, Tap, Hold, Walk-away). The route a ticket takes is the chain of Transforms, not a stored recipe.
+_Avoid_: recipe, route recipe, conversion
+
+**Job**:
+One run of a Transform on a Station, from its inputs going in to its outputs being picked up. Its progress belongs to the Station, not to the Operator.
+_Avoid_: task, process
+
+**Counter**:
+A surface where an Operator may set down one Item. Items are never set on the floor.
+_Avoid_: shelf, table, drop spot
+
+**Preset**:
+One of the Radio's jump buttons, each tuned to a spike on its spectrum. A Ticket names a frequency, not a Preset.
+_Avoid_: channel, slot
+
+**Modifier**:
+A named set of data overrides that a Shift switches on as one of its gimmicks; the same mechanism drives developer A/B tests.
+_Avoid_: variant, mutator, toggle

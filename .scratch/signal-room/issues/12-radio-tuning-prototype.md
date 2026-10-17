@@ -1,4 +1,4 @@
-# Radio tuning feel
+# Radio presets & spectrum read
 
 Map: [Signal Room: Vertical Slice](../map.md)
 Label: wayfinder:prototype
@@ -8,7 +8,13 @@ Blocked by: 01, 04
 
 ## Question
 
-What should tuning the radio feel like? Build a throwaway prototype of the dial (coarse/fine or single vernier, 120–180 kHz), the lock zone width, what Drift does to a locked signal, and the procedural heterodyne tone as the main feedback (pitch falling to a clean tone at lock), plus the scope/needle visual. React to it and pick dial speed, lock tolerance, and how much the audio versus visual feedback carries.
+Manual vernier tuning was dropped (see [Routine Cable route & station verbs](01-routine-cable-route.md)). The Radio now
+jumps between 5 Presets (keys 1–5), each on a labelled spike in a spectrum, some of them decoys, and then Holds to copy
+(~2 s). Tickets show a frequency label. Build a throwaway prototype of the spectrum display + preset jump + copy, and
+judge: does matching a ticket's frequency label to a spike read at a glance under pressure, how should the spikes and
+labels be drawn, and how should the procedural heterodyne tone carry the jump (static sweep → clean tone on a live
+spike, dead air on an empty one) and the copy progress? Pick the label format and the frequency range/spacing that
+reads best, and the copy duration.
 
 Context: [Procedural audio on Raylib (desktop + WASM)](04-procedural-audio-research.md) is resolved. Drive the
 heterodyne pitch through an atomic target smoothed in a callback synth. Expect ~43 ms latency on web, so judge the
