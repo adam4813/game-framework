@@ -52,3 +52,9 @@ gimmicks. The dev toggle (imgui / title screen) forces Modifiers on or off over 
 and Shift gimmicks share one mechanism. The first two are A/B tests: `keypunch` (1-machine vs 2-machine) and
 `telex_autostamp`. Shift 1's single-frequency Radio is a candidate Modifier too. The override schema is part of the
 Data schema fog.
+
+## Comments
+
+- 2026-10-17: [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scoring.md) tightens the Radio: a frequency
+  only yields a card while an On Air Ticket names it (decoy spikes are always on air). Matching and "transmits for
+  nothing" are unchanged.

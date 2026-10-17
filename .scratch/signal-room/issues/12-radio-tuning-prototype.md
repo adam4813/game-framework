@@ -19,3 +19,7 @@ reads best, and the copy duration.
 Context: [Procedural audio on Raylib (desktop + WASM)](04-procedural-audio-research.md) is resolved. Drive the
 heterodyne pitch through an atomic target smoothed in a callback synth. Expect ~43 ms latency on web, so judge the
 feel on desktop first and check that it still reads on web.
+
+Context from [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scoring.md): a frequency only carries traffic
+while an On Air Ticket names it; Stand-by frequencies are silent; decoy spikes are always on air. Shift 2 has 3 live
+frequencies + 2 decoys across the 5 Presets. Judge how silent / live / decoy spikes read.

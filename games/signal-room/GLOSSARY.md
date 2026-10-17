@@ -83,3 +83,45 @@ _Avoid_: channel, slot
 **Modifier**:
 A named set of data overrides that a Shift switches on as one of its gimmicks; the same mechanism drives developer A/B tests.
 _Avoid_: variant, mutator, toggle
+
+### Tickets & scoring
+
+**Window**:
+The transmission window a Shift lasts: the stretch of the night enemy stations are on the air. When it closes the
+Shift ends.
+_Avoid_: timer, round, shift clock (as an identifier)
+
+**Ticket**:
+A tasking from HQ on the rack: a callsign and frequency to intercept, with a tier and a time gauge. It moves from
+Stand-by to On Air, then ends Cleared or as a Lost Intercept.
+_Avoid_: order (lore wording only), tasking (lore wording only), request
+
+**Stand-by**:
+A Ticket that has arrived but whose station is not yet transmitting; its frequency is silent.
+_Avoid_: pending, queued
+
+**On Air**:
+A Ticket whose station is transmitting; only now can its frequency be copied at the Radio.
+_Avoid_: active, live
+
+**Lost Intercept**:
+A Ticket whose gauge ran out while On Air. A Ticket still open when the Window closes is not a Lost Intercept.
+_Avoid_: expired order, failed ticket
+
+**Handler Chain**:
+High Command's growing confidence in the station: a multiplier built by consecutive Cleared Tickets and broken by a
+Lost Intercept.
+_Avoid_: combo, streak
+
+**Collection Schedule**:
+A Shift's plan for which Tickets arrive and when: mostly random within its limits, with some Tickets pinned to fixed
+times.
+_Avoid_: wave, spawn table
+
+**Decoy**:
+A spike on the Radio's spectrum that is always transmitting but that no Ticket ever names.
+_Avoid_: fake, trap frequency
+
+**Par**:
+The sum of base scores of the Tickets that went On Air in an attempt; star thresholds are fractions of it.
+_Avoid_: max score, target

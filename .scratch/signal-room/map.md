@@ -36,15 +36,16 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Procedural audio on Raylib (desktop + WASM)](issues/04-procedural-audio-research.md): feasible and cheap; one callback-driven synth stream behind `Platform::StartSynth`, hand-rolled DSP in `engine::audio`, atomics for game→audio params; web latency ~43 ms (AudioWorklet deferred), needs click-to-unlock.
 - [Operators & Swap](issues/02-operator-seats-coop-input.md): Seat model (controls + one held Operator; unseated = AI Operator); per-Shift Roster (2 in slice), one-key instant Swap in Roster order; left-behind Operator finishes its Hold/carry, arriving cancels the AI action with ~0.25 s coyote time on Holds; Seat ring + chevron, AI intent icons; fixed whole-room iso camera.
 - [Room layout, movement & set-down](issues/07-room-layout-movement.md): Shift names a Layout (grid Level JSON) + in-service Stations, the rest Tarped; one 13×9 Layout for Shifts 1–2 with 6 Counters; 4.5 m/s walk, 2.2×/0.2 s dash, per-Item carry speed; hand-rolled 2D collision with soft Operator separation; facing-cell targeting with cone fallback, no position snap.
+- [Tickets, window & scoring for Shifts 1–2](issues/05-tickets-window-scoring.md): NORMAL/HIGH/FLASH (90/65/40 s, base 20/30/40), optional heads-up as gauge overfill (Stand-by → On Air), Radio copies only On Air frequencies; seeded Collection Schedule + pinned entries, rack cap 5; value × band share (100/75/50%) × Handler Chain (×1→×2); Lost Intercept −10; hard stop at 4:00; stars at 40/65/90% of par; newly earned stars are the requisition currency, spent on unlocks.
 
 ## Not yet specified
 
 - **Spec chunking & order.** Which specs the decisions roll up into (e.g. core loop, operators & AI, meta, audio,
   Game Target bootstrap) and the order they're handed off. Becomes clear once the core-loop tickets resolve.
-- **Data schema.** JSON shape for Stations/Transforms, Items, tickets, Shifts, Modifiers (override schema: what a
+- **Data schema.** JSON shape for Stations/Transforms, Items, ticket tiers and the Collection Schedule (generator + pinned entries), Shifts, Modifiers (override schema: what a
   Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Depends on the ticket and condition
   decisions.
-- **Screens & HUD.** Ticket rack, WINDOW clock, briefing card, results/stars screen, requisitions screen, Shift
+- **Screens & HUD.** Ticket rack (incl. how gauge overfill reads for Stand-by), WINDOW clock, briefing card, results/stars screen, requisitions screen, Shift
   picker / campaign flow. What must exist and how it is laid out in greybox.
 - **Shift 1 tutorial.** The scripted jam (a Decoder card jam) and how much onboarding the slice needs (prompts,
   gated steps).
@@ -66,5 +67,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
   ticket), and the per-Operator binding layer should not assume keyboard-only.
 - Online co-op (the design shouldn't rule it out, but it isn't specced here).
 - Final art, palette and lighting polish beyond greybox.
+- VIP tickets: their hook is a fussy dispatch type, which needs a second route ([Tickets, window & scoring](issues/05-tickets-window-scoring.md)).
+- Consumable requisitions and start-of-Shift boosts (slice requisitions are star-bought unlocks).
 - Endless mode, environmental-hazard and saboteur expansions (GDD §9).
 - Renaming the engine's `*.level.json` / Level concept (planned separately).
