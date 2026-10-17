@@ -45,6 +45,21 @@ _Avoid_: switch, possess
 A machine on the bunker floor that Operators work. It runs at most one Job at a time and holds that Job's items until they are picked up.
 _Avoid_: machine (in identifiers), workstation, island
 
+**Decoder**:
+The Station at the center of the room, on the rug, that turns Raw Cards into Decoded Cards. The fiction calls it the
+Relay Mainframe.
+_Avoid_: Mainframe (fiction only, not an identifier)
+
+**Layout**:
+The floorplan a Shift is played in: the walls, rug and where every Station and Counter stands. A Shift names its Layout
+and which of its Stations are in service; the rest stand tarped. Several Shifts may share one Layout.
+_Avoid_: level (reserved for the engine's Level), map, room (as an identifier)
+
+**Tarped**:
+A Station standing in the Layout but out of service this Shift, under a canvas tarp. It blocks movement like any
+furniture but cannot be worked.
+_Avoid_: disabled, locked, inactive
+
 **Item**:
 A physical thing an Operator carries, one at a time: a Raw Card, a Decoded Card, a Morse Tape. An intercept Item carries the frequency it was copied from.
 _Avoid_: ingredient, object, pickup

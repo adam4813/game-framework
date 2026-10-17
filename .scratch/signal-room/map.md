@@ -35,13 +35,14 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Routine Cable route & station verbs](issues/01-routine-cable-route.md): item-driven Transforms (N→M, one Job per Station, no queue, pick up outputs). Radio Hold-to-copy with 5 Presets in Shift 2; Decoder walk-away + crank; Telex place + stamp. Items carry a frequency and match the most urgent ticket at the Telex. Counters only. A/B and Shift gimmicks via Modifiers (`keypunch`, `telex_autostamp`).
 - [Procedural audio on Raylib (desktop + WASM)](issues/04-procedural-audio-research.md): feasible and cheap; one callback-driven synth stream behind `Platform::StartSynth`, hand-rolled DSP in `engine::audio`, atomics for game→audio params; web latency ~43 ms (AudioWorklet deferred), needs click-to-unlock.
 - [Operators & Swap](issues/02-operator-seats-coop-input.md): Seat model (controls + one held Operator; unseated = AI Operator); per-Shift Roster (2 in slice), one-key instant Swap in Roster order; left-behind Operator finishes its Hold/carry, arriving cancels the AI action with ~0.25 s coyote time on Holds; Seat ring + chevron, AI intent icons; fixed whole-room iso camera.
+- [Room layout, movement & set-down](issues/07-room-layout-movement.md): Shift names a Layout (grid Level JSON) + in-service Stations, the rest Tarped; one 13×9 Layout for Shifts 1–2 with 6 Counters; 4.5 m/s walk, 2.2×/0.2 s dash, per-Item carry speed; hand-rolled 2D collision with soft Operator separation; facing-cell targeting with cone fallback, no position snap.
 
 ## Not yet specified
 
 - **Spec chunking & order.** Which specs the decisions roll up into (e.g. core loop, operators & AI, meta, audio,
   Game Target bootstrap) and the order they're handed off. Becomes clear once the core-loop tickets resolve.
 - **Data schema.** JSON shape for Stations/Transforms, Items, tickets, Shifts, Modifiers (override schema: what a
-  Modifier may override and how the dev toggle layers on top) and upgrades. Depends on the ticket and condition
+  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Depends on the ticket and condition
   decisions.
 - **Screens & HUD.** Ticket rack, WINDOW clock, briefing card, results/stars screen, requisitions screen, Shift
   picker / campaign flow. What must exist and how it is laid out in greybox.
@@ -51,7 +52,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
   alarm, ticket buzzer. Scope and synthesis approach graduate after the audio research.
 - **Game Target bootstrap.** Standing up `games/signal-room/` per ADR-0006 (CMake, entry point, tests, scenes) and
   whether any engine work (gamepad, audio streams) must land first.
-- **Greybox readability & juice.** How stations, carried items and machine states read without art; which of camera
+- **Greybox readability & juice.** How stations, carried items, machine states and the interaction-target highlight read without art; which of camera
   shake / emergency lighting / particles belong in the slice.
 - **Playtest & tuning loop.** How the slice will be tuned (imgui tuning panels, telemetry, Flecs remote checks).
 
