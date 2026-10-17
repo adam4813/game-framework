@@ -19,14 +19,24 @@ A character on the bunker floor who carries items and works stations. At any mom
 by a human player or by the AI; the Operator itself is the same either way.
 _Avoid_: player (a player is a human; an Operator is the character), worker
 
+**Roster**:
+The ordered set of Operators a Shift puts on the floor. Its order decides which Operator a human starts on and the
+order Swap cycles through.
+_Avoid_: crew, team, party
+
+**Seat**:
+One human's place at the console: their controls and the one Operator they currently hold. An Operator held by no Seat
+is an AI Operator.
+_Avoid_: player (as a thing that holds an Operator), controller, slot
+
 **AI Operator**:
-An Operator currently controlled by the AI. It pursues the work it judges correct, deliberately less efficiently than a
-skilled human, so solo play still has a co-op crew.
+An Operator no Seat holds. It pursues the work it judges correct, deliberately less efficiently than a skilled human,
+so solo play still has a co-op crew.
 _Avoid_: bot, NPC, companion
 
 **Swap**:
-In solo play, the human moving control from one Operator to another. The Operator left behind becomes an AI Operator
-that finishes what the human was doing, then picks its next job.
+A human moving their Seat to the next Operator in the Roster that no other Seat holds. The Operator left behind
+becomes an AI Operator that finishes the action or carry the human was in the middle of, then picks its next job.
 _Avoid_: switch, possess
 
 ### The floor

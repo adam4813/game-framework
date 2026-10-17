@@ -34,6 +34,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Gamepad & per-Operator input through Platform](issues/03-gamepad-multi-input-research.md): raylib 5.5 caps at 4 pads, polled hot-plug, desktop/web differ (digital triggers only); recommend raw pad array in `InputState` + data-driven per-Operator action-mapping layer.
 - [Routine Cable route & station verbs](issues/01-routine-cable-route.md): item-driven Transforms (N→M, one Job per Station, no queue, pick up outputs). Radio Hold-to-copy with 5 Presets in Shift 2; Decoder walk-away + crank; Telex place + stamp. Items carry a frequency and match the most urgent ticket at the Telex. Counters only. A/B and Shift gimmicks via Modifiers (`keypunch`, `telex_autostamp`).
 - [Procedural audio on Raylib (desktop + WASM)](issues/04-procedural-audio-research.md): feasible and cheap; one callback-driven synth stream behind `Platform::StartSynth`, hand-rolled DSP in `engine::audio`, atomics for game→audio params; web latency ~43 ms (AudioWorklet deferred), needs click-to-unlock.
+- [Operators & Swap](issues/02-operator-seats-coop-input.md): Seat model (controls + one held Operator; unseated = AI Operator); per-Shift Roster (2 in slice), one-key instant Swap in Roster order; left-behind Operator finishes its Hold/carry, arriving cancels the AI action with ~0.25 s coyote time on Holds; Seat ring + chevron, AI intent icons; fixed whole-room iso camera.
 
 ## Not yet specified
 
