@@ -21,6 +21,8 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
     whether a human or the AI drives it, so human co-op can be added in slice 2.
   - Treat the GDD's numbers as tuning targets. Specs pick starting values and keep them in data.
   - Questions go through the ask-user tool, one round per call (per `AGENTS.md`).
+  - Model split: spawn `research` ticket subagents with `model: "sonnet"`. Grilling, prototype and charting stay on
+    the main session model (Opus).
 - **Engine facts (2026-10-17):** input is keyboard + mouse only (no gamepad, single `InputState`); audio is
   file-based `SoundEffect`/`Music` only; AI module has BT / GOAP / FSM / Utility / Steering; schema-driven JSON Save
   module exists; Jolt physics exists; no `games/` directory or Game Target scaffold exists yet (ADR-0006 describes it).
