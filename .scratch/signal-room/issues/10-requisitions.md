@@ -14,3 +14,7 @@ Context from [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scor
 pays its newly earned stars (best per Shift minus already banked) into a bank, so replays can't farm. Requisitions are
 **unlocks** that deduct stars (e.g. 2 each); no consumables or start-of-Shift boosts in the slice. The slice pool is at
 most 6 stars, so size costs and catalogue to it.
+
+Context from [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md): there's no wear meter and no oil
+stock. The Oil Can is a single reusable tool. "Slower wear" and "oil can stock" become levers on the Fault model
+instead (a longer cooldown range, Jam/Seize weights, a faster Mash or oil Hold, a second Oil Can or one closer to the Decoder).

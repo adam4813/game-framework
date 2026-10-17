@@ -58,3 +58,6 @@ Data schema fog.
 - 2026-10-17: [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scoring.md) tightens the Radio: a frequency
   only yields a card while an On Air Ticket names it (decoy spikes are always on air). Matching and "transmits for
   nothing" are unchanged.
+- 2026-10-17: [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md) drops Shift 1's scripted Decoder card jam. Shift 1 has no Faults. The Decoder can Jam (progress to 0,
+  Mash 3×, restart) or Seize (pause, Hold with the Oil Can) from Shift 2 on. No Overdrive in the slice; the crank is
+  unchanged.

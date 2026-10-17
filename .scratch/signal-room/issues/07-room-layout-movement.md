@@ -80,3 +80,9 @@ On any interaction the Operator turns to face the target but never snaps positio
 is a possible later refinement.
 
 Glossary: added **Decoder** (avoid "Mainframe"), **Layout** and **Tarped**.
+
+## Comments
+
+- 2026-10-17: [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md) rules the Cooling Vent out of scope. Cell (0,8) becomes a Counter that starts with the **Oil Can** (a
+  reusable tool Item) in Shift 2, so the ~7 m pull from the Decoder stays as the Seize-repair run. In Shift 1 it's a plain
+  Counter with no can on it.

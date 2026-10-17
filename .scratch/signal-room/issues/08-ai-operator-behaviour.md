@@ -8,7 +8,7 @@ Blocked by: 01, 02, 06
 
 ## Question
 
-How does an AI Operator decide what to do and how is it 'correct but less efficient'? Settle: how it picks the next job (utility scoring over open tickets/route steps/repairs? GOAP? BT? weigh the engine's AI module), how it avoids clashing with the human (claims/reservations on stations and items), the inefficiency knobs (reaction delay, suboptimal picks, slower cranking, no Overdrive?), how it continues the human's in-progress job after a Swap, whether the player can steer it (ping/command) or not, and how it handles repairs and heat. Its tuning must live in data.
+How does an AI Operator decide what to do and how is it 'correct but less efficient'? Settle: how it picks the next job (utility scoring over open tickets/route steps/repairs? GOAP? BT? weigh the engine's AI module), how it avoids clashing with the human (claims/reservations on stations and items), the inefficiency knobs (reaction delay, suboptimal picks, slower cranking), how it continues the human's in-progress job after a Swap, whether the player can steer it (ping/command) or not, and how it handles repairs. Its tuning must live in data.
 
 Context: [Routine Cable route & station verbs](01-routine-cable-route.md) is resolved. Work is item-driven Transforms with one Job per Station and station-owned progress (an AI can resume any paused Job); items match tickets by frequency at the Telex. The AI must pick Radio Presets by ticket frequency, avoid decoys and over-producing items no ticket wants, and hand off only via Counters.
 
@@ -18,3 +18,8 @@ Context from [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scor
 overfilled, frequency silent) → On Air; the Radio only copies a frequency with an On Air Ticket (decoys always on air).
 Value falls with the gauge band (100/75/50%) and a Lost Intercept breaks the Handler Chain, so the AI's job pick should
 weigh urgency and band, and may pre-position during Stand-by.
+
+Context from [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md): no heat and no Overdrive in the
+slice. From Shift 2 the Decoder Faults at random while running a Job. A Jam (progress to 0) is cleared by Mashing
+Interact 3×; a Seize (paused) needs the Oil Can, a reusable tool Item on the Counter at (0,8), held at the Decoder
+~1.5 s. The AI must decide who fetches the can and whether to drop or park its carried Item to do it.

@@ -37,20 +37,20 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Operators & Swap](issues/02-operator-seats-coop-input.md): Seat model (controls + one held Operator; unseated = AI Operator); per-Shift Roster (2 in slice), one-key instant Swap in Roster order; left-behind Operator finishes its Hold/carry, arriving cancels the AI action with ~0.25 s coyote time on Holds; Seat ring + chevron, AI intent icons; fixed whole-room iso camera.
 - [Room layout, movement & set-down](issues/07-room-layout-movement.md): Shift names a Layout (grid Level JSON) + in-service Stations, the rest Tarped; one 13×9 Layout for Shifts 1–2 with 6 Counters; 4.5 m/s walk, 2.2×/0.2 s dash, per-Item carry speed; hand-rolled 2D collision with soft Operator separation; facing-cell targeting with cone fallback, no position snap.
 - [Tickets, window & scoring for Shifts 1–2](issues/05-tickets-window-scoring.md): NORMAL/HIGH/FLASH (90/65/40 s, base 20/30/40), optional heads-up as gauge overfill (Stand-by → On Air), Radio copies only On Air frequencies; seeded Collection Schedule + pinned entries, rack cap 5; value × band share (100/75/50%) × Handler Chain (×1→×2); Lost Intercept −10; hard stop at 4:00; stars at 40/65/90% of par; newly earned stars are the requisition currency, spent on unlocks.
+- [Decoder Faults & the Oil Can in Shift 2](issues/06-condition-heat-overdrive.md): no Condition meter, heat or Overdrive. From Shift 2 the Decoder Faults at random while running (hidden run-time cooldown, seeded): a Jam resets progress (Mash 3×), a Seize pauses (Hold with the reusable Oil Can, from the Counter at (0,8)). Shift 1 has no Faults (scripted jam dropped); Shift 2 pins a Seize at ~20 s.
 
 ## Not yet specified
 
 - **Spec chunking & order.** Which specs the decisions roll up into (e.g. core loop, operators & AI, meta, audio,
   Game Target bootstrap) and the order they're handed off. Becomes clear once the core-loop tickets resolve.
 - **Data schema.** JSON shape for Stations/Transforms, Items, ticket tiers and the Collection Schedule (generator + pinned entries), Shifts, Modifiers (override schema: what a
-  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Depends on the ticket and condition
-  decisions.
+  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Also Fault data (cooldown range, kind weights, pinned first Fault).
 - **Screens & HUD.** Ticket rack (incl. how gauge overfill reads for Stand-by), WINDOW clock, briefing card, results/stars screen, requisitions screen, Shift
   picker / campaign flow. What must exist and how it is laid out in greybox.
-- **Shift 1 tutorial.** The scripted jam (a Decoder card jam) and how much onboarding the slice needs (prompts,
-  gated steps).
-- **Procedural audio palette.** Beyond the radio tone: relay chatter, per-machine rattle, steam hiss, stamp thud,
-  alarm, ticket buzzer. Scope and synthesis approach graduate after the audio research.
+- **Shift 1 tutorial.** How much onboarding the slice needs (prompts, gated steps). Shift 1 teaches only the route,
+  with no Faults. Shift 2's pinned first Seize is its in-play lesson for the Oil Can.
+- **Procedural audio palette.** Beyond the radio tone: relay chatter, Jam grind, Seize squeal, stamp thud,
+  Fault alarm, ticket buzzer. Scope and synthesis approach graduate after the audio research.
 - **Game Target bootstrap.** Standing up `games/signal-room/` per ADR-0006 (CMake, entry point, tests, scenes) and
   whether any engine work (gamepad, audio streams) must land first.
 - **Greybox readability & juice.** How stations, carried items, machine states and the interaction-target highlight read without art; which of camera
@@ -71,3 +71,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - Consumable requisitions and start-of-Shift boosts (slice requisitions are star-bought unlocks).
 - Endless mode, environmental-hazard and saboteur expansions (GDD §9).
 - Renaming the engine's `*.level.json` / Level concept (planned separately).
+- Overdrive: it reads as a boost, and boosts are out ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
+- The Cooling Vent, core temperature and thermal runaway: the Vent doesn't fit the theme for now; a possible future idea ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
+- A Condition meter and wear stages, the Loose Tube, Blown Fuse and Stuck Valve Faults, the Coolant Canister and the Supply Rack: slice Faults are random, not wear-driven ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
+- Backlogged outside this map: [Near-miss blast knocks power cables loose](../backlog/issues/01-near-miss-power-cables.md) and [Rattling tell before a Fault](../backlog/issues/02-fault-rattling-tell.md).

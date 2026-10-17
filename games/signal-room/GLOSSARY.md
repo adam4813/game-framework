@@ -61,7 +61,7 @@ furniture but cannot be worked.
 _Avoid_: disabled, locked, inactive
 
 **Item**:
-A physical thing an Operator carries, one at a time: a Raw Card, a Decoded Card, a Morse Tape. An intercept Item carries the frequency it was copied from.
+A physical thing an Operator carries, one at a time: a Raw Card, a Decoded Card, a Morse Tape, or a tool such as the Oil Can. An intercept Item carries the frequency it was copied from.
 _Avoid_: ingredient, object, pickup
 
 **Transform**:
@@ -83,6 +83,24 @@ _Avoid_: channel, slot
 **Modifier**:
 A named set of data overrides that a Shift switches on as one of its gimmicks; the same mechanism drives developer A/B tests.
 _Avoid_: variant, mutator, toggle
+
+### Faults
+
+**Fault**:
+A Station's own breakdown, striking at random while it runs a Job. It stops the Job until an Operator repairs it. A Station has at most one Fault at a time.
+_Avoid_: breakdown (in identifiers), hazard, crisis (keep that for world-caused events)
+
+**Jam**:
+A Fault that throws away the Job's progress. Working the machine clears it, and the Job starts over.
+_Avoid_: gear jam, card jam (both mean Jam)
+
+**Seize**:
+A Fault that freezes the Job where it is until the Oil Can is applied; the Job then carries on.
+_Avoid_: dry, stuck, needs oil
+
+**Oil Can**:
+A reusable tool Item that repairs a Seize. It is never used up.
+_Avoid_: oil, lubricant, consumable
 
 ### Tickets & scoring
 
