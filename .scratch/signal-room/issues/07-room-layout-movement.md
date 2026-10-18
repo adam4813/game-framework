@@ -96,3 +96,6 @@ Glossary: added **Decoder** (avoid "Mainframe"), **Layout** and **Tarped**.
   walkable, which gives a gap between Radio 2 and Radio 3. In Shift 2 the Keypunch at (3,2) stands Tarped unless the
   `keypunch` Modifier is on. Layout read: Radio 3 is about 1 m from the Decoder and Radio 1 about 5 m away, so picking
   a Radio has a cost. Row 1 is a clear lane in front of the Radios, and rows 5–7 are open floor.
+- 2026-10-17: [Greybox readability & juice](15-greybox-readability.md) settles how the target reads. It **brightens**
+  in the Seated Operator's identity colour, with no outline. While carrying, **where-to-go chevrons** mark every Station
+  that accepts the held Item. Stations are small machines on tables or benches that fill their footprints, with state on the top or back.

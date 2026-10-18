@@ -58,3 +58,9 @@ Each AI Operator shows a small intent icon naming its target Station.
 Room size is limited by this frame (see [Room layout, movement & set-down](07-room-layout-movement.md)).
 
 Glossary: added **Roster** and **Seat**; reworded **AI Operator** and **Swap**.
+
+## Comments
+
+- 2026-10-17: [Greybox readability & juice](15-greybox-readability.md) replaces the AI intent icon with the Operator
+  **Bubble** (glyph naming the target Station; also shows ✗ on a refused action, emotes later). Each Operator wears an
+  identity-colour collar. Camera shake is dropped from the slice: the camera stays dead still.

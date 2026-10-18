@@ -181,3 +181,20 @@ A Shift's held opening: the Window, the Collection Schedule and the first Ticket
 Cleared, and the AI Operator clocks on then. A Shift opts in; it applies while the Campaign hasn't earned a star on that
 Shift, or whenever more than one human is seated.
 _Avoid_: warm-up, dry run, tutorial (Shift 1's name "Night Shift Orientation" is fiction, not this term)
+
+### Readability
+
+**Target**:
+The Station or Counter the Seated Operator would act on if it pressed now. It brightens in that Operator's identity
+colour.
+_Avoid_: selection, focus, highlight (as a noun for the thing)
+
+**Where-to-go chevron**:
+A down chevron in an Operator's colour over each Station that would accept the Item that Operator is carrying. It shows
+only while carrying. Unlike a Hint, it names no key and never retires.
+_Avoid_: marker, waypoint, Hint
+
+**Bubble**:
+The speech bubble above an Operator. It shows a ✗ when an action is refused and, for an AI Operator, a glyph naming the
+Station it is heading for. Later emotes use it too.
+_Avoid_: intent icon, emote (as the container), tooltip

@@ -45,13 +45,14 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Campaign save contents](issues/11-campaign-save.md): three Campaign slots + a separate settings slot via the existing Platform save API; Campaign = per-Shift best stars/score + owned Requisition ids in named, tolerantly loaded sections (Star bank and unlocks derived); autosave at Shift end and on each purchase, no mid-Shift save; Title → Continue/Play → Slot picker (delete only); stale ids dropped, unparseable slots marked Unreadable.
 - [Spec chunking & hand-off order](issues/13-spec-chunking-order.md): six vertical specs handed off 1 Room & bootstrap → 2 Core loop → 3 Operators, Swap & AI → 4 Faults & Shift 2 → 5 Meta, with 6 Procedural audio any time after 2; paste-ready `/to-spec` packets (boundary, reads, settles, exit) live on the ticket; ImGui and the new [Synth stream behind Platform](../synth-stream/issues/01-synth-stream-platform.md) land on `main` before any slice implementation; remaining fog is settled inside the spec that introduces it.
 - [Shift 1 tutorial](issues/14-shift1-tutorial.md): Briefing card (auto until the slot has a result, then a Shift picker button) + data-driven Hints (settings toggle, all Shifts, retire after one use, route verbs, Dash, Swap); Shift 1 opens in **Orientation**: Window, schedule and gauge frozen until the first Clear of a pinned unlosable Ticket, then the AI Operator clocks on; skipped once the slot has 1★, always held with 2+ humans.
+- [Greybox readability & juice](issues/15-greybox-readability.md): A's silhouettes and lamps on small machines set on tables, with state on the top deck or a rear riser so an Operator can't hide it; Radios coloured by frequency (7.0 cyan, 7.5 magenta, 8.0 violet, clear of Operator and lamp colours); shaped Items with a frequency stripe; the Target brightens in the Operator's colour, and where-to-go chevrons show only while carrying; an Operator Bubble shows ✗ on a refusal and the AI's intent; juice = emergency lighting + particles, no camera shake.
 
 ## Not yet specified
 
 Nothing left as fog. Data schema, screens & HUD, the audio palette, the Game Target bootstrap and the debug panels are
 each settled inside the spec that introduces them (see the packets on
 [Spec chunking & hand-off order](issues/13-spec-chunking-order.md)). The Shift 1 tutorial and greybox readability
-graduated into their own tickets.
+graduated into their own tickets, now resolved.
 
 ## Out of scope
 
