@@ -90,3 +90,9 @@ Glossary: added **Decoder** (avoid "Mainframe"), **Layout** and **Tarped**.
   Tarps the two extras). Starting placements: all on the north wall, 2×1 worked from S, at cells (1–2,0), (4–5,0) and
   (8–9,0), with the Counter at (3,0) between the first two. Walking distances to the Keypunch change; tune in the
   Layout file.
+- 2026-10-18: which tarp is which machine (all dressing props, no Station data). **Cipher Rotors** on the floor at
+  (10–11,0), **Supply Rack** at (12,0) in the NE corner, and **Power Panel** mounted on the west wall beside rows 3–4,
+  with no floor footprint. The `~` storm window is on the north wall above cells (6–7,0). Those two floor cells stay
+  walkable, which gives a gap between Radio 2 and Radio 3. In Shift 2 the Keypunch at (3,2) stands Tarped unless the
+  `keypunch` Modifier is on. Layout read: Radio 3 is about 1 m from the Decoder and Radio 1 about 5 m away, so picking
+  a Radio has a cost. Row 1 is a clear lane in front of the Radios, and rows 5–7 are open floor.
