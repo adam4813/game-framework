@@ -11,6 +11,10 @@
 #include "engine/core/core.hpp"
 #include "engine/platform/debug_ui.hpp"
 
+namespace engine::audio {
+class SynthSource;
+} // namespace engine::audio
+
 // Platform abstraction. All Raylib/ImGui calls live behind this interface so game logic stays engine-agnostic.
 // Implementations: RaylibBackend (platform/raylib/) and the headless NullPlatform used by the scene equivalence
 // test (tests/scene_equivalence/null_platform.hpp) — a new pure virtual here must be added to both.
@@ -221,6 +225,14 @@ public:
 	virtual int LoadSound(std::string_view path) = 0; // returns handle, or -1
 	virtual void UnloadSound(int handle) = 0;
 	virtual void PlaySound(int handle) = 0;
+
+	// ── Procedural audio ──
+	// Starts the single procedural output stream (mono f32 at audio::kSynthSampleRate), pulled by
+	// the audio device straight from `source`->Render() on the audio thread. Replaces any running
+	// source. `source` must outlive the matching StopSynth() (or Shutdown); once StopSynth returns,
+	// Render() is guaranteed not to be running. No-op when the audio device is unavailable.
+	virtual void StartSynth(audio::SynthSource* source) = 0;
+	virtual void StopSynth() = 0;
 
 	// ── Persistence (save data) ──
 	// A minimal key-value blob store for save data, keyed by slot name. Desktop stores each slot as

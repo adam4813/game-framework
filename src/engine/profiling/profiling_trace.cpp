@@ -1,5 +1,6 @@
 #include "profiling_trace.hpp"
 
+#include <cstddef>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -56,6 +57,31 @@ Zone::Zone([[maybe_unused]] const std::string_view name, [[maybe_unused]] const 
 }
 
 Zone::~Zone() {
+#ifdef TRACY_ENABLE
+	TracyCZoneCtx ctx{};
+	ctx.id = id_;
+	ctx.active = active_;
+	___tracy_emit_zone_end(ctx);
+#endif
+}
+
+#ifdef TRACY_ENABLE
+// ZoneSite mirrors Tracy's source-location record so a static ZoneSite can be handed to Tracy as-is.
+static_assert(sizeof(ZoneSite) == sizeof(___tracy_source_location_data));
+static_assert(offsetof(ZoneSite, line) == offsetof(___tracy_source_location_data, line));
+static_assert(offsetof(ZoneSite, color) == offsetof(___tracy_source_location_data, color));
+#endif
+
+StaticZone::StaticZone([[maybe_unused]] const ZoneSite& site) {
+#ifdef TRACY_ENABLE
+	const TracyCZoneCtx ctx =
+		___tracy_emit_zone_begin(reinterpret_cast<const ___tracy_source_location_data*>(&site), 1);
+	id_ = ctx.id;
+	active_ = ctx.active;
+#endif
+}
+
+StaticZone::~StaticZone() {
 #ifdef TRACY_ENABLE
 	TracyCZoneCtx ctx{};
 	ctx.id = id_;

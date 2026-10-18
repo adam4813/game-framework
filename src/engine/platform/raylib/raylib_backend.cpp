@@ -1,10 +1,12 @@
 #include "raylib_backend.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -18,6 +20,7 @@
 #include <rlgl.h>
 #include <spdlog/spdlog.h>
 
+#include "engine/audio/synth_source.hpp"
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
 #include "engine/platform/imgui/imgui_debug_ui.hpp"
@@ -79,6 +82,26 @@ namespace {
 std::vector<Sound> g_sounds;
 // Maps canonical path → sound handle; prevents re-loading the same file from disk.
 std::unordered_map<std::string, int> g_sound_paths;
+
+// The procedural audio stream and the source it pulls from. raylib's AudioCallback carries no user
+// pointer, so the static trampoline reaches the active source through this global.
+AudioStream g_synth_stream{};
+std::atomic<audio::SynthSource*> g_synth_source{nullptr};
+
+// Runs on the audio thread under raylib's audio lock (on web: the main thread, between frames).
+// Must not lock, allocate, log, or call raylib — see audio::SynthSource.
+void SynthTrampoline(void* buffer, const unsigned int frames) {
+	static constexpr profiling::ZoneSite
+		kSite{.name = "Platform::SynthCallback", .function = __func__, .file = __FILE__, .line = __LINE__};
+	profiling::StaticZone _zone{kSite};
+	const std::span out{static_cast<float*>(buffer), frames};
+	audio::SynthSource* source = g_synth_source.load(std::memory_order_acquire);
+	if (source == nullptr) {
+		std::ranges::fill(out, 0.0F);
+		return;
+	}
+	source->Render(out);
+}
 
 // Loaded models, indexed by the handle returned from LoadMesh.
 std::vector<Model> g_models;
@@ -795,6 +818,7 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_custom_shaders.clear();
+	StopSynth();
 	CloseAudioDevice();
 	CloseWindow();
 }
@@ -1663,6 +1687,30 @@ void RaylibBackend::UnloadSound(const int handle) {
 	::UnloadSound(sound);
 	sound.frameCount = 0;
 	std::erase_if(g_sound_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+// ── Procedural audio ──
+
+void RaylibBackend::StartSynth(audio::SynthSource* source) {
+	StopSynth();
+	if (source == nullptr || !IsAudioDeviceReady()) {
+		return;
+	}
+	// Publish the source before the stream can call back into it.
+	g_synth_source.store(source, std::memory_order_release);
+	g_synth_stream = LoadAudioStream(static_cast<unsigned int>(audio::kSynthSampleRate), 32, 1);
+	SetAudioStreamCallback(g_synth_stream, SynthTrampoline);
+	PlayAudioStream(g_synth_stream);
+}
+
+void RaylibBackend::StopSynth() {
+	if (IsAudioStreamValid(g_synth_stream)) {
+		StopAudioStream(g_synth_stream);
+		// Unloading takes raylib's audio lock, so no callback is mid-flight once it returns.
+		UnloadAudioStream(g_synth_stream);
+		g_synth_stream = AudioStream{};
+	}
+	g_synth_source.store(nullptr, std::memory_order_release);
 }
 
 // ── Persistence ──

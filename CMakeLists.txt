@@ -129,7 +129,9 @@ if (EMSCRIPTEN)
         -sGL_ENABLE_GET_PROC_ADDRESS=1
         --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets
         -sSTACK_SIZE=512KB
-        --pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js
+        # SHELL: keeps each flag paired with its path; CMake would de-duplicate a bare repeated --pre-js.
+        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js"
+        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_audio_unlock.js"
         "$<$<CONFIG:Debug>:-sASSERTIONS -sSTACK_OVERFLOW_CHECK=2;-sGL_DEBUG=1>"
         "$<$<NOT:$<CONFIG:Debug>>:-O3;--closure 1>")
 

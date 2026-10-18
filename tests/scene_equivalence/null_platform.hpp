@@ -88,6 +88,9 @@ public:
 	void UnloadSound(int) override {}
 	void PlaySound(int) override {}
 
+	void StartSynth(engine::audio::SynthSource*) override {}
+	void StopSynth() override {}
+
 	void WriteSave(std::string_view, std::string_view) override {}
 	[[nodiscard]] std::string ReadSave(std::string_view) const override { return {}; }
 	[[nodiscard]] bool HasSave(std::string_view) const override { return false; }
