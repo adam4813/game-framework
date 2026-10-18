@@ -48,7 +48,7 @@ never on the floor. Operators pass items only through counters (no throwing or d
 are and where they go belongs to [Room layout, movement & set-down](07-room-layout-movement.md).
 
 **Modifiers:** a named set of data overrides (transforms, tuning values, Radio setup) that a Shift switches on as its
-gimmicks. The dev toggle (imgui / title screen) forces Modifiers on or off over the Shift's declaration, so A/B tests
+gimmicks. The dev toggle (debug tooling / title screen) forces Modifiers on or off over the Shift's declaration, so A/B tests
 and Shift gimmicks share one mechanism. The first two are A/B tests: `keypunch` (1-machine vs 2-machine) and
 `telex_autostamp`. Shift 1's single-frequency Radio is a candidate Modifier too. The override schema is part of the
 Data schema fog.

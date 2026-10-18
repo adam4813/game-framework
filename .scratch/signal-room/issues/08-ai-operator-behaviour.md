@@ -79,7 +79,7 @@ counts) claims the repair.
 **Tuning data: AI profiles.** All knobs (reaction delay range, walk %, job % per Station, score weights, pre-position
 lead, Fault grace delays and the closer-human factor, wander radius) live in an **AI profile** JSON. Each Operator
 names its profile as a property. A Shift or the dev toggle can point it at another profile file, so the slice can
-A/B test profiles. No skill tiers ("rookie"/"veteran") for now. An imgui panel edits the live profile and shows each
+A/B test profiles. No skill tiers ("rookie"/"veteran") for now. A debug view (tooling decided in the map's Playtest & tuning fog) shows each
 AI's Job board with candidate scores, for tuning.
 
 Glossary: added **Claim**.
