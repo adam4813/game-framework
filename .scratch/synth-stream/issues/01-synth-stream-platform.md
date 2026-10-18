@@ -60,8 +60,7 @@ the framework/spec git layout supersedes that line. `feat/signal-room` was resta
   - The WASM release build links, and the closure output keeps the shim intact. miniaudio constructs
     `window.AudioContext` at device init, so the shim sees it.
 - Still needs a human:
-  1. Listen to the demo on desktop and in the browser. Check the web unlock when the first input is a
-     key press.
+  1. ~~Listen to the demo on desktop and in the browser.~~ Done: the user heard it on desktop and WASM.
   2. Confirm the `Platform::SynthCallback` zone in a Tracy capture (`desktop-profile` preset). There's no
      `tracy-capture` CLI to do this headlessly.
 - Fixed along the way: CMake de-duplicates repeated bare `--pre-js` link options, so both now use `SHELL:`.
