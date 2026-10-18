@@ -67,3 +67,6 @@ the framework/spec git layout supersedes that line. `feat/signal-room` was resta
 
 **2026-10-17 — PR open.** The framework branch `feat/imgui-debug-ui` (with the version 0.5.0 bump) is up as
 https://github.com/adam4813/game-framework/pull/6 into `main`. Only the Tracy zone check is still open.
+
+**2026-10-17 — merged.** PR #6 was squash-merged into `main` as "Version 0.5.0", and `feat/signal-room` is restacked
+on `main`. Only the Tracy zone check is still open.
