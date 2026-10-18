@@ -71,6 +71,17 @@ jobs:
           configurePreset: ${{ matrix.preset_configure }}
           buildPreset: ${{ matrix.preset_build }}
 
+      # Build and run GoogleTest unit suite (desktop only)
+      - name: Build unit tests
+        if: matrix.target != 'WebAssembly'
+        run: |
+          cmake --preset desktop-test
+          cmake --build --preset desktop-test-release
+
+      - name: Run unit tests
+        if: matrix.target != 'WebAssembly'
+        run: ctest --preset desktop-test-release --output-on-failure
+
       # Build and run scene equivalence test (desktop only)
       - name: Build Scene Equivalence Test
         if: matrix.target != 'WebAssembly'

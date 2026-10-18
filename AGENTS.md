@@ -60,6 +60,11 @@ VCPKG.
   `ecs_new_low_id` which **crashes** (`INVALID_WHILE_READONLY`) when the world is readonly and the physics module
   has set `stage_count > 1`. Pre-register every farm/game component type in a non-system context (e.g., module
   constructor or `Load()`) via `world.component<T>()` before systems run.
+- **`Load()` initialization order:** In a scene `Load()`, registries and system pre-registration must come *before*
+  the setup calls that trigger `OnSet` observers reading them. Example: `LoadObjectKindRegistry` must precede
+  `SetupTilemap` because the `OnSet<WorldObjectLayer>` observer reads `ObjectKindRegistry` synchronously;
+  `RegisterXxxSystems` must precede `SpawnXxx` so `world.component<T>()` calls genuinely pre-register types before
+  entities create them.
 
 ### Transform Authoring
 
@@ -134,6 +139,15 @@ VCPKG.
 - Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file.
 - Conventional commits.
 - **Always work on a branch** — never commit directly to `main`. Open a pull request to merge.
+- **Post-merge verification:** After merging an integration branch into your feature branch, rebuild and run
+  `ctest --preset desktop-test-release`. The test count must equal or exceed the pre-merge baseline — a drop
+  means conflict resolution silently discarded tests or source files.
+- **Multi-ticket worktrees:** Work only in your assigned worktree, not the main repo checkout. Never merge your
+  branch into the integration branch yourself — the coordinator does that. Verify before starting:
+  ```powershell
+  git rev-parse --show-toplevel   # must end with your worktree name, not the main repo
+  git rev-parse --abbrev-ref HEAD  # must equal your feature branch
+  ```
 
 ## Debugging and Inspection
 
