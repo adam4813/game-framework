@@ -3,7 +3,8 @@
 // Browsers keep Web Audio suspended until a user gesture. miniaudio (inside raylib) resumes its
 // AudioContext only on "click"/"touchend", so a player whose first input is a key press hears
 // nothing. This shim records every AudioContext the page creates and resumes any suspended one on
-// keydown/pointerdown too. It doesn't depend on miniaudio internals, which closure may rename.
+// keydown/pointerdown too (a mouse pointerdown counts as a gesture; on touch screens miniaudio's own
+// touchend does the unlock). It doesn't depend on miniaudio internals, which closure may rename.
 (function () {
 	var Original = window["AudioContext"] || window["webkitAudioContext"];
 	if (!Original) {

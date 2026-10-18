@@ -30,8 +30,12 @@ public:
 
 	void Render(std::span<float> out) noexcept override {
 		const float target = pitchHz.Target(); // read controls once per render
-		if (click.Consume()) envelope_.Trigger();
-		for (float& s : out) s = osc_.Next(glide_.Next(target), engine::audio::kSynthSampleRate);
+		if (click.Consume()) {
+			envelope_.Trigger();
+		}
+		for (float& s : out) {
+			s = osc_.Next(glide_.Next(target), engine::audio::kSynthSampleRate) * envelope_.Next();
+		}
 	}
 	// ...
 };

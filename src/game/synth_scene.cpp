@@ -66,18 +66,23 @@ void SynthScene::BuildUI(const flecs::world& world) {
 
 	std::ignore =
 		ui::CreateButton(world, {.x = sw - 120.0F, .y = 8.0F, .w = 100.0F, .h = 38.0F}, "Back", [this](flecs::entity) {
-			if (onBackPressed) onBackPressed();
+			if (onBackPressed) {
+				onBackPressed();
+			}
 		}).child_of(uiRoot_);
 
 	const float x = (sw - kControlW) / 2.0F;
 	float y = 90.0F;
 
+	const auto rowText = [](const std::string& name, const float value) {
+		return std::format("{}: {:.2f}", name, value);
+	};
 	const auto addRow = [&](const std::string& name,
-							const float init,
 							const float minV,
 							const float maxV,
 							engine::audio::SynthParam& param) {
-		const std::string initText = std::format("{}: {:.2f}", name, init);
+		const float init = param.Target();
+		const std::string initText = rowText(name, init);
 		const auto label =
 			ui::CreateLabel(world, {.x = x, .y = y, .w = kControlW, .h = 22.0F}, initText, 16.0F)
 				.set<ui::Label>(
@@ -90,17 +95,17 @@ void SynthScene::BuildUI(const flecs::world& world) {
 						  init,
 						  minV,
 						  maxV,
-						  [label, name, &param](const float v) {
-							  label.get_mut<ui::Label>().text = std::format("{}: {:.2f}", name, v);
+						  [label, name, rowText, &param](const float v) {
+							  label.get_mut<ui::Label>().text = rowText(name, v);
 							  param.Set(v);
 						  }
 		).child_of(uiRoot_);
 		y += kRowH;
 	};
 
-	addRow("Whistle Hz", voice_->whistleHz.Target(), 200.0F, 2000.0F, voice_->whistleHz);
-	addRow("Whistle level", voice_->whistleLevel.Target(), 0.0F, 0.5F, voice_->whistleLevel);
-	addRow("Hiss level", voice_->hissLevel.Target(), 0.0F, 1.0F, voice_->hissLevel);
+	addRow("Whistle Hz", 200.0F, 2000.0F, voice_->whistleHz);
+	addRow("Whistle level", 0.0F, 0.5F, voice_->whistleLevel);
+	addRow("Hiss level", 0.0F, 1.0F, voice_->hissLevel);
 
 	std::ignore = ui::CreateButton(
 					  world,

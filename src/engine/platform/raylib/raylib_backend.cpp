@@ -85,6 +85,8 @@ std::unordered_map<std::string, int> g_sound_paths;
 
 // The procedural audio stream and the source it pulls from. raylib's AudioCallback carries no user
 // pointer, so the static trampoline reaches the active source through this global.
+constexpr unsigned int kSynthSampleBits = 32; // f32 samples
+constexpr unsigned int kSynthChannels = 1;    // mono; raylib's mixer spreads it to the device's channels
 AudioStream g_synth_stream{};
 std::atomic<audio::SynthSource*> g_synth_source{nullptr};
 
@@ -1698,7 +1700,12 @@ void RaylibBackend::StartSynth(audio::SynthSource* source) {
 	}
 	// Publish the source before the stream can call back into it.
 	g_synth_source.store(source, std::memory_order_release);
-	g_synth_stream = LoadAudioStream(static_cast<unsigned int>(audio::kSynthSampleRate), 32, 1);
+	g_synth_stream =
+		LoadAudioStream(static_cast<unsigned int>(audio::kSynthSampleRate), kSynthSampleBits, kSynthChannels);
+	if (!IsAudioStreamValid(g_synth_stream)) {
+		g_synth_source.store(nullptr, std::memory_order_release);
+		return;
+	}
 	SetAudioStreamCallback(g_synth_stream, SynthTrampoline);
 	PlayAudioStream(g_synth_stream);
 }
