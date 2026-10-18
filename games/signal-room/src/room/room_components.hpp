@@ -7,6 +7,8 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 
+#include "engine/core/core.hpp"
+
 namespace signal_room {
 
 // Identity tag of the Room scene (the one scene Operators play in).
@@ -33,6 +35,14 @@ struct FloorGrid {
 	[[nodiscard]] flecs::entity_t OccupantAt(const glm::ivec2 cell) const {
 		return InGrid(cell) && !occupants.empty() ? occupants[static_cast<size_t>(cell.y * width + cell.x)] : 0;
 	}
+	// The cell a floor point (x east, y south) lies in; it may be off the grid.
+	[[nodiscard]] glm::ivec2 CellAt(const glm::vec2 point) const {
+		return glm::ivec2{glm::floor((point - glm::vec2{origin.x, origin.z}) / cellSize)};
+	}
+	// A cell's north-west corner on the floor plane (x east, y south); it spans +cellSize each way.
+	[[nodiscard]] glm::vec2 CellMin(const glm::ivec2 cell) const {
+		return glm::vec2{origin.x, origin.z} + glm::vec2{cell} * cellSize;
+	}
 	// World-space centre of a cell on the floor plane.
 	[[nodiscard]] glm::vec3 CellCentre(const glm::ivec2 cell) const {
 		return origin
@@ -56,6 +66,7 @@ struct RoomOverlays {
 	bool solidCells{false};
 	bool workedSides{false};
 	bool operatorCircle{false};
+	bool targetingReach{false};
 };
 
 // Tag on the floor's cell tiles built from the FloorGrid.
@@ -116,6 +127,16 @@ struct Prop {
 struct SpawnMarker {
 	glm::ivec2 cell{0};
 };
+
+// On each greybox part entity: the colour the catalogue built it in, so a tint drawn over its
+// Material (the Target brighten) can be undone.
+struct PartColour {
+	engine::core::Rgba colour;
+};
+
+// On a Station or Counter whose parts are drawn brightened as some Operator's Target. TargetBrighten
+// restores the parts and removes it once no Operator targets the placement.
+struct Brightened {};
 
 // Problems the Layout's component loaders found while the Level was being built. Loaders can't fail
 // the load themselves, so they record here and LoadLayout reports the first one.

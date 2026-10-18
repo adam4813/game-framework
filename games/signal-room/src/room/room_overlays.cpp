@@ -1,13 +1,14 @@
 #include "room_overlays.hpp"
 
 #include <array>
+#include <cmath>
 
 #include "engine/engine.hpp"
-#include "movement_tuning.hpp"
 #include "operator_components.hpp"
 #include "palette.hpp"
 #include "placements.hpp"
 #include "room_components.hpp"
+#include "room_tuning.hpp"
 
 using namespace engine;
 
@@ -21,6 +22,10 @@ constexpr float kSideBarWidth = 0.08F;
 constexpr float kSolidMarkerY = 2.0F;
 constexpr float kSolidMarkerSize = 0.5F;
 constexpr const char* kOperatorCircleName = "CollisionCircle";
+constexpr const char* kTargetingReachName = "TargetingReach";
+// The reach lines float a little above the collision circle so both read when shown together.
+constexpr float kReachY = 0.06F;
+constexpr int kConeArcSegments = 10;
 
 // Overlay colours are palette tokens too; a palette without them still draws the overlay.
 core::Rgba OverlayColour(const flecs::world& world, const char* token, const core::Rgba fallback) {
@@ -163,25 +168,77 @@ void BuildWorkedSides(
 	}
 }
 
-// A flat disc under each Operator the size of its collision circle. It hangs off the Operator so it
-// follows it; the rest of the overlays are static and live in the Overlays group.
+// Replace each Operator's overlay child `name` with a fresh one built by `build(child)` when `show`.
+// It hangs off the Operator so it follows (and turns with) it; the rest of the overlays are static and
+// live in the Overlays group.
+template<typename Build>
+void BuildOperatorOverlay(
+	const flecs::world& world,
+	const flecs::entity roomRoot,
+	const char* name,
+	const bool show,
+	const Build& build
+) {
+	for (const auto& [e, op] : PlacementsOf<Operator>(world, roomRoot)) {
+		if (auto old = e.lookup(name)) {
+			old.destruct();
+		}
+		if (show) {
+			build(world.entity().child_of(e).set_name(name));
+		}
+	}
+}
+
+// A flat disc under each Operator the size of its collision circle.
 void BuildOperatorCircles(const flecs::world& world, const flecs::entity roomRoot, const bool show) {
 	const auto colour = OverlayColour(world, "overlay_operator", {.r = 245, .g = 245, .b = 245, .a = 255});
 	const float diameter = world.get<MovementTuning>().radius * 2.0F;
-	for (const auto& [e, op] : PlacementsOf<Operator>(world, roomRoot)) {
-		if (auto old = e.lookup(kOperatorCircleName)) {
-			old.destruct();
-		}
-		if (!show) {
-			continue;
-		}
-		world.entity()
-			.child_of(e)
-			.set_name(kOperatorCircleName)
-			.set<spatial::Transform>({.position = {0.0F, kLineY, 0.0F}, .scale = {diameter, 0.01F, diameter}})
+	BuildOperatorOverlay(world, roomRoot, kOperatorCircleName, show, [&](const flecs::entity circle) {
+		circle.set<spatial::Transform>({.position = {0.0F, kLineY, 0.0F}, .scale = {diameter, 0.01F, diameter}})
 			.set<render::SpherePrimitive>({.radius = 0.5F})
 			.set<render::Material>({.color = colour, .cast_shadow = false});
-	}
+	});
+}
+
+// A bar lying on the floor from the Operator's centre out to `length`, turned `yaw` from its facing.
+void AddReachBar(
+	const flecs::world& world,
+	const flecs::entity group,
+	const float yaw,
+	const float length,
+	const core::Rgba colour
+) {
+	const auto pivot = world.entity().child_of(group).set<spatial::Transform>({.rotation = {0.0F, yaw, 0.0F}});
+	AddBox(world, pivot, {0.0F, kReachY, -length * 0.5F}, {kLineWidth, 0.01F, length}, colour);
+}
+
+// Each Operator's targeting reach in front of it: the facing ray, and the fallback cone's two edges and
+// its arc at the cone range.
+void BuildTargetingReach(const flecs::world& world, const flecs::entity roomRoot, const bool show) {
+	const auto rayColour = OverlayColour(world, "overlay_ray", {.r = 250, .g = 220, .b = 60, .a = 255});
+	const auto coneColour = OverlayColour(world, "overlay_cone", {.r = 250, .g = 150, .b = 60, .a = 255});
+	const auto& tuning = world.get<TargetingTuning>();
+	const float halfAngle = glm::radians(tuning.coneHalfAngle);
+	const float range = tuning.coneRange;
+	BuildOperatorOverlay(world, roomRoot, kTargetingReachName, show, [&](const flecs::entity group) {
+		group.set<spatial::Transform>({});
+		AddReachBar(world, group, 0.0F, tuning.rayLength, rayColour);
+		AddReachBar(world, group, halfAngle, range, coneColour);
+		AddReachBar(world, group, -halfAngle, range, coneColour);
+		const float step = 2.0F * halfAngle / static_cast<float>(kConeArcSegments);
+		const float chord = 2.0F * range * std::sin(step * 0.5F);
+		for (int i = 0; i < kConeArcSegments; ++i) {
+			const float yaw = -halfAngle + (static_cast<float>(i) + 0.5F) * step;
+			const auto pivot = world.entity().child_of(group).set<spatial::Transform>({.rotation = {0.0F, yaw, 0.0F}});
+			AddBox(
+				world,
+				pivot,
+				{0.0F, kReachY, -range * std::cos(step * 0.5F)},
+				{chord, 0.01F, kLineWidth},
+				coneColour
+			);
+		}
+	});
 }
 
 } // namespace
@@ -210,6 +267,7 @@ void BuildRoomOverlays(const flecs::world& world, const flecs::entity roomRoot) 
 		BuildWorkedSides(world, group, roomRoot, grid);
 	}
 	BuildOperatorCircles(world, roomRoot, overlays.operatorCircle);
+	BuildTargetingReach(world, roomRoot, overlays.targetingReach);
 }
 
 } // namespace signal_room

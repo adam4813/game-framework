@@ -7,11 +7,11 @@
 #include <vector>
 
 #include "engine/engine.hpp"
-#include "movement_tuning.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
 #include "room_scene.hpp"
+#include "room_tuning.hpp"
 
 using namespace engine;
 
@@ -61,6 +61,7 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					changed = ui.Checkbox("Solid cells", overlays.solidCells) || changed;
 					changed = ui.Checkbox("Worked sides", overlays.workedSides) || changed;
 					changed = ui.Checkbox("Operator circle", overlays.operatorCircle) || changed;
+					changed = ui.Checkbox("Targeting ray and cone", overlays.targetingReach) || changed;
 					if (changed) {
 						BuildRoomOverlays(world, roomRoot);
 					}
@@ -79,6 +80,21 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					if (ui.SliderFloat("Operator radius (m)", tuning.radius, 0.1F, 0.49F)) {
 						BuildRoomOverlays(world, roomRoot);
 					}
+				}
+
+				if (ui.CollapsingHeader("Targeting")) {
+					auto& tuning = world.get_mut<TargetingTuning>();
+					// Draw every reach slider, then rebuild the overlay once if any changed.
+					bool reachChanged = ui.SliderFloat("Ray length (m)", tuning.rayLength, 0.3F, 2.0F);
+					reachChanged = ui.SliderFloat("Cone range (m)", tuning.coneRange, 0.3F, 2.5F) || reachChanged;
+					reachChanged =
+						ui.SliderFloat("Cone half angle (deg)", tuning.coneHalfAngle, 5.0F, 90.0F) || reachChanged;
+					if (reachChanged) {
+						BuildRoomOverlays(world, roomRoot);
+					}
+					ui.SliderFloat("Brighten rate (/s)", tuning.brightenRate, 0.1F, 5.0F);
+					ui.SliderFloat("Brighten strength", tuning.brightenStrength, 0.05F, 1.0F);
+					ui.SliderFloat("Brighten lift", tuning.brightenLift, 0.0F, 1.0F);
 				}
 
 				ui.Separator();

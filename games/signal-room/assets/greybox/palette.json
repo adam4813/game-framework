@@ -43,6 +43,8 @@
 		"overlay_grid": [20, 20, 20],
 		"overlay_solid": [230, 60, 50],
 		"overlay_worked": [90, 220, 110],
-		"overlay_operator": [245, 245, 245]
+		"overlay_operator": [245, 245, 245],
+		"overlay_ray": [250, 220, 60],
+		"overlay_cone": [250, 150, 60]
 	}
 }

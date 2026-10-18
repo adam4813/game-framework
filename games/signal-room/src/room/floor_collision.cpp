@@ -17,18 +17,17 @@ constexpr float kContactEpsilon = 1e-6F;
 
 // Push `centre` out of every solid cell its circle overlaps; returns the total push.
 glm::vec2 PushOutOfSolidCells(const FloorGrid& grid, glm::vec2& centre, const float radius) {
-	const glm::vec2 origin{grid.origin.x, grid.origin.z};
 	glm::vec2 total{0.0F};
 	for (int iteration = 0; iteration < kResolveIterations; ++iteration) {
 		bool pushed = false;
-		const glm::ivec2 minCell{glm::floor((centre - radius - origin) / grid.cellSize)};
-		const glm::ivec2 maxCell{glm::floor((centre + radius - origin) / grid.cellSize)};
+		const glm::ivec2 minCell = grid.CellAt(centre - radius);
+		const glm::ivec2 maxCell = grid.CellAt(centre + radius);
 		for (int y = minCell.y; y <= maxCell.y; ++y) {
 			for (int x = minCell.x; x <= maxCell.x; ++x) {
 				if (!grid.IsSolid({x, y})) {
 					continue;
 				}
-				const glm::vec2 boxMin = origin + glm::vec2{x, y} * grid.cellSize;
+				const glm::vec2 boxMin = grid.CellMin({x, y});
 				const glm::vec2 boxMax = boxMin + grid.cellSize;
 				const glm::vec2 away = centre - glm::clamp(centre, boxMin, boxMax);
 				const float distanceSq = glm::dot(away, away);

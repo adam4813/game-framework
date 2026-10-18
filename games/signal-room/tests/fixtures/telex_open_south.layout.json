@@ -1,0 +1,16 @@
+{
+	"comment": "A Telex alone on a 5x4 floor, worked W/N/E with its unworked south side open (in the bunker a Counter stands there).",
+	"singletons": {
+		"floor_grid": {"width": 5, "height": 4, "cell_size": 1.0, "origin": [0.0, 0.0, 0.0]}
+	},
+	"entities": [
+		{
+			"name": "Telex",
+			"components": {"station": {"kind": "telex", "cell": [2, 1], "footprint": [1, 1], "worked_sides": ["W", "N", "E"]}}
+		},
+		{
+			"name": "spawn_1",
+			"components": {"spawn_marker": {"cell": [2, 3]}}
+		}
+	]
+}

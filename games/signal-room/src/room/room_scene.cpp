@@ -9,16 +9,18 @@
 #include "greybox_catalogue.hpp"
 #include "layout.hpp"
 #include "layout_greybox.hpp"
-#include "movement_tuning.hpp"
 #include "operator_input.hpp"
 #include "operator_movement.hpp"
 #include "operator_spawn.hpp"
+#include "operator_targeting.hpp"
 #include "palette.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
 #include "room_panel.hpp"
+#include "room_tuning.hpp"
 #include "shift.hpp"
+#include "target_brighten.hpp"
 
 using namespace engine;
 
@@ -57,6 +59,8 @@ void RoomScene::Load(flecs::world& world) {
 	LoadRoom(world);
 	RegisterOperatorInput(world, roomRoot_);
 	RegisterOperatorMovement(world, roomRoot_);
+	RegisterOperatorTargeting(world, roomRoot_);
+	RegisterTargetBrighten(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
 	if (deferred) {
@@ -86,7 +90,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!catalogue) {
 		return std::unexpected(catalogue.error());
 	}
-	auto tuning = LoadMovementTuningFile(assets::ResolveAsset(world, kTuningFile));
+	auto tuning = LoadTuningFile(assets::ResolveAsset(world, kTuningFile));
 	if (!tuning) {
 		return std::unexpected(tuning.error());
 	}
@@ -96,7 +100,8 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	}
 	world.set<Palette>(std::move(*palette));
 	world.set<GreyboxCatalogue>(std::move(*catalogue));
-	world.set<MovementTuning>(*tuning);
+	world.set<MovementTuning>(tuning->movement);
+	world.set<TargetingTuning>(tuning->targeting);
 	world.set<Bindings>(std::move(*bindings));
 
 	const auto shiftFile = ResolveGamePath(world, shiftPath);

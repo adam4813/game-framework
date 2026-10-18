@@ -1,0 +1,99 @@
+#include "room_tuning.hpp"
+
+#include <format>
+#include <initializer_list>
+#include <utility>
+
+#include <nlohmann/json.hpp>
+
+#include "json_file.hpp"
+
+using nlohmann::json;
+
+namespace signal_room {
+
+namespace {
+
+// What a tuning field accepts: a positive number, or a fraction from 0 to 1.
+enum class Range { Positive, Fraction };
+
+struct Field {
+	const char* key;
+	float* value;
+	Range range{Range::Positive};
+};
+
+// Read each present field of `doc[section]` into its float, checking it against its range.
+std::expected<void, std::string>
+ReadFields(const json& doc, const char* section, const std::initializer_list<Field> fields, const std::string& path) {
+	const auto values = doc.value(section, json::object());
+	for (const auto& [key, field, range] : fields) {
+		if (!values.contains(key)) {
+			continue;
+		}
+		const auto& value = values.at(key);
+		// A non-number reads as -1, outside both ranges.
+		const float number = value.is_number() ? value.get<float>() : -1.0F;
+		if (range == Range::Positive && number <= 0.0F) {
+			return std::unexpected(std::format("Tuning file {}: {}.{} must be a positive number", path, section, key));
+		}
+		if (range == Range::Fraction && (number < 0.0F || number > 1.0F)) {
+			return std::unexpected(
+				std::format("Tuning file {}: {}.{} must be a number from 0 to 1", path, section, key)
+			);
+		}
+		*field = number;
+	}
+	return {};
+}
+
+} // namespace
+
+std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path) {
+	const auto doc = ReadJsonFile(path, "Tuning");
+	if (!doc) {
+		return std::unexpected(doc.error());
+	}
+
+	RoomTuning tuning;
+	auto& movement = tuning.movement;
+	if (auto read = ReadFields(
+			*doc,
+			"movement",
+			{
+				{"walk_speed", &movement.walkSpeed},
+				{"accel_time", &movement.accelTime},
+				{"decel_time", &movement.decelTime},
+				{"turn_time", &movement.turnTime},
+				{"dash_multiplier", &movement.dashMultiplier},
+				{"dash_duration", &movement.dashDuration},
+				{"dash_cooldown", &movement.dashCooldown},
+				{"radius", &movement.radius},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
+
+	auto& targeting = tuning.targeting;
+	if (auto read = ReadFields(
+			*doc,
+			"targeting",
+			{
+				{"ray_length", &targeting.rayLength},
+				{"cone_range", &targeting.coneRange},
+				{"cone_half_angle", &targeting.coneHalfAngle},
+				{"brighten_rate", &targeting.brightenRate},
+				{"brighten_strength", &targeting.brightenStrength, Range::Fraction},
+				{"brighten_lift", &targeting.brightenLift, Range::Fraction},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
+	return tuning;
+}
+
+} // namespace signal_room

@@ -6,6 +6,7 @@
 
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
+#include "room_components.hpp"
 
 using namespace engine;
 
@@ -39,7 +40,8 @@ void BuildGreyboxModel(
 			e.set<render::CapsulePrimitive>({.radius = size.x * 0.5F, .height = std::max(0.0F, size.y - size.x)});
 			break;
 		}
-		e.set<spatial::Transform>(transform).set<render::Material>({.color = part.identity ? identity : part.colour});
+		const auto colour = part.identity ? identity : part.colour;
+		e.set<spatial::Transform>(transform).set<render::Material>({.color = colour}).set<PartColour>({colour});
 		if (!part.visible) {
 			e.disable();
 		}

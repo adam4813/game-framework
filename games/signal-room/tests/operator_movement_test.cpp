@@ -10,8 +10,8 @@
 
 #include "engine/input/input.hpp"
 #include "engine/spatial/spatial_components.hpp"
-#include "room/movement_tuning.hpp"
 #include "room/operator_components.hpp"
+#include "room/room_tuning.hpp"
 #include "room_harness.hpp"
 
 namespace KeyCode = engine::input::KeyCode;

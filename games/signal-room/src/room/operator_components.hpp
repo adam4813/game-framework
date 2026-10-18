@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <string>
 
 #include <glm/glm.hpp>
@@ -31,6 +32,9 @@ struct OperatorMotion {
 	float facing{0.0F};
 };
 
+// The unit floor vector (x east, y south) an OperatorMotion facing yaw points along.
+inline glm::vec2 FacingVector(const float yaw) { return {-std::sin(yaw), -std::cos(yaw)}; }
+
 // An Operator's dash: `timeLeft` > 0 while dashing along `direction` (a unit floor vector), and
 // `cooldownLeft` > 0 while the next dash must wait. The cooldown starts when the dash ends.
 struct Dash {
@@ -38,5 +42,10 @@ struct Dash {
 	float timeLeft{0.0F};
 	float cooldownLeft{0.0F};
 };
+
+// Relationship from an Operator to its Target: the Station or Counter it would act on if it pressed
+// now, as (Targets, entity). Exclusive, so an Operator has at most one; no pair means no Target. The
+// OperatorTargeting system sets it every frame; verbs, Hints and chevrons read it.
+struct Targets {};
 
 } // namespace signal_room

@@ -6,14 +6,14 @@
 #include <spdlog/spdlog.h>
 
 #include "engine/engine.hpp"
-#include "room/greybox_catalogue.hpp"
 #include "room/bindings.hpp"
+#include "room/greybox_catalogue.hpp"
 #include "room/layout.hpp"
-#include "room/movement_tuning.hpp"
 #include "room/operator_components.hpp"
 #include "room/palette.hpp"
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
+#include "room/room_tuning.hpp"
 
 using namespace engine;
 
@@ -46,6 +46,7 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("solid_cells")
 		.member<bool>("worked_sides")
 		.member<bool>("operator_circle")
+		.member<bool>("targeting_reach")
 		.add(EcsSingleton);
 	world.component<LayoutErrors>().add(EcsSingleton);
 	world.component<Palette>().add(EcsSingleton);
@@ -69,6 +70,8 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("solid")
 		.member<float>("height");
 	world.component<SpawnMarker>().member<glm::ivec2>("cell");
+	world.component<PartColour>().member<core::Rgba>("colour");
+	world.component<Brightened>();
 
 	world.component<MovementTuning>()
 		.member<float>("walk_speed")
@@ -80,17 +83,20 @@ void RegisterComponents(const flecs::world& world) {
 		.member<float>("dash_cooldown")
 		.member<float>("radius")
 		.add(EcsSingleton);
+	world.component<TargetingTuning>()
+		.member<float>("ray_length")
+		.member<float>("cone_range")
+		.member<float>("cone_half_angle")
+		.member<float>("brighten_rate")
+		.member<float>("brighten_strength")
+		.member<float>("brighten_lift")
+		.add(EcsSingleton);
 	world.component<Bindings>().add(EcsSingleton);
 	world.component<Operator>().member<std::string>("colour").member<float>("carry_speed");
-	world.component<OperatorActions>()
-		.member<glm::vec2>("move")
-		.member<bool>("dash")
-		.member<bool>("interact");
+	world.component<OperatorActions>().member<glm::vec2>("move").member<bool>("dash").member<bool>("interact");
 	world.component<OperatorMotion>().member<glm::vec2>("velocity").member<float>("facing");
-	world.component<Dash>()
-		.member<glm::vec2>("direction")
-		.member<float>("time_left")
-		.member<float>("cooldown_left");
+	world.component<Dash>().member<glm::vec2>("direction").member<float>("time_left").member<float>("cooldown_left");
+	world.component<Targets>().add(flecs::Exclusive);
 }
 
 } // namespace
@@ -104,6 +110,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	world.set<RoomOverlays>({});
 	// Defaults until the Room loads the tuning and bindings files.
 	world.set<MovementTuning>({});
+	world.set<TargetingTuning>({});
 	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);
 

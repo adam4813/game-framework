@@ -1,0 +1,6 @@
+{
+	"id": "telex_open_south",
+	"layout": "../tests/fixtures/telex_open_south.layout.json",
+	"in_service": ["Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}]
+}

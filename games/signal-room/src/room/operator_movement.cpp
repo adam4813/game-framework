@@ -6,9 +6,9 @@
 
 #include "engine/engine.hpp"
 #include "floor_collision.hpp"
-#include "movement_tuning.hpp"
 #include "operator_components.hpp"
 #include "room_components.hpp"
+#include "room_tuning.hpp"
 
 using namespace engine;
 
@@ -17,9 +17,6 @@ namespace signal_room {
 namespace {
 
 constexpr float kPi = std::numbers::pi_v<float>;
-
-// The unit floor vector (x east, y south) a yaw faces; yaw 0 faces north (-z).
-glm::vec2 FacingVector(const float yaw) { return {-std::sin(yaw), -std::cos(yaw)}; }
 
 float YawOf(const glm::vec2 direction) { return std::atan2(-direction.x, -direction.y); }
 
