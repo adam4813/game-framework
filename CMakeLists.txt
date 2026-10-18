@@ -11,6 +11,9 @@ option(ENABLE_TRACY "Enable Tracy profiler integration" OFF)
 # Auto-start JSONL telemetry on launch so stats-telemetry.jsonl is written immediately.
 # The in-game checkbox still works; this just flips the initial state.
 option(ENABLE_PROFILE_LOGGING "Auto-start JSONL system-stats telemetry on launch" OFF)
+# Dear ImGui debug UI (toggle with backtick). OFF compiles ImGui out entirely: Platform::GetDebugUi()
+# then returns a no-op DebugUi, so game panel code builds unchanged. Works on desktop and WASM.
+option(ENABLE_DEBUG_UI "Build the Dear ImGui debug UI overlay" ON)
 
 include(cmake/Tracy.cmake)
 
@@ -21,7 +24,9 @@ find_package(raylib CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(flecs CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
+if (ENABLE_DEBUG_UI)
+    find_package(imgui CONFIG REQUIRED)
+endif ()
 find_package(glm CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Jolt CONFIG REQUIRED)
@@ -35,7 +40,7 @@ set(GAME_LINK_LIBS
     glm::glm-header-only
     nlohmann_json::nlohmann_json
     Angelscript::angelscript
-    imgui::imgui
+    $<$<BOOL:${ENABLE_DEBUG_UI}>:imgui::imgui>
     Jolt::Jolt
     spdlog::spdlog
 )
@@ -45,6 +50,7 @@ set(GAME_COMPILE_DEFS
     GLM_GTC_INLINE_NAMESPACE
     GLM_EXT_INLINE_NAMESPACE
     GLM_GTX_INLINE_NAMESPACE
+    $<$<BOOL:${ENABLE_DEBUG_UI}>:ENGINE_DEBUG_UI>
 )
 
 set(GAME_COMPILE_OPTS
@@ -123,7 +129,9 @@ if (EMSCRIPTEN)
         -sGL_ENABLE_GET_PROC_ADDRESS=1
         --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets
         -sSTACK_SIZE=512KB
-        --pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js
+        # SHELL: keeps each flag paired with its path; CMake would de-duplicate a bare repeated --pre-js.
+        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js"
+        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_audio_unlock.js"
         "$<$<CONFIG:Debug>:-sASSERTIONS -sSTACK_OVERFLOW_CHECK=2;-sGL_DEBUG=1>"
         "$<$<NOT:$<CONFIG:Debug>>:-O3;--closure 1>")
 

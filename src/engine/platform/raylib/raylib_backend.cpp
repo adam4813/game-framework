@@ -1,9 +1,12 @@
 #include "raylib_backend.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -17,8 +20,11 @@
 #include <rlgl.h>
 #include <spdlog/spdlog.h>
 
+#include "engine/audio/synth_source.hpp"
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
+#include "engine/platform/imgui/imgui_debug_ui.hpp"
+#include "engine/platform/raylib/rl_imgui.hpp"
 #include "engine/platform/render_batch.hpp"
 #include "engine/profiling/profiling.hpp"
 
@@ -77,6 +83,28 @@ std::vector<Sound> g_sounds;
 // Maps canonical path → sound handle; prevents re-loading the same file from disk.
 std::unordered_map<std::string, int> g_sound_paths;
 
+// The procedural audio stream and the source it pulls from. raylib's AudioCallback carries no user
+// pointer, so the static trampoline reaches the active source through this global.
+constexpr unsigned int kSynthSampleBits = 32; // f32 samples
+constexpr unsigned int kSynthChannels = 1;    // mono; raylib's mixer spreads it to the device's channels
+AudioStream g_synth_stream{};
+std::atomic<audio::SynthSource*> g_synth_source{nullptr};
+
+// Runs on the audio thread under raylib's audio lock (on web: the main thread, between frames).
+// Must not lock, allocate, log, or call raylib — see audio::SynthSource.
+void SynthTrampoline(void* buffer, const unsigned int frames) {
+	static constexpr profiling::ZoneSite
+		kSite{.name = "Platform::SynthCallback", .function = __func__, .file = __FILE__, .line = __LINE__};
+	profiling::StaticZone _zone{kSite};
+	const std::span out{static_cast<float*>(buffer), frames};
+	audio::SynthSource* source = g_synth_source.load(std::memory_order_acquire);
+	if (source == nullptr) {
+		std::ranges::fill(out, 0.0F);
+		return;
+	}
+	source->Render(out);
+}
+
 // Loaded models, indexed by the handle returned from LoadMesh.
 std::vector<Model> g_models;
 // Maps canonical path → model handle.
@@ -98,6 +126,26 @@ std::vector<CustomShaderEntry> g_custom_shaders;
 std::vector<Texture2D> g_textures;
 // Maps canonical path → handle
 std::unordered_map<std::string, int> g_texture_paths;
+
+// Characters typed this frame, drained from raylib's queue once in BeginFrame so the debug UI and
+// the game (CharInput/TextInput) both see them. g_frame_char_next is the CharInput read cursor.
+std::vector<int> g_frame_chars;
+size_t g_frame_char_next = 0;
+
+// The debug UI: the ImGui overlay when compiled in (created in Init), else the no-op base.
+DebugUi g_null_debug_ui;
+#ifdef ENGINE_DEBUG_UI
+std::unique_ptr<ImGuiDebugUi> g_debug_ui;
+#endif
+
+// Keys the engine owns and the game never sees: the debug UI toggle, when the debug UI is built.
+bool IsReservedKey([[maybe_unused]] const int key_code) {
+#ifdef ENGINE_DEBUG_UI
+	return key_code == input::kDebugUiToggleKey;
+#else
+	return false;
+#endif
+}
 
 // Directory holding the GLSL variant matching the active GL backend.
 #if defined(__EMSCRIPTEN__)
@@ -719,11 +767,19 @@ void RaylibBackend::Init(const int width, const int height, const std::string_vi
 	InitAudioDevice();
 	InitLitResources();
 	InitInstancedResources();
+#ifdef ENGINE_DEBUG_UI
+	g_debug_ui = std::make_unique<ImGuiDebugUi>();
+	rlimgui::Setup();
+#endif
 }
 
 bool RaylibBackend::ShouldClose() const { return WindowShouldClose(); }
 
 void RaylibBackend::Shutdown() {
+#ifdef ENGINE_DEBUG_UI
+	rlimgui::Shutdown();
+	g_debug_ui.reset();
+#endif
 	ShutdownInstancedResources();
 	ShutdownLitResources();
 	for (const Texture2D& t : g_textures) {
@@ -764,6 +820,7 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_custom_shaders.clear();
+	StopSynth();
 	CloseAudioDevice();
 	CloseWindow();
 }
@@ -790,11 +847,55 @@ void RaylibBackend::BeginFrame(const Rgba clear) {
 	profiling::Zone _zone{"Platform::BeginFrame"};
 	BeginDrawing();
 	ClearBackground(ToRay(clear));
+
+	g_frame_chars.clear();
+	g_frame_char_next = 0;
+	for (int ch = GetCharPressed(); ch != 0; ch = GetCharPressed()) {
+		g_frame_chars.push_back(ch);
+	}
+
+#ifdef ENGINE_DEBUG_UI
+	// Open the debug UI frame before the world progresses, so panel systems can run in any phase
+	// and InputModule can withhold captured input. The toggle key is reserved (see IsKeyDown); it is
+	// ignored while typing into an ImGui field, and the toggle frame's typed characters are dropped
+	// so it never lands in a text field.
+	if (!g_debug_ui->CapturesKeyboard() && ::IsKeyPressed(KeyCodeToRay(input::kDebugUiToggleKey))) {
+		g_debug_ui->SetVisible(!g_debug_ui->IsVisible());
+		g_frame_chars.clear();
+	}
+	if (g_debug_ui->IsVisible()) {
+		rlimgui::QueueInput(g_frame_chars);
+	}
+	g_debug_ui->BeginFrame({static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight())}, GetFrameTime());
+#endif
 }
 
 void RaylibBackend::EndFrame() {
 	profiling::Zone _zone{"Platform::EndFrame"}; // includes GPU present/vsync wait
+#ifdef ENGINE_DEBUG_UI
+	// Close a frame DrawDebugUi never rendered (e.g. the OnDebugUI phase didn't run) so ImGui's
+	// NewFrame/Render pairing holds; nothing is drawn.
+	g_debug_ui->EndFrame();
+#endif
 	EndDrawing();
+}
+
+DebugUi& RaylibBackend::GetDebugUi() {
+#ifdef ENGINE_DEBUG_UI
+	if (g_debug_ui) {
+		return *g_debug_ui;
+	}
+#endif
+	return g_null_debug_ui;
+}
+
+void RaylibBackend::DrawDebugUi() {
+#ifdef ENGINE_DEBUG_UI
+	profiling::Zone _zone{"Platform::DrawDebugUi"};
+	if (g_debug_ui && g_debug_ui->EndFrame()) {
+		rlimgui::RenderDrawData();
+	}
+#endif
 }
 
 glm::vec2 RaylibBackend::MousePosition() const {
@@ -821,11 +922,12 @@ bool RaylibBackend::MouseDown(const MouseButton button) const { return IsMouseBu
 bool RaylibBackend::IsKeyDown(const int key_code) const {
 	// Map our platform-agnostic key codes to Raylib key codes
 	// For now, support ASCII keys and special keys from Raylib
-	return ::IsKeyDown(KeyCodeToRay(key_code));
+	return !IsReservedKey(key_code) && ::IsKeyDown(KeyCodeToRay(key_code));
 }
 
 bool RaylibBackend::IsKeyPressedRepeat(const int key_code) const {
-	return ::IsKeyPressed(KeyCodeToRay(key_code)) || ::IsKeyPressedRepeat(KeyCodeToRay(key_code));
+	return !IsReservedKey(key_code)
+		&& (::IsKeyPressed(KeyCodeToRay(key_code)) || ::IsKeyPressedRepeat(KeyCodeToRay(key_code)));
 }
 
 bool RaylibBackend::IsMouseButtonDown(const int button) const {
@@ -839,17 +941,15 @@ bool RaylibBackend::IsMouseButtonDown(const int button) const {
 }
 
 int RaylibBackend::CharInput() const {
-	// GetCharPressed returns a single codepoint this frame, or 0 if none.
-	// This provides per-frame character input for text fields.
-	return GetCharPressed();
+	// Returns the next codepoint typed this frame, or 0 once the frame's characters are used up.
+	return g_frame_char_next < g_frame_chars.size() ? g_frame_chars[g_frame_char_next++] : 0;
 }
 
 std::string RaylibBackend::TextInput() const {
-	// Raylib doesn't expose batched text input directly, so we build it from repeated GetCharPressed calls.
-	// For most cases, CharInput() is sufficient. This returns all printable characters typed this frame.
+	// Returns the remaining printable characters typed this frame (shares the CharInput cursor).
 	std::string result;
 	int ch;
-	while ((ch = GetCharPressed()) != 0) {
+	while ((ch = CharInput()) != 0) {
 		// Include all printable characters and common control chars (newline, tab)
 		if ((ch >= 32 && ch <= 126) || ch == '\n' || ch == '\t') {
 			result += static_cast<char>(ch);
@@ -1589,6 +1689,35 @@ void RaylibBackend::UnloadSound(const int handle) {
 	::UnloadSound(sound);
 	sound.frameCount = 0;
 	std::erase_if(g_sound_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+// ── Procedural audio ──
+
+void RaylibBackend::StartSynth(audio::SynthSource* source) {
+	StopSynth();
+	if (source == nullptr || !IsAudioDeviceReady()) {
+		return;
+	}
+	// Publish the source before the stream can call back into it.
+	g_synth_source.store(source, std::memory_order_release);
+	g_synth_stream =
+		LoadAudioStream(static_cast<unsigned int>(audio::kSynthSampleRate), kSynthSampleBits, kSynthChannels);
+	if (!IsAudioStreamValid(g_synth_stream)) {
+		g_synth_source.store(nullptr, std::memory_order_release);
+		return;
+	}
+	SetAudioStreamCallback(g_synth_stream, SynthTrampoline);
+	PlayAudioStream(g_synth_stream);
+}
+
+void RaylibBackend::StopSynth() {
+	if (IsAudioStreamValid(g_synth_stream)) {
+		StopAudioStream(g_synth_stream);
+		// Unloading takes raylib's audio lock, so no callback is mid-flight once it returns.
+		UnloadAudioStream(g_synth_stream);
+		g_synth_stream = AudioStream{};
+	}
+	g_synth_source.store(nullptr, std::memory_order_release);
 }
 
 // ── Persistence ──

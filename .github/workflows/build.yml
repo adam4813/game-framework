@@ -71,6 +71,17 @@ jobs:
           configurePreset: ${{ matrix.preset_configure }}
           buildPreset: ${{ matrix.preset_build }}
 
+      # Build and run GoogleTest unit suite (desktop only)
+      - name: Build unit tests
+        if: matrix.target != 'WebAssembly'
+        run: |
+          cmake --preset desktop-test
+          cmake --build --preset desktop-test-release
+
+      - name: Run unit tests
+        if: matrix.target != 'WebAssembly'
+        run: ctest --preset desktop-test-release --output-on-failure
+
       # Build and run scene equivalence test (desktop only)
       - name: Build Scene Equivalence Test
         if: matrix.target != 'WebAssembly'
@@ -125,7 +136,7 @@ jobs:
         run: |
           echo "=== Build output directory ==="
           if [ -d "build/${{ matrix.preset_configure }}" ]; then
-            find build/${{ matrix.preset_configure }} -type f \( -name "game*" -o -name "*.html" -o -name "*.wasm" \) | head -20
+            find build/${{ matrix.preset_configure }} -type f \( -name "sandbox*" -o -name "*.html" -o -name "*.wasm" \) | head -20
           fi
 
       # Upload test artifacts
@@ -142,6 +153,6 @@ jobs:
         if: matrix.target != 'WebAssembly'
         uses: actions/upload-artifact@v7
         with:
-          name: game-${{ matrix.os }}-release
-          path: build/${{ matrix.preset_configure }}/Release/game*
+          name: sandbox-${{ matrix.os }}-release
+          path: build/${{ matrix.preset_configure }}/Release/sandbox*
           if-no-files-found: warn

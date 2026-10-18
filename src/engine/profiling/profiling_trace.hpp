@@ -40,6 +40,38 @@ private:
 #endif
 };
 
+// Static description of a zone's call site, for StaticZone. Must have static storage duration:
+//
+//   static constexpr profiling::ZoneSite kSite{.name = "Synth::Render", .function = __func__,
+//                                              .file = __FILE__, .line = __LINE__};
+//   profiling::StaticZone _zone{kSite};
+struct ZoneSite {
+	const char* name;
+	const char* function;
+	const char* file;
+	std::uint32_t line;
+	std::uint32_t color{0};
+};
+
+// Like Zone, but the call site is registered from static storage instead of allocated per
+// construction, so it never allocates. Use it on real-time threads (the audio callback).
+class StaticZone {
+public:
+	explicit StaticZone(const ZoneSite& site);
+	~StaticZone();
+
+	StaticZone(const StaticZone&) = delete;
+	StaticZone& operator=(const StaticZone&) = delete;
+	StaticZone(StaticZone&&) = delete;
+	StaticZone& operator=(StaticZone&&) = delete;
+
+private:
+#ifdef TRACY_ENABLE
+	std::uint32_t id_{0};
+	int active_{0};
+#endif
+};
+
 // Emit a scalar plot immediately (thread-safe). Use this from contexts that cannot queue into a
 // ProfileStats component — e.g. worker-thread code that runs many times per frame. For per-frame
 // aggregate stats owned by a system, prefer ProfileStats::Plot (queued + flushed once per frame).

@@ -53,8 +53,8 @@ actions that cannot safely run mid-progress.
 
 ## Pipeline phases
 
-Systems are ordered by the Flecs built-in phases plus one engine-defined phase, `ecs::OnUI`. Within a phase,
-registration order and explicit dependencies decide ordering.
+Systems are ordered by the Flecs built-in phases plus two engine-defined phases, `ecs::OnUI` and `ecs::OnDebugUI`.
+Within a phase, registration order and explicit dependencies decide ordering.
 
 | Phase                  | Purpose                        | Representative systems                                                                                                                     |
 |------------------------|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
@@ -62,6 +62,7 @@ registration order and explicit dependencies decide ordering.
 | `flecs::OnUpdate`      | Simulation + interaction/logic | physics step & sync, `TimerAdvance`, `ParticleEmit/Update`, UI interaction, `SoundEffectPlayback`, `ActiveSceneTick/Input`, `ScriptOnTick` |
 | `flecs::OnStore`       | 3D rendering, debug draw       | `Render3DBegin` → lighting → primitives → `Render3DEnd`, `PhysicsDebugRender`                                                              |
 | `ecs::OnUI` *(custom)* | 2D overlays on top of 3D       | `UIBuildDrawList`, `UIRenderDrawList`, `ActiveSceneDebugUI`, `ActiveSceneUI`                                                               |
+| `ecs::OnDebugUI` *(custom)* | ImGui debug UI on top of all | `DebugUiDraw` (panels themselves run in `OnUpdate`, e.g. `EngineDebugPanel`)                                                       |
 | `flecs::PostUpdate`    | Clear per-frame state          | `InputResetFrameState`, `ScriptPostTick`                                                                                                   |
 
 `ecs::OnUI` is registered in the scene module as a real Flecs phase that **depends on**
@@ -74,6 +75,10 @@ world.component<ecs::OnUI>().add(flecs::Phase).add(flecs::DependsOn, flecs::OnSt
 The deliberate split of UI across phases — **layout** in `PreUpdate`, **interaction** in `OnUpdate`
 (reading input sampled in `PreUpdate`, before `PostUpdate` clears it), **render** in `OnUI` — means UI behaves like
 ordinary simulation with no one-frame input lag.
+
+`ecs::OnDebugUI` (registered by `debug::DebugUiModule`) depends on `ecs::OnUI`. The ImGui frame opens in
+`Platform::BeginFrame`, before any phase, so debug panels call widgets from `OnUpdate`, and `InputPoll` can withhold
+input the debug UI captured. See [`src/engine/debug/README.md`](../src/engine/debug/README.md).
 
 See [systems-reference.md](systems-reference.md) for the full per-module system/observer table.
 

@@ -18,6 +18,13 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
 
+## Tracking follow-ups and known limitations
+
+When an implementer flags a known limitation, deferred work, or a crash risk (e.g. "chunking is a follow-up for
+play-scale forests"), open a ticket for it immediately — `Status: ready-for-agent` or `needs-triage` as appropriate.
+Add a `Blocked by: NN` line if it cannot start until another ticket completes. Do not defer tracking: an unfiled
+follow-up is invisible to the coordinator and will surface as a surprise blocker in a later ticket.
+
 ## Writing procgen acceptance criteria
 
 Procedural generation is stochastic — global invariants often fight the emergent behavior you want. Phrase connectivity

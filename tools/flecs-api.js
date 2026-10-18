@@ -85,6 +85,14 @@ const INPUT_DRIVER_SYSTEMS = ["InputPoll", "InputResetFrameState"];
 const UI_BUTTON_COMPONENT = "engine.ui.UIModule.Button";
 const UI_CLICK_REQUEST_TAG = "engine.ui.UIModule.UIClickRequest";
 
+// REST route segment for an entity. Paths are written in Flecs dot form ("engine.input.InputState",
+// "FallingCube.CubeJumpScript") but the REST server resolves "/"-separated paths, so a nested dotted
+// path would come back "not found". Raw "#<id>" references pass through unchanged.
+function entityRoute(path) {
+	if (path.startsWith("#")) return encodeURIComponent(path);
+	return path.split(".").map(encodeURIComponent).join("/");
+}
+
 class FlecsClient {
 	constructor(baseUrl = "http://localhost:27750") {
 		this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -140,7 +148,7 @@ class FlecsClient {
 	// Fetch a single entity by path ("FallingCube", "FallingCube.CubeJumpScript", "#768").
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#get-entity
 	entity(path, {values = false} = {}) {
-		return this.request("GET", "/entity/" + encodeURIComponent(path), {
+		return this.request("GET", "/entity/" + entityRoute(path), {
 			values: values ? "true" : undefined,
 		});
 	}
@@ -148,20 +156,20 @@ class FlecsClient {
 	// Add a tag, or set a component value (pass `value` as a JSON/flecs-expr payload string).
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#put-component
 	addComponent(path, component, value) {
-		return this.request("PUT", "/component/" + encodeURIComponent(path), {component, value});
+		return this.request("PUT", "/component/" + entityRoute(path), {component, value});
 	}
 
 	// Remove a component/tag from an entity.
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#delete-component
 	removeComponent(path, component) {
-		return this.request("DELETE", "/component/" + encodeURIComponent(path), {component});
+		return this.request("DELETE", "/component/" + entityRoute(path), {component});
 	}
 
 	// Enable or disable an entity (toggles the Disabled tag) or a single component on it.
 	// Useful for pausing a system without a rebuild, e.g. toggle("#600", false) to stop InputPoll.
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#put-toggle
 	toggle(path, enable, component) {
-		return this.request("PUT", "/toggle/" + encodeURIComponent(path), {
+		return this.request("PUT", "/toggle/" + entityRoute(path), {
 			enable: enable ? "true" : "false",
 			component,
 		});
@@ -430,11 +438,12 @@ async function main(argv) {
 	switch (verb) {
 		case "query": {
 			// Guard: an unresolved component name throws a C++ exception inside the game process,
-			// crashing it. Require at least one term to be qualified with an "engine." or "game."
-			// prefix so bare names like "SoundEffect" (which will fail) are caught early.
+			// crashing it. Require every term to be qualified with an "engine.", "game." or "flecs."
+			// (built-ins such as flecs.system.System) prefix so bare names like "SoundEffect" (which
+			// will fail) are caught early.
 			const terms = (arg1 || "").split(",").map((t) => t.trim());
 			const unqualified = terms.filter(
-				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !/\b(engine|game)\./.test(t)
+				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !/\b(engine|game|flecs)\./.test(t)
 			);
 			if (unqualified.length) {
 				console.error(

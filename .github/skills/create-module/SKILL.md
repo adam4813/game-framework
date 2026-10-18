@@ -1,6 +1,6 @@
 ---
 name: create-module
-create-module description: >
+description: >
   Scaffold a new engine module (a Flecs 4.x module) for this engine. Use this skill whenever asked to create, add,
   or scaffold a new engine subsystem/module — e.g. "create a render module", "add an audio module", "scaffold a new
   module". Covers the folder layout, the module class + world.import<T>() pattern, component reflection, system

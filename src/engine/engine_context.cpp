@@ -4,6 +4,7 @@
 #include "engine/assets/assets.hpp"
 #include "engine/audio/audio.hpp"
 #include "engine/core/core.hpp"
+#include "engine/debug/debug.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/graph/graph.hpp"
 #include "engine/input/input.hpp"
@@ -48,6 +49,7 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : pla
 	world_.import<ui::UIModule>();
 	world_.import<timer::TimerModule>();
 	world_.import<profiling::ProfilerModule>();
+	world_.import<debug::DebugUiModule>(); // after SceneManagementModule: OnDebugUI follows OnUI
 
 	// The per-system stats panel driver systems are registered once here so they exist in a
 	// single deterministic scope regardless of which scene first builds a panel.
