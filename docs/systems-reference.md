@@ -169,10 +169,5 @@ See [assets](../src/engine/assets/README.md),
 
 ## Registration conventions
 
-- **Per-entity** work uses `.each()`; **global**/singleton work uses `.run()`.
-- **Event reactions** use observers (`OnSet` for value changes/resolution, `OnAdd`/`OnRemove` for structural/lifecycle
-  changes) rather than per-frame polling.
-- Systems are registered in dedicated `Register*System()`/module-constructor code; names are
-  `PascalCase` and unique.
-- Scene-specific systems: single `.kind(phase)` then `.add<scene::GameScene>()`. Engine-wide systems stay untagged.
-- Simulation systems add `.add<ecs::Pausable>()`; input/render/UI/audio omit it.
+The rules for registering systems and observers (`.each()` vs `.run()`, one `.kind()`, scene scoping, `Pausable`,
+observers over polling) are in [CODING_STANDARDS.md](../CODING_STANDARDS.md#systems).

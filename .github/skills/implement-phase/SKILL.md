@@ -69,7 +69,7 @@ For each pending todo (in dependency order):
 2. Read task details from phase file
 3. Implement the code:
   - Use `flecs-systems` skill for ECS systems, components, or singletons
-  - Keep code consistent with project patterns (see AGENTS.md)
+  - Keep code consistent with project patterns (see `CODING_STANDARDS.md`)
 4. Build (fix any errors before next task)
 5. Mark todo status → `done`
 

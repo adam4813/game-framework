@@ -166,12 +166,8 @@ namespace engine::<name> {
 
 ### Conventions to honor
 
-- Components are usually plain data; systems are stateless functions; singletons via
-  `world.get<T>()` / `world.get_mut<T>()`.
-- Scope scene-specific systems with `.add<scene::YourSceneTag>()` on the returned system entity. Use a single
-  `.kind(phase)` for ordering — never chain two `.kind()` calls. Untagged systems run in every scene pipeline.
-- `PascalCase` types/functions, `camelCase` locals/fields, tabs not spaces (see
-  `.clang-format` / `.editorconfig`).
+The module follows `CODING_STANDARDS.md` (ECS, registration and scene-scoping rules); apply it to every file this
+skill creates.
 
 ## 5. Public umbrella header — `<name>.hpp`
 

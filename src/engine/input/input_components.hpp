@@ -68,6 +68,14 @@ struct TypedText {
 	std::string text;
 };
 
+// Keys held down from outside the platform: `held` is a space-separated list of KeyCode constant names
+// (see key_names.hpp), e.g. "D LeftShift". InputPoll treats each as physically held, with the usual
+// rising-edge `pressed` on the first frame. Reflected so the Remote API can press keys
+// (`flecs-api.js press-keys`); an unknown name is logged and ignored. Empty means no override.
+struct KeyOverride {
+	std::string held;
+};
+
 // === TAG COMPONENTS ===
 // Used to filter systems to run only when input is available
 struct InputEnabled {};

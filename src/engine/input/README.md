@@ -37,9 +37,16 @@ Represents mouse input:
 
 Can be used to filter systems that should only run when input is available.
 
+### `KeyOverride` (Singleton)
+
+Keys held from outside the platform. `held` is a space-separated list of KeyCode names (`"D LeftShift"`); `InputPoll`
+treats each as physically held, so game code sees an ordinary press. The Remote API drives the keyboard through it
+(`node tools/flecs-api.js press-keys "D LeftShift" 400`). Unknown names are logged and ignored.
+
 ## Key Codes
 
-Common key codes are defined in `engine::input::KeyCode` namespace:
+Common key codes are defined in `engine::input::KeyCode` namespace. Data files name keys by the constant's name (`W`,
+`Key0`, `Up`, `LeftShift`); `KeyCodeFromName` (`key_names.hpp`) resolves one, and `KeyNames()` lists them all.
 
 ### Letter and Number Keys
 

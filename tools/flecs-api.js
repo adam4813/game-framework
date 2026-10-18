@@ -54,7 +54,8 @@
  *   node flecs-api.js toggle-pause     // flip the current pause state
  *   node flecs-api.js list-buttons     // all UI Button entities: id, name, label
  *   node flecs-api.js click PlayButton // fire a UI button's OnClick (by name or #id)
- *   node flecs-api.js override-input '{"mouse":{"left":{"pressed":true}}}'
+ *   node flecs-api.js override-input '{"mouse":{"left":{"pressed":true}}}'   // mouse only
+ *   node flecs-api.js press-keys "D LeftShift" 400   // hold keys (KeyCode names) for 400 ms
  *   node flecs-api.js restore-input
  *   node flecs-api.js find FloorGrid           // full dot-path(s) of a component, for query
  *   node flecs-api.js wait                     // poll until the REST server answers (after launch)
@@ -84,6 +85,10 @@ const INPUT_STATE_COMPONENT = "engine.input.InputState";
 // platform input in, InputResetFrameState (PostUpdate) clears the per-frame "pressed"/scroll
 // flags. Disabling both lets an injected InputState value persist so scripts can observe it.
 const INPUT_DRIVER_SYSTEMS = ["InputPoll", "InputResetFrameState"];
+
+// Full path of the KeyOverride singleton (engine/input/input_components.hpp). InputPoll treats the
+// KeyCode names in its space-separated `held` string as physically held keys.
+const KEY_OVERRIDE_COMPONENT = "engine.input.InputModule.KeyOverride";
 
 // UI component/tag paths (registered inside engine::ui::UIModule). Adding the click-request tag to
 // a Button entity makes the UI module fire that button's OnClick handler + SoundEffect on the next
@@ -336,6 +341,18 @@ class FlecsClient {
 		return {entityId, frames};
 	}
 
+	// Hold keyboard keys (KeyCode names: "W", "Up", "LeftShift", "Space", ...) for `ms`, then release
+	// them. Goes through InputPoll, so game code sees an ordinary press: `pressed` on the first frame,
+	// held after. Unknown names are logged by the game and ignored.
+	async pressKeys(names, ms = 500) {
+		const held = names.join(" ");
+		const pressed = await this.setComponent(KEY_OVERRIDE_COMPONENT, {held});
+		if (pressed && pressed.error) return pressed;
+		await new Promise((r) => setTimeout(r, ms));
+		await this.setComponent(KEY_OVERRIDE_COMPONENT, {held: ""});
+		return {held, ms};
+	}
+
 	// Re-enable InputPoll if overrideInput was interrupted.
 	async restoreInput() {
 		const sysList = await this.resolveEntityIds("flecs.system.System", INPUT_DRIVER_SYSTEMS);
@@ -468,6 +485,7 @@ module.exports = {
 	SCENE_ACTIVE_TAG,
 	INPUT_STATE_COMPONENT,
 	INPUT_DRIVER_SYSTEMS,
+	KEY_OVERRIDE_COMPONENT,
 	UI_BUTTON_COMPONENT,
 	UI_CLICK_REQUEST_TAG
 };
@@ -551,6 +569,10 @@ async function main(argv) {
 			// arg1 is a component-value expression (JSON). Defaults to a held left mouse click.
 			print(await flecs.overrideInput(arg1 || '{"mouse":{"left":{"pressed":true}}}'));
 			break;
+		case "press-keys":
+			// arg1: space- or comma-separated KeyCode names; arg2: hold time in ms (default 500).
+			print(await flecs.pressKeys(String(arg1 || "").split(/[\s,]+/).filter(Boolean), arg2 ? Number(arg2) : undefined));
+			break;
 		case "restore-input":
 			print(await flecs.restoreInput());
 			break;
@@ -582,7 +604,7 @@ async function main(argv) {
 			console.log(
 				"Usage: node flecs-api.js <query|entity|add|set|remove|toggle|switch-scene|scenes|list-scenes|\n" +
 				"                          click|list-buttons|pause|resume|toggle-pause|paused|\n" +
-				"                          override-input|restore-input|find|wait> [args] [--host URL]\n" +
+				"                          override-input|press-keys|restore-input|find|wait> [args] [--host URL]\n" +
 				"       [--entity-ids] [--values] [--full-paths]\n" +
 				"       switch-scene accepts a scene identity name (e.g. Cube, Title, Tilemap) or a raw #id.\n" +
 				"       click accepts a Button name (e.g. PlayButton) or a raw #id (see list-buttons).\n" +

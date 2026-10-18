@@ -249,7 +249,7 @@ const tools = [
 	{
 		name: "flecs_override_input",
 		description:
-			"Disable InputPoll and inject an InputState value for several frames (e.g. a held mouse click), then re-enable InputPoll.",
+			"Disable InputPoll and inject an InputState value for several frames (e.g. a held mouse click), then re-enable InputPoll. Mouse only: InputState's keys aren't reflected; use flecs_press_keys for the keyboard.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -263,6 +263,24 @@ const tools = [
 			required: ["state"],
 		},
 		handler: (a) => flecs.overrideInput(a.state, {frames: a.frames, intervalMs: a.interval_ms}),
+	},
+	{
+		name: "flecs_press_keys",
+		description:
+			"Hold keyboard keys through the engine's KeyOverride for a time, then release them. Game code sees an ordinary press (pressed on the first frame, held after).",
+		inputSchema: {
+			type: "object",
+			properties: {
+				keys: {
+					type: "array",
+					items: {type: "string"},
+					description: 'KeyCode constant names, e.g. ["W", "Up", "LeftShift", "Space"].',
+				},
+				ms: {type: "integer", description: "How long to hold them, in ms (default 500)."},
+			},
+			required: ["keys"],
+		},
+		handler: (a) => flecs.pressKeys(a.keys, a.ms),
 	},
 	{
 		name: "flecs_restore_input",

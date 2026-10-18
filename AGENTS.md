@@ -7,99 +7,13 @@ VCPKG.
 
 Working examples of engine features (scenes, level JSON, particles, nav graphs, overlays, panels): `src/game/README.md`.
 
-## Architecture
+## Coding standards
 
-### Data-Driven Design
-
-- Define behavior in JSON config and data tables, not hardcoded branches.
-- Fields, buffs, chapters, etc — all in data files parsed at load time. Adding something new should require a JSON entry
-  and zero (or minimal) C++ changes.
-- When you find yourself writing `if (type == "foo") ... else if (type == "bar")`, the behavior difference probably
-  belongs in data.
-- Tuning constants live in a shared header as `constexpr`, not scattered through logic.
-- **Enums cross data boundaries as strings.** JSON loaders read the enum's name (`"projection": "orthographic"`), and a
-  reflected enum registers its names with `.constant()` so the Explorer and REST API show them. Give reflected enums
-  the default `int` underlying type (`flecs-systems` explains why).
-- **Procedural generation taxonomy types** (biomes, terrain features, history event categories) are almost always
-  open-ended — a designer will want to add a new variant without a C++ rebuild. Prefer a string-keyed registry or
-  table with per-entry data over a closed `enum class`. A closed enum earns its place only when the full set is fixed
-  by an external specification (e.g. a wire protocol). When you see `enum class Biome { ... }` in a procgen module,
-  ask: *could a designer add a new variant without touching C++?*
-
-### ECS Conventions (Flecs 4.x)
-
+- **Read `CODING_STANDARDS.md` before writing code, and apply every rule in it when reviewing.** It holds the
+  data-driven, ECS, scene, platform, style, docs and test rules.
 - **Load the `flecs-systems` skill before writing or changing any Flecs code** (systems, components, singletons,
   observers, reflection, scene `Load`/`Unload`) and before debugging a Flecs assert. It holds the Flecs 4 API patterns
-  and the gotchas that have crashed this project (template/parameter parity, lazy component registration, stages,
-  `defer_suspend`, enum reflection).
-- Components are generally plain data structs, only use methods for complex datatypes properties (e.g. std::map).
-- Systems are stateless functions that query components; use `it.delta_time()` for timing.
-- Singletons via `world.get<T>()` / `world.get_mut<T>()` for global state (GameData, AudioAssets, etc.).
-- Tags are zero-size structs for filtering, not for carrying data.
-- Scene-specific systems use `.add<scene::YourSceneTag>()` on the returned entity for pipeline filtering.
-- Prefer composition (add/remove components) over inheritance.
-- **`Load()` initialization order:** In a scene `Load()`, registries and system pre-registration must come *before*
-  the setup calls that trigger `OnSet` observers reading them. Example: `LoadObjectKindRegistry` must precede
-  `SetupTilemap` because the `OnSet<WorldObjectLayer>` observer reads `ObjectKindRegistry` synchronously;
-  `RegisterXxxSystems` must precede `SpawnXxx` so `world.component<T>()` calls genuinely pre-register types before
-  entities create them.
-
-### Transform Authoring
-
-- **Author only `Transform`** (local position/rotation/scale) — never hand-write `WorldTransform`. The keeps it in sync
-  via `TransformPropagation`  or the physics backend.
-
-### Entity Relationships and Linkage
-
-- Use first-class relationships (e.g., `RenderWith`, `LookAt`) to decouple entity structure from hardcoded
-  dependencies.
-- In JSON levels, declare relationships with `"link"` (for parent→child) and `"refs"` (for named-entity
-  cross-references). The level loader resolves them in a second pass.
-- Register relationship loaders in your module's constructor via `RegisterLink` and `RegisterRef`.
-- Example: a camera with a target is authored as `"refs": { "look_at": "PlayerEntity" }`, not as a stored position
-  field. The camera's aim is derived from the target's `WorldTransform` on-demand each frame.
-
-### Event-Driven Over Per-Frame Polling
-
-- Use event-driven logic when a state change is triggered by a discrete event rather than a continuous condition.
-- Per-frame systems are fine for continuous simulation (movement, projectiles, rendering).
-
-### Platform Abstraction
-
-- All Raylib calls go through a `Platform` interface — never call Raylib directly from game logic.
-
-### Gang of Four Patterns — Use When They Help
-
-- **Strategy / Handler** — for upgrade effects or task types. New variant = new handler + registry entry.
-- **Registry / Pool** — centralized ownership, string ID-based lookup
-- **Factory** - Level building from data
-- Don't over-engineer: a flat `if` is fine for 2–3 cases with no expected growth. Refactor when a third instance
-  appears, not before.
-
-### Simplicity Over Complexity
-
-- **Simplicity is the default.** Only introduce complexity (a pattern, an abstraction layer, an extensibility
-  mechanism) when it *measurably* pays off: it removes code, or it improves developer/authoring UX by tens of
-  percent. Reach for the pattern when the variant count is genuinely open-ended or third-party extension is best.
-- **Weigh before abstracting:** how many variants realistically exist, does this reduce total code, and does it make the
-  code considerably easier to work with? If the answer is "a handful / not really / marginally," keep it simple.
-
-### Suggestions Are Guidance, Not Mandates
-
-- When the user (or this file) *suggests* an approach, treat it as guidance: evaluate whether it is actually the best
-  fit for the situation and say so, proposing the simpler/better option with a short rationale.
-- Only treat direction as non-negotiable when the user **explicitly** states it is required (e.g. "you must do this",
-  "do it this way"). Otherwise, optimize for the best outcome, not literal compliance.
-
-## Code Style
-
-- C++23 features welcome (`std::erase_if`, structured bindings, `std::expected`, designated initializers, etc.).
-- `snake_case` for files, `PascalCase` for types, methods, and functions, `camelCase` for locals and fields.
-- One concern per file.
-- Keep nesting shallow — early returns over deep if/else trees.
-- Tabs not spaces, look at clang-format and editorconfig
-- Single line statements only if the expression is a control statement, a return, increment/decrement, or a simple
-  assignment. Otherwise, use braces and newlines.
+  and the gotchas that have crashed this project.
 
 ## Build
 
@@ -157,6 +71,9 @@ For screenshots (desktop and browser), logs, the headless test harness, and find
 
 ## Interaction style
 
+- **Suggestions are guidance, not mandates.** When the user (or a doc) *suggests* an approach, judge whether it is the
+  best fit and say so, proposing the simpler or better option with a short rationale. Treat direction as
+  non-negotiable only when the user **explicitly** requires it ("you must", "do it this way").
 - **Ask through your harness's structured question tool** (the form-style tool the user answers in place) for all
   questions during any skill session (grilling, planning, clarification, etc.). Bundle a full question round into a
   single call (one form, multiple fields); one round = one tool call = one user response.

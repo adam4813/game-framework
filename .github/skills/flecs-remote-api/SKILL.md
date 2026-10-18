@@ -65,7 +65,11 @@ jump directly.
 
 ## Other Capabilities
 
-- **Raw input override:** Use `override-input` / `restore-input` to drive input programmatically
+- **Keyboard:** `press-keys "D LeftShift" 400` holds keys for 400 ms through the engine's `KeyOverride`
+  (`flecs_press_keys` over MCP). Keys are KeyCode constant names (`W`, `Up`, `LeftShift`, `Space`), and game code sees
+  an ordinary press.
+- **Mouse:** `override-input` / `restore-input` inject an `InputState` value. Mouse only: `InputState`'s keys aren't
+  reflected.
 - **Setting values:** `set <component> '<json>' [entity]` merges the JSON fields into a component and waits until a
   read-back shows them (`flecs_set` over MCP). Omit `entity` for a singleton, whose value lives on the component's own
   entity. A value a scene only reads in `Load` (e.g. a debug-overlay flag) takes effect after `switch-scene` to the

@@ -5,7 +5,13 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 ## Conventions
 
 - One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
+- The spec is `.scratch/<feature-slug>/spec.md`. Past about 100 lines, it is an **index**: the problem, the solution,
+  a Sections table (one row per topic: link + what it covers), out of scope and notes. Each topic lives in
+  `.scratch/<feature-slug>/spec/<topic>.md` with its user stories next to its implementation decisions; testing
+  decisions get their own section. Example: `.scratch/signal-room-room-bootstrap/`.
+- A ticket's `Spec:` line links the index and names the sections it implements
+  (`Spec: [spec](../spec.md). Read: [Movement](../spec/operator-movement.md), [Testing](../spec/testing.md).`), so an
+  implementer reads only those.
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
@@ -16,7 +22,8 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+Read the file at the referenced path. The user will normally pass the path or the issue number directly. Then read the
+spec sections its `Spec:` line names, opening the spec index only for context those sections lack.
 
 ## Tracking follow-ups and known limitations
 
