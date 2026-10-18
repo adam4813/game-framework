@@ -163,3 +163,21 @@ _Avoid_: wallet, currency, points
 One playthrough's progress across Shifts: best results per Shift and the Requisitions bought. Up to three Campaigns
 exist side by side, each in its own save slot; settings are shared and sit outside them.
 _Avoid_: profile, run, save (the save is where a Campaign is kept, not the Campaign)
+
+### Onboarding
+
+**Briefing**:
+The card shown before a Shift that lays out its route and what's new. It shows on its own until the Campaign has a
+result for that Shift, and can be reopened from the Shift picker.
+_Avoid_: tutorial, intro, splash
+
+**Hint**:
+A prompt floating over the Station that is the next step for the human's own Operator, showing the key to press. Each
+kind of Hint retires for the attempt once that human has done it. Hints can be switched off in settings.
+_Avoid_: tooltip, tutorial prompt, callout
+
+**Orientation**:
+A Shift's held opening: the Window, the Collection Schedule and the first Ticket's gauge wait until the first Ticket is
+Cleared, and the AI Operator clocks on then. A Shift opts in; it applies while the Campaign hasn't earned a star on that
+Shift, or whenever more than one human is seated.
+_Avoid_: warm-up, dry run, tutorial (Shift 1's name "Night Shift Orientation" is fiction, not this term)

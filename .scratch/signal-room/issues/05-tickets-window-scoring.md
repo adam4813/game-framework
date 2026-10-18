@@ -78,3 +78,7 @@ slice](10-requisitions.md).
   Ticket names its frequency). The Antenna Coupler adds one rule: while an Operator is copying at one Radio, the others
   go dark. The generator's frequency weights now cover 3 frequencies.
   Arrival intervals are unchanged; copying is one at a time, ~2.4 s per card with the reset.
+- 2026-10-17: [Shift 1 tutorial](14-shift1-tutorial.md): a Shift may open in **Orientation** (Shift 1 does): the Window,
+  the Collection Schedule and the first Ticket's gauge hold until a pinned, unlosable first Ticket is Cleared. It
+  scores green, counts toward par and starts the Handler Chain. Skipped once the Campaign has 1★ on that Shift. This
+  replaces "Window 4:00 from the start" for Shift 1 while Orientation applies.

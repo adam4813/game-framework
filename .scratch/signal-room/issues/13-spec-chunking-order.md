@@ -58,7 +58,8 @@ of scope.
   (Stand-by → On Air) and the seeded Collection Schedule with pinned entries. Scoring, the Handler Chain, Lost
   Intercept, the hard stop at 4:00 and stars against par. The briefing card, results/stars screen and in-play HUD
   (rack, Window clock). Modifiers (`set` override + dev toggle; `keypunch`, `telex_autostamp`). Shift 1 onboarding
-  (per 14). ImGui debug buttons: spawn a Ticket, freeze the Window.
+  (per 14): the Briefing card (always shown for now), the Hint rule table with route-verb and Dash Hints, and
+  Orientation's freeze and pinned Ticket (always applied until spec 5). ImGui debug buttons: spawn a Ticket, freeze the Window.
 - **Out:** Swap and AI, Faults, Requisitions and save, audio (silent or placeholder only).
 - **Read:** `map.md`; issues 01, 05, 07, 12, 14, 15.
 - **Settles:** schema for Stations/Transforms, Items, ticket tiers, the Collection Schedule, Radios in the Shift file,
@@ -72,26 +73,27 @@ of scope.
 - **In:** the Seat model, the per-Shift Roster (2), one-key instant Swap in Roster order, the left-behind Operator
   finishing its Hold or carry, and coyote time on arrival. A per-Operator action-binding layer that doesn't assume
   keyboard-only. The Seat ring, chevron and AI intent icons. The AI Job board and scorer, soft AI-only Claims,
-  reaction delay and speed factors, and the swappable AI profile JSON. ImGui AI tuning panel and Job board view.
+  reaction delay and speed factors, and the swappable AI profile JSON. ImGui AI tuning panel and Job board view. The AI Operator clocks on when Orientation ends, and the Swap Hint
+  (per 14).
 - **Out:** AI Fault handling (spec 4), human co-op and gamepad (slice 2).
-- **Read:** `map.md`; issues 02, 03 (binding layer only), 08, 15.
+- **Read:** `map.md`; issues 02, 03 (binding layer only), 08, 14, 15.
 - **Settles:** the AI profile schema and the Roster in the Shift file; the Seat ring, chevron and intent icons.
 - **Depends on:** spec 2.
 - **Exit:** a human and an AI Operator clear Shift 1 together, and Swap works mid-Hold and mid-carry.
-- **Prompt:** `Signal Room spec 3 (Operators, Swap & AI). Read .scratch/signal-room/map.md and issues 02, 03, 08, 13, 15. Boundary as in issue 13's Spec 3 packet.`
+- **Prompt:** `Signal Room spec 3 (Operators, Swap & AI). Read .scratch/signal-room/map.md and issues 02, 03, 08, 13, 14, 15. Boundary as in issue 13's Spec 3 packet.`
 
 ### Spec 4: Faults & Shift 2
 
 - **In:** Decoder Faults (Jam: Mash 3× and progress reset; Seize: pause, Hold with the Oil Can). The hidden seeded
   run-time cooldown and the pinned Seize at ~20 s. The Oil Can on its Counter. Shift 2 content: 3 Radios, its tickets
   and Collection Schedule. AI Fault preemption (grace, closer-human bonus, the park → fetch Oil Can → leave it
-  sequence). ImGui buttons to force a Jam or Seize.
+  sequence). Fault Hints (per 14). ImGui buttons to force a Jam or Seize.
 - **Out:** wear and Condition, other Fault kinds, the rattling tell (backlog).
-- **Read:** `map.md`; issues 06, 08, 05, 07, 12.
+- **Read:** `map.md`; issues 06, 08, 05, 07, 12, 14.
 - **Settles:** the Fault data schema (cooldown range, kind weights, pinned first Fault); Fault HUD reads.
 - **Depends on:** spec 3.
 - **Exit:** Shift 2 is playable with Faults, the pinned Seize fires, and the AI handles Faults.
-- **Prompt:** `Signal Room spec 4 (Faults & Shift 2). Read .scratch/signal-room/map.md and issues 05, 06, 07, 08, 12, 13. Boundary as in issue 13's Spec 4 packet.`
+- **Prompt:** `Signal Room spec 4 (Faults & Shift 2). Read .scratch/signal-room/map.md and issues 05, 06, 07, 08, 12, 13, 14. Boundary as in issue 13's Spec 4 packet.`
 
 ### Spec 5: Meta
 
@@ -99,14 +101,15 @@ of scope.
   Star bank and earned-star gating. Three Campaign slots and a settings slot through the Platform save API, tolerant
   loading, and autosave at Shift end and on purchase. The Title (Continue / Play), Slot picker (delete confirm,
   Unreadable), Shift picker and Requisitions screen (reached from results and the Shift picker). The web
-  click-to-unlock on Title.
+  click-to-unlock on Title. The Hints toggle in the settings slot, the Shift picker's Briefing button, and the
+  slot-derived rules for Briefing auto-show and Orientation's 1★ check (per 14).
 - **Out:** consumables and boosts, DEFCON, mid-Shift save.
-- **Read:** `map.md`; issues 10, 11, 05, 09.
+- **Read:** `map.md`; issues 10, 11, 05, 09, 14.
 - **Settles:** the Requisition catalogue schema, the `scale` op, and the Campaign and settings save documents; all
   meta screens.
 - **Depends on:** spec 4 (Shift 2 must exist for the Shift picker and the Field Repair Kit).
 - **Exit:** Title → Slot → Shift picker → play → results → Requisitions, with progress persisting across restarts.
-- **Prompt:** `Signal Room spec 5 (Meta). Read .scratch/signal-room/map.md and issues 05, 09, 10, 11, 13. Boundary as in issue 13's Spec 5 packet.`
+- **Prompt:** `Signal Room spec 5 (Meta). Read .scratch/signal-room/map.md and issues 05, 09, 10, 11, 13, 14. Boundary as in issue 13's Spec 5 packet.`
 
 ### Spec 6: Procedural audio
 
