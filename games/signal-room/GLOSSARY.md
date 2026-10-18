@@ -60,6 +60,11 @@ The floorplan a Shift is played in: the walls, rug and where every Station and C
 and which of its Stations are in service; the rest stand tarped. Several Shifts may share one Layout.
 _Avoid_: level (reserved for the engine's Level), map, room (as an identifier)
 
+**Room**:
+The scene Operators play a Shift in: the bunker floor built from the Shift's Layout. "Room" names the scene and its
+code (`RoomScene`, the Room panel); the floorplan data itself is the Layout.
+_Avoid_: level, stage, map
+
 **Tarped**:
 A Station standing in the Layout but out of service this Shift, under a canvas tarp. It blocks movement like any
 furniture but cannot be worked.

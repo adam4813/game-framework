@@ -1,0 +1,38 @@
+{
+	"singletons": {
+		"floor_grid": {"width": 13, "height": 9, "cell_size": 1.0, "origin": [0.0, 0.0, 0.0]},
+		"ambient_light": {"color": [150, 155, 170, 255], "intensity": 0.55}
+	},
+	"entities": [
+		{
+			"name": "Camera",
+			"components": {
+				"transform": {"position": [6.5, 24.97, 22.11]},
+				"camera": {
+					"projection": "orthographic",
+					"ortho_size": 12.8,
+					"up": [0.0, 1.0, 0.0],
+					"near": 0.1,
+					"far": 100.0
+				}
+			},
+			"refs": {"look_at": "CameraTarget"}
+		},
+		{
+			"name": "CameraTarget",
+			"components": {"transform": {"position": [6.5, 0.4, 4.9]}}
+		},
+		{
+			"name": "Sun",
+			"components": {
+				"directional_light": {
+					"direction": [-0.35, -1.0, -0.45],
+					"color": [255, 244, 222, 255],
+					"intensity": 0.9,
+					"casts_shadows": true,
+					"shadow_ground_y": 0.0
+				}
+			}
+		}
+	]
+}

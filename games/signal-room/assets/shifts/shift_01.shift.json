@@ -1,0 +1,5 @@
+{
+	"id": "shift_01",
+	"name": "Night Shift Orientation",
+	"layout": "layouts/bunker.layout.json"
+}
