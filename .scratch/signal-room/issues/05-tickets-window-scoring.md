@@ -74,7 +74,7 @@ slice](10-requisitions.md).
 ## Comments
 
 - 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md): Shift 2's frequencies are now **3 Radios on 3
-  frequencies, no decoys** (replaces "5 Presets = 3 live + 2 decoys"). The on-air rule gains the Antenna Coupler: a
-  frequency is copied only at its Radio, and only while the coupler has it lit. The coupler only lights frequencies
-  with unmet demand, which also blocks stockpiling. The generator's frequency weights now cover 3 frequencies.
+  frequencies, no decoys** (replaces "5 Presets = 3 live + 2 decoys"). The on-air rule is unchanged (a Radio is lit while an On Air
+  Ticket names its frequency). The Antenna Coupler adds one rule: while an Operator is copying at one Radio, the others
+  go dark. The generator's frequency weights now cover 3 frequencies.
   Arrival intervals are unchanged; copying is one at a time, ~2.4 s per card with the reset.

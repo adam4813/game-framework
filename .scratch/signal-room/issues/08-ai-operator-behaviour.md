@@ -86,6 +86,7 @@ Glossary: added **Claim**.
 
 ## Comments
 
-- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md): the AI only copies at the Radio the Antenna
-  Coupler has lit. Its unmet-demand count is now also what the coupler uses to pick a Radio. **Drop pre-positioning**
-  for near-On-Air Stand-by: which Radio lights next is random. "Never copies a decoy" is moot (no decoys in the slice).
+- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md): copying engages the Antenna Coupler. While any
+  Operator, human or AI, is copying at one Radio, the others are dark, so a copy job is only available while no other
+  Radio is engaged. Pre-positioning for near-On-Air Stand-by still works: frequencies sit on fixed Radios, so the AI
+  walks to that Radio. "Never copies a decoy" is moot (no decoys in the slice).

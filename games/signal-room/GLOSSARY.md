@@ -120,7 +120,7 @@ A Ticket that has arrived but whose station is not yet transmitting; its frequen
 _Avoid_: pending, queued
 
 **On Air**:
-A Ticket whose station is transmitting; only now can its frequency be copied, at its Radio, while the Antenna Coupler has it lit.
+A Ticket whose station is transmitting; only now does its frequency's Radio light up and can be copied.
 _Avoid_: active, live
 
 **Lost Intercept**:
@@ -138,12 +138,12 @@ times.
 _Avoid_: wave, spawn table
 
 **Antenna Coupler**:
-The relay that feeds the room's single antenna to one Radio at a time. Only the Radio it has lit can be copied, and it
-only lights a frequency with unmet demand.
+The relay that feeds the room's single antenna to one Radio at a time. Engaging a Radio to copy couples it, and every
+other Radio goes dark until it disconnects.
 _Avoid_: antenna switch, active radio
 
 **Coupler reset**:
-The short dark beat after a completed copy, before the Antenna Coupler lights its next Radio at random.
+The short dark beat after the Antenna Coupler disconnects, before every Radio with traffic comes back online.
 _Avoid_: cooldown
 
 **Par**:

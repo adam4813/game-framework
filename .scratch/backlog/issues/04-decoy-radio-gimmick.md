@@ -12,6 +12,6 @@ Maybe the decoy role moves between Radios after each correct copy, so it stays u
 
 ## Open questions
 
-- How does a decoy interact with the Antenna Coupler, which only lights frequencies with unmet demand? Is a decoy lit
-  alongside the coupled Radio, or is it a candidate the coupler can pick?
+- A decoy is always lit, so it is always a tempting Radio to engage. Engaging it couples the antenna and darkens the
+  real traffic, which is the cost. Is that enough, or does it need more?
 - Does the Direction Finder Requisition (greys out decoys) come back with it?
