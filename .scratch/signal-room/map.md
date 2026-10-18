@@ -7,7 +7,7 @@ Source: `D:\src\prototypes\singal-room.md` (GDD draft; read it for setting, stat
 
 A set of implementable specs (one per chunk, written to `.scratch/signal-room/`) for a **vertical slice** of Signal
 Room as the `games/signal-room/` Game Target: content for **Shifts 1–2** only, but the full stack around it. That
-means single player on keyboard with a helper AI Operator (and Swap), on a co-op-ready Operator model, 3D greybox with a fixed iso camera, requisitions, campaign save, DEFCON, and procedural audio.
+means single player on keyboard with a helper AI Operator (and Swap), on a co-op-ready Operator model, 3D greybox with a fixed iso camera, requisitions, campaign save, a Shift picker / campaign flow, and procedural audio.
 
 ## Notes
 
@@ -72,6 +72,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - Consumable requisitions and start-of-Shift boosts (slice requisitions are star-bought unlocks).
 - Endless mode, environmental-hazard and saboteur expansions (GDD §9).
 - Renaming the engine's `*.level.json` / Level concept (planned separately).
+- DEFCON (the Shift 10 escalation clock, wall board and tint): a finale mechanic, not a mission select; the Destination now names the Shift picker instead. Shift 10 notes kept on the ticket ([DEFCON's role in a two-Shift slice](issues/09-defcon-in-slice.md)).
 - Overdrive: it reads as a boost, and boosts are out ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
 - The Cooling Vent, core temperature and thermal runaway: the Vent doesn't fit the theme for now; a possible future idea ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
 - A Condition meter and wear stages, the Loose Tube, Blown Fuse and Stuck Valve Faults, the Coolant Canister and the Supply Rack: slice Faults are random, not wear-driven ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).

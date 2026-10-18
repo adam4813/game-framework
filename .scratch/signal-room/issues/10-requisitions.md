@@ -4,7 +4,7 @@ Map: [Signal Room: Vertical Slice](../map.md)
 Label: wayfinder:grilling
 Type: grilling
 Status: open
-Blocked by: 05, 06, 09
+Blocked by: 05, 06
 
 ## Question
 
