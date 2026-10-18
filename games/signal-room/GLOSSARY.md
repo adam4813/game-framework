@@ -125,6 +125,20 @@ The transmission window a Shift lasts: the stretch of the night enemy stations a
 Shift ends.
 _Avoid_: timer, round, shift clock (as an identifier)
 
+**Rack**:
+The board where open Tickets wait, holding at most five. A Ticket due while the rack is full waits for a slot; an empty
+rack halves the wait to the next arrival.
+_Avoid_: queue, inbox
+
+**Last Call**:
+The final 20 seconds of the Window: no new Ticket arrives or goes On Air, so nothing starts that cannot be finished.
+_Avoid_: overtime, endgame
+
+**Seed**:
+The number a Shift attempt's Collection Schedule draws from. A fresh one is drawn each attempt unless a developer pins
+it, so a pinned Seed repeats the schedule exactly.
+_Avoid_: random state
+
 **Ticket**:
 A tasking from HQ on the rack: a callsign and frequency to intercept, with a tier and a time gauge. It moves from
 Stand-by to On Air, then ends Cleared or as a Lost Intercept.

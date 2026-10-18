@@ -1,5 +1,7 @@
 #include "room_harness.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <string_view>
 
 #include "engine/engine.hpp"
@@ -10,8 +12,8 @@
 
 namespace signal_room::test {
 
-RoomHarness::RoomHarness()
-	: ctx_(std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>(SIGNAL_ROOM_ASSET_DIR))) {
+RoomHarness::RoomHarness() :
+		ctx_(std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>(SIGNAL_ROOM_ASSET_DIR))) {
 	auto& world = World();
 	world.import<SignalRoomModule>();
 
@@ -28,6 +30,11 @@ RoomHarness::~RoomHarness() = default;
 std::expected<void, std::string> RoomHarness::LoadShift(const std::string_view shiftPath) {
 	StartRoom(World(), std::string{shiftPath});
 	return LoadResult();
+}
+
+std::expected<void, std::string> RoomHarness::LoadShiftWithSeed(const std::string_view shiftPath, const uint64_t seed) {
+	World().set<SeedPin>({.pinned = true, .value = seed});
+	return LoadShift(shiftPath);
 }
 
 std::expected<void, std::string> RoomHarness::Reload() {
@@ -65,6 +72,17 @@ void RoomHarness::Step(const int frames, const float deltaTime) {
 		}
 		tapped_.clear();
 	}
+}
+
+void RoomHarness::StepSeconds(const float seconds) { Step(static_cast<int>(std::lround(seconds / kFixedDelta))); }
+
+ShiftWindow RoomHarness::Window() const { return World().get<ShiftWindow>(); }
+
+std::vector<Ticket> RoomHarness::OpenTickets() const {
+	std::vector<Ticket> tickets;
+	World().each([&](const Ticket& ticket) { tickets.push_back(ticket); });
+	std::ranges::sort(tickets, {}, &Ticket::order);
+	return tickets;
 }
 
 void RoomHarness::WriteKeys() const {

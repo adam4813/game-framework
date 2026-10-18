@@ -12,5 +12,14 @@
 	],
 	"counter_items": {
 		"CounterSouthLeft": "placeholder"
+	},
+	"radios": {"Radio1": "7.0"},
+	"window": 240,
+	"schedule": {
+		"interval": [25, 35],
+		"tier_weights": {"normal": 0.8, "high": 0.2},
+		"frequency_weights": {"7.0": 1.0},
+		"min_repeat_gap": 0,
+		"pinned": []
 	}
 }

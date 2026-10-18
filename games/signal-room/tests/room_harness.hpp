@@ -1,14 +1,17 @@
 #pragma once
 
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <set>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <flecs.h>
 
 #include "engine/engine_context.hpp"
+#include "room/ticket_components.hpp"
 
 namespace signal_room::test {
 
@@ -29,6 +32,9 @@ public:
 	// error when the Shift or its Layout can't be loaded.
 	std::expected<void, std::string> LoadShift(std::string_view shiftPath);
 
+	// As LoadShift, with the attempt's seed pinned so the schedule repeats exactly.
+	std::expected<void, std::string> LoadShiftWithSeed(std::string_view shiftPath, uint64_t seed);
+
 	// Re-read the current Shift and Layout from disk, as the Room panel's Reload button does.
 	std::expected<void, std::string> Reload();
 
@@ -38,6 +44,14 @@ public:
 	void Tap(int key);
 
 	void Step(int frames = 1, float deltaTime = kFixedDelta);
+
+	// Step simulated seconds at the fixed delta (rounded to whole frames).
+	void StepSeconds(float seconds);
+
+	// Read-only views of the Ticket simulation.
+	[[nodiscard]] ShiftWindow Window() const;
+	// The open Tickets, in arrival order.
+	[[nodiscard]] std::vector<Ticket> OpenTickets() const;
 
 	[[nodiscard]] flecs::world& World() const;
 

@@ -1,0 +1,41 @@
+{
+	"id": "random_schedule",
+	"name": "random_schedule",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": [
+		"Radio1",
+		"Radio2",
+		"Decoder",
+		"Telex"
+	],
+	"roster": [
+		{
+			"spawn": "spawn_1",
+			"colour": "p1"
+		}
+	],
+	"counter_items": {
+		"CounterSouthLeft": "placeholder"
+	},
+	"radios": {
+		"Radio1": "7.0",
+		"Radio2": "7.5"
+	},
+	"window": 240,
+	"schedule": {
+		"interval": [
+			5,
+			10
+		],
+		"tier_weights": {
+			"normal": 0.5,
+			"high": 0.3,
+			"flash": 0.2
+		},
+		"frequency_weights": {
+			"7.0": 1,
+			"7.5": 1
+		},
+		"min_repeat_gap": 12
+	}
+}

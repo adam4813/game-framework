@@ -16,6 +16,9 @@
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
 #include "room/room_tuning.hpp"
+#include "room/shift.hpp"
+#include "room/ticket_components.hpp"
+#include "room/ticket_rules.hpp"
 
 using namespace engine;
 
@@ -110,6 +113,43 @@ void RegisterComponents(const flecs::world& world) {
 	world.component<Item>().member<std::string>("id").member<float>("carry_speed").member<bool>("tilt_to_camera");
 	world.component<Carries>().add(flecs::Exclusive);
 	world.component<Holds>().add(flecs::Exclusive);
+
+	world.component<TicketState>().constant("StandBy", TicketState::StandBy).constant("OnAir", TicketState::OnAir);
+	world.component<ShiftPhase>().constant("Running", ShiftPhase::Running).constant("Ended", ShiftPhase::Ended);
+	world.component<Ticket>()
+		.member<std::string>("callsign")
+		.member<std::string>("tier")
+		.member<std::string>("frequency")
+		.member<int>("order")
+		.member<TicketState>("state")
+		.member<float>("standby_left")
+		.member<float>("on_air_total")
+		.member<float>("on_air_left")
+		.member<bool>("unlosable");
+	world.component<ShiftWindow>()
+		.member<ShiftPhase>("phase")
+		.member<float>("window")
+		.member<float>("window_left")
+		.member<uint64_t>("seed")
+		.member<float>("next_arrival")
+		.member<int>("next_order")
+		.member<int>("next_pinned")
+		.member<bool>("last_call")
+		.member<bool>("frozen")
+		.add(EcsSingleton);
+	world.component<SeedPin>().member<bool>("pinned").member<uint64_t>("value").add(EcsSingleton);
+	world.component<ScheduleRng>().add(EcsSingleton);
+	world.component<ScheduleState>().add(EcsSingleton);
+	world.component<Schedule>().add(EcsSingleton);
+	world.component<TicketRules>().add(EcsSingleton);
+	world.component<FrequencyTable>().add(EcsSingleton);
+	world.component<TicketArrived>();
+	world.component<TicketOnAir>();
+	world.component<TicketCleared>();
+	world.component<LostIntercept>();
+	world.component<LastCall>();
+	world.component<ShiftEnded>();
+	world.component<Transmission>();
 }
 
 } // namespace
@@ -121,6 +161,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	RegisterComponents(world);
 	world.set<RoomState>({});
 	world.set<RoomOverlays>({});
+	world.set<SeedPin>({});
 	// Defaults until the Room loads the tuning and bindings files.
 	world.set<MovementTuning>({});
 	world.set<TargetingTuning>({});

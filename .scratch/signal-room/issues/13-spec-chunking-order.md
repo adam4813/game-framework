@@ -126,3 +126,4 @@ of scope.
 ## Comments
 
 - 2026-10-18: Spec 1 written: [Signal Room spec 1: Room & bootstrap](../../signal-room-room-bootstrap/spec.md) (`ready-for-agent`).
+- 2026-10-18: Spec 2 written: [Signal Room spec 2: Core loop](../../signal-room-core-loop/spec.md) (`ready-for-agent`, 12 tickets).

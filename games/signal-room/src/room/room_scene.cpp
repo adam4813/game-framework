@@ -25,6 +25,8 @@
 #include "room_tuning.hpp"
 #include "shift.hpp"
 #include "target_brighten.hpp"
+#include "ticket_rules.hpp"
+#include "ticket_simulation.hpp"
 
 using namespace engine;
 
@@ -67,6 +69,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterItemInteraction(world, roomRoot_);
 	RegisterCarriedItemPlacement(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
+	RegisterTicketSimulation(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
 	if (deferred) {
@@ -96,6 +99,14 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!catalogue) {
 		return std::unexpected(catalogue.error());
 	}
+	auto ticketRules = LoadTicketRulesFile(assets::ResolveAsset(world, kTicketRulesFile));
+	if (!ticketRules) {
+		return std::unexpected(ticketRules.error());
+	}
+	auto frequencies = LoadFrequencyTableFile(assets::ResolveAsset(world, kFrequencyTableFile), *palette);
+	if (!frequencies) {
+		return std::unexpected(frequencies.error());
+	}
 	auto items = LoadItemCatalogueFile(assets::ResolveAsset(world, kItemCatalogueFile), *catalogue);
 	if (!items) {
 		return std::unexpected(items.error());
@@ -111,6 +122,8 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<Palette>(std::move(*palette));
 	world.set<GreyboxCatalogue>(std::move(*catalogue));
 	world.set<ItemCatalogue>(std::move(*items));
+	world.set<TicketRules>(std::move(*ticketRules));
+	world.set<FrequencyTable>(std::move(*frequencies));
 	world.set<MovementTuning>(tuning->movement);
 	world.set<TargetingTuning>(tuning->targeting);
 	world.set<DustPuffTuning>(tuning->dustPuff);
@@ -120,6 +133,10 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	const auto shift = LoadShiftFile(shiftFile);
 	if (!shift) {
 		return std::unexpected(shift.error());
+	}
+	if (auto tickets = ValidateShiftTickets(*shift, world.get<TicketRules>(), world.get<FrequencyTable>(), shiftFile);
+		!tickets) {
+		return tickets;
 	}
 	if (auto layout = LoadLayout(world, ResolveGamePath(world, shift->layout), roomRoot_); !layout) {
 		return layout;
@@ -136,6 +153,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 		return placed;
 	}
 	BuildRoomOverlays(world, roomRoot_);
+	StartShiftWindow(world, *shift);
 	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
 	return {};
 }

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <format>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "room_overlays.hpp"
 #include "room_scene.hpp"
 #include "room_tuning.hpp"
+#include "shift_panel.hpp"
 
 using namespace engine;
 
@@ -40,7 +42,9 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 	// Scanned once per Room load; Reload rebuilds the panel, so new files show up after a Reload.
 	world.system("RoomPanel")
 		.kind(flecs::OnUpdate)
-		.run([shiftFiles = ListShiftFiles(world), roomRoot](const flecs::iter& it) {
+		.run([shiftFiles = ListShiftFiles(world),
+			  roomRoot,
+			  shiftPanel = std::make_shared<ShiftPanelState>()](const flecs::iter& it) {
 			const auto world = it.world();
 			auto& ui = world.get<platform::PlatformRef>().ptr->GetDebugUi();
 			if (ui.BeginPanel("Room")) {
@@ -53,6 +57,8 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					const auto& grid = world.get<FloorGrid>();
 					ui.Text(std::format("Floor: {} x {} cells of {} m", grid.width, grid.height, grid.cellSize));
 				}
+
+				DrawShiftSection(world, roomRoot, *shiftPanel);
 
 				if (ui.CollapsingHeader("Overlays")) {
 					auto& overlays = world.get_mut<RoomOverlays>();

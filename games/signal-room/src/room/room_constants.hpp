@@ -15,6 +15,9 @@ inline constexpr int kRestPort = 27760;
 inline constexpr const char* kPaletteFile = "greybox/palette.json";
 inline constexpr const char* kGreyboxCatalogueFile = "greybox/catalogue.json";
 inline constexpr const char* kItemCatalogueFile = "items.json";
+// Ticket rules and the frequency table (asset-relative), re-read on every Room load.
+inline constexpr const char* kTicketRulesFile = "tickets.json";
+inline constexpr const char* kFrequencyTableFile = "frequencies.json";
 // Feel tuning and keyboard bindings (asset-relative), re-read on every Room load.
 inline constexpr const char* kTuningFile = "tuning.json";
 inline constexpr const char* kBindingsFile = "bindings.json";
