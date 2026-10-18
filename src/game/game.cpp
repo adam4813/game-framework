@@ -11,6 +11,7 @@
 #include "engine/engine.hpp"
 #include "meta_save_example.hpp"
 #include "noise_scene.hpp"
+#include "synth_scene.hpp"
 #include "tilemap_scene.hpp"
 #include "title_scene.hpp"
 
@@ -60,6 +61,12 @@ GameModule::GameModule(flecs::world& world) {
 		const auto noiseScene = std::make_shared<NoiseScene>();
 		noiseScene->onBackPressed = [w = &world]() { scene::ActivateScene<TitleSceneTag>(*w); };
 		scene::RegisterScene<NoiseSceneTag>(world, noiseScene);
+	}
+
+	{
+		const auto synthScene = std::make_shared<SynthScene>();
+		synthScene->onBackPressed = [w = &world]() { scene::ActivateScene<TitleSceneTag>(*w); };
+		scene::RegisterScene<SynthSceneTag>(world, synthScene);
 	}
 
 	scene::ActivateScene<TitleSceneTag>(world);
