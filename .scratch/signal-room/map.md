@@ -5,7 +5,8 @@ Source: `D:\src\prototypes\singal-room.md` (GDD draft; read it for setting, stat
 
 ## Destination
 
-A set of implementable specs (one per chunk, written to `.scratch/signal-room/`) for a **vertical slice** of Signal
+Hand-off packets for six implementable specs (each later written with `/to-spec` outside this map), with every
+in-scope decision resolved and the engine prerequisites ticketed, for a **vertical slice** of Signal
 Room as the `games/signal-room/` Game Target: content for **Shifts 1–2** only, but the full stack around it. That
 means single player on keyboard with a helper AI Operator (and Swap), on a co-op-ready Operator model, 3D greybox with a fixed iso camera, requisitions, campaign save, a Shift picker / campaign flow, and procedural audio.
 
@@ -42,23 +43,14 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Requisitions for a two-Shift slice](issues/10-requisitions.md): room-wide, permanent star-bought unlocks, each a catalogue entry wrapping a Modifier (override schema gains `scale`); base catalogue of 4 always on offer (Geared Crank 1★, Long-Throw Antenna 1★, Mil-Spec Tubes 2★, Field Repair Kit 2★ = the 6★ pool); pure upgrades, scarcity is the choice; gating uses stars earned, spending only the Star bank.
 - [Radio presets & spectrum read](issues/12-radio-tuning-prototype.md): spectrum + Presets dropped (played like a console minigame); each Radio is a fixed-frequency Station with a display + traffic lamp, 1 in Shift 1, 3 in Shift 2, one-decimal half-MHz labels; engaging a Radio couples the single antenna to it and darkens the rest, then they come back after a `coupler_reset` (< 0.5 s) once the copy ends; no decoys; per-Radio pitch, Morse keying as the copy cue, 2.0 s copy.
 - [Campaign save contents](issues/11-campaign-save.md): three Campaign slots + a separate settings slot via the existing Platform save API; Campaign = per-Shift best stars/score + owned Requisition ids in named, tolerantly loaded sections (Star bank and unlocks derived); autosave at Shift end and on each purchase, no mid-Shift save; Title → Continue/Play → Slot picker (delete only); stale ids dropped, unparseable slots marked Unreadable.
+- [Spec chunking & hand-off order](issues/13-spec-chunking-order.md): six vertical specs handed off 1 Room & bootstrap → 2 Core loop → 3 Operators, Swap & AI → 4 Faults & Shift 2 → 5 Meta, with 6 Procedural audio any time after 2; paste-ready `/to-spec` packets (boundary, reads, settles, exit) live on the ticket; ImGui and the new [Synth stream behind Platform](../synth-stream/issues/01-synth-stream-platform.md) land on `main` before any slice implementation; remaining fog is settled inside the spec that introduces it.
 
 ## Not yet specified
 
-- **Data schema.** JSON shape for Stations/Transforms, Items, ticket tiers and the Collection Schedule (generator + pinned entries), Shifts (incl. each Radio's frequency and the `coupler_reset` knob), Modifiers (override schema: what a
-  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket). Also Fault data (cooldown range, kind weights, pinned first Fault), the AI profile (see the AI Operator behaviour ticket) and the Requisition catalogue (entry fields, Modifier `set`/`scale` ops and the layering order; see the Requisitions ticket). The Campaign and settings save documents (section keys and field names; see the Campaign save ticket).
-- **Screens & HUD.** Radio display (frequency label) and traffic lamp, Ticket rack (incl. how gauge overfill reads for Stand-by), WINDOW clock, briefing card, results/stars screen, Requisitions screen (base catalogue of 4 with cost, blurb, owned state and Star bank; reached from results and the Shift picker), Shift
-  picker / campaign flow, Title (Continue / Play) and the three-card Slot picker with its summaries, Delete confirm and
-  Unreadable state (see the Campaign save ticket). What must exist and how it is laid out in greybox.
-- **Shift 1 tutorial.** How much onboarding the slice needs (prompts, gated steps). Shift 1 teaches only the route,
-  with no Faults. Shift 2's pinned first Seize is its in-play lesson for the Oil Can.
-- **Procedural audio palette.** Beyond the per-Radio tone and Morse copy keying: the coupler-reset relay clunk and static sweep, relay chatter, Jam grind, Seize squeal, stamp thud,
-  Fault alarm, ticket buzzer. Scope and synthesis approach graduate after the audio research.
-- **Game Target bootstrap.** Standing up `games/signal-room/` per ADR-0006 (CMake, entry point, tests, scenes) and
-  whether any engine work (gamepad, audio streams) must land first.
-- **Greybox readability & juice.** How stations, carried items, machine states and the interaction-target highlight read without art; which of camera
-  shake / emergency lighting / particles belong in the slice.
-- **Playtest & tuning loop.** How the slice will be tuned (the AI Job board view, AI profile and Modifier A/B toggles, telemetry, Flecs remote checks). Debug UI: ImGui on Raylib lands in the framework first ([Dear ImGui on Raylib behind a debug UI interface](../imgui-debug-ui/issues/01-imgui-raylib-backend.md)); the slice uses it for the AI tuning panel and Fault/ticket debug buttons, alongside Flecs Explorer for inspection.
+Nothing left as fog. Data schema, screens & HUD, the audio palette, the Game Target bootstrap and the debug panels are
+each settled inside the spec that introduces them (see the packets on
+[Spec chunking & hand-off order](issues/13-spec-chunking-order.md)). The Shift 1 tutorial and greybox readability
+graduated into their own tickets.
 
 ## Out of scope
 
@@ -80,3 +72,4 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - A Condition meter and wear stages, the Loose Tube, Blown Fuse and Stuck Valve Faults, the Coolant Canister and the Supply Rack: slice Faults are random, not wear-driven ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
 - Decoy Radios and their tell (garbled tone + flicker): dropped from the slice, a possible later Shift gimmick ([Radio presets & spectrum read](issues/12-radio-tuning-prototype.md)); backlogged as [Decoy Radio as a Shift gimmick](../backlog/issues/04-decoy-radio-gimmick.md).
 - Backlogged outside this map: [Near-miss blast knocks power cables loose](../backlog/issues/01-near-miss-power-cables.md), [Rattling tell before a Fault](../backlog/issues/02-fault-rattling-tell.md) and [Ping a Station to steer the AI Operator](../backlog/issues/03-ping-station-steer-ai.md).
+- Playtest telemetry: tuning uses the ImGui panels and Flecs Explorer only ([Spec chunking & hand-off order](issues/13-spec-chunking-order.md)).
