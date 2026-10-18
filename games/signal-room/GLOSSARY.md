@@ -34,6 +34,11 @@ An Operator no Seat holds. It pursues the work it judges correct, deliberately l
 so solo play still has a co-op crew.
 _Avoid_: bot, NPC, companion
 
+**Claim**:
+An AI Operator's mark on the Station or Item it means to work next, so other AI Operators leave it alone. A Claim never
+stops a human.
+_Avoid_: reservation, lock
+
 **Swap**:
 A human moving their Seat to the next Operator in the Roster that no other Seat holds. The Operator left behind
 becomes an AI Operator that finishes the action or carry the human was in the middle of, then picks its next job.

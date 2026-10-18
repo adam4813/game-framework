@@ -38,13 +38,14 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - [Room layout, movement & set-down](issues/07-room-layout-movement.md): Shift names a Layout (grid Level JSON) + in-service Stations, the rest Tarped; one 13×9 Layout for Shifts 1–2 with 6 Counters; 4.5 m/s walk, 2.2×/0.2 s dash, per-Item carry speed; hand-rolled 2D collision with soft Operator separation; facing-cell targeting with cone fallback, no position snap.
 - [Tickets, window & scoring for Shifts 1–2](issues/05-tickets-window-scoring.md): NORMAL/HIGH/FLASH (90/65/40 s, base 20/30/40), optional heads-up as gauge overfill (Stand-by → On Air), Radio copies only On Air frequencies; seeded Collection Schedule + pinned entries, rack cap 5; value × band share (100/75/50%) × Handler Chain (×1→×2); Lost Intercept −10; hard stop at 4:00; stars at 40/65/90% of par; newly earned stars are the requisition currency, spent on unlocks.
 - [Decoder Faults & the Oil Can in Shift 2](issues/06-condition-heat-overdrive.md): no Condition meter, heat or Overdrive. From Shift 2 the Decoder Faults at random while running (hidden run-time cooldown, seeded): a Jam resets progress (Mash 3×), a Seize pauses (Hold with the reusable Oil Can, from the Counter at (0,8)). Shift 1 has no Faults (scripted jam dropped); Shift 2 pins a Seize at ~20 s.
+- [AI Operator behaviour](issues/08-ai-operator-behaviour.md): hand-rolled Job board + scorer (kind weight + urgency + value at stake − distance); copies only to meet On Air demand, pre-positions for near-On-Air Stand-by; soft AI-only Claims; reaction delay, ~90% walk and job speed, no dash; Faults preempt after a 1.5/3 s grace (+50% if the human is closer); Seize: park Item, fetch Oil Can, leave it near the Decoder; no commands; swappable AI profile JSON.
 
 ## Not yet specified
 
 - **Spec chunking & order.** Which specs the decisions roll up into (e.g. core loop, operators & AI, meta, audio,
   Game Target bootstrap) and the order they're handed off. Becomes clear once the core-loop tickets resolve.
 - **Data schema.** JSON shape for Stations/Transforms, Items, ticket tiers and the Collection Schedule (generator + pinned entries), Shifts, Modifiers (override schema: what a
-  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Also Fault data (cooldown range, kind weights, pinned first Fault).
+  Modifier may override and how the dev toggle layers on top), the Layout file (placements, footprints, worked sides, wall heights, spawn markers; see the Room layout ticket) and upgrades. Also Fault data (cooldown range, kind weights, pinned first Fault) and the AI profile (see the AI Operator behaviour ticket).
 - **Screens & HUD.** Ticket rack (incl. how gauge overfill reads for Stand-by), WINDOW clock, briefing card, results/stars screen, requisitions screen, Shift
   picker / campaign flow. What must exist and how it is laid out in greybox.
 - **Shift 1 tutorial.** How much onboarding the slice needs (prompts, gated steps). Shift 1 teaches only the route,
@@ -55,7 +56,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
   whether any engine work (gamepad, audio streams) must land first.
 - **Greybox readability & juice.** How stations, carried items, machine states and the interaction-target highlight read without art; which of camera
   shake / emergency lighting / particles belong in the slice.
-- **Playtest & tuning loop.** How the slice will be tuned (imgui tuning panels, telemetry, Flecs remote checks).
+- **Playtest & tuning loop.** How the slice will be tuned (imgui tuning panels incl. the AI Job board view, AI profile A/B, telemetry, Flecs remote checks).
 
 ## Out of scope
 
@@ -74,4 +75,4 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
 - Overdrive: it reads as a boost, and boosts are out ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
 - The Cooling Vent, core temperature and thermal runaway: the Vent doesn't fit the theme for now; a possible future idea ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
 - A Condition meter and wear stages, the Loose Tube, Blown Fuse and Stuck Valve Faults, the Coolant Canister and the Supply Rack: slice Faults are random, not wear-driven ([Decoder Faults & the Oil Can](issues/06-condition-heat-overdrive.md)).
-- Backlogged outside this map: [Near-miss blast knocks power cables loose](../backlog/issues/01-near-miss-power-cables.md) and [Rattling tell before a Fault](../backlog/issues/02-fault-rattling-tell.md).
+- Backlogged outside this map: [Near-miss blast knocks power cables loose](../backlog/issues/01-near-miss-power-cables.md), [Rattling tell before a Fault](../backlog/issues/02-fault-rattling-tell.md) and [Ping a Station to steer the AI Operator](../backlog/issues/03-ping-station-steer-ai.md).
