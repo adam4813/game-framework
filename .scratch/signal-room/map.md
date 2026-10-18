@@ -56,7 +56,7 @@ means single player on keyboard with a helper AI Operator (and Swap), on a co-op
   whether any engine work (gamepad, audio streams) must land first.
 - **Greybox readability & juice.** How stations, carried items, machine states and the interaction-target highlight read without art; which of camera
   shake / emergency lighting / particles belong in the slice.
-- **Playtest & tuning loop.** How the slice will be tuned (the AI Job board view, AI profile and Modifier A/B toggles, telemetry, Flecs remote checks). imgui is linked but has no Raylib backend yet; first candidates are JSON hot-reload, Flecs Explorer over the REST API (engine components already carry reflection) and a Platform debug-text overlay. Adopt imgui only if those fall short.
+- **Playtest & tuning loop.** How the slice will be tuned (the AI Job board view, AI profile and Modifier A/B toggles, telemetry, Flecs remote checks). Debug UI: ImGui on Raylib lands in the framework first ([Dear ImGui on Raylib behind a debug UI interface](../imgui-debug-ui/issues/01-imgui-raylib-backend.md)); the slice uses it for the AI tuning panel and Fault/ticket debug buttons, alongside Flecs Explorer for inspection.
 
 ## Out of scope
 
