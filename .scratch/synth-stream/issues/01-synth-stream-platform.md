@@ -7,7 +7,8 @@ Source: raised during [Spec chunking & hand-off order](../../signal-room/issues/
 ## Context
 
 The engine's audio is file-based only (`Platform` does LoadSound/PlaySound). Signal Room's slice synthesises all its
-audio. This is **framework work**: land it on its own branch off `main`, then rebase `feat/signal-room` onto it. It
+audio. This is **framework work**: land it on its own branch off `feat/signal-room` and PR it back into `feat/signal-room` (the project's base branch;
+it never merges into `main`). It
 must land before any slice implementation starts.
 
 ## Acceptance criteria

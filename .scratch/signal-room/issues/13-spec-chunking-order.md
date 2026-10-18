@@ -24,8 +24,8 @@ Resolved 2026-10-17 (grilling).
 **1 → 2 → 3 → 4 → 5**, with **6** any time after 2. The user writes each spec with `/to-spec`, then `/to-tickets`,
 outside the map. This ticket supplies the context for each one: the packets below.
 
-**Engine first.** Both framework pieces land on `main` before any slice implementation starts, and `feat/signal-room` is
-rebased onto them:
+**Engine first.** Both framework pieces land on `feat/signal-room` (the project's base branch, which never merges into
+`main`) before any slice implementation starts:
 - [Dear ImGui on Raylib behind a debug UI interface](../../imgui-debug-ui/issues/01-imgui-raylib-backend.md)
 - [Synth stream behind Platform](../../synth-stream/issues/01-synth-stream-platform.md) (new; built from the audio
   research)

@@ -7,7 +7,8 @@ Source: raised during [AI Operator behaviour](../../signal-room/issues/08-ai-ope
 
 `imgui` is already a vcpkg dependency and links (`CMakeLists.txt`), and `src/engine/platform/platform.hpp` says
 Raylib/ImGui calls live behind `Platform`, but nothing connects ImGui to Raylib yet. This is **framework work**:
-land it on its own branch off `main`, then rebase `feat/signal-room` onto it.
+land it on its own branch off `feat/signal-room` and PR it back into `feat/signal-room` (the project's base branch;
+it never merges into `main`).
 
 First consumers in the Signal Room slice: an AI tuning panel (live AI profile values next to each AI Operator's Job
 board with candidate scores) and Fault/ticket debug buttons (force a Jam or Seize, spawn a Ticket, freeze the Window).
