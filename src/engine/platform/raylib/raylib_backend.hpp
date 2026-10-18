@@ -33,6 +33,9 @@ public:
 	[[nodiscard]] int CharInput() const override;
 	[[nodiscard]] std::string TextInput() const override;
 
+	[[nodiscard]] DebugUi& GetDebugUi() override;
+	void DrawDebugUi() override;
+
 	void DrawRect(Rect r, Rgba c) override;
 	void DrawRectLines(Rect r, float thickness, Rgba c) override;
 	void DrawRoundedRect(Rect r, float roundness, Rgba c) override;

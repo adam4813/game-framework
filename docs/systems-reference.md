@@ -19,6 +19,15 @@ carries `ecs::Pausable` (stops while paused), ✘ keeps running.
 Input polls before everything (so systems see fresh state) and clears per-frame flags after everything (so a key
 "pressed" edge survives exactly one frame).
 
+## debug (`src/engine/debug/debug_ui_module.cpp`)
+
+| Name               | Kind            | Phase       | Scope | Pausable |
+|--------------------|-----------------|-------------|-------|----------|
+| `EngineDebugPanel` | system `.run()` | `OnUpdate`  | all   | ✘       |
+| `DebugUiDraw`      | system `.run()` | `OnDebugUI` | all   | ✘       |
+
+`InputPoll` withholds input the debug UI captured (`DebugUi::CapturesMouse`/`CapturesKeyboard`).
+
 ## scripting (`src/engine/scripting/scripting_module.cpp`)
 
 | Name                       | Kind     | Phase / Event | Scope | Pausable |

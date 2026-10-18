@@ -9,8 +9,11 @@
 #include <glm/glm.hpp>
 
 #include "engine/core/core.hpp"
+#include "engine/platform/debug_ui.hpp"
 
 // Platform abstraction. All Raylib/ImGui calls live behind this interface so game logic stays engine-agnostic.
+// Implementations: RaylibBackend (platform/raylib/) and the headless NullPlatform used by the scene equivalence
+// test (tests/scene_equivalence/null_platform.hpp) — a new pure virtual here must be added to both.
 namespace engine::platform {
 
 class Platform;
@@ -128,6 +131,13 @@ public:
 	// Returns text typed this frame (may contain multiple characters from repeat/IME).
 	// Clears after the frame is read. Used by UI text input fields.
 	[[nodiscard]] virtual std::string TextInput() const = 0;
+
+	// ── Debug UI ──
+	// The immediate-mode debug overlay. Always valid: a no-op DebugUi when compiled out.
+	[[nodiscard]] virtual DebugUi& GetDebugUi() = 0;
+	// Renders this frame's debug UI on top of everything drawn so far. Called once per frame by the
+	// engine from the ecs::OnDebugUI phase; no-op while hidden or compiled out.
+	virtual void DrawDebugUi() = 0;
 
 	// ── 2D drawing ──
 	virtual void DrawRect(Rect r, Rgba c) = 0;

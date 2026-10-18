@@ -33,7 +33,7 @@ A scene-owned, filtered sequence of Systems that Flecs executes each frame. Each
 _Avoid_: system pipeline, execution graph
 
 **Phase**:
-An execution slot within a Pipeline that determines *when* a system runs relative to others. The engine uses the Flecs built-in phases (`PreUpdate`, `OnUpdate`, `OnStore`, `PostUpdate`) plus one custom phase (`ecs::OnUI`) that runs after `OnStore` and guarantees 2D overlays composite on top of 3D. Systems are assigned a phase via `.kind(phase)`.
+An execution slot within a Pipeline that determines *when* a system runs relative to others. The engine uses the Flecs built-in phases (`PreUpdate`, `OnUpdate`, `OnStore`, `PostUpdate`) plus two custom phases: `ecs::OnUI` runs after `OnStore` and guarantees 2D overlays composite on top of 3D, and `ecs::OnDebugUI` runs after `OnUI` to render the debug UI on top of everything. Systems are assigned a phase via `.kind(phase)`.
 _Avoid_: stage, step, tick phase
 
 **Transform**:

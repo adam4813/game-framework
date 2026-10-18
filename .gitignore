@@ -22,3 +22,6 @@ tools/node_modules/
 # Per-user world saves (never committed)
 saves/
 build-headless/
+
+# Dear ImGui window layout (written to the working directory)
+imgui.ini

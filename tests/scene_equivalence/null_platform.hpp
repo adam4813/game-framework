@@ -29,6 +29,9 @@ public:
 	[[nodiscard]] int CharInput() const override { return 0; }
 	[[nodiscard]] std::string TextInput() const override { return {}; }
 
+	engine::platform::DebugUi& GetDebugUi() override { return debugUi_; }
+	void DrawDebugUi() override {}
+
 	void DrawRect(Rect, Rgba) override {}
 	void DrawRectLines(Rect, float, Rgba) override {}
 	void DrawRoundedRect(Rect, float, Rgba) override {}
@@ -90,4 +93,7 @@ public:
 	[[nodiscard]] bool HasSave(std::string_view) const override { return false; }
 	void DeleteSave(std::string_view) override {}
 	[[nodiscard]] std::vector<std::string> ListSaves() const override { return {}; }
+
+private:
+	engine::platform::DebugUi debugUi_;
 };

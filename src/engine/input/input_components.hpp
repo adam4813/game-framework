@@ -206,4 +206,7 @@ constexpr int Pause = 0x0602;
 /// Engine-wide key that toggles debug rendering overlays (physics wireframes, nav paths, etc.)
 inline constexpr int kDebugRenderKey = KeyCode::F3;
 
+/// Engine-wide key that shows/hides the ImGui debug UI (platform::DebugUi).
+inline constexpr int kDebugUiToggleKey = KeyCode::Grave;
+
 } // namespace engine::input

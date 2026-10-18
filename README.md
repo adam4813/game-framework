@@ -76,7 +76,7 @@ cmake --build --preset desktop-release
 cmake --build --preset desktop-debug
 ```
 
-The executable is at `build/desktop/Release/game` (or `Debug/game`).
+The executable is at `build/desktop/Release/sandbox` (or `Debug/sandbox`).
 
 #### WebAssembly Build
 
@@ -97,13 +97,13 @@ cmake --build --preset wasm-debug
 Simply run the built executable:
 
 ```bash
-./build/desktop/Release/game
+./build/desktop/Release/sandbox
 ```
 
 For Debug builds:
 
 ```bash
-./build/desktop/Debug/game
+./build/desktop/Debug/sandbox
 ```
 
 #### WebAssembly
@@ -113,7 +113,7 @@ isolation and server cleanup:
 
 ```bash
 # From the project root:
-emrun ./build/wasm/Release/game.html --hostname localhost --serve_after_close
+emrun ./build/wasm/Release/sandbox.html --hostname localhost --serve_after_close
 ```
 
 This launches a local HTTP server at `http://localhost:8080`, and serves the game. The `--serve_after_close` flag
@@ -123,7 +123,7 @@ server, press `Ctrl+C` in the terminal.
 For Debug builds:
 
 ```bash
-emrun ./build/wasm/Debug/game.html --hostname localhost --serve_after_close
+emrun ./build/wasm/Debug/sandbox.html --hostname localhost --serve_after_close
 ```
 
 ## Documentation
@@ -192,13 +192,14 @@ right order.
 
 ### Phases
 
-The frame is split into five phases:
+The frame is split into six phases:
 
 1. **PreUpdate** — poll inputs, lay out UI
-2. **OnUpdate** — advance simulation, physics, timers, scripts
+2. **OnUpdate** — advance simulation, physics, timers, scripts, debug UI panels
 3. **OnStore** — render 3D
 4. **OnUI** — render 2D overlays
-5. **PostUpdate** — clear per-frame state
+5. **OnDebugUI** — render the ImGui debug UI on top (see `src/engine/debug/README.md`)
+6. **PostUpdate** — clear per-frame state
 
 Systems specify their phase with `.kind(phase)`. This ensures deterministic, lag-free interaction (input is sampled
 before interaction systems run, before PostUpdate clears it).

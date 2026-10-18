@@ -65,6 +65,9 @@ VCPKG.
   `SetupTilemap` because the `OnSet<WorldObjectLayer>` observer reads `ObjectKindRegistry` synchronously;
   `RegisterXxxSystems` must precede `SpawnXxx` so `world.component<T>()` calls genuinely pre-register types before
   entities create them.
+- **`it.world()` is a stage inside a system:** the C++ wrappers resolve it, but raw C APIs that read world storage
+  (`ecs_get_entities`, ...) read garbage from a stage and abort on a Flecs assert at runtime. Pass them the real
+  world: `ecs_get_world(it.world().c_ptr())`.
 
 ### Transform Authoring
 
@@ -172,9 +175,9 @@ scene switching, UI navigation, input overrides, component queries, and ECS intr
 
 ## Interaction style
 
-- **Use the `ask_user` tool** for all questions during any skill session (grilling, planning, clarification, etc.) —
-  never ask via plain text. Bundle a full question round into a single `ask_user` call (one form, multiple fields); one
-  round = one tool call = one user response.
+- **Ask through your harness's structured question tool** (the form-style tool the user answers in place) for all
+  questions during any skill session (grilling, planning, clarification, etc.). Bundle a full question round into a
+  single call (one form, multiple fields); one round = one tool call = one user response.
 - **Scope expansion during active ticket work:** if a request clearly falls outside the current ticket's acceptance
   criteria, name it. Implement it if it's small and the user explicitly accepts the scope change; otherwise note it as
   a follow-up ticket before starting work on it.
