@@ -13,6 +13,11 @@ add_engine_test(synth_trigger_test
     synth_trigger_test.cpp
 )
 
+# Orthographic/perspective camera projection matrix (no GPU required)
+add_engine_test(camera_projection_test
+    camera_projection_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp

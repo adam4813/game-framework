@@ -1,9 +1,16 @@
 #pragma once
 
+#include <string>
+#include <utility>
+
 #include "engine/platform/platform.hpp"
 
+// Headless Platform: no window, GPU or audio. Every query returns a neutral value and every draw is a
+// no-op. `assetDirectory` is what AssetDirectory() reports, so asset-relative loads resolve under it.
 class NullPlatform final : public engine::platform::Platform {
 public:
+	explicit NullPlatform(std::string assetDirectory = ".") : assetDirectory_(std::move(assetDirectory)) {}
+
 	void Init(int, int, std::string_view) override {}
 	[[nodiscard]] bool ShouldClose() const override { return false; }
 	void Shutdown() override {}
@@ -11,7 +18,7 @@ public:
 	[[nodiscard]] int Height() const override { return 720; }
 	[[nodiscard]] float DeltaTime() const override { return 0.016F; }
 	[[nodiscard]] double Time() const override { return 0.0; }
-	[[nodiscard]] std::string AssetDirectory() const override { return "."; }
+	[[nodiscard]] std::string AssetDirectory() const override { return assetDirectory_; }
 	[[nodiscard]] int Fps() const override { return 0; }
 
 	void BeginFrame(Rgba) override {}
@@ -98,5 +105,6 @@ public:
 	[[nodiscard]] std::vector<std::string> ListSaves() const override { return {}; }
 
 private:
+	std::string assetDirectory_;
 	engine::platform::DebugUi debugUi_;
 };

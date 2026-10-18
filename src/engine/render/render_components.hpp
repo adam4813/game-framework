@@ -108,13 +108,23 @@ struct DirectionalLight {
 // particles and other entities that mutate their material per-frame can continue to use either.
 struct RenderWith {};
 
-// Perspective camera projection attributes (fov, aspect, near/far) plus the world up vector.
+// Camera projection mode. Perspective uses a vertical field of view; Orthographic uses a fixed
+// world-space view height (Camera::ortho_size) for a foreshortened, scale-independent look.
+// Default (int) underlying type: Flecs enum reflection reads 4 bytes, so a narrower type would
+// serialize the padding after it.
+enum class Projection { Perspective, Orthographic };
+
+// Camera projection attributes plus the world up vector. Perspective cameras use `fov`;
+// orthographic cameras use `ortho_size` (the vertical view height in world units). `aspect_ratio`,
+// `near_plane`, and `far_plane` apply to both modes.
 struct Camera {
 	glm::vec3 up{0.0F, 1.0F, 0.0F};
 	float fov{60.0F};
 	float aspect_ratio{16.0F / 9.0F};
 	float near_plane{0.1F};
 	float far_plane{100.0F};
+	Projection projection{Projection::Perspective};
+	float ortho_size{20.0F};
 };
 
 // Relationship: `camera.add<LookAt>(target)` aims the camera at `target`'s WorldTransform position.

@@ -13,7 +13,7 @@ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
         # Helper function to add engine unit tests - MUST be defined before add_subdirectory.
         # Links engine_lib (pure engine infrastructure, no game semantics) so tests can
-        # exercise real engine code. Farm tests use add_farm_test() in games/farm/tests/.
+        # exercise real engine code. Each Game Target defines its own helper (add_<game>_test in games/<game>/).
         function(add_engine_test test_name)
             add_executable(${test_name} ${ARGN})
             target_link_libraries(${test_name} PRIVATE GTest::gtest GTest::gtest_main engine_lib)

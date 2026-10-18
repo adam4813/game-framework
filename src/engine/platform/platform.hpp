@@ -26,14 +26,21 @@ struct PlatformRef {
 	Platform* ptr;
 };
 
-// Parameters for a perspective 3D camera. Uses glm math types (a core dependency) so game
-// code gets the vector operations for free. Converted to the backend's native camera when
-// BeginMode3D is called.
+// Projection mode for a 3D camera. Perspective applies a vertical field of view; Orthographic
+// uses a fixed world-space view height (Camera3DParams::ortho_size) with no foreshortening.
+enum class CameraProjection : uint8_t { Perspective, Orthographic };
+
+// Parameters for a 3D camera. Uses glm math types (a core dependency) so game code gets the
+// vector operations for free. Converted to the backend's native camera when BeginMode3D is called.
+// `fov_y` is the vertical field of view for perspective cameras; `ortho_size` is the vertical view
+// height in world units for orthographic cameras.
 struct Camera3DParams {
 	glm::vec3 position{0.0f};
 	glm::vec3 target{0.0f};
 	glm::vec3 up{0.0f, 1.0f, 0.0f};
 	float fov_y = 60.0f;
+	CameraProjection projection = CameraProjection::Perspective;
+	float ortho_size = 20.0f;
 };
 
 struct ShaderStage {

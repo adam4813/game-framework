@@ -20,6 +20,7 @@
 #include "engine/scene/scene.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "engine/spatial/spatial.hpp"
+#include "camera_projection.hpp"
 #include "render_components.hpp"
 #include "render_queue.hpp"
 
@@ -284,6 +285,10 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		c.aspect_ratio = j.value("aspect_ratio", c.aspect_ratio);
 		c.near_plane = j.value("near", c.near_plane);
 		c.far_plane = j.value("far", c.far_plane);
+		c.projection = j.value("projection", std::string{"perspective"}) == "orthographic"
+						   ? Projection::Orthographic
+						   : Projection::Perspective;
+		c.ortho_size = j.value("ortho_size", c.ortho_size);
 		e.set<Camera>(c);
 	});
 	level::RegisterComponentLoader(world, "cube", [](const flecs::entity e, const json& j) {
@@ -383,12 +388,17 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<uint32_t>("image_width_px")
 		.member<uint32_t>("image_height_px");
 	world.component<UseSpriteAtlas>(); // not exclusive — multiple consumers can share one atlas
+	world.component<Projection>()
+		.constant("Perspective", Projection::Perspective)
+		.constant("Orthographic", Projection::Orthographic);
 	world.component<Camera>()
 		.member<glm::vec3>("up")
 		.member<float>("fov")
 		.member<float>("aspect_ratio")
 		.member<float>("near_plane")
-		.member<float>("far_plane");
+		.member<float>("far_plane")
+		.member<Projection>("projection")
+		.member<float>("ortho_size");
 	world.component<CubePrimitive>().member<glm::vec3>("size");
 	world.component<SpherePrimitive>().member<float>("radius");
 	world.component<QuadPrimitive>().member<glm::vec2>("size");
@@ -542,17 +552,24 @@ RenderModule::RenderModule(const flecs::world& world) {
 				const glm::vec3 aim = target
 										  ? target->position
 										  : eye.position + glm::vec3(eye.matrix * glm::vec4(0.0F, 0.0F, -1.0F, 0.0F));
-				platform_ref.ptr->BeginMode3D(
-					{.position = eye.position, .target = aim, .up = cam.up, .fov_y = cam.fov}
-				);
-				state.active = true;
-
-				// Build the cull frustum from the same view/projection the backend will use.
 				const float width = static_cast<float>(platform_ref.ptr->Width());
 				const float height = static_cast<float>(platform_ref.ptr->Height());
 				const float aspect = height > 0.0F ? width / height : cam.aspect_ratio;
+				const bool orthographic = cam.projection == Projection::Orthographic;
+				platform_ref.ptr->BeginMode3D({
+					.position = eye.position,
+					.target = aim,
+					.up = cam.up,
+					.fov_y = cam.fov,
+					.projection = orthographic ? platform::CameraProjection::Orthographic
+											   : platform::CameraProjection::Perspective,
+					.ortho_size = cam.ortho_size,
+				});
+				state.active = true;
+
+				// Build the cull frustum from the same view/projection the backend will use.
 				const glm::mat4 view = glm::lookAt(eye.position, aim, cam.up);
-				const glm::mat4 proj = glm::perspective(glm::radians(cam.fov), aspect, cam.near_plane, cam.far_plane);
+				const glm::mat4 proj = BuildProjection(cam, aspect);
 				cull.frustum.FromViewProj(proj * view);
 				cull.valid = true;
 

@@ -53,6 +53,9 @@
  *   node flecs-api.js click PlayButton // fire a UI button's OnClick (by name or #id)
  *   node flecs-api.js override-input '{"mouse":{"left":{"pressed":true}}}'
  *   node flecs-api.js restore-input
+ *   node flecs-api.js find FloorGrid           // full dot-path(s) of a component, for query
+ *   node flecs-api.js wait                     // poll until the REST server answers (after launch)
+ *   node flecs-api.js wait FloorGrid 60000     // ...and until that component exists (right game?)
  *   (append --host http://host:port to target a different server)
  */
 
@@ -382,6 +385,44 @@ class FlecsClient {
 		return {target, ref, consumed};
 	}
 
+	// Resolve a component's leaf name ("FloorGrid") to its full dot-path(s) for use in query():
+	// exact leaf matches first, else case-insensitive substring matches. Saves guessing which
+	// module scope a type was registered under.
+	async findComponent(leaf) {
+		const res = await this.query("flecs.core.Component");
+		const rows = (res && res.results) || [];
+		const pathOf = (r) => (r.parent ? `${r.parent}.${r.name}` : r.name);
+		const exact = rows.filter((r) => r.name === leaf).map(pathOf);
+		if (exact.length) return exact;
+		const needle = String(leaf).toLowerCase();
+		return rows.filter((r) => String(r.name).toLowerCase().includes(needle)).map(pathOf);
+	}
+
+	// Poll until the REST server answers (e.g. right after launching the game). With `component`,
+	// also wait until a component with that leaf name is registered: this confirms the game on the
+	// port is the one you launched, not another running instance.
+	async waitReady({component, timeoutMs = 30000, intervalMs = 250} = {}) {
+		const start = Date.now();
+		while (Date.now() - start < timeoutMs) {
+			try {
+				await this.request("GET", "/world");
+				if (!component) return {ready: true, ms: Date.now() - start};
+				const paths = await this.findComponent(component);
+				if (paths.some((p) => p.split(".").pop() === component)) {
+					return {ready: true, ms: Date.now() - start, component: paths};
+				}
+			} catch {
+				/* server not up yet */
+			}
+			await new Promise((r) => setTimeout(r, intervalMs));
+		}
+		throw new Error(
+			component
+				? `No server registering "${component}" within ${timeoutMs} ms (is another game on the port?)`
+				: `No Flecs REST server within ${timeoutMs} ms`
+		);
+	}
+
 	// List every UI Button entity with its address and label, so buttons (including anonymous ones
 	// created by the factories) can be discovered and clicked by id or full path.
 	async listButtons() {
@@ -438,12 +479,12 @@ async function main(argv) {
 	switch (verb) {
 		case "query": {
 			// Guard: an unresolved component name throws a C++ exception inside the game process,
-			// crashing it. Require every term to be qualified with an "engine.", "game." or "flecs."
-			// (built-ins such as flecs.system.System) prefix so bare names like "SoundEffect" (which
-			// will fail) are caught early.
+			// crashing it. Require every term to be a dotted module path ("engine.", "flecs." built-ins
+			// such as flecs.system.System, or a Game Target's module like "<game>.") so bare names
+			// like "SoundEffect" (which will fail) are caught early.
 			const terms = (arg1 || "").split(",").map((t) => t.trim());
 			const unqualified = terms.filter(
-				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !/\b(engine|game|flecs)\./.test(t)
+				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !t.includes(".")
 			);
 			if (unqualified.length) {
 				console.error(
@@ -505,6 +546,12 @@ async function main(argv) {
 			break;
 		case "paused":
 			print({paused: await flecs.isPaused()});
+			break;
+		case "find":
+			print(await flecs.findComponent(arg1));
+			break;
+		case "wait":
+			print(await flecs.waitReady({component: arg1, timeoutMs: arg2 ? Number(arg2) : undefined}));
 			break;
 		default:
 			console.log(

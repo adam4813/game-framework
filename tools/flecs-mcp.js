@@ -274,6 +274,30 @@ const tools = [
 		},
 		handler: (a) => flecs.click(a.button),
 	},
+	{
+		name: "flecs_find_component",
+		description:
+			'Resolve a component leaf name (e.g. "FloorGrid") to its full dot-path(s) for flecs_query. Use before querying a type whose module scope you do not know.',
+		inputSchema: {
+			type: "object",
+			properties: {leaf: {type: "string", description: 'Component leaf name, e.g. "FloorGrid".'}},
+			required: ["leaf"],
+		},
+		handler: (a) => flecs.findComponent(a.leaf),
+	},
+	{
+		name: "flecs_wait",
+		description:
+			"Poll until the game's REST server answers, e.g. right after launching it. Pass a component leaf name to also confirm the right game is on the port.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				component: {type: "string", description: "Optional component leaf name the game registers."},
+				timeout_ms: {type: "number", description: "Give up after this long (default 30000)."},
+			},
+		},
+		handler: (a) => flecs.waitReady({component: a.component, timeoutMs: a.timeout_ms}),
+	},
 ];
 
 const toolByName = new Map(tools.map((t) => [t.name, t]));

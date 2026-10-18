@@ -1015,12 +1015,14 @@ void RaylibBackend::EndScissor() { EndScissorMode(); }
 
 void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	profiling::Zone _zone{"Platform::BeginMode3D"};
+	const bool orthographic = camera.projection == CameraProjection::Orthographic;
 	const Camera3D cam{
 		.position = ToRay(camera.position),
 		.target = ToRay(camera.target),
 		.up = ToRay(camera.up),
-		.fovy = camera.fov_y,
-		.projection = CAMERA_PERSPECTIVE,
+		// For orthographic cameras raylib reuses `fovy` as the vertical view height in world units.
+		.fovy = orthographic ? camera.ortho_size : camera.fov_y,
+		.projection = orthographic ? CAMERA_ORTHOGRAPHIC : CAMERA_PERSPECTIVE,
 	};
 	::BeginMode3D(cam);
 
