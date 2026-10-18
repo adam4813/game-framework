@@ -61,3 +61,7 @@ Data schema fog.
 - 2026-10-17: [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md) drops Shift 1's scripted Decoder card jam. Shift 1 has no Faults. The Decoder can Jam (progress to 0,
   Mash 3×, restart) or Seize (pause, Hold with the Oil Can) from Shift 2 on. No Overdrive in the slice; the crank is
   unchanged.
+- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md) replaces the Radio's Presets and spectrum. Each
+  Radio is now a Station fixed to one frequency (display + traffic lamp): 1 in Shift 1, 3 in Shift 2. An Antenna
+  Coupler lets only one Radio carry traffic at a time. Decoys are dropped, so "a decoy spike" no longer feeds
+  "transmits for nothing". Hold-to-copy 2.0 s and Ticket matching are unchanged.

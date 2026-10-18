@@ -83,3 +83,9 @@ A/B test profiles. No skill tiers ("rookie"/"veteran") for now. A debug view (to
 AI's Job board with candidate scores, for tuning.
 
 Glossary: added **Claim**.
+
+## Comments
+
+- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md): the AI only copies at the Radio the Antenna
+  Coupler has lit. Its unmet-demand count is now also what the coupler uses to pick a Radio. **Drop pre-positioning**
+  for near-On-Air Stand-by: which Radio lights next is random. "Never copies a decoy" is moot (no decoys in the slice).

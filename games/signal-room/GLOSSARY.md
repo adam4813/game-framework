@@ -81,10 +81,6 @@ _Avoid_: task, process
 A surface where an Operator may set down one Item. Items are never set on the floor.
 _Avoid_: shelf, table, drop spot
 
-**Preset**:
-One of the Radio's jump buttons, each tuned to a spike on its spectrum. A Ticket names a frequency, not a Preset.
-_Avoid_: channel, slot
-
 **Modifier**:
 A named set of data overrides that a Shift switches on as one of its gimmicks; the same mechanism drives developer A/B tests.
 _Avoid_: variant, mutator, toggle
@@ -124,7 +120,7 @@ A Ticket that has arrived but whose station is not yet transmitting; its frequen
 _Avoid_: pending, queued
 
 **On Air**:
-A Ticket whose station is transmitting; only now can its frequency be copied at the Radio.
+A Ticket whose station is transmitting; only now can its frequency be copied, at its Radio, while the Antenna Coupler has it lit.
 _Avoid_: active, live
 
 **Lost Intercept**:
@@ -141,9 +137,14 @@ A Shift's plan for which Tickets arrive and when: mostly random within its limit
 times.
 _Avoid_: wave, spawn table
 
-**Decoy**:
-A spike on the Radio's spectrum that is always transmitting but that no Ticket ever names.
-_Avoid_: fake, trap frequency
+**Antenna Coupler**:
+The relay that feeds the room's single antenna to one Radio at a time. Only the Radio it has lit can be copied, and it
+only lights a frequency with unmet demand.
+_Avoid_: antenna switch, active radio
+
+**Coupler reset**:
+The short dark beat after a completed copy, before the Antenna Coupler lights its next Radio at random.
+_Avoid_: cooldown
 
 **Par**:
 The sum of base scores of the Tickets that went On Air in an attempt; star thresholds are fractions of it.

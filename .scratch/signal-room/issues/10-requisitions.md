@@ -64,3 +64,9 @@ Requisitions, so spending can never lock a Shift.
 Layout of that screen stays in the Screens & HUD fog.
 
 Glossary: added **Requisition** and **Star bank**.
+
+## Comments
+
+- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md) drops decoys, so the possible later
+  Direction Finder (greys out decoy spikes) goes with them to the [Decoy Radio backlog idea](../../backlog/issues/04-decoy-radio-gimmick.md).
+  Long-Throw Antenna (copy 2.0 → 1.5 s) is unchanged.

@@ -86,3 +86,7 @@ Glossary: added **Decoder** (avoid "Mainframe"), **Layout** and **Tarped**.
 - 2026-10-17: [Decoder Faults & the Oil Can in Shift 2](06-condition-heat-overdrive.md) rules the Cooling Vent out of scope. Cell (0,8) becomes a Counter that starts with the **Oil Can** (a
   reusable tool Item) in Shift 2, so the ~7 m pull from the Decoder stays as the Seize-repair run. In Shift 1 it's a plain
   Counter with no can on it.
+- 2026-10-17: [Radio presets & spectrum read](12-radio-tuning-prototype.md): Shift 2 puts **3 Radios** in service (Shift 1
+  Tarps the two extras). Starting placements: all on the north wall, 2×1 worked from S, at cells (1–2,0), (4–5,0) and
+  (8–9,0), with the Counter at (3,0) between the first two. Walking distances to the Keypunch change; tune in the
+  Layout file.
