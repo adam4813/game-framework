@@ -1,5 +1,10 @@
 {
 	"id": "shift_01",
 	"name": "Night Shift Orientation",
-	"layout": "layouts/bunker.layout.json"
+	"layout": "layouts/bunker.layout.json",
+	"in_service": [
+		"Radio1",
+		"Decoder",
+		"Telex"
+	]
 }

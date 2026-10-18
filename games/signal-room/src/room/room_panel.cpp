@@ -9,6 +9,7 @@
 #include "engine/engine.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
+#include "room_overlays.hpp"
 #include "room_scene.hpp"
 
 using namespace engine;
@@ -38,7 +39,7 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 	// Scanned once per Room load; Reload rebuilds the panel, so new files show up after a Reload.
 	world.system("RoomPanel")
 		.kind(flecs::OnUpdate)
-		.run([shiftFiles = ListShiftFiles(world)](const flecs::iter& it) {
+		.run([shiftFiles = ListShiftFiles(world), roomRoot](const flecs::iter& it) {
 			const auto world = it.world();
 			auto& ui = world.get<platform::PlatformRef>().ptr->GetDebugUi();
 			if (ui.BeginPanel("Room")) {
@@ -50,6 +51,17 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 				if (world.has<FloorGrid>()) {
 					const auto& grid = world.get<FloorGrid>();
 					ui.Text(std::format("Floor: {} x {} cells of {} m", grid.width, grid.height, grid.cellSize));
+				}
+
+				if (ui.CollapsingHeader("Overlays")) {
+					auto& overlays = world.get_mut<RoomOverlays>();
+					// Draw every checkbox, then rebuild once if any changed.
+					bool changed = ui.Checkbox("Floor grid", overlays.floorGrid);
+					changed = ui.Checkbox("Solid cells", overlays.solidCells) || changed;
+					changed = ui.Checkbox("Worked sides", overlays.workedSides) || changed;
+					if (changed) {
+						BuildRoomOverlays(world, roomRoot);
+					}
 				}
 
 				ui.Separator();

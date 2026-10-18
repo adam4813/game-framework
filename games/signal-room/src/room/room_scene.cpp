@@ -5,8 +5,13 @@
 #include <spdlog/spdlog.h>
 
 #include "engine/engine.hpp"
+#include "greybox_catalogue.hpp"
 #include "layout.hpp"
+#include "layout_greybox.hpp"
+#include "palette.hpp"
 #include "room_components.hpp"
+#include "room_constants.hpp"
+#include "room_overlays.hpp"
 #include "room_panel.hpp"
 #include "shift.hpp"
 
@@ -55,22 +60,44 @@ void RoomScene::Load(flecs::world& world) {
 void RoomScene::LoadRoom(const flecs::world& world) const {
 	auto& state = world.get_mut<RoomState>();
 	state.loadError.clear();
-	const auto fail = [&state](const std::string& error) {
-		state.loadError = error;
-		spdlog::error("[Room] {}", error);
-	};
+	if (const auto loaded = BuildRoom(world, state.shiftPath); !loaded) {
+		// Leave an empty Room rather than half a Layout.
+		world.delete_with(flecs::ChildOf, roomRoot_);
+		UnloadLayout(world);
+		state.loadError = loaded.error();
+		spdlog::error("[Room] {}", loaded.error());
+	}
+}
 
-	const auto shift = LoadShiftFile(ResolveGamePath(world, state.shiftPath));
+std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world, const std::string& shiftPath) const {
+	// Registries first: the Layout checks its kinds against the catalogue.
+	auto palette = LoadPaletteFile(assets::ResolveAsset(world, kPaletteFile));
+	if (!palette) {
+		return std::unexpected(palette.error());
+	}
+	auto catalogue = LoadGreyboxCatalogueFile(assets::ResolveAsset(world, kGreyboxCatalogueFile), *palette);
+	if (!catalogue) {
+		return std::unexpected(catalogue.error());
+	}
+	world.set<Palette>(std::move(*palette));
+	world.set<GreyboxCatalogue>(std::move(*catalogue));
+
+	const auto shiftFile = ResolveGamePath(world, shiftPath);
+	const auto shift = LoadShiftFile(shiftFile);
 	if (!shift) {
-		fail(shift.error());
-		return;
+		return std::unexpected(shift.error());
+	}
+	if (auto layout = LoadLayout(world, ResolveGamePath(world, shift->layout), roomRoot_); !layout) {
+		return layout;
+	}
+	if (auto inService = ApplyInService(world, roomRoot_, shift->inService, shiftFile); !inService) {
+		return inService;
 	}
 
-	if (const auto layout = LoadLayout(world, ResolveGamePath(world, shift->layout), roomRoot_); !layout) {
-		fail(layout.error());
-		return;
-	}
+	BuildLayoutGreybox(world, roomRoot_);
+	BuildRoomOverlays(world, roomRoot_);
 	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
+	return {};
 }
 
 void RoomScene::Unload(flecs::world& world) {

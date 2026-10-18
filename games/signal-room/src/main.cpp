@@ -62,8 +62,9 @@ int main() {
 	const auto context = std::make_unique<engine::EngineContext>(std::move(platform));
 
 #if !defined(__EMSCRIPTEN__)
-	// REST API requires TCP sockets — unavailable in WASM browsers.
-	engine::ecs::InitializeRemoteAPI(*context->GetWorld());
+	// REST API requires TCP sockets — unavailable in WASM browsers. Signal Room serves on its own port
+	// so it can run beside the sandbox or another game (FLECS_REST_PORT still overrides it).
+	engine::ecs::InitializeRemoteAPI(*context->GetWorld(), signal_room::kRestPort);
 #endif
 
 	engine::App app(context.get());

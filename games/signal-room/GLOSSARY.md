@@ -70,6 +70,16 @@ A Station standing in the Layout but out of service this Shift, under a canvas t
 furniture but cannot be worked.
 _Avoid_: disabled, locked, inactive
 
+**Footprint**:
+The rectangle of floor cells a placement covers in the Layout. A Station, Counter or solid prop blocks movement over
+its whole footprint; a wall-mounted prop has none.
+_Avoid_: size, bounds, tiles
+
+**Worked side**:
+A side of a Station's footprint an Operator can work it from (north, east, south or west), authored per placement. A
+Counter is worked from every side that isn't solid.
+_Avoid_: access side, face, interaction side
+
 **Item**:
 A physical thing an Operator carries, one at a time: a Raw Card, a Decoded Card, a Morse Tape, or a tool such as the Oil Can. An intercept Item carries the frequency it was copied from.
 _Avoid_: ingredient, object, pickup

@@ -1,4 +1,5 @@
 {
+	"comment": "Shift 1-2 Layout: 13x9 cells of 1 m, camera looking north from the open south edge. See .scratch/signal-room/issues/07-room-layout-movement.md.",
 	"singletons": {
 		"floor_grid": {"width": 13, "height": 9, "cell_size": 1.0, "origin": [0.0, 0.0, 0.0]},
 		"ambient_light": {"color": [150, 155, 170, 255], "intensity": 0.55}
@@ -8,13 +9,7 @@
 			"name": "Camera",
 			"components": {
 				"transform": {"position": [6.5, 24.97, 22.11]},
-				"camera": {
-					"projection": "orthographic",
-					"ortho_size": 12.8,
-					"up": [0.0, 1.0, 0.0],
-					"near": 0.1,
-					"far": 100.0
-				}
+				"camera": {"projection": "orthographic", "ortho_size": 12.8, "up": [0.0, 1.0, 0.0], "near": 0.1, "far": 100.0}
 			},
 			"refs": {"look_at": "CameraTarget"}
 		},
@@ -33,6 +28,125 @@
 					"shadow_ground_y": 0.0
 				}
 			}
+		},
+		{
+			"name": "NorthWall",
+			"comment": "Full height: the camera looks north at it.",
+			"components": {"wall": {"cell": [-1, -1], "footprint": [15, 1], "height": "full"}}
+		},
+		{
+			"name": "WestWall",
+			"comment": "Low, so nothing hides the floor.",
+			"components": {"wall": {"cell": [-1, 0], "footprint": [1, 9], "height": "low"}}
+		},
+		{
+			"name": "EastWall",
+			"components": {"wall": {"cell": [13, 0], "footprint": [1, 9], "height": "low"}}
+		},
+		{
+			"name": "SouthEdge",
+			"comment": "The open south edge: collides, no mesh. The desk edge dresses it.",
+			"components": {"edge_block": {"cell": [-1, 9], "footprint": [15, 1]}}
+		},
+		{
+			"name": "Radio1",
+			"comment": "Three Radios on the north wall at (1-2,0), (4-5,0) and (8-9,0); Shift 1 puts only Radio1 in service.",
+			"components": {"station": {"kind": "radio", "cell": [1, 0], "footprint": [2, 1], "worked_sides": ["S"]}}
+		},
+		{
+			"name": "Radio2",
+			"components": {"station": {"kind": "radio", "cell": [4, 0], "footprint": [2, 1], "worked_sides": ["S"]}}
+		},
+		{
+			"name": "Radio3",
+			"comment": "The storm-window cells (6-7,0) stay walkable: a gap between Radio2 and Radio3.",
+			"components": {"station": {"kind": "radio", "cell": [8, 0], "footprint": [2, 1], "worked_sides": ["S"]}}
+		},
+		{
+			"name": "Keypunch",
+			"comment": "Tarped unless a Shift (or the keypunch Modifier) puts it in service.",
+			"components": {
+				"station": {"kind": "keypunch", "cell": [3, 2], "footprint": [1, 1], "worked_sides": ["N", "E", "S", "W"]}
+			}
+		},
+		{
+			"name": "Decoder",
+			"comment": "On the rug, worked from all four sides.",
+			"components": {
+				"station": {"kind": "decoder", "cell": [6, 3], "footprint": [2, 2], "worked_sides": ["N", "E", "S", "W"]}
+			}
+		},
+		{
+			"name": "Telex",
+			"components": {"station": {"kind": "telex", "cell": [10, 3], "footprint": [1, 1], "worked_sides": ["W", "N", "E"]}}
+		},
+		{
+			"name": "CounterNorthWest",
+			"components": {"counter": {"cell": [0, 0]}}
+		},
+		{
+			"name": "CounterRadios",
+			"comment": "Between Radio1 and Radio2.",
+			"components": {"counter": {"cell": [3, 0]}}
+		},
+		{
+			"name": "CounterTelex",
+			"components": {"counter": {"cell": [10, 4]}}
+		},
+		{
+			"name": "CounterEast",
+			"components": {"counter": {"cell": [10, 5]}}
+		},
+		{
+			"name": "CounterSouthLeft",
+			"components": {"counter": {"cell": [6, 6]}}
+		},
+		{
+			"name": "CounterSouthRight",
+			"components": {"counter": {"cell": [7, 6]}}
+		},
+		{
+			"name": "CounterOilCan",
+			"comment": "Replaces the out-of-scope Cooling Vent. Plain in Shift 1; Shift 2 starts the Oil Can here, ~7 m from the Decoder.",
+			"components": {"counter": {"cell": [0, 8]}}
+		},
+		{
+			"name": "CipherRotorsTarp",
+			"comment": "Dressing tarp over the Cipher Rotors (out of scope), no Station data.",
+			"components": {"prop": {"kind": "tarp", "cell": [10, 0], "footprint": [2, 1], "solid": true, "height": 1.0}}
+		},
+		{
+			"name": "SupplyRackTarp",
+			"comment": "Dressing tarp over the Supply Rack in the NE corner.",
+			"components": {"prop": {"kind": "tarp", "cell": [12, 0], "footprint": [1, 1], "solid": true, "height": 1.8}}
+		},
+		{
+			"name": "PowerPanelTarp",
+			"comment": "Dressing tarp over the Power Panel on the west wall beside rows 3-4; no floor footprint.",
+			"components": {"prop": {"kind": "wall_tarp", "cell": [0, 3]}}
+		},
+		{
+			"name": "StormWindow",
+			"comment": "On the north wall above cells (6-7,0).",
+			"components": {"prop": {"kind": "storm_window", "cell": [6, 0]}}
+		},
+		{
+			"name": "DeskEdge",
+			"comment": "Foreground desk along the open south edge, fitted to the south row; not solid (SouthEdge collides).",
+			"components": {"prop": {"kind": "desk_edge", "cell": [0, 8], "footprint": [13, 1]}}
+		},
+		{
+			"name": "Rug",
+			"comment": "Cosmetic, not solid.",
+			"components": {"prop": {"kind": "rug", "cell": [5, 3], "footprint": [4, 2]}}
+		},
+		{
+			"name": "spawn_1",
+			"components": {"spawn_marker": {"cell": [1, 5]}}
+		},
+		{
+			"name": "spawn_2",
+			"components": {"spawn_marker": {"cell": [11, 5]}}
 		}
 	]
 }

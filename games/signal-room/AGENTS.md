@@ -18,3 +18,8 @@ to it.
 
   A game-only ticket is one `git merge --squash <branch>` and one commit. Engine work the game needs still lands on
   `feat/signal-room`, never directly on `main`.
+
+## Running it
+
+- **REST port: `27760`** (baked into `main.cpp`, so it runs beside the sandbox on `27750`). Point the tools at it:
+  `FLECS_REST_PORT=27760 node tools/flecs-api.js wait Station`.
