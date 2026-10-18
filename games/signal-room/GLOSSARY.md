@@ -157,3 +157,8 @@ _Avoid_: upgrade, perk (as identifiers), unlock
 **Star bank**:
 The stars available to spend on Requisitions: every star earned across Shifts, minus those already spent.
 _Avoid_: wallet, currency, points
+
+**Campaign**:
+One playthrough's progress across Shifts: best results per Shift and the Requisitions bought. Up to three Campaigns
+exist side by side, each in its own save slot; settings are shared and sit outside them.
+_Avoid_: profile, run, save (the save is where a Campaign is kept, not the Campaign)
