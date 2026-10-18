@@ -13,3 +13,8 @@ What does the campaign save hold and when is it written? Settle: per-Shift best 
 Context from [Tickets, window & scoring for Shifts 1–2](05-tickets-window-scoring.md): the save needs best stars (and
 score) per Shift, the star bank balance, and owned unlocks. The Collection Schedule seed is per attempt and need not be
 saved.
+
+Context from [Requisitions for a two-Shift slice](10-requisitions.md): save the set of owned Requisition ids (not their
+effects; those come from the catalogue data). The Star bank can be derived as stars earned − cost of owned Requisitions,
+so decide whether to store it or derive it. Shift unlocks derive from stars earned (Shift 2 opens on Shift 1 ≥1★), never
+from the bank.

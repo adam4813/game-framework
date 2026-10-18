@@ -148,3 +148,12 @@ _Avoid_: fake, trap frequency
 **Par**:
 The sum of base scores of the Tickets that went On Air in an attempt; star thresholds are fractions of it.
 _Avoid_: max score, target
+
+**Requisition**:
+A room-wide improvement bought with stars between Shifts. Once bought it is kept and applies to every Shift and every
+Operator.
+_Avoid_: upgrade, perk (as identifiers), unlock
+
+**Star bank**:
+The stars available to spend on Requisitions: every star earned across Shifts, minus those already spent.
+_Avoid_: wallet, currency, points
