@@ -4,14 +4,15 @@ The tools for inspecting a running or headless game, and when to use each. `AGEN
 
 ## Running game: Flecs Remote API
 
-The desktop build serves the Flecs REST API on `localhost:27750` (not WASM). Use the `flecs_*` MCP tools or
+The desktop build serves the Flecs REST API on `localhost:27750` (not WASM). A Game Target may bake in its own port,
+and `FLECS_REST_PORT=<port>` on launch overrides either; give the tools the same `FLECS_REST_PORT`. Use the `flecs_*` MCP tools or
 `node tools/flecs-api.js` (run it with no arguments for its verbs). The `flecs-remote-api` skill covers scene
 switching, UI clicks and input overrides.
 
 - **After launching, run `node tools/flecs-api.js wait <Leaf>`** with a component only your game registers. It polls
   until the server answers and that component exists. The second check matters: the user often has another game
   instance running, and only one process can hold port 27750. If `wait` times out with "another game on the port?",
-  the port belongs to someone else's instance. Leave it running and ask the user before doing anything else.
+  the port belongs to someone else's instance. Leave it running and relaunch yours with a free `FLECS_REST_PORT`.
 - **Stop only the processes you started**, by PID (`Stop-Process -Id $proc.Id`). Killing by image name
   (`taskkill /IM sandbox.exe`) also kills the user's instances.
 - **Query by full dot-path.** `find <Leaf>` prints a component's path (`find Transform` gives
@@ -21,8 +22,9 @@ switching, UI clicks and input overrides.
 
 `tools/screenshot.ps1` saves a PNG you can read back to check what is drawn:
 
-- **Desktop:** `pwsh tools/screenshot.ps1 -Process sandbox -Out shot.png` captures the window's client area at full
-  resolution, even when other windows cover it.
+- **Desktop:** `pwsh tools/screenshot.ps1 -Id $proc.Id -Out shot.png` captures the client area of the process you
+  started, at full resolution, even when other windows cover it. `-Process sandbox` picks by name, which can catch
+  another instance.
 - **Browser (WASM):** `pwsh tools/screenshot.ps1 -Wasm build/wasm/Release -Page sandbox.html -Out web.png` serves
   the build, loads it in headless Chrome, and saves the PNG plus a `.console.log` with the page's console. Grep that
   log for the game's `[info]`/`[error]` lines and for `Aborted`.

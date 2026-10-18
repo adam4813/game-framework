@@ -24,6 +24,7 @@
  *   node tools/flecs-mcp.js                       # defaults to http://localhost:27750
  *   node tools/flecs-mcp.js --host http://host:port
  *   FLECS_HOST=http://host:port node tools/flecs-mcp.js
+ *   FLECS_REST_PORT=27760 node tools/flecs-mcp.js   # a game serving on its own port, on localhost
  *
  * Register in Claude Desktop (claude_desktop_config.json):
  *   {
@@ -72,7 +73,7 @@ const SERVER_VERSION = "0.1.0";
 const DEFAULT_PROTOCOL = "2025-06-18";
 
 // ---- host / client ----
-let host = process.env.FLECS_HOST || "http://localhost:27750";
+let host = process.env.FLECS_HOST || `http://localhost:${process.env.FLECS_REST_PORT || 27750}`;
 {
 	const argv = process.argv.slice(2);
 	for (let i = 0; i < argv.length; i++) {
@@ -139,6 +140,21 @@ const tools = [
 			});
 			return {entity: a.entity, component: a.component, added: true, confirmed};
 		},
+	},
+	{
+		name: "flecs_set",
+		description:
+			"Set a component's value from a JSON object (fields are merged into the current value). `entity` defaults to the component itself, which is where a singleton's value lives. Waits until a read-back shows the new value; `applied:false` means it was not observed within the retry window.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				component: {type: "string", description: "Component full dot-path (see flecs_find_component)."},
+				value: {type: "string", description: 'JSON object, e.g. {"solid_cells":true}.'},
+				entity: {type: "string", description: "Optional entity path or #id; omit for a singleton."},
+			},
+			required: ["component", "value"],
+		},
+		handler: (a) => flecs.setComponent(a.component, a.value, a.entity || a.component),
 	},
 	{
 		name: "flecs_remove",

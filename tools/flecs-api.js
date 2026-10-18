@@ -2,7 +2,8 @@
  * flecs-api.js — cross-platform helpers for the Flecs Remote (REST) API.
  *
  * The engine starts the Flecs Remote API automatically (see engine/ecs/flecs_remote and the
- * project AI instructions); it listens on http://localhost:27750. This module wraps the REST
+ * project AI instructions); it listens on http://localhost:27750, or on the port in FLECS_REST_PORT
+ * when the game was launched with it (this client reads the same variable). This module wraps the REST
  * endpoints that are useful when inspecting or driving a running game from an agent or the
  * terminal — querying entities/components and mutating component state (e.g. switching the
  * active scene without touching the keyboard).
@@ -42,6 +43,8 @@
  *   node flecs-api.js entity FallingCube.CubeJumpScript
  *   node flecs-api.js add    "#768" engine.scene.SceneManagementModule.Active
  *   node flecs-api.js remove "#765" engine.scene.SceneManagementModule.Active
+ *   node flecs-api.js set engine.render.RenderModule.AmbientLight '{"intensity":0.8}'      // singleton value
+ *   node flecs-api.js set engine.spatial.SpatialModule.Transform '{"position":{"x":1,"y":0,"z":2}}' Player  // one entity
  *   node flecs-api.js switch-scene Cube        // switch by scene identity name (preferred)
  *   node flecs-api.js switch-scene "#807"      // ...or by raw runtime id
  *   node flecs-api.js scenes                   // scene(s) currently carrying Active
@@ -56,7 +59,7 @@
  *   node flecs-api.js find FloorGrid           // full dot-path(s) of a component, for query
  *   node flecs-api.js wait                     // poll until the REST server answers (after launch)
  *   node flecs-api.js wait FloorGrid 60000     // ...and until that component exists (right game?)
- *   (append --host http://host:port to target a different server)
+ *   (append --host http://host:port, or set FLECS_HOST / FLECS_REST_PORT, to target another server)
  */
 
 "use strict";
@@ -160,6 +163,24 @@ class FlecsClient {
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#put-component
 	addComponent(path, component, value) {
 		return this.request("PUT", "/component/" + entityRoute(path), {component, value});
+	}
+
+	// Set a component's value from a JSON object. `entity` defaults to the component itself, which is
+	// where a singleton's value lives; the REST server merges the given fields into the current value.
+	// Polls until a read-back shows the new value, since REST writes apply on the next frame.
+	async setComponent(component, value, entity = component) {
+		const payload = typeof value === "string" ? value : JSON.stringify(value);
+		const result = await this.addComponent(entity, component, payload);
+		if (result && result.error) return result;
+		const wanted = JSON.parse(payload);
+		const leaf = String(component).split(".").pop();
+		const applied = await this.waitFor(async () => {
+			const info = await this.entity(entity, {values: true});
+			const components = (info && info.components) || {};
+			const current = Object.entries(components).find(([k]) => k === component || k.split(".").pop() === leaf);
+			return current && Object.entries(wanted).every(([k, v]) => JSON.stringify(current[1][k]) === JSON.stringify(v));
+		});
+		return {entity, component, applied};
 	}
 
 	// Remove a component/tag from an entity.
@@ -456,7 +477,7 @@ async function main(argv) {
 	const args = argv.slice(2);
 
 	// Extract --host and boolean flags; keep positional args in order.
-	let host = process.env.FLECS_HOST || "http://localhost:27750";
+	let host = process.env.FLECS_HOST || `http://localhost:${process.env.FLECS_REST_PORT || 27750}`;
 	const flags = new Set();
 	const positional = [];
 	for (let i = 0; i < args.length; i++) {
@@ -505,6 +526,10 @@ async function main(argv) {
 			break;
 		case "add":
 			print(await flecs.addComponent(arg1, arg2));
+			break;
+		case "set":
+			// arg1 = component path, arg2 = JSON value, optional 3rd = entity (defaults to the singleton).
+			print(await flecs.setComponent(arg1, arg2, positional[3] || arg1));
 			break;
 		case "remove":
 			print(await flecs.removeComponent(arg1, arg2));
@@ -555,12 +580,15 @@ async function main(argv) {
 			break;
 		default:
 			console.log(
-				"Usage: node flecs-api.js <query|entity|add|remove|toggle|switch-scene|scenes|list-scenes|\n" +
+				"Usage: node flecs-api.js <query|entity|add|set|remove|toggle|switch-scene|scenes|list-scenes|\n" +
 				"                          click|list-buttons|pause|resume|toggle-pause|paused|\n" +
-				"                          override-input|restore-input> [args] [--host URL]\n" +
+				"                          override-input|restore-input|find|wait> [args] [--host URL]\n" +
 				"       [--entity-ids] [--values] [--full-paths]\n" +
 				"       switch-scene accepts a scene identity name (e.g. Cube, Title, Tilemap) or a raw #id.\n" +
 				"       click accepts a Button name (e.g. PlayButton) or a raw #id (see list-buttons).\n" +
+				"       set <component> <json> [entity] sets a value (the singleton when no entity is given).\n" +
+				"       find <Leaf> prints a component's full path; wait [Leaf] [ms] polls until the game is up.\n" +
+				"       Server: FLECS_HOST, else localhost:FLECS_REST_PORT, else localhost:27750.\n" +
 				"Docs:  https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html"
 			);
 			process.exitCode = verb ? 1 : 0;

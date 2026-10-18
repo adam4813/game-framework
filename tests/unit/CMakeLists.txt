@@ -23,3 +23,8 @@ if (ENABLE_DEBUG_UI)
         imgui_debug_ui_test.cpp
     )
 endif ()
+
+# JSON field parsers and Level loading of malformed component values
+add_engine_test(json_loading_test
+    json_loading_test.cpp
+)

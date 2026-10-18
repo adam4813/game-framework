@@ -7,11 +7,16 @@
 	pwsh tools/screenshot.ps1 -Process sandbox -Out sandbox.png
 
 .EXAMPLE
+	# Desktop, one instance: capture the window of the process you started (other instances may share its name).
+	pwsh tools/screenshot.ps1 -Id $proc.Id -Out sandbox.png
+
+.EXAMPLE
 	# WASM: serve the build directory, load the page in headless Chrome, save a PNG and the console log.
 	pwsh tools/screenshot.ps1 -Wasm build/wasm/Release -Page sandbox.html -Out web.png
 #>
 param(
 	[string]$Process,
+	[int]$Id,
 	[string]$Wasm,
 	[string]$Page = "index.html",
 	[int]$Port = 8765,
@@ -22,7 +27,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Out = [System.IO.Path]::GetFullPath($Out)
 
-if ($Process) {
+if ($Process -or $Id) {
 	Add-Type -AssemblyName System.Drawing
 	Add-Type @'
 using System; using System.Runtime.InteropServices;
@@ -35,8 +40,9 @@ public static class ShotNative {
 '@
 	# Without DPI awareness the client rect is in scaled pixels and the capture is cropped.
 	[ShotNative]::SetProcessDPIAware() | Out-Null
-	$proc = Get-Process $Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-	if (-not $proc) { throw "No window for process '$Process'" }
+	$candidates = if ($Id) { Get-Process -Id $Id } else { Get-Process $Process }
+	$proc = $candidates | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+	if (-not $proc) { throw "No window for process '$(if ($Id) { $Id } else { $Process })'" }
 	$rect = New-Object ShotNative+RECT
 	[ShotNative]::GetClientRect($proc.MainWindowHandle, [ref]$rect) | Out-Null
 	$bmp = New-Object System.Drawing.Bitmap ([Math]::Max(1, $rect.R)), ([Math]::Max(1, $rect.B))
@@ -79,4 +85,4 @@ if ($Wasm) {
 	return
 }
 
-throw "Pass -Process <name> or -Wasm <build dir>"
+throw "Pass -Id <pid>, -Process <name> or -Wasm <build dir>"

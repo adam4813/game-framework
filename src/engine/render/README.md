@@ -8,7 +8,8 @@ render systems resolve the world matrix and material, then issue draw calls thro
 ## Relationships and Material Entities
 
 Each renderable entity links to a named **material entity** via the `(RenderWith, mat_entity)` relationship. The
-material entity carries all surface data: `Material` (colour, wireframe, cast-shadow flag), optionally `AlbedoMap`
+material entity carries all surface data: `Material` (colour, wireframe, cast-shadow flag; wireframe is desktop-only,
+since WebGL has no polygon wire mode), optionally `AlbedoMap`
 (diffuse texture), and optionally `ShaderMap` (custom GLSL shader stages). This mirrors AAA engine conventions where
 materials own their texture references and multiple objects can share the same material entity.
 
