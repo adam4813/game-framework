@@ -141,5 +141,15 @@
 				{"shape": "cube", "offset": [0, 0.016, 0], "size": [1.0, 0.01, 1.0], "colour": "rug"}
 			]
 		}
+	},
+	"items": {
+		"card_bundle": {
+			"comment": "The placeholder Item: a bundle of cream cards with a red band and a dark tag. Offsets are from its base: the Counter top, or a point in front of its carrier.",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.05, 0], "size": [0.38, 0.1, 0.28], "colour": "item_card"},
+				{"shape": "cube", "offset": [0, 0.05, 0], "size": [0.07, 0.11, 0.29], "colour": "item_band"},
+				{"shape": "cube", "offset": [0.12, 0.105, -0.06], "size": [0.1, 0.01, 0.07], "colour": "item_tag"}
+			]
+		}
 	}
 }

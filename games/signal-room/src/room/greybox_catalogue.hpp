@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <expected>
 #include <string>
 #include <vector>
@@ -45,6 +46,18 @@ struct GreyboxModel {
 	std::vector<GreyboxPart> parts;
 	bool fitFootprint{false};
 	float height{1.0F};
+
+	// How high the unfitted model's top surface stands: the highest top of its parts that hang off no
+	// other part, ignoring rotation. What sits on a Counter sits at its Counter model's Top().
+	[[nodiscard]] float Top() const {
+		float top = 0.0F;
+		for (const auto& part : parts) {
+			if (part.parent.empty()) {
+				top = std::max(top, part.offset.y + part.size.y * 0.5F);
+			}
+		}
+		return top;
+	}
 };
 
 // A wall height class (`full`, `low`): a slab `thickness` thick standing against the floor edge.
@@ -62,10 +75,13 @@ struct FloorStyle {
 
 // World singleton loaded from the greybox catalogue file: per kind, the primitive parts it is built
 // from, with colours resolved from the Palette. Station and prop kinds are string keys, so a new
-// machine or prop is a catalogue entry and no C++ change.
+// machine, prop or Item shape is a catalogue entry and no C++ change.
 struct GreyboxCatalogue {
 	engine::core::Registry<GreyboxModel> stations;
 	engine::core::Registry<GreyboxModel> props;
+	// Item shapes, keyed by the Item catalogue's `shape`. Offsets are from the Item's base: the top of
+	// the Counter holding it, or a point in front of the Operator carrying it.
+	engine::core::Registry<GreyboxModel> items;
 	engine::core::Registry<WallStyle> walls;
 	GreyboxModel counter;
 	GreyboxModel operatorModel; // "operator" in the file

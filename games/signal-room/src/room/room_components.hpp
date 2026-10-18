@@ -43,6 +43,11 @@ struct FloorGrid {
 	[[nodiscard]] glm::vec2 CellMin(const glm::ivec2 cell) const {
 		return glm::vec2{origin.x, origin.z} + glm::vec2{cell} * cellSize;
 	}
+	// The floor vector from `point` to the nearest point of a cell (zero when `point` is inside it).
+	[[nodiscard]] glm::vec2 ToNearestPointOf(const glm::ivec2 cell, const glm::vec2 point) const {
+		const glm::vec2 min = CellMin(cell);
+		return glm::clamp(point, min, min + cellSize) - point;
+	}
 	// World-space centre of a cell on the floor plane.
 	[[nodiscard]] glm::vec3 CellCentre(const glm::ivec2 cell) const {
 		return origin

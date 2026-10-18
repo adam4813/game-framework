@@ -6,6 +6,7 @@
 
 #include "engine/engine.hpp"
 #include "floor_collision.hpp"
+#include "item_components.hpp"
 #include "operator_components.hpp"
 #include "room_components.hpp"
 #include "room_tuning.hpp"
@@ -57,8 +58,14 @@ void UpdateDash(
 	}
 }
 
+// How much the carried Item scales its carrier's walk and dash (1 empty-handed).
+float CarrySpeed(const flecs::entity op) {
+	const auto item = op.target<Carries>();
+	return item ? item.get<Item>().carrySpeed : 1.0F;
+}
+
 void Steer(
-	const Operator& op,
+	const float carrySpeed,
 	const OperatorActions& actions,
 	OperatorMotion& motion,
 	Dash& dash,
@@ -71,7 +78,7 @@ void Steer(
 	const glm::vec2 wish = wishLength > 1.0F ? wishDirection : actions.move;
 	UpdateDash(dash, tuning, actions.dash, wishDirection, motion.facing, dt);
 
-	const float walk = tuning.walkSpeed * op.carrySpeed;
+	const float walk = tuning.walkSpeed * carrySpeed;
 	const bool dashing = dash.timeLeft > 0.0F;
 	if (dashing) {
 		motion.velocity = dash.direction * walk * tuning.dashMultiplier;
@@ -93,7 +100,8 @@ void Steer(
 } // namespace
 
 void RegisterOperatorMovement(const flecs::world& world, const flecs::entity roomRoot) {
-	world.system<const Operator, const OperatorActions, OperatorMotion, Dash, spatial::Transform>("OperatorMovement")
+	world.system<const OperatorActions, OperatorMotion, Dash, spatial::Transform>("OperatorMovement")
+		.with<Operator>()
 		.kind(flecs::OnUpdate)
 		.run([](flecs::iter& it) {
 			const auto world = it.world();
@@ -104,13 +112,12 @@ void RegisterOperatorMovement(const flecs::world& world, const flecs::entity roo
 			std::vector<FloorCircle> circles;
 			std::vector<std::pair<OperatorMotion*, spatial::Transform*>> movers;
 			while (it.next()) {
-				const auto op = it.field<const Operator>(0);
-				const auto actions = it.field<const OperatorActions>(1);
-				auto motion = it.field<OperatorMotion>(2);
-				auto dash = it.field<Dash>(3);
-				auto transform = it.field<spatial::Transform>(4);
+				const auto actions = it.field<const OperatorActions>(0);
+				auto motion = it.field<OperatorMotion>(1);
+				auto dash = it.field<Dash>(2);
+				auto transform = it.field<spatial::Transform>(3);
 				for (const auto i : it) {
-					Steer(op[i], actions[i], motion[i], dash[i], tuning, dt);
+					Steer(CarrySpeed(it.entity(i)), actions[i], motion[i], dash[i], tuning, dt);
 					const auto& position = transform[i].position;
 					circles.push_back({
 						.centre = {position.x, position.z},

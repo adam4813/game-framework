@@ -39,6 +39,19 @@ std::expected<Shift, std::string> LoadShiftFile(const std::string& path) {
 		}
 		shift.roster.push_back({.spawn = entry.at("spawn"), .colour = entry.at("colour")});
 	}
+
+	const auto counterItems = doc->value("counter_items", nlohmann::json::object());
+	if (!counterItems.is_object()) {
+		return std::unexpected(
+			std::format("Shift file {}: counter_items must be {{\"<Counter name>\": \"<Item id>\"}}", path)
+		);
+	}
+	for (const auto& [counter, item] : counterItems.items()) {
+		if (!item.is_string()) {
+			return std::unexpected(std::format("Shift file {}: counter_items.{} must be an Item id", path, counter));
+		}
+		shift.counterItems.push_back({.counter = counter, .item = item.get<std::string>()});
+	}
 	return shift;
 }
 

@@ -8,11 +8,10 @@
 namespace signal_room {
 
 // An Operator on the bunker floor, spawned from a Shift's Roster. Its floor position is its
-// Transform's x and z (y stays 0). `colour` is its identity colour's palette token. `carrySpeed`
-// scales its walk and dash: 1.0 until Items exist (ticket 05 sets it from the carried Item).
+// Transform's x and z (y stays 0). `colour` is its identity colour's palette token. What it carries
+// is its (Carries, item) pair (item_components.hpp).
 struct Operator {
 	std::string colour;
-	float carrySpeed{1.0F};
 };
 
 // What an Operator is asked to do this frame: `move` is the wish direction on the floor plane (x east,

@@ -9,5 +9,8 @@
 	],
 	"roster": [
 		{"spawn": "spawn_1", "colour": "p1"}
-	]
+	],
+	"counter_items": {
+		"CounterSouthLeft": "placeholder"
+	}
 }

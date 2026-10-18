@@ -7,6 +7,10 @@
 #include "bindings.hpp"
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
+#include "item_catalogue.hpp"
+#include "item_interaction.hpp"
+#include "item_placement.hpp"
+#include "item_spawn.hpp"
 #include "layout.hpp"
 #include "layout_greybox.hpp"
 #include "operator_input.hpp"
@@ -60,6 +64,8 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterOperatorInput(world, roomRoot_);
 	RegisterOperatorMovement(world, roomRoot_);
 	RegisterOperatorTargeting(world, roomRoot_);
+	RegisterItemInteraction(world, roomRoot_);
+	RegisterCarriedItemPlacement(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
@@ -90,6 +96,10 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!catalogue) {
 		return std::unexpected(catalogue.error());
 	}
+	auto items = LoadItemCatalogueFile(assets::ResolveAsset(world, kItemCatalogueFile), *catalogue);
+	if (!items) {
+		return std::unexpected(items.error());
+	}
 	auto tuning = LoadTuningFile(assets::ResolveAsset(world, kTuningFile));
 	if (!tuning) {
 		return std::unexpected(tuning.error());
@@ -100,8 +110,10 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	}
 	world.set<Palette>(std::move(*palette));
 	world.set<GreyboxCatalogue>(std::move(*catalogue));
+	world.set<ItemCatalogue>(std::move(*items));
 	world.set<MovementTuning>(tuning->movement);
 	world.set<TargetingTuning>(tuning->targeting);
+	world.set<DustPuffTuning>(tuning->dustPuff);
 	world.set<Bindings>(std::move(*bindings));
 
 	const auto shiftFile = ResolveGamePath(world, shiftPath);
@@ -119,6 +131,9 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	BuildLayoutGreybox(world, roomRoot_);
 	if (auto spawned = SpawnRoster(world, roomRoot_, shift->roster, shiftFile); !spawned) {
 		return spawned;
+	}
+	if (auto placed = SpawnCounterItems(world, roomRoot_, shift->counterItems, shiftFile); !placed) {
+		return placed;
 	}
 	BuildRoomOverlays(world, roomRoot_);
 	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);

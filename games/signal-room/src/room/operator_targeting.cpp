@@ -67,8 +67,7 @@ flecs::entity_t PickTarget(
 			if (!IsWorkable(world, grid, occupant, position)) {
 				continue;
 			}
-			const glm::vec2 cellMin = grid.CellMin({x, y});
-			const glm::vec2 toCell = glm::clamp(position, cellMin, cellMin + grid.cellSize) - position;
+			const glm::vec2 toCell = grid.ToNearestPointOf({x, y}, position);
 			const float distance = glm::length(toCell);
 			if (distance > nearestDistance || (distance > 0.0F && glm::dot(toCell / distance, facing) < minCos)) {
 				continue;

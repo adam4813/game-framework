@@ -8,6 +8,8 @@
 #include "engine/engine.hpp"
 #include "room/bindings.hpp"
 #include "room/greybox_catalogue.hpp"
+#include "room/item_catalogue.hpp"
+#include "room/item_components.hpp"
 #include "room/layout.hpp"
 #include "room/operator_components.hpp"
 #include "room/palette.hpp"
@@ -91,12 +93,23 @@ void RegisterComponents(const flecs::world& world) {
 		.member<float>("brighten_strength")
 		.member<float>("brighten_lift")
 		.add(EcsSingleton);
+	world.component<DustPuffTuning>()
+		.member<float>("count")
+		.member<float>("speed")
+		.member<float>("lifetime")
+		.member<float>("size")
+		.member<float>("spread")
+		.add(EcsSingleton);
 	world.component<Bindings>().add(EcsSingleton);
-	world.component<Operator>().member<std::string>("colour").member<float>("carry_speed");
+	world.component<ItemCatalogue>().add(EcsSingleton);
+	world.component<Operator>().member<std::string>("colour");
 	world.component<OperatorActions>().member<glm::vec2>("move").member<bool>("dash").member<bool>("interact");
 	world.component<OperatorMotion>().member<glm::vec2>("velocity").member<float>("facing");
 	world.component<Dash>().member<glm::vec2>("direction").member<float>("time_left").member<float>("cooldown_left");
 	world.component<Targets>().add(flecs::Exclusive);
+	world.component<Item>().member<std::string>("id").member<float>("carry_speed").member<bool>("tilt_to_camera");
+	world.component<Carries>().add(flecs::Exclusive);
+	world.component<Holds>().add(flecs::Exclusive);
 }
 
 } // namespace
@@ -111,6 +124,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	// Defaults until the Room loads the tuning and bindings files.
 	world.set<MovementTuning>({});
 	world.set<TargetingTuning>({});
+	world.set<DustPuffTuning>({});
 	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);
 

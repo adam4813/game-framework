@@ -93,6 +93,23 @@ std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path) {
 		!read) {
 		return std::unexpected(read.error());
 	}
+
+	auto& dustPuff = tuning.dustPuff;
+	if (auto read = ReadFields(
+			*doc,
+			"dust_puff",
+			{
+				{"count", &dustPuff.count},
+				{"speed", &dustPuff.speed},
+				{"lifetime", &dustPuff.lifetime},
+				{"size", &dustPuff.size},
+				{"spread", &dustPuff.spread},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
 	return tuning;
 }
 

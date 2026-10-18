@@ -29,10 +29,21 @@ struct TargetingTuning {
 	float brightenLift{0.35F};    // how far (0-1) the Operator's colour is lightened toward white first
 };
 
+// World singleton loaded from the tuning file's "dust_puff" section: the burst a set-down plays on the
+// Counter. Edited live by the Room panel like MovementTuning.
+struct DustPuffTuning {
+	float count{14.0F};    // particles in the burst (rounded)
+	float speed{1.2F};     // m/s
+	float lifetime{0.45F}; // s
+	float size{0.1F};      // m, each particle's starting radius
+	float spread{0.9F};    // how far the burst fans out from straight up (0 is a column)
+};
+
 // Everything the tuning file holds, one singleton per section.
 struct RoomTuning {
 	MovementTuning movement;
 	TargetingTuning targeting;
+	DustPuffTuning dustPuff;
 };
 
 // Parse the tuning file; a missing section or field keeps its default. Every field must be a positive

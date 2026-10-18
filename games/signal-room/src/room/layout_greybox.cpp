@@ -97,6 +97,12 @@ void BuildLayoutGreybox(const flecs::world& world, const flecs::entity parent) {
 			catalogue.counter,
 			FitFor(catalogue.counter, grid, {1, 1}, catalogue.counter.height)
 		);
+		// Idle until a set-down bursts it (item_interaction.cpp).
+		world.entity()
+			.child_of(e)
+			.set_name(kDustEmitterName)
+			.set<spatial::Transform>({.position = {0.0F, catalogue.counter.Top(), 0.0F}})
+			.set<particles::ParticleEmitter>({.rate = 0.0F});
 	}
 
 	for (const auto& [e, p] : PlacementsOf<Prop>(world, parent)) {

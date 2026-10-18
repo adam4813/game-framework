@@ -97,6 +97,15 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					ui.SliderFloat("Brighten lift", tuning.brightenLift, 0.0F, 1.0F);
 				}
 
+				if (ui.CollapsingHeader("Dust puff")) {
+					auto& tuning = world.get_mut<DustPuffTuning>();
+					ui.SliderFloat("Particles", tuning.count, 1.0F, 40.0F);
+					ui.SliderFloat("Speed (m/s)", tuning.speed, 0.1F, 4.0F);
+					ui.SliderFloat("Lifetime (s)", tuning.lifetime, 0.05F, 1.5F);
+					ui.SliderFloat("Size (m)", tuning.size, 0.01F, 0.3F);
+					ui.SliderFloat("Spread", tuning.spread, 0.0F, 2.0F);
+				}
+
 				ui.Separator();
 				for (const auto& path : shiftFiles) {
 					if (ui.Selectable(path, path == state.shiftPath)) {

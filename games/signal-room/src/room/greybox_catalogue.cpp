@@ -166,6 +166,7 @@ std::expected<GreyboxCatalogue, std::string> LoadGreyboxCatalogueFile(const std:
 	for (const auto& result :
 		 {ParseModels(palette, *doc, "stations", catalogue.stations),
 		  ParseModels(palette, *doc, "props", catalogue.props),
+		  ParseModels(palette, *doc, "items", catalogue.items),
 		  ParseWalls(palette, *doc, catalogue.walls),
 		  ParseFloor(palette, *doc, catalogue.floor)}) {
 		if (!result) {

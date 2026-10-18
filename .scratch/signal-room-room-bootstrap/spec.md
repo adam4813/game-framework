@@ -1,6 +1,6 @@
 # Signal Room spec 1: Room & bootstrap
 
-Status: ready-for-agent
+Status: done
 Map: [Signal Room: Vertical Slice](../signal-room/map.md) (Spec 1 packet on
 [Spec chunking & hand-off order](../signal-room/issues/13-spec-chunking-order.md))
 Sources: [Room layout, movement & set-down](../signal-room/issues/07-room-layout-movement.md),

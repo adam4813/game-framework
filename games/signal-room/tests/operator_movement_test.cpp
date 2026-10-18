@@ -127,22 +127,17 @@ TEST(OperatorMovement, AQuarterTurnTakesAboutTwoFrames) {
 	EXPECT_NEAR(FindOperator(room).get<OperatorMotion>().facing, kEast, 1e-4F);
 }
 
-TEST(OperatorMovement, LiveTuningAndCarrySpeedScaleTheWalk) {
-	RoomHarness tuned;
-	RoomHarness carrying;
-	ASSERT_TRUE(tuned.LoadShift(kShift1).has_value());
-	ASSERT_TRUE(carrying.LoadShift(kShift1).has_value());
-	const auto start = FloorPosition(tuned);
+TEST(OperatorMovement, LiveTuningScalesTheWalk) {
+	RoomHarness room;
+	ASSERT_TRUE(room.LoadShift(kShift1).has_value());
+	const auto start = FloorPosition(room);
 
 	// As the Room panel's slider would, mid-Shift.
-	tuned.World().get_mut<MovementTuning>().walkSpeed = 2.25F;
-	FindOperator(carrying).get_mut<Operator>().carrySpeed = 0.5F;
-	HoldFor(tuned, {KeyCode::D}, 1.0F);
-	HoldFor(carrying, {KeyCode::D}, 1.0F);
+	room.World().get_mut<MovementTuning>().walkSpeed = 2.25F;
+	HoldFor(room, {KeyCode::D}, 1.0F);
 
 	// Half of 4.5 m/s, and the 0.08 s ramp up still takes 0.08 s, losing half of it: 2.25 * (1 - 0.04).
-	EXPECT_NEAR(FloorPosition(tuned).x - start.x, 2.16F, 0.02F);
-	EXPECT_NEAR(FloorPosition(carrying).x - start.x, 2.16F, 0.02F);
+	EXPECT_NEAR(FloorPosition(room).x - start.x, 2.16F, 0.02F);
 }
 
 // Walk east along row 5 from spawn_1 for 1 s, dashing at each of `dashFrames` (frames from the start).
