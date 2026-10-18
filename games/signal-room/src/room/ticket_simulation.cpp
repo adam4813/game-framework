@@ -303,11 +303,11 @@ void SpawnTicket(
 	world.entity().child_of(roomRoot).set<Ticket>(std::move(ticket));
 }
 
-void RaiseTransmission(const flecs::world& world, const std::string& frequency) {
+void RaiseTransmission(const flecs::world& world, const std::string& frequency, const flecs::entity_t station) {
 	world.event<Transmission>()
 		.id<ShiftWindow>()
 		.entity(world.entity<ShiftWindow>())
-		.ctx(Transmission{.frequency = frequency})
+		.ctx(Transmission{.frequency = frequency, .station = station})
 		.emit();
 }
 

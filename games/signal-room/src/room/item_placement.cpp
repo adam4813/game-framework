@@ -4,6 +4,7 @@
 #include "greybox_catalogue.hpp"
 #include "item_components.hpp"
 #include "operator_components.hpp"
+#include "room_components.hpp"
 #include "room_constants.hpp"
 
 using namespace engine;
@@ -13,6 +14,14 @@ namespace signal_room {
 void PlaceOnCounter(const flecs::entity item, const flecs::entity counter) {
 	const float top = counter.world().get<GreyboxCatalogue>().counter.Top();
 	item.set<spatial::Transform>({.position = counter.get<spatial::Transform>().position + glm::vec3{0.0F, top, 0.0F}});
+}
+
+void PlaceOnStation(const flecs::entity item, const flecs::entity station) {
+	const float southEdge = static_cast<float>(station.get<Station>().footprint.y) * 0.5F;
+	item.set<spatial::Transform>(
+		{.position = station.get<spatial::Transform>().position
+					 + glm::vec3{0.0F, kStationItemHeight, southEdge - kStationItemInset}}
+	);
 }
 
 void RegisterCarriedItemPlacement(const flecs::world& world, const flecs::entity roomRoot) {

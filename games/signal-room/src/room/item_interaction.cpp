@@ -10,6 +10,7 @@
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_tuning.hpp"
+#include "station_job.hpp"
 
 using namespace engine;
 
@@ -72,6 +73,7 @@ void RegisterItemInteraction(const flecs::world& world, const flecs::entity room
 			if (!counter.has<Counter>()) {
 				return;
 			}
+			const auto world = it.world();
 			const auto carried = op.target<Carries>();
 			const auto held = counter.target<Holds>();
 			if (!carried && held) {
@@ -85,6 +87,7 @@ void RegisterItemInteraction(const flecs::world& world, const flecs::entity room
 				PuffDust(it.world(), counter);
 			}
 			else {
+				Refuse(world, op, counter, RefusalReason::CounterFull);
 				return;
 			}
 			const glm::vec2 position{transform.position.x, transform.position.z};

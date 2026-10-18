@@ -14,6 +14,7 @@
 #include "room_scene.hpp"
 #include "room_tuning.hpp"
 #include "shift_panel.hpp"
+#include "station_catalogue.hpp"
 
 using namespace engine;
 
@@ -22,6 +23,9 @@ namespace signal_room {
 namespace {
 
 constexpr core::Rgba kErrorColour{.r = 240, .g = 90, .b = 80, .a = 255};
+// Range of the live Transform duration sliders.
+constexpr float kMinJobSeconds = 0.2F;
+constexpr float kMaxJobSeconds = 20.0F;
 
 // Asset-relative paths of the Shift files, sorted by name.
 std::vector<std::string> ListShiftFiles(const flecs::world& world) {
@@ -110,6 +114,32 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					ui.SliderFloat("Lifetime (s)", tuning.lifetime, 0.05F, 1.5F);
 					ui.SliderFloat("Size (m)", tuning.size, 0.01F, 0.3F);
 					ui.SliderFloat("Spread", tuning.spread, 0.0F, 2.0F);
+				}
+
+				if (ui.CollapsingHeader("Transforms")) {
+					// Live and unsaved: Reload re-reads the Station catalogue file.
+					auto& catalogue = world.get_mut<StationCatalogue>();
+					for (const auto& kindId : catalogue.Ids()) {
+						for (auto& transform : catalogue.items.at(kindId).transforms) {
+							const auto label = std::format("{} {}", kindId, transform.id);
+							if (transform.duration > 0.0F) {
+								ui.SliderFloat(
+									std::format("{} (s)", label),
+									transform.duration,
+									kMinJobSeconds,
+									kMaxJobSeconds
+								);
+							}
+							if (transform.crankDuration > 0.0F) {
+								ui.SliderFloat(
+									std::format("{} cranked (s)", label),
+									transform.crankDuration,
+									0.2F,
+									20.0F
+								);
+							}
+						}
+					}
 				}
 
 				ui.Separator();

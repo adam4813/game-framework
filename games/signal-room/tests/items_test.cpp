@@ -30,7 +30,8 @@ using signal_room::test::RoomHarness;
 
 namespace {
 
-constexpr std::string_view kShift1 = "shifts/shift_01.shift.json";
+// Shift 1 with the placeholder Item on CounterSouthLeft: Shift 1 itself starts the Counters empty.
+constexpr std::string_view kShift1 = SIGNAL_ROOM_FIXTURE_DIR "/one_item.shift.json";
 constexpr float kDegrees = std::numbers::pi_v<float> / 180.0F;
 // Facings as yaws: 0 faces north and positive turns toward the west.
 constexpr float kNorth = 0.0F;

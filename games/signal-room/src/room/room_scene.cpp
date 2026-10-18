@@ -24,6 +24,9 @@
 #include "room_panel.hpp"
 #include "room_tuning.hpp"
 #include "shift.hpp"
+#include "station_catalogue.hpp"
+#include "station_job.hpp"
+#include "station_systems.hpp"
 #include "target_brighten.hpp"
 #include "ticket_rules.hpp"
 #include "ticket_simulation.hpp"
@@ -65,8 +68,10 @@ void RoomScene::Load(flecs::world& world) {
 	LoadRoom(world);
 	RegisterOperatorInput(world, roomRoot_);
 	RegisterOperatorMovement(world, roomRoot_);
+	RegisterStationHolding(world, roomRoot_);
 	RegisterOperatorTargeting(world, roomRoot_);
 	RegisterItemInteraction(world, roomRoot_);
+	RegisterStationSystems(world, roomRoot_);
 	RegisterCarriedItemPlacement(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterTicketSimulation(world, roomRoot_);
@@ -111,6 +116,10 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!items) {
 		return std::unexpected(items.error());
 	}
+	auto stations = LoadStationCatalogueFile(assets::ResolveAsset(world, kStationCatalogueFile), *items);
+	if (!stations) {
+		return std::unexpected(stations.error());
+	}
 	auto tuning = LoadTuningFile(assets::ResolveAsset(world, kTuningFile));
 	if (!tuning) {
 		return std::unexpected(tuning.error());
@@ -122,6 +131,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<Palette>(std::move(*palette));
 	world.set<GreyboxCatalogue>(std::move(*catalogue));
 	world.set<ItemCatalogue>(std::move(*items));
+	world.set<StationCatalogue>(std::move(*stations));
 	world.set<TicketRules>(std::move(*ticketRules));
 	world.set<FrequencyTable>(std::move(*frequencies));
 	world.set<MovementTuning>(tuning->movement);
@@ -145,6 +155,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 		return inService;
 	}
 
+	AddStationJobs(world, roomRoot_);
 	BuildLayoutGreybox(world, roomRoot_);
 	if (auto spawned = SpawnRoster(world, roomRoot_, shift->roster, shiftFile); !spawned) {
 		return spawned;

@@ -150,6 +150,28 @@
 				{"shape": "cube", "offset": [0, 0.05, 0], "size": [0.07, 0.11, 0.29], "colour": "item_band"},
 				{"shape": "cube", "offset": [0.12, 0.105, -0.06], "size": [0.1, 0.01, 0.07], "colour": "item_tag"}
 			]
+		},
+		"raw_card": {
+			"comment": "A cream card with a frequency stripe across one end ('identity' is the frequency colour).",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.02, 0], "size": [0.36, 0.04, 0.26], "colour": "item_card"},
+				{"name": "stripe", "shape": "cube", "offset": [0.12, 0.045, 0], "size": [0.09, 0.012, 0.27], "colour": "identity"}
+			]
+		},
+		"decoded_card": {
+			"comment": "A white card with a dark band along its length and the frequency stripe at one end.",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.02, 0], "size": [0.36, 0.04, 0.26], "colour": "item_card_white"},
+				{"shape": "cube", "offset": [-0.04, 0.045, 0], "size": [0.14, 0.012, 0.27], "colour": "item_tag"},
+				{"name": "stripe", "shape": "cube", "offset": [0.12, 0.045, 0], "size": [0.09, 0.012, 0.27], "colour": "identity"}
+			]
+		},
+		"morse_tape": {
+			"comment": "A spool of paper tape on its side, with the frequency stripe round its rim.",
+			"parts": [
+				{"name": "reel", "shape": "cube", "offset": [0, 0.07, 0], "size": [0.16, 0.14, 0.16], "colour": "item_spool"},
+				{"name": "stripe", "shape": "cube", "offset": [0, 0.07, 0], "size": [0.17, 0.04, 0.17], "colour": "identity"}
+			]
 		}
 	}
 }

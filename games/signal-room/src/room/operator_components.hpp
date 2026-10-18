@@ -15,13 +15,14 @@ struct Operator {
 };
 
 // What an Operator is asked to do this frame: `move` is the wish direction on the floor plane (x east,
-// y south; length at most 1), `dash` and `interact` are presses. The OperatorInput system fills it
+// y south; length at most 1), `dash` and `interact` are presses and `interactHeld` stays true while the key stays down. The OperatorInput system fills it
 // from the keyboard Bindings; spec 3's Seats and AI write it instead. Over REST, disable OperatorInput
 // and set it to drive an Operator by hand.
 struct OperatorActions {
 	glm::vec2 move{0.0F};
 	bool dash{false};
 	bool interact{false};
+	bool interactHeld{false}; // the action key is down, from the press on
 };
 
 // How an Operator is moving: `velocity` on the floor plane (x east, y south, in m/s) and `facing` as

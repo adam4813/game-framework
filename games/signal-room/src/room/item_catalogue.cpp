@@ -38,7 +38,17 @@ LoadItemCatalogueFile(const std::string& path, const GreyboxCatalogue& greybox) 
 		if (!tilt.is_boolean()) {
 			return itemError("tilt_to_camera must be true or false");
 		}
-		catalogue.Add(id, {.shape = shape, .carrySpeed = carrySpeed.get<float>(), .tiltToCamera = tilt.get<bool>()});
+		const auto stripe = entry.value("frequency_stripe", json(false));
+		if (!stripe.is_boolean()) {
+			return itemError("frequency_stripe must be true or false");
+		}
+		catalogue.Add(
+			id,
+			{.shape = shape,
+			 .carrySpeed = carrySpeed.get<float>(),
+			 .tiltToCamera = tilt.get<bool>(),
+			 .frequencyStripe = stripe.get<bool>()}
+		);
 	}
 	return catalogue;
 }

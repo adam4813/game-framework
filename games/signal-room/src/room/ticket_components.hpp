@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <flecs.h>
+
 #include "engine/ecs/singletons.hpp"
 
 namespace signal_room {
@@ -69,9 +71,11 @@ struct TicketCleared {};
 struct LostIntercept {};
 struct LastCall {};
 struct ShiftEnded {};
-// Raised on the ShiftWindow by whatever transmits (the Telex, later); carries the frequency label.
+// Raised on the ShiftWindow by whatever transmits (the Telex); carries the frequency label and the
+// transmitting Station (0 when a test raises it directly).
 struct Transmission {
 	std::string frequency;
+	flecs::entity_t station{0};
 };
 
 } // namespace signal_room

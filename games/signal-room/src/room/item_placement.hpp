@@ -9,6 +9,10 @@ namespace signal_room {
 // that Transform outside deferral.
 void PlaceOnCounter(flecs::entity item, flecs::entity counter);
 
+// Stand `item` on `station`: just in front of its south edge, at table height. Reads the Station's
+// Transform, like PlaceOnCounter.
+void PlaceOnStation(flecs::entity item, flecs::entity station);
+
 // Register the CarriedItemPlacement system as a child of the Room's root entity. Each frame it shows
 // every carried Item in front of its Operator (call after the systems that move Operators and change
 // what they carry): tilted toward the camera when its Item has tiltToCamera, otherwise turned with

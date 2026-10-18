@@ -34,6 +34,6 @@ void SpawnTicket(
 
 // Transmit on a frequency: raises Transmission on the Shift Window, which clears the most urgent On Air
 // Ticket of that frequency (none: nothing happens). The Telex raises it; tests and the debug panel too.
-void RaiseTransmission(const flecs::world& world, const std::string& frequency);
+void RaiseTransmission(const flecs::world& world, const std::string& frequency, flecs::entity_t station = 0);
 
 } // namespace signal_room

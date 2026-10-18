@@ -15,6 +15,7 @@ inline constexpr int kRestPort = 27760;
 inline constexpr const char* kPaletteFile = "greybox/palette.json";
 inline constexpr const char* kGreyboxCatalogueFile = "greybox/catalogue.json";
 inline constexpr const char* kItemCatalogueFile = "items.json";
+inline constexpr const char* kStationCatalogueFile = "stations.json";
 // Ticket rules and the frequency table (asset-relative), re-read on every Room load.
 inline constexpr const char* kTicketRulesFile = "tickets.json";
 inline constexpr const char* kFrequencyTableFile = "frequencies.json";
@@ -30,6 +31,9 @@ inline constexpr float kFloorTileInset = 0.04F;
 // a Counter it sits on the Counter model's Top().
 inline constexpr float kCarryAhead = 0.42F;
 inline constexpr float kCarryHeight = 0.72F;
+// An Item placed on or waiting on a Station sits at table height, this far in from the footprint's south edge.
+inline constexpr float kStationItemHeight = 0.62F;
+inline constexpr float kStationItemInset = 0.3F;
 // Each Counter's dust emitter child, which a set-down bursts, and the palette token it puffs in.
 inline constexpr const char* kDustEmitterName = "dust";
 inline constexpr const char* kDustColourToken = "dust";

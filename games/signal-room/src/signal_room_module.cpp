@@ -17,6 +17,8 @@
 #include "room/room_scene.hpp"
 #include "room/room_tuning.hpp"
 #include "room/shift.hpp"
+#include "room/station_catalogue.hpp"
+#include "room/station_components.hpp"
 #include "room/ticket_components.hpp"
 #include "room/ticket_rules.hpp"
 
@@ -106,13 +108,40 @@ void RegisterComponents(const flecs::world& world) {
 	world.component<Bindings>().add(EcsSingleton);
 	world.component<ItemCatalogue>().add(EcsSingleton);
 	world.component<Operator>().member<std::string>("colour");
-	world.component<OperatorActions>().member<glm::vec2>("move").member<bool>("dash").member<bool>("interact");
+	world.component<OperatorActions>()
+		.member<glm::vec2>("move")
+		.member<bool>("dash")
+		.member<bool>("interact")
+		.member<bool>("interact_held");
 	world.component<OperatorMotion>().member<glm::vec2>("velocity").member<float>("facing");
 	world.component<Dash>().member<glm::vec2>("direction").member<float>("time_left").member<float>("cooldown_left");
 	world.component<Targets>().add(flecs::Exclusive);
-	world.component<Item>().member<std::string>("id").member<float>("carry_speed").member<bool>("tilt_to_camera");
+	world.component<Item>()
+		.member<std::string>("id")
+		.member<std::string>("frequency")
+		.member<float>("carry_speed")
+		.member<bool>("tilt_to_camera");
 	world.component<Carries>().add(flecs::Exclusive);
-	world.component<Holds>().add(flecs::Exclusive);
+	world.component<Holds>();
+	world.component<StationCatalogue>().add(EcsSingleton);
+	world.component<JobPhase>()
+		.constant("Idle", JobPhase::Idle)
+		.constant("Loading", JobPhase::Loading)
+		.constant("Running", JobPhase::Running)
+		.constant("Done", JobPhase::Done);
+	world.component<Job>()
+		.member<JobPhase>("phase")
+		.member<std::string>("transform")
+		.member<float>("progress")
+		.member<int>("taps");
+	world.component<Holding>().member<flecs::entity_t>("station").member<float>("since");
+	world.component<RefusalReason>()
+		.constant("WrongItem", RefusalReason::WrongItem)
+		.constant("Busy", RefusalReason::Busy)
+		.constant("NothingToDo", RefusalReason::NothingToDo)
+		.constant("OtherHolder", RefusalReason::OtherHolder)
+		.constant("CounterFull", RefusalReason::CounterFull);
+	world.component<Refusal>();
 
 	world.component<TicketState>().constant("StandBy", TicketState::StandBy).constant("OnAir", TicketState::OnAir);
 	world.component<ShiftPhase>().constant("Running", ShiftPhase::Running).constant("Ended", ShiftPhase::Ended);

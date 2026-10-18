@@ -129,14 +129,33 @@ std::expected<Shift, std::string> LoadShiftFile(const std::string& path) {
 	const auto counterItems = doc->value("counter_items", nlohmann::json::object());
 	if (!counterItems.is_object()) {
 		return std::unexpected(
-			std::format("Shift file {}: counter_items must be {{\"<Counter name>\": \"<Item id>\"}}", path)
+			std::format(
+				"Shift file {}: counter_items must be {{\"<Counter name>\": \"<Item id>\" or {{\"item\": id, "
+				"\"frequency\": label}}}}",
+				path
+			)
 		);
 	}
-	for (const auto& [counter, item] : counterItems.items()) {
-		if (!item.is_string()) {
-			return std::unexpected(std::format("Shift file {}: counter_items.{} must be an Item id", path, counter));
+	for (const auto& [counter, entry] : counterItems.items()) {
+		const bool plain = entry.is_string();
+		const bool striped = entry.is_object() && entry.value("item", nlohmann::json{}).is_string();
+		if (!plain && !striped) {
+			return std::unexpected(
+				std::format(
+					"Shift file {}: counter_items.{} must be an Item id or {{\"item\", \"frequency\"}}",
+					path,
+					counter
+				)
+			);
 		}
-		shift.counterItems.push_back({.counter = counter, .item = item.get<std::string>()});
+		shift.counterItems.push_back(
+			plain ? CounterItem{.counter = counter, .item = entry.get<std::string>()}
+				  : CounterItem{
+						.counter = counter,
+						.item = entry.at("item").get<std::string>(),
+						.frequency = entry.value("frequency", std::string{})
+					}
+		);
 	}
 
 	const auto radios = doc->value("radios", nlohmann::json::object());

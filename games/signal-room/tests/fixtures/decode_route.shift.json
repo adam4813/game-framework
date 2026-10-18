@@ -1,0 +1,14 @@
+{
+	"id": "decode_route",
+	"name": "decode_route",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Decoder", "Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"counter_items": {
+		"CounterSouthLeft": {"item": "raw_card", "frequency": "7.0"},
+		"CounterSouthRight": {"item": "raw_card", "frequency": "7.0"}
+	},
+	"radios": {"Radio1": "7.0"},
+	"window": 240,
+	"schedule": {}
+}

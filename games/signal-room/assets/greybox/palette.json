@@ -43,6 +43,8 @@
 		"item_card": [236, 226, 196],
 		"item_band": [186, 40, 36],
 		"item_tag": [40, 40, 44],
+		"item_card_white": [244, 244, 240],
+		"item_spool": [92, 74, 58],
 		"dust": [196, 186, 162, 200],
 		"overlay_grid": [20, 20, 20],
 		"overlay_solid": [230, 60, 50],

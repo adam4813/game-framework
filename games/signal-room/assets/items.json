@@ -1,6 +1,9 @@
 {
-	"comment": "Item catalogue: per Item id, its greybox shape (catalogue.json 'items'), carry_speed (scales the carrier's walk and dash, default 1.0) and tilt_to_camera (tilted toward the camera while carried, for cards). Shifts place Items on Counters by id in 'counter_items'.",
+	"comment": "Item catalogue: per Item id, its greybox shape (catalogue.json 'items'), carry_speed (scales the carrier's walk and dash, default 1.0), tilt_to_camera (tilted toward the camera while carried, for cards) and frequency_stripe (the shape's 'identity' part is drawn in the Item's frequency colour). Shifts place Items on Counters by id in 'counter_items'; Transforms in stations.json name them. 'placeholder' is kept for test fixtures.",
 	"items": {
-		"placeholder": {"shape": "card_bundle", "carry_speed": 1.0, "tilt_to_camera": true}
+		"placeholder": {"shape": "card_bundle", "carry_speed": 1.0, "tilt_to_camera": true},
+		"raw_card": {"shape": "raw_card", "carry_speed": 1.0, "tilt_to_camera": true, "frequency_stripe": true},
+		"decoded_card": {"shape": "decoded_card", "carry_speed": 1.0, "tilt_to_camera": true, "frequency_stripe": true},
+		"morse_tape": {"shape": "morse_tape", "carry_speed": 1.0, "tilt_to_camera": false, "frequency_stripe": true}
 	}
 }

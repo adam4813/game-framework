@@ -14,7 +14,7 @@ the spec builds on: keep the verbs generic (the Radio's Hold in ticket 03 and th
 
 **Blocked by:** 01 (Tickets, the Window & the Collection Schedule).
 
-**Status:** ready-for-agent
+**Status:** done (follow-ups: Radio frequency on outputs is ticket 03; Hold/Pausable not yet used by any room system; same-frame double Hold race is latent until spec 3)
 
 - [ ] A Station catalogue data file, keyed by Station kind, lists Transforms (`id`, `inputs`, `outputs`, `verb`,
       `duration` / `taps` / `crank_duration`, `transmit`, plus the kind's `display_name`), with the spec's four kinds

@@ -32,6 +32,7 @@ void RegisterOperatorInput(const flecs::world& world, const flecs::entity roomRo
 				.move = WishDirection(bindings, input),
 				.dash = bindings.WasPressed(input, Action::Dash),
 				.interact = bindings.WasPressed(input, Action::Interact),
+				.interactHeld = bindings.IsDown(input, Action::Interact),
 			};
 		})
 		.child_of(roomRoot);

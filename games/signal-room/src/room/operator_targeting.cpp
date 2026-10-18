@@ -4,6 +4,7 @@
 #include "operator_components.hpp"
 #include "room_components.hpp"
 #include "room_tuning.hpp"
+#include "station_components.hpp"
 
 using namespace engine;
 
@@ -86,6 +87,8 @@ void RegisterOperatorTargeting(const flecs::world& world, const flecs::entity ro
 		.with<Operator>()
 		// Its pair changes are commands: declaring them puts a sync point before the systems reading them.
 		.write<Targets>(flecs::Wildcard)
+		// A Holding Operator keeps its Target: frozen to the Station it works.
+		.without<Holding>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity op, const OperatorMotion& motion, const spatial::Transform& transform) {
 			const auto world = op.world();

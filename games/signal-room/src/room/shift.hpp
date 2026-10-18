@@ -16,10 +16,12 @@ struct RosterEntry {
 	std::string colour;
 };
 
-// An Item a Shift starts on a Counter: the Counter's placement name and the Item catalogue id.
+// An Item a Shift starts on a Counter: the Counter's placement name, the Item catalogue id and the
+// frequency label it carries ("" for none).
 struct CounterItem {
 	std::string counter;
 	std::string item;
+	std::string frequency;
 };
 
 // A Ticket the schedule brings at a fixed time. `at` is in Window seconds from the start; `overfill` is a
