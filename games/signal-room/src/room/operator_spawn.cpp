@@ -6,7 +6,7 @@
 
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
-#include "layout_greybox.hpp"
+#include "greybox_model.hpp"
 #include "operator_components.hpp"
 #include "palette.hpp"
 #include "placements.hpp"
@@ -29,29 +29,18 @@ std::expected<void, std::string> SpawnRoster(
 
 	for (size_t i = 0; i < roster.size(); ++i) {
 		const auto& entry = roster[i];
+		const auto entryError = [&](const std::string_view problem) {
+			return std::unexpected(std::format("Shift file {}: roster entry {} {}", shiftPath, i + 1, problem));
+		};
 		const auto marker = std::ranges::find_if(markers, [&](const auto& placement) {
 			return std::string_view{placement.first.name().c_str()} == entry.spawn;
 		});
 		if (marker == markers.end()) {
-			return std::unexpected(
-				std::format(
-					"Shift file {}: roster entry {} names spawn marker '{}', but its Layout has none",
-					shiftPath,
-					i + 1,
-					entry.spawn
-				)
-			);
+			return entryError(std::format("names spawn marker '{}', but its Layout has none", entry.spawn));
 		}
 		const auto* colour = palette.Get(entry.colour);
 		if (colour == nullptr) {
-			return std::unexpected(
-				std::format(
-					"Shift file {}: roster entry {} uses unknown palette colour '{}'",
-					shiftPath,
-					i + 1,
-					entry.colour
-				)
-			);
+			return entryError(std::format("uses unknown palette colour '{}'", entry.colour));
 		}
 
 		const auto op = world.entity()

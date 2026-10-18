@@ -4,7 +4,6 @@
 #include <numbers>
 #include <vector>
 
-#include "bindings.hpp"
 #include "engine/engine.hpp"
 #include "floor_collision.hpp"
 #include "movement_tuning.hpp"
@@ -34,18 +33,16 @@ glm::vec2 MoveToward(const glm::vec2 from, const glm::vec2 to, const float maxDe
 	return distance <= maxDelta ? to : from + delta / distance * maxDelta;
 }
 
-// The normalised direction the movement Actions ask for (zero when none or they cancel out).
-glm::vec2 WishDirection(const Bindings& bindings, const input::InputState& input) {
-	const auto axis = [&](const Action negative, const Action positive) {
-		return (bindings.IsDown(input, positive) ? 1.0F : 0.0F) - (bindings.IsDown(input, negative) ? 1.0F : 0.0F);
-	};
-	const glm::vec2 wish{axis(Action::MoveLeft, Action::MoveRight), axis(Action::MoveUp, Action::MoveDown)};
-	return wish == glm::vec2{0.0F} ? wish : glm::normalize(wish);
-}
-
 // Tick the dash's timers, then start a dash on a press when neither is running. The cooldown starts
 // when a dash ends.
-void UpdateDash(Dash& dash, const MovementTuning& tuning, const bool pressed, const glm::vec2 wish, const float facing, const float dt) {
+void UpdateDash(
+	Dash& dash,
+	const MovementTuning& tuning,
+	const bool pressed,
+	const glm::vec2 wish,
+	const float facing,
+	const float dt
+) {
 	if (dash.timeLeft > 0.0F) {
 		dash.timeLeft -= dt;
 		if (dash.timeLeft <= 0.0F) {
@@ -99,20 +96,6 @@ void Steer(
 } // namespace
 
 void RegisterOperatorMovement(const flecs::world& world, const flecs::entity roomRoot) {
-	// One keyboard table drives every Operator until spec 3 gives each Seat its own bindings.
-	world.system<OperatorActions>("OperatorInput")
-		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, OperatorActions& actions) {
-			const auto& bindings = it.world().get<Bindings>();
-			const auto& input = it.world().get<input::InputState>();
-			actions = {
-				.move = WishDirection(bindings, input),
-				.dash = bindings.WasPressed(input, Action::Dash),
-				.interact = bindings.WasPressed(input, Action::Interact),
-			};
-		})
-		.child_of(roomRoot);
-
 	world.system<const Operator, const OperatorActions, OperatorMotion, Dash, spatial::Transform>("OperatorMovement")
 		.kind(flecs::OnUpdate)
 		.run([](flecs::iter& it) {

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <numbers>
 #include <string_view>
 
 #include <glm/glm.hpp>
@@ -17,6 +18,7 @@ namespace KeyCode = engine::input::KeyCode;
 using engine::spatial::Transform;
 using signal_room::MovementTuning;
 using signal_room::Operator;
+using signal_room::OperatorMotion;
 using signal_room::test::RoomHarness;
 
 namespace {
@@ -106,6 +108,23 @@ TEST(OperatorMovement, DiagonalIsNoFasterThanStraight) {
 	EXPECT_GT(diagonalMove.x, 0.5F);
 	EXPECT_LT(diagonalMove.y, -0.5F);
 	EXPECT_LE(glm::length(diagonalMove), straightDistance + 1e-4F);
+}
+
+TEST(OperatorMovement, AQuarterTurnTakesAboutTwoFrames) {
+	RoomHarness room;
+	ASSERT_TRUE(room.LoadShift(kShift1).has_value());
+	constexpr float kEast = -std::numbers::pi_v<float> / 2.0F;
+
+	// From spawn, facing north (yaw 0). A 180-degree turn takes 0.06 s, so a 90-degree one takes 0.03 s:
+	// about 1.8 frames at 60 Hz.
+	room.Hold(KeyCode::D);
+	room.Step();
+	const float afterOne = FindOperator(room).get<OperatorMotion>().facing;
+	EXPECT_GT(afterOne, kEast);
+	EXPECT_LT(afterOne, 0.0F);
+
+	room.Step();
+	EXPECT_NEAR(FindOperator(room).get<OperatorMotion>().facing, kEast, 1e-4F);
 }
 
 TEST(OperatorMovement, LiveTuningAndCarrySpeedScaleTheWalk) {
@@ -208,9 +227,7 @@ TEST(OperatorMovement, WalkingAndDashingIntoTheDecoderNeverEntersItsFootprint) {
 	PlaceOperator(room, {4.0F, 4.0F});
 	room.Tap(KeyCode::LeftShift);
 
-	HoldAndCheckEachFrame(room, {KeyCode::D}, 2.0F, [](const glm::vec2 p) {
-		ASSERT_LE(p.x + kRadius, 6.0F + kSlack);
-	});
+	HoldAndCheckEachFrame(room, {KeyCode::D}, 2.0F, [](const glm::vec2 p) { ASSERT_LE(p.x + kRadius, 6.0F + kSlack); });
 
 	EXPECT_NEAR(FloorPosition(room).x, 6.0F - kRadius, 0.01F);
 	EXPECT_NEAR(FloorPosition(room).y, 4.0F, 1e-4F);
@@ -236,9 +253,7 @@ TEST(OperatorMovement, WalkingIntoATarpedStationNeverEntersItsFootprint) {
 	// South of the Tarped Keypunch at cell (3,2), which covers z 2-3.
 	PlaceOperator(room, {3.5F, 4.5F});
 
-	HoldAndCheckEachFrame(room, {KeyCode::W}, 1.0F, [](const glm::vec2 p) {
-		ASSERT_GE(p.y - kRadius, 3.0F - kSlack);
-	});
+	HoldAndCheckEachFrame(room, {KeyCode::W}, 1.0F, [](const glm::vec2 p) { ASSERT_GE(p.y - kRadius, 3.0F - kSlack); });
 
 	EXPECT_NEAR(FloorPosition(room).y, 3.0F + kRadius, 0.01F);
 }
@@ -248,9 +263,7 @@ TEST(OperatorMovement, TheOperatorCannotCrossTheOpenSouthEdge) {
 	ASSERT_TRUE(room.LoadShift(kShift1).has_value());
 
 	// From spawn_1 (1,5) straight south across the desk-edge row to the floor's edge at z 9.
-	HoldAndCheckEachFrame(room, {KeyCode::S}, 2.0F, [](const glm::vec2 p) {
-		ASSERT_LE(p.y + kRadius, 9.0F + kSlack);
-	});
+	HoldAndCheckEachFrame(room, {KeyCode::S}, 2.0F, [](const glm::vec2 p) { ASSERT_LE(p.y + kRadius, 9.0F + kSlack); });
 
 	EXPECT_NEAR(FloorPosition(room).y, 9.0F - kRadius, 0.01F);
 }

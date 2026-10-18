@@ -10,6 +10,7 @@
 #include "layout.hpp"
 #include "layout_greybox.hpp"
 #include "movement_tuning.hpp"
+#include "operator_input.hpp"
 #include "operator_movement.hpp"
 #include "operator_spawn.hpp"
 #include "palette.hpp"
@@ -54,6 +55,7 @@ void RoomScene::Load(flecs::world& world) {
 
 	roomRoot_ = world.entity("RoomRoot");
 	LoadRoom(world);
+	RegisterOperatorInput(world, roomRoot_);
 	RegisterOperatorMovement(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
