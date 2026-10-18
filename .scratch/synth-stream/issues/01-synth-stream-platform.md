@@ -64,3 +64,6 @@ the framework/spec git layout supersedes that line. `feat/signal-room` was resta
   2. Confirm the `Platform::SynthCallback` zone in a Tracy capture (`desktop-profile` preset). There's no
      `tracy-capture` CLI to do this headlessly.
 - Fixed along the way: CMake de-duplicates repeated bare `--pre-js` link options, so both now use `SHELL:`.
+
+**2026-10-17 — PR open.** The framework branch `feat/imgui-debug-ui` (with the version 0.5.0 bump) is up as
+https://github.com/adam4813/game-framework/pull/6 into `main`. Only the Tracy zone check is still open.
