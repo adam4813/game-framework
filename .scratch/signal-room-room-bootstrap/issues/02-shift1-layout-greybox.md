@@ -1,6 +1,6 @@
 # 02: Shift 1 Layout & greybox reads
 
-Spec: [Signal Room spec 1: Room & bootstrap](../spec.md)
+Spec: [Signal Room spec 1: Room & bootstrap](../spec.md). Read: [Shift & Layout data](../spec/shift-and-layout.md), [Camera & greybox reads](../spec/greybox-and-camera.md), [Debugging & tuning](../spec/debugging.md), [Testing decisions](../spec/testing.md).
 Base branch: `feat/signal-room` (this game's main: branch off it, PR back into it, never into `main`)
 
 **What to build:** Launching the game shows Shift 1's 13×9 room as designed in

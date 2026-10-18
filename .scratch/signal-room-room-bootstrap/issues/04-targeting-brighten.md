@@ -1,6 +1,6 @@
 # 04: Targeting & the Target brighten
 
-Spec: [Signal Room spec 1: Room & bootstrap](../spec.md)
+Spec: [Signal Room spec 1: Room & bootstrap](../spec.md). Read: [Targeting, pick-up & set-down](../spec/targeting-and-items.md), [Camera & greybox reads](../spec/greybox-and-camera.md), [Debugging & tuning](../spec/debugging.md), [Testing decisions](../spec/testing.md).
 Base branch: `feat/signal-room` (this game's main: branch off it, PR back into it, never into `main`)
 
 **What to build:** As the player moves, the Station or Counter their Operator would act on brightens with a soft pulse

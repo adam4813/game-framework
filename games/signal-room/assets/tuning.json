@@ -1,0 +1,13 @@
+{
+	"comment": "Room feel tuning, re-read on every Room load. The Room panel edits it live without saving. Times are seconds, distances metres. The dash cooldown starts when the dash ends.",
+	"movement": {
+		"walk_speed": 4.5,
+		"accel_time": 0.08,
+		"decel_time": 0.15,
+		"turn_time": 0.06,
+		"dash_multiplier": 2.2,
+		"dash_duration": 0.2,
+		"dash_cooldown": 0.5,
+		"radius": 0.3
+	}
+}

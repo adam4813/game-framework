@@ -30,7 +30,13 @@ struct GreyboxPart {
 	glm::vec3 rotation{0.0F};
 	engine::core::Rgba colour;
 	bool visible{true};
+	// The part's colour token is `identity`: it takes the Operator's identity colour when built.
+	bool identity{false};
 };
+
+// The colour token a part uses to take its Operator's identity colour (the Operator model's body and
+// collar), resolved when the model is built rather than from the Palette.
+inline constexpr const char* kIdentityColourToken = "identity";
 
 // A kind's greybox look. A footprint-fitted model (the tarp, the rug) is authored for a 1×1 cell and
 // 1 m tall: its offsets and sizes stretch to the footprint across and to `height` up. `height` is
@@ -62,6 +68,7 @@ struct GreyboxCatalogue {
 	engine::core::Registry<GreyboxModel> props;
 	engine::core::Registry<WallStyle> walls;
 	GreyboxModel counter;
+	GreyboxModel operatorModel; // "operator" in the file
 	FloorStyle floor;
 };
 

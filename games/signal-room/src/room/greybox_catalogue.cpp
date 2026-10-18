@@ -70,7 +70,8 @@ std::expected<GreyboxModel, std::string> ParseModel(const Palette& palette, cons
 		if (!shape) {
 			return std::unexpected(std::format("{}: {}", partContext, shape.error()));
 		}
-		const auto colour = ResolveColour(palette, p, partContext);
+		const bool identity = p.value("colour", std::string{}) == kIdentityColourToken;
+		const auto colour = identity ? std::expected<core::Rgba, std::string>{} : ResolveColour(palette, p, partContext);
 		if (!colour) {
 			return std::unexpected(colour.error());
 		}
@@ -96,6 +97,7 @@ std::expected<GreyboxModel, std::string> ParseModel(const Palette& palette, cons
 			.rotation = *rotation,
 			.colour = *colour,
 			.visible = p.value("visible", true),
+			.identity = identity,
 		});
 	}
 	return model;
@@ -155,6 +157,11 @@ std::expected<GreyboxCatalogue, std::string> LoadGreyboxCatalogueFile(const std:
 		return std::unexpected(std::format("Greybox file {}: {}", path, counter.error()));
 	}
 	catalogue.counter = std::move(*counter);
+	auto operatorModel = ParseModel(palette, doc->value("operator", json::object()), "operator");
+	if (!operatorModel) {
+		return std::unexpected(std::format("Greybox file {}: {}", path, operatorModel.error()));
+	}
+	catalogue.operatorModel = std::move(*operatorModel);
 
 	for (const auto& result :
 		 {ParseModels(palette, *doc, "stations", catalogue.stations),

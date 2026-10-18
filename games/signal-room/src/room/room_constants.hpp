@@ -14,6 +14,9 @@ inline constexpr int kRestPort = 27760;
 // Greybox data files (asset-relative), re-read on every Room load.
 inline constexpr const char* kPaletteFile = "greybox/palette.json";
 inline constexpr const char* kGreyboxCatalogueFile = "greybox/catalogue.json";
+// Feel tuning and keyboard bindings (asset-relative), re-read on every Room load.
+inline constexpr const char* kTuningFile = "tuning.json";
+inline constexpr const char* kBindingsFile = "bindings.json";
 
 // The floor: a grout slab under inset cell tiles (colours come from the catalogue's "floor").
 inline constexpr float kFloorThickness = 0.1F;

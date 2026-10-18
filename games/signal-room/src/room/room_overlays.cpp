@@ -3,6 +3,8 @@
 #include <array>
 
 #include "engine/engine.hpp"
+#include "movement_tuning.hpp"
+#include "operator_components.hpp"
 #include "palette.hpp"
 #include "placements.hpp"
 #include "room_components.hpp"
@@ -18,6 +20,7 @@ constexpr float kLineY = 0.03F;
 constexpr float kSideBarWidth = 0.08F;
 constexpr float kSolidMarkerY = 2.0F;
 constexpr float kSolidMarkerSize = 0.5F;
+constexpr const char* kOperatorCircleName = "CollisionCircle";
 
 // Overlay colours are palette tokens too; a palette without them still draws the overlay.
 core::Rgba OverlayColour(const flecs::world& world, const char* token, const core::Rgba fallback) {
@@ -160,6 +163,27 @@ void BuildWorkedSides(
 	}
 }
 
+// A flat disc under each Operator the size of its collision circle. It hangs off the Operator so it
+// follows it; the rest of the overlays are static and live in the Overlays group.
+void BuildOperatorCircles(const flecs::world& world, const flecs::entity roomRoot, const bool show) {
+	const auto colour = OverlayColour(world, "overlay_operator", {.r = 245, .g = 245, .b = 245, .a = 255});
+	const float diameter = world.get<MovementTuning>().radius * 2.0F;
+	for (const auto& [e, op] : PlacementsOf<Operator>(world, roomRoot)) {
+		if (auto old = e.lookup(kOperatorCircleName)) {
+			old.destruct();
+		}
+		if (!show) {
+			continue;
+		}
+		world.entity()
+			.child_of(e)
+			.set_name(kOperatorCircleName)
+			.set<spatial::Transform>({.position = {0.0F, kLineY, 0.0F}, .scale = {diameter, 0.01F, diameter}})
+			.set<render::SpherePrimitive>({.radius = 0.5F})
+			.set<render::Material>({.color = colour, .cast_shadow = false});
+	}
+}
+
 } // namespace
 
 void BuildRoomOverlays(const flecs::world& world, const flecs::entity roomRoot) {
@@ -185,6 +209,7 @@ void BuildRoomOverlays(const flecs::world& world, const flecs::entity roomRoot) 
 	if (overlays.workedSides) {
 		BuildWorkedSides(world, group, roomRoot, grid);
 	}
+	BuildOperatorCircles(world, roomRoot, overlays.operatorCircle);
 }
 
 } // namespace signal_room

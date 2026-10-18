@@ -12,6 +12,15 @@
 			{"shape": "cube", "offset": [0, 0.83, 0], "size": [0.98, 0.06, 0.98], "colour": "counter_top"}
 		]
 	},
+	"operator": {
+		"comment": "An Operator, standing at its floor position facing -z. Body and collar take the Operator's identity colour (token 'identity'); the collar rings the neck wider than the body so it reads from above. The visor marks the front.",
+		"parts": [
+			{"name": "body", "shape": "capsule", "offset": [0, 0.47, 0], "size": [0.48, 0.9, 0.48], "colour": "identity"},
+			{"name": "collar", "shape": "sphere", "offset": [0, 0.9, 0], "size": [0.58, 0.09, 0.58], "colour": "identity"},
+			{"name": "head", "shape": "sphere", "offset": [0, 1.08, 0], "size": [0.32, 0.32, 0.32], "colour": "operator_skin"},
+			{"name": "visor", "shape": "cube", "offset": [0, 1.1, -0.14], "size": [0.24, 0.08, 0.08], "colour": "operator_visor"}
+		]
+	},
 	"stations": {
 		"radio": {
 			"comment": "A set on a wall bench: body (frequency colour from spec 2), rear riser with the frequency display and progress bar, antenna whip, traffic lamp on a post.",

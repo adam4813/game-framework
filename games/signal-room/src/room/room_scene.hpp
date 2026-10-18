@@ -10,8 +10,9 @@
 namespace signal_room {
 
 // The Room: the bunker floor of the current Shift. Load reads RoomState::shiftPath, re-reads the
-// palette and greybox catalogue, loads that Shift and its Layout under one root entity, Tarps the
-// Stations the Shift doesn't put in service and builds the greybox. A load error is recorded in
+// palette, greybox catalogue, tuning and bindings files, loads that Shift and its Layout under one root
+// entity, Tarps the Stations the Shift doesn't put in service, builds the greybox, puts the Roster's
+// Operators on their spawn markers and registers their movement. A load error is recorded in
 // RoomState::loadError and leaves the Room empty.
 class RoomScene : public engine::scene::SceneBase {
 public:

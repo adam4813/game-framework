@@ -6,5 +6,8 @@
 		"Radio1",
 		"Decoder",
 		"Telex"
+	],
+	"roster": [
+		{"spawn": "spawn_1", "colour": "p1"}
 	]
 }

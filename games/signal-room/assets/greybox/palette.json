@@ -2,6 +2,8 @@
 	"colours": {
 		"p1": [178, 58, 44],
 		"p2": [214, 166, 38],
+		"operator_skin": [222, 184, 150],
+		"operator_visor": [36, 36, 40],
 		"lamp_off": [34, 34, 34],
 		"lamp_amber": [255, 179, 0],
 		"lamp_green": [76, 175, 80],
@@ -40,6 +42,7 @@
 		"rug": [107, 74, 58],
 		"overlay_grid": [20, 20, 20],
 		"overlay_solid": [230, 60, 50],
-		"overlay_worked": [90, 220, 110]
+		"overlay_worked": [90, 220, 110],
+		"overlay_operator": [245, 245, 245]
 	}
 }

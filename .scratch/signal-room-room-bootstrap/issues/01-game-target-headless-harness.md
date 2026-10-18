@@ -1,6 +1,6 @@
 # 01: Game Target & headless Room harness
 
-Spec: [Signal Room spec 1: Room & bootstrap](../spec.md)
+Spec: [Signal Room spec 1: Room & bootstrap](../spec.md). Read: [Game Target & bootstrap](../spec/game-target.md), [Testing decisions](../spec/testing.md).
 Base branch: `feat/signal-room` (this game's main: branch off it, PR back into it, never into `main`)
 
 **What to build:** Signal Room exists as its own Game Target (ADR-0006) and runs. Launching it on desktop or in the

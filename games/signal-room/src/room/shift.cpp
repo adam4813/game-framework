@@ -29,6 +29,16 @@ std::expected<Shift, std::string> LoadShiftFile(const std::string& path) {
 		}
 		shift.inService.push_back(name.get<std::string>());
 	}
+
+	for (const auto& entry : doc->value("roster", nlohmann::json::array())) {
+		if (!entry.is_object() || !entry.value("spawn", nlohmann::json{}).is_string()
+			|| !entry.value("colour", nlohmann::json{}).is_string()) {
+			return std::unexpected(
+				std::format("Shift file {}: roster entries must be {{\"spawn\": name, \"colour\": token}}", path)
+			);
+		}
+		shift.roster.push_back({.spawn = entry.at("spawn"), .colour = entry.at("colour")});
+	}
 	return shift;
 }
 

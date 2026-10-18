@@ -4,10 +4,14 @@
 
 #include <spdlog/spdlog.h>
 
+#include "bindings.hpp"
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
 #include "layout.hpp"
 #include "layout_greybox.hpp"
+#include "movement_tuning.hpp"
+#include "operator_movement.hpp"
+#include "operator_spawn.hpp"
 #include "palette.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
@@ -50,6 +54,7 @@ void RoomScene::Load(flecs::world& world) {
 
 	roomRoot_ = world.entity("RoomRoot");
 	LoadRoom(world);
+	RegisterOperatorMovement(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
 	if (deferred) {
@@ -79,8 +84,18 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!catalogue) {
 		return std::unexpected(catalogue.error());
 	}
+	auto tuning = LoadMovementTuningFile(assets::ResolveAsset(world, kTuningFile));
+	if (!tuning) {
+		return std::unexpected(tuning.error());
+	}
+	auto bindings = LoadBindingsFile(assets::ResolveAsset(world, kBindingsFile));
+	if (!bindings) {
+		return std::unexpected(bindings.error());
+	}
 	world.set<Palette>(std::move(*palette));
 	world.set<GreyboxCatalogue>(std::move(*catalogue));
+	world.set<MovementTuning>(*tuning);
+	world.set<Bindings>(std::move(*bindings));
 
 	const auto shiftFile = ResolveGamePath(world, shiftPath);
 	const auto shift = LoadShiftFile(shiftFile);
@@ -95,6 +110,9 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	}
 
 	BuildLayoutGreybox(world, roomRoot_);
+	if (auto spawned = SpawnRoster(world, roomRoot_, shift->roster, shiftFile); !spawned) {
+		return spawned;
+	}
 	BuildRoomOverlays(world, roomRoot_);
 	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
 	return {};

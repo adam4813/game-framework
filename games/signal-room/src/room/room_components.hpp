@@ -55,6 +55,7 @@ struct RoomOverlays {
 	bool floorGrid{false};
 	bool solidCells{false};
 	bool workedSides{false};
+	bool operatorCircle{false};
 };
 
 // Tag on the floor's cell tiles built from the FloorGrid.

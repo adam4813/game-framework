@@ -7,7 +7,10 @@
 
 #include "engine/engine.hpp"
 #include "room/greybox_catalogue.hpp"
+#include "room/bindings.hpp"
 #include "room/layout.hpp"
+#include "room/movement_tuning.hpp"
+#include "room/operator_components.hpp"
 #include "room/palette.hpp"
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
@@ -19,7 +22,7 @@ namespace signal_room {
 namespace {
 
 // Every game component is registered here, before any system or load can reach it lazily (a lazy
-// registration inside a readonly multi-stage world crashes; see AGENTS.md).
+// registration inside a readonly multi-stage world crashes; see CODING_STANDARDS.md).
 void RegisterComponents(const flecs::world& world) {
 	world.component<glm::ivec2>("ivec2").member<int>("x").member<int>("y");
 	world.component<Sides>()
@@ -42,6 +45,7 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("floor_grid")
 		.member<bool>("solid_cells")
 		.member<bool>("worked_sides")
+		.member<bool>("operator_circle")
 		.add(EcsSingleton);
 	world.component<LayoutErrors>().add(EcsSingleton);
 	world.component<Palette>().add(EcsSingleton);
@@ -65,6 +69,28 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("solid")
 		.member<float>("height");
 	world.component<SpawnMarker>().member<glm::ivec2>("cell");
+
+	world.component<MovementTuning>()
+		.member<float>("walk_speed")
+		.member<float>("accel_time")
+		.member<float>("decel_time")
+		.member<float>("turn_time")
+		.member<float>("dash_multiplier")
+		.member<float>("dash_duration")
+		.member<float>("dash_cooldown")
+		.member<float>("radius")
+		.add(EcsSingleton);
+	world.component<Bindings>().add(EcsSingleton);
+	world.component<Operator>().member<std::string>("colour").member<float>("carry_speed");
+	world.component<OperatorActions>()
+		.member<glm::vec2>("move")
+		.member<bool>("dash")
+		.member<bool>("interact");
+	world.component<OperatorMotion>().member<glm::vec2>("velocity").member<float>("facing");
+	world.component<Dash>()
+		.member<glm::vec2>("direction")
+		.member<float>("time_left")
+		.member<float>("cooldown_left");
 }
 
 } // namespace
@@ -76,6 +102,9 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	RegisterComponents(world);
 	world.set<RoomState>({});
 	world.set<RoomOverlays>({});
+	// Defaults until the Room loads the tuning and bindings files.
+	world.set<MovementTuning>({});
+	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);
 
 	scene::RegisterScene<RoomSceneTag>(world, std::make_shared<RoomScene>());

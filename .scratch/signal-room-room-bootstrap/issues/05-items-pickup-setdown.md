@@ -1,6 +1,6 @@
 # 05: Items: pick up, carry & set down
 
-Spec: [Signal Room spec 1: Room & bootstrap](../spec.md)
+Spec: [Signal Room spec 1: Room & bootstrap](../spec.md). Read: [Targeting, pick-up & set-down](../spec/targeting-and-items.md), [Camera & greybox reads](../spec/greybox-and-camera.md), [Testing decisions](../spec/testing.md).
 Base branch: `feat/signal-room` (this game's main: branch off it, PR back into it, never into `main`)
 
 **What to build:** A placeholder Item waits on a Counter in Shift 1. Empty-handed at that Counter, the player presses

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "engine/engine.hpp"
+#include "movement_tuning.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
@@ -59,7 +60,23 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					bool changed = ui.Checkbox("Floor grid", overlays.floorGrid);
 					changed = ui.Checkbox("Solid cells", overlays.solidCells) || changed;
 					changed = ui.Checkbox("Worked sides", overlays.workedSides) || changed;
+					changed = ui.Checkbox("Operator circle", overlays.operatorCircle) || changed;
 					if (changed) {
+						BuildRoomOverlays(world, roomRoot);
+					}
+				}
+
+				if (ui.CollapsingHeader("Movement")) {
+					// Live and unsaved: Reload re-reads the tuning file.
+					auto& tuning = world.get_mut<MovementTuning>();
+					ui.SliderFloat("Walk speed (m/s)", tuning.walkSpeed, 1.0F, 10.0F);
+					ui.SliderFloat("Ramp up (s)", tuning.accelTime, 0.01F, 0.5F);
+					ui.SliderFloat("Ramp down (s)", tuning.decelTime, 0.01F, 0.5F);
+					ui.SliderFloat("Turn time (s)", tuning.turnTime, 0.01F, 0.5F);
+					ui.SliderFloat("Dash multiplier", tuning.dashMultiplier, 1.0F, 4.0F);
+					ui.SliderFloat("Dash duration (s)", tuning.dashDuration, 0.05F, 0.6F);
+					ui.SliderFloat("Dash cooldown (s)", tuning.dashCooldown, 0.0F, 2.0F);
+					if (ui.SliderFloat("Operator radius (m)", tuning.radius, 0.1F, 0.49F)) {
 						BuildRoomOverlays(world, roomRoot);
 					}
 				}

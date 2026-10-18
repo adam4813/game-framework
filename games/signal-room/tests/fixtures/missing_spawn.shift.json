@@ -1,0 +1,6 @@
+{
+	"id": "missing_spawn",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1"],
+	"roster": [{"spawn": "spawn_9", "colour": "p1"}]
+}

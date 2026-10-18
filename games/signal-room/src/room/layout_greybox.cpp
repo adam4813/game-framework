@@ -22,35 +22,6 @@ glm::vec3 FootprintCentre(const FloorGrid& grid, const glm::ivec2 cell, const gl
 	return grid.origin + glm::vec3{centre.x, 0.0F, centre.y};
 }
 
-// Add the model's parts as children of `owner` (which stands at the footprint centre). `fit` scales
-// offsets and sizes per axis: the footprint size and height for fitted models, 1 otherwise.
-void BuildModel(const flecs::world& world, const flecs::entity owner, const GreyboxModel& model, const glm::vec3 fit) {
-	std::unordered_map<std::string, flecs::entity> named;
-	for (const auto& part : model.parts) {
-		auto e = world.entity().child_of(part.parent.empty() ? owner : named.at(part.parent));
-		if (!part.name.empty()) {
-			e.set_name(part.name.c_str());
-			named.emplace(part.name, e);
-		}
-		const glm::vec3 size = part.size * fit;
-		spatial::Transform transform{.position = part.offset * fit, .rotation = part.rotation};
-		switch (part.shape) {
-		case PartShape::Cube: e.set<render::CubePrimitive>({.size = size}); break;
-		case PartShape::Sphere:
-			e.set<render::SpherePrimitive>({.radius = 0.5F});
-			transform.scale = size;
-			break;
-		case PartShape::Capsule:
-			e.set<render::CapsulePrimitive>({.radius = size.x * 0.5F, .height = std::max(0.0F, size.y - size.x)});
-			break;
-		}
-		e.set<spatial::Transform>(transform).set<render::Material>({.color = part.colour});
-		if (!part.visible) {
-			e.disable();
-		}
-	}
-}
-
 glm::vec3 FitFor(const GreyboxModel& model, const FloorGrid& grid, const glm::ivec2 footprint, const float height) {
 	if (!model.fitFootprint) {
 		return glm::vec3{1.0F};
@@ -107,6 +78,41 @@ void BuildWall(const flecs::entity e, const FloorGrid& grid, const Wall& wall, c
 
 } // namespace
 
+// A placement's owner stands at its footprint centre; for fitted models `fit` is the footprint size
+// and height.
+void BuildGreyboxModel(
+	const flecs::world& world,
+	const flecs::entity owner,
+	const GreyboxModel& model,
+	const glm::vec3 fit,
+	const core::Rgba identity
+) {
+	std::unordered_map<std::string, flecs::entity> named;
+	for (const auto& part : model.parts) {
+		auto e = world.entity().child_of(part.parent.empty() ? owner : named.at(part.parent));
+		if (!part.name.empty()) {
+			e.set_name(part.name.c_str());
+			named.emplace(part.name, e);
+		}
+		const glm::vec3 size = part.size * fit;
+		spatial::Transform transform{.position = part.offset * fit, .rotation = part.rotation};
+		switch (part.shape) {
+		case PartShape::Cube: e.set<render::CubePrimitive>({.size = size}); break;
+		case PartShape::Sphere:
+			e.set<render::SpherePrimitive>({.radius = 0.5F});
+			transform.scale = size;
+			break;
+		case PartShape::Capsule:
+			e.set<render::CapsulePrimitive>({.radius = size.x * 0.5F, .height = std::max(0.0F, size.y - size.x)});
+			break;
+		}
+		e.set<spatial::Transform>(transform).set<render::Material>({.color = part.identity ? identity : part.colour});
+		if (!part.visible) {
+			e.disable();
+		}
+	}
+}
+
 void BuildLayoutGreybox(const flecs::world& world, const flecs::entity parent) {
 	const auto& grid = world.get<FloorGrid>();
 	const auto& catalogue = world.get<GreyboxCatalogue>();
@@ -118,19 +124,19 @@ void BuildLayoutGreybox(const flecs::world& world, const flecs::entity parent) {
 		e.set<spatial::Transform>({.position = FootprintCentre(grid, s.cell, s.footprint)});
 		const auto& model = *catalogue.stations.Get(s.kind);
 		const auto& look = e.has<Tarped>() ? tarp : model;
-		BuildModel(world, e, look, FitFor(look, grid, s.footprint, model.height));
+		BuildGreyboxModel(world, e, look, FitFor(look, grid, s.footprint, model.height));
 	}
 
 	for (const auto& [e, c] : PlacementsOf<Counter>(world, parent)) {
 		e.set<spatial::Transform>({.position = grid.CellCentre(c.cell)});
-		BuildModel(world, e, catalogue.counter, FitFor(catalogue.counter, grid, {1, 1}, catalogue.counter.height));
+		BuildGreyboxModel(world, e, catalogue.counter, FitFor(catalogue.counter, grid, {1, 1}, catalogue.counter.height));
 	}
 
 	for (const auto& [e, p] : PlacementsOf<Prop>(world, parent)) {
 		const glm::ivec2 footprint = AnchorFootprint(p);
 		e.set<spatial::Transform>({.position = FootprintCentre(grid, p.cell, footprint)});
 		const auto& model = *catalogue.props.Get(p.kind);
-		BuildModel(world, e, model, FitFor(model, grid, footprint, p.height > 0.0F ? p.height : model.height));
+		BuildGreyboxModel(world, e, model, FitFor(model, grid, footprint, p.height > 0.0F ? p.height : model.height));
 	}
 
 	for (const auto& [e, w] : PlacementsOf<Wall>(world, parent)) {
