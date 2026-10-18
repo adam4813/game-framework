@@ -122,3 +122,7 @@ of scope.
 - **Depends on:** spec 2 and the synth stream. Sounds for Faults land once spec 4 exists.
 - **Exit:** every palette sound is synthesised in play, on both desktop and web.
 - **Prompt:** `Signal Room spec 6 (Procedural audio). Read .scratch/signal-room/map.md and issues 01, 04, 06, 12, 13 (and research/procedural-audio branch). Boundary as in issue 13's Spec 6 packet.`
+
+## Comments
+
+- 2026-10-18: Spec 1 written: [Signal Room spec 1: Room & bootstrap](../../signal-room-room-bootstrap/spec.md) (`ready-for-agent`).
