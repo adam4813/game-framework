@@ -73,7 +73,7 @@ camera stays dead still, and the shake offset from Operators & Swap is dropped. 
 **Camera framing check:** the fixed shot at ~55° pitch looking north fits the 13×9 floor with the north wall, window and
 beacon in view. Nothing in the slice Layout needed a cutaway.
 
-**Prototype (primary source):** branch `prototype/greybox-readability` (commit `dc54df1`, local, not merged), file
+**Prototype (primary source):** branch `prototype/greybox-readability` (local, not merged; restacked with `feat/signal-room`), file
 `.scratch/signal-room/prototypes/greybox-readability.prototype.html`. Variant D is the locked synthesis; A–C are kept
 for reference.
 

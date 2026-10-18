@@ -66,7 +66,7 @@ fractions ("7.215") were too confusing under pressure.
   felt right in the prototype), then each Radio that comes back online plays the pull-in whistle into its tone.
 - Web latency (+43 ms) was not re-judged for the receiver model.
 
-**Prototype (primary source):** branch `prototype/radio-spectrum` (commit `9b6fd14`, local, not merged), file
+**Prototype (primary source):** branch `prototype/radio-spectrum` (local, not merged; restacked with `feat/signal-room`), file
 `.scratch/signal-room/prototypes/radio-spectrum.prototype.html`. It still shows the old preset/spectrum model.
 
 Ripples: comments added to [Routine Cable route & station verbs](01-routine-cable-route.md),
