@@ -1,5 +1,5 @@
 {
-	"comment": "Room feel tuning, re-read on every Room load. The Room panel edits it live without saving. Times are seconds, distances metres, angles degrees. The dash cooldown starts when the dash ends. Targeting: the ray picks the cell ray_length ahead; failing that, the nearest workable thing within cone_range and cone_half_angle of facing. The Target pulses brighten_rate times a second, blending up to brighten_strength (0-1) toward the Operator's colour lightened brighten_lift (0-1) toward white. A set-down puffs dust_puff.count particles off the Counter at speed m/s, each starting size m in radius and living lifetime s, fanned spread (0 is a column) from straight up.",
+	"comment": "Room feel tuning, re-read on every Room load. The Room panel edits it live without saving. Times are seconds, distances metres, angles degrees. The dash cooldown starts when the dash ends. Targeting: the ray picks the cell ray_length ahead; failing that, the nearest workable thing within cone_range and cone_half_angle of facing. The Target pulses brighten_rate times a second, blending up to brighten_strength (0-1) toward the Operator's colour lightened brighten_lift (0-1) toward white. The Antenna Coupler keeps every Radio dark for coupler_reset s after it disconnects (keep it under 0.5). A set-down puffs dust_puff.count particles off the Counter at speed m/s, each starting size m in radius and living lifetime s, fanned spread (0 is a column) from straight up.",
 	"movement": {
 		"walk_speed": 4.5,
 		"accel_time": 0.08,
@@ -17,6 +17,9 @@
 		"brighten_rate": 1.5,
 		"brighten_strength": 0.5,
 		"brighten_lift": 0.35
+	},
+	"coupler": {
+		"coupler_reset": 0.4
 	},
 	"dust_puff": {
 		"count": 14,

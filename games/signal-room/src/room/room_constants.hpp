@@ -23,6 +23,9 @@ inline constexpr const char* kFrequencyTableFile = "frequencies.json";
 inline constexpr const char* kTuningFile = "tuning.json";
 inline constexpr const char* kBindingsFile = "bindings.json";
 
+// The Station kind that copies Cards from a frequency (the Radio): carries a Radio component when in service.
+inline constexpr const char* kRadioKind = "radio";
+
 // The floor: a grout slab under inset cell tiles (colours come from the catalogue's "floor").
 inline constexpr float kFloorThickness = 0.1F;
 inline constexpr float kFloorTileInset = 0.04F;

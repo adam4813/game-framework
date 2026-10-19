@@ -13,6 +13,7 @@
 #include "room/layout.hpp"
 #include "room/operator_components.hpp"
 #include "room/palette.hpp"
+#include "room/radio_components.hpp"
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
 #include "room/room_tuning.hpp"
@@ -105,6 +106,7 @@ void RegisterComponents(const flecs::world& world) {
 		.member<float>("size")
 		.member<float>("spread")
 		.add(EcsSingleton);
+	world.component<CouplerTuning>().member<float>("coupler_reset").add(EcsSingleton);
 	world.component<Bindings>().add(EcsSingleton);
 	world.component<ItemCatalogue>().add(EcsSingleton);
 	world.component<Operator>().member<std::string>("colour");
@@ -142,6 +144,11 @@ void RegisterComponents(const flecs::world& world) {
 		.constant("OtherHolder", RefusalReason::OtherHolder)
 		.constant("CounterFull", RefusalReason::CounterFull);
 	world.component<Refusal>();
+	world.component<Radio>().member<std::string>("frequency").member<bool>("online");
+	world.component<AntennaCoupler>().member<flecs::entity_t>("coupled").member<float>("reset_left").add(EcsSingleton);
+	world.component<CouplerEngaged>();
+	world.component<CouplerReleased>();
+	world.component<RadioOnline>();
 
 	world.component<TicketState>().constant("StandBy", TicketState::StandBy).constant("OnAir", TicketState::OnAir);
 	world.component<ShiftPhase>().constant("Running", ShiftPhase::Running).constant("Ended", ShiftPhase::Ended);
@@ -195,6 +202,8 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	world.set<MovementTuning>({});
 	world.set<TargetingTuning>({});
 	world.set<DustPuffTuning>({});
+	world.set<CouplerTuning>({});
+	world.set<AntennaCoupler>({});
 	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);
 

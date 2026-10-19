@@ -3,6 +3,8 @@
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
 #include "greybox_model.hpp"
+#include "radio_components.hpp"
+#include "radio_systems.hpp"
 #include "placements.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
@@ -86,7 +88,13 @@ void BuildLayoutGreybox(const flecs::world& world, const flecs::entity parent) {
 		e.set<spatial::Transform>({.position = FootprintCentre(grid, s.cell, s.footprint)});
 		const auto& model = *catalogue.stations.Get(s.kind);
 		const auto& look = e.has<Tarped>() ? tarp : model;
-		BuildGreyboxModel(world, e, look, FitFor(look, grid, s.footprint, model.height));
+		// A Radio's identity parts (body, display) take its frequency's colour.
+		core::Rgba identity{};
+		if (e.has<Radio>()) {
+			const auto* colour = FrequencyBodyColour(world, e.get<Radio>().frequency);
+			identity = colour == nullptr ? identity : *colour;
+		}
+		BuildGreyboxModel(world, e, look, FitFor(look, grid, s.footprint, model.height), identity);
 	}
 
 	for (const auto& [e, c] : PlacementsOf<Counter>(world, parent)) {

@@ -110,6 +110,10 @@ std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path) {
 		!read) {
 		return std::unexpected(read.error());
 	}
+	auto& coupler = tuning.coupler;
+	if (auto read = ReadFields(*doc, "coupler", {{"coupler_reset", &coupler.couplerReset}}, path); !read) {
+		return std::unexpected(read.error());
+	}
 	return tuning;
 }
 

@@ -116,6 +116,10 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					ui.SliderFloat("Spread", tuning.spread, 0.0F, 2.0F);
 				}
 
+				if (ui.CollapsingHeader("Antenna Coupler")) {
+					ui.SliderFloat("Coupler reset (s)", world.get_mut<CouplerTuning>().couplerReset, 0.05F, 0.49F);
+				}
+
 				if (ui.CollapsingHeader("Transforms")) {
 					// Live and unsaved: Reload re-reads the Station catalogue file.
 					auto& catalogue = world.get_mut<StationCatalogue>();

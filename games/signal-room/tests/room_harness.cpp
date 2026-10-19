@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string_view>
+#include <vector>
 
 #include "engine/engine.hpp"
 #include "null_platform.hpp"
@@ -18,11 +19,15 @@ RoomHarness::RoomHarness() :
 	world.import<SignalRoomModule>();
 
 	// The harness owns InputState: stop InputPoll overwriting it from the (keyless) platform.
-	world.query_builder().with(flecs::System).build().each([](const flecs::entity system) {
+	std::vector<flecs::entity> pollers;
+	world.query_builder().with(flecs::System).build().each([&](const flecs::entity system) {
 		if (const char* name = system.name(); name && std::string_view{name} == "InputPoll") {
-			system.disable();
+			pollers.push_back(system);
 		}
 	});
+	for (const auto poller : pollers) {
+		poller.disable();
+	}
 }
 
 RoomHarness::~RoomHarness() = default;

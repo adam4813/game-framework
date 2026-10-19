@@ -2,6 +2,7 @@
 	"id": "two_items",
 	"name": "Two Items",
 	"layout": "layouts/bunker.layout.json",
+	"radios": {"Radio1": "7.0"},
 	"in_service": ["Radio1", "Decoder", "Telex"],
 	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
 	"counter_items": {"CounterSouthLeft": "placeholder", "CounterSouthRight": "placeholder"}

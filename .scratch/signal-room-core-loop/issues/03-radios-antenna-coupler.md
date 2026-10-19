@@ -13,18 +13,18 @@ traffic comes back. After this ticket the full route plays: Radio → Decoder �
 
 **Blocked by:** 02 (Stations, Transforms & Jobs).
 
-**Status:** ready-for-agent
+**Status:** done (follow-ups: desk-only Target glow is ticket 13; lamp blink states are ticket 07; Debug-only iterator-leak assert in Targeting.FacingTheTelexFromItsUnworkedSouthSideGivesNoTarget is untriaged)
 
-- [ ] The Antenna Coupler singleton (`coupled`, `reset_left`) and a derived, reflected online state per Radio.
-- [ ] Engage on a Hold start at an online Radio; disconnect on copy complete or Hold end; `coupler_reset` (tuning,
+- [x] The Antenna Coupler singleton (`coupled`, `reset_left`) and a derived, reflected online state per Radio.
+- [x] Engage on a Hold start at an online Radio; disconnect on copy complete or Hold end; `coupler_reset` (tuning,
       0.4 s, live in the panel) before Radios come back. A Hold at a dark Radio refuses. A frequency leaving On Air
       mid-Hold does not stop the copy.
-- [ ] The Radio's copy uses the generic `hold` verb (∅ → `raw_card`, 2.0 s), keeps progress when paused, and the card
+- [x] The Radio's copy uses the generic `hold` verb (∅ → `raw_card`, 2.0 s), keeps progress when paused, and the card
       takes the Radio's frequency. The Radio can't copy again until the card is picked up.
-- [ ] Greybox: `body` and the riser display in the frequency colour, dimmed while dark or resetting; the display shows
+- [x] Greybox: `body` and the riser display in the frequency colour, dimmed while dark or resetting; the display shows
       the frequency label in that colour. (Lamp blink states are ticket 07.)
-- [ ] Events: `CouplerEngaged`, `CouplerReleased`, `RadioOnline`.
-- [ ] Harness tests:
+- [x] Events: `CouplerEngaged`, `CouplerReleased`, `RadioOnline`.
+- [x] Harness tests:
   - with no On Air Ticket, a Hold at Radio1 refuses and makes no card;
   - with a 7.0 Ticket On Air, Holding 2.0 s gives a 7.0 Raw Card on Radio1;
   - releasing at 1.0 s and Holding again for 1.0 s finishes the card;
@@ -32,7 +32,7 @@ traffic comes back. After this ticket the full route plays: Radio → Decoder �
     are offline for 0.4 s after the copy, then both online;
   - a copy finishes even if its Ticket is cleared mid-Hold;
   - the full route (copy → Decoder → Telex) on Shift 1 clears the Ticket.
-- [ ] Runtime: desktop build; play the full route on Shift 1 through the Remote API; screenshot the coloured Radio and
+- [x] Runtime: desktop build; play the full route on Shift 1 through the Remote API; screenshot the coloured Radio and
       striped card. No asserts.
 
 ## Comments

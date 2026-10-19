@@ -39,11 +39,18 @@ struct DustPuffTuning {
 	float spread{0.9F};    // how far the burst fans out from straight up (0 is a column)
 };
 
+// World singleton loaded from the tuning file's "coupler" section: the Antenna Coupler. Edited live by the Room
+// panel like MovementTuning.
+struct CouplerTuning {
+	float couplerReset{0.4F}; // s every Radio stays dark after the coupler disconnects (keep under 0.5)
+};
+
 // Everything the tuning file holds, one singleton per section.
 struct RoomTuning {
 	MovementTuning movement;
 	TargetingTuning targeting;
 	DustPuffTuning dustPuff;
+	CouplerTuning coupler;
 };
 
 // Parse the tuning file; a missing section or field keeps its default. Every field must be a positive

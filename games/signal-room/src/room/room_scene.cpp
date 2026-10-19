@@ -18,6 +18,7 @@
 #include "operator_spawn.hpp"
 #include "operator_targeting.hpp"
 #include "palette.hpp"
+#include "radio_systems.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
@@ -69,6 +70,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterOperatorInput(world, roomRoot_);
 	RegisterOperatorMovement(world, roomRoot_);
 	RegisterStationHolding(world, roomRoot_);
+	RegisterRadioSystems(world, roomRoot_);
 	RegisterOperatorTargeting(world, roomRoot_);
 	RegisterItemInteraction(world, roomRoot_);
 	RegisterStationSystems(world, roomRoot_);
@@ -137,6 +139,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<MovementTuning>(tuning->movement);
 	world.set<TargetingTuning>(tuning->targeting);
 	world.set<DustPuffTuning>(tuning->dustPuff);
+	world.set<CouplerTuning>(tuning->coupler);
 	world.set<Bindings>(std::move(*bindings));
 
 	const auto shiftFile = ResolveGamePath(world, shiftPath);
@@ -156,6 +159,9 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	}
 
 	AddStationJobs(world, roomRoot_);
+	if (auto radios = AssignRadios(world, roomRoot_, *shift, shiftFile); !radios) {
+		return radios;
+	}
 	BuildLayoutGreybox(world, roomRoot_);
 	if (auto spawned = SpawnRoster(world, roomRoot_, shift->roster, shiftFile); !spawned) {
 		return spawned;

@@ -8,6 +8,8 @@
 #include "item_placement.hpp"
 #include "item_spawn.hpp"
 #include "operator_components.hpp"
+#include "radio_components.hpp"
+#include "radio_systems.hpp"
 #include "room_components.hpp"
 #include "station_catalogue.hpp"
 #include "ticket_simulation.hpp"
@@ -65,7 +67,10 @@ void Complete(
 	const StationTransform& transform,
 	const std::vector<flecs::entity>& inputs
 ) {
-	const std::string frequency = InheritedFrequency(inputs);
+	std::string frequency = InheritedFrequency(inputs);
+	if (frequency.empty() && station.has<Radio>()) {
+		frequency = station.get<Radio>().frequency;
+	}
 	for (const auto input : inputs) {
 		input.destruct();
 	}
@@ -202,11 +207,22 @@ void PressEmptyHanded(
 		Refuse(world, op, station, RefusalReason::OtherHolder);
 		return;
 	}
+	// A dark Radio refuses; a lit one couples the antenna as the Hold starts.
+	const bool radio = station.has<Radio>();
+	// `online` is last frame's; the live coupler also stops a second Radio engaging in the same frame.
+	const auto coupled = world.get<AntennaCoupler>().coupled;
+	if (radio && (!station.get<Radio>().online || (coupled != 0 && coupled != station.id()))) {
+		Refuse(world, op, station, RefusalReason::NothingToDo);
+		return;
+	}
 	if (job.phase == JobPhase::Idle) {
 		job.phase = JobPhase::Running;
 		job.transform = transform->id;
 	}
 	StartHold(op, station);
+	if (radio) {
+		EngageCoupler(world, station);
+	}
 }
 
 } // namespace
@@ -256,11 +272,15 @@ void AdvanceJob(const flecs::world& world, const flecs::entity station, const fl
 }
 
 void AddStationJobs(const flecs::world& world, const flecs::entity parent) {
+	std::vector<flecs::entity> stations;
 	world.query_builder<const Station>()
 		.with(flecs::ChildOf, parent)
 		.without<Tarped>()
 		.build()
-		.each([](const flecs::entity station, const Station&) { station.set<Job>({}); });
+		.each([&](const flecs::entity station, const Station&) { stations.push_back(station); });
+	for (const auto station : stations) {
+		station.set<Job>({});
+	}
 }
 
 } // namespace signal_room

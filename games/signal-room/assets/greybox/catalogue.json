@@ -23,7 +23,7 @@
 	},
 	"stations": {
 		"radio": {
-			"comment": "A set on a wall bench: body (frequency colour from spec 2), rear riser with the frequency display and progress bar, antenna whip, traffic lamp on a post.",
+			"comment": "A set on a wall bench: body and display in the Radio's duller body colour (identity); the bright frequency colour is the label and the lit lamp, rear riser with the progress bar, antenna whip, traffic lamp on a post.",
 			"height": 1.1,
 			"parts": [
 				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 0.8], "colour": "wood"},
@@ -31,9 +31,10 @@
 				{"shape": "cube", "offset": [0.89, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [-0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
-				{"name": "body", "shape": "cube", "offset": [-0.25, 0.83, -0.05], "size": [1.0, 0.42, 0.5], "colour": "radio_body"},
+				{"name": "body", "shape": "cube", "offset": [-0.25, 0.83, -0.05], "size": [1.0, 0.42, 0.5], "colour": "identity"},
 				{"shape": "cube", "offset": [-0.25, 0.83, -0.34], "size": [0.05, 0.42, 0.05], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [-0.25, 1.22, -0.34], "size": [0.7, 0.36, 0.05], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
+				{"name": "display", "shape": "cube", "offset": [-0.25, 1.27, -0.31], "size": [0.4, 0.15, 0.02], "rotation": [-0.35, 0, 0], "colour": "identity"},
 				{"name": "riser_bar", "shape": "cube", "offset": [-0.25, 1.12, -0.3], "size": [0.6, 0.07, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
 				{"name": "antenna", "shape": "capsule", "offset": [-0.7, 1.52, -0.25], "size": [0.03, 0.9, 0.03], "colour": "antenna"},
 				{"shape": "cube", "offset": [0.18, 1.29, -0.34], "size": [0.04, 0.5, 0.04], "colour": "metal_dark"},
