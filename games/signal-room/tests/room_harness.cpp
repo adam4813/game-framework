@@ -42,6 +42,16 @@ std::expected<void, std::string> RoomHarness::LoadShiftWithSeed(const std::strin
 	return LoadShift(shiftPath);
 }
 
+std::expected<void, std::string> RoomHarness::LoadShiftWithModifiers(
+	const std::string_view shiftPath,
+	const std::vector<ModifierForce>& forced,
+	const std::string_view catalogueFile
+) {
+	World().set<ModifierToggle>({.forced = forced});
+	World().get_mut<RoomState>().modifierCataloguePath = std::string{catalogueFile};
+	return LoadShift(shiftPath);
+}
+
 std::expected<void, std::string> RoomHarness::Reload() {
 	ReloadRoom(World());
 	return LoadResult();

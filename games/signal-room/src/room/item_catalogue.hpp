@@ -4,6 +4,7 @@
 #include <string>
 
 #include "engine/core/core.hpp"
+#include "modifiers.hpp"
 
 namespace signal_room {
 
@@ -27,6 +28,10 @@ struct ItemCatalogue : engine::core::Registry<ItemKind> {};
 // "tilt_to_camera": false, "frequency_stripe": false}}}. Every shape must be one of `greybox`'s Item models, and carry_speed a
 // positive number. The error names the file and the bad Item.
 [[nodiscard]] std::expected<ItemCatalogue, std::string>
-LoadItemCatalogueFile(const std::string& path, const GreyboxCatalogue& greybox);
+LoadItemCatalogueFile(
+	const std::string& path,
+	const GreyboxCatalogue& greybox,
+	const ActiveModifiers& modifiers = {}
+);
 
 } // namespace signal_room

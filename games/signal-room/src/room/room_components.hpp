@@ -63,6 +63,7 @@ struct FloorGrid {
 struct RoomState {
 	std::string shiftPath;
 	std::string loadError;
+	std::string modifierCataloguePath; // empty: the shipped catalogue; tests point it at a fixture
 };
 
 // World singleton: which Room panel debug overlays are drawn. Kept across Reloads.

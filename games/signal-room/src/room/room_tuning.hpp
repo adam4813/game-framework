@@ -3,6 +3,8 @@
 #include <expected>
 #include <string>
 
+#include "modifiers.hpp"
+
 namespace signal_room {
 
 // World singleton loaded from the tuning file's "movement" section: how Operators walk, turn, dash
@@ -56,6 +58,6 @@ struct RoomTuning {
 // Parse the tuning file; a missing section or field keeps its default. Every field must be a positive
 // number, except the 0-1 fractions brighten_strength and brighten_lift. The error names the file and
 // the bad field.
-[[nodiscard]] std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path);
+[[nodiscard]] std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path, const ActiveModifiers& modifiers = {});
 
 } // namespace signal_room

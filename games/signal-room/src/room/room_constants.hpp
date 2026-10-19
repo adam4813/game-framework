@@ -22,6 +22,8 @@ inline constexpr const char* kFrequencyTableFile = "frequencies.json";
 // Feel tuning and keyboard bindings (asset-relative), re-read on every Room load.
 inline constexpr const char* kTuningFile = "tuning.json";
 inline constexpr const char* kBindingsFile = "bindings.json";
+// Modifier catalogue (asset-relative), re-read on every Room load.
+inline constexpr const char* kModifierCatalogueFile = "modifiers.json";
 
 // The Station kind that copies Cards from a frequency (the Radio): carries a Radio component when in service.
 inline constexpr const char* kRadioKind = "radio";

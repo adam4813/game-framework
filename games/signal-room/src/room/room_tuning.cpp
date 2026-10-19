@@ -49,8 +49,8 @@ ReadFields(const json& doc, const char* section, const std::initializer_list<Fie
 
 } // namespace
 
-std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path) {
-	const auto doc = ReadJsonFile(path, "Tuning");
+std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path, const ActiveModifiers& modifiers) {
+	const auto doc = ReadGameDocument(path, "Tuning", "tuning", modifiers);
 	if (!doc) {
 		return std::unexpected(doc.error());
 	}

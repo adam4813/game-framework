@@ -12,8 +12,8 @@ using nlohmann::json;
 namespace signal_room {
 
 std::expected<ItemCatalogue, std::string>
-LoadItemCatalogueFile(const std::string& path, const GreyboxCatalogue& greybox) {
-	const auto doc = ReadJsonFile(path, "Item catalogue");
+LoadItemCatalogueFile(const std::string& path, const GreyboxCatalogue& greybox, const ActiveModifiers& modifiers) {
+	const auto doc = ReadGameDocument(path, "Item catalogue", "items", modifiers);
 	if (!doc) {
 		return std::unexpected(doc.error());
 	}

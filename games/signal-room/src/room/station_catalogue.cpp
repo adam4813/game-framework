@@ -114,8 +114,8 @@ std::expected<StationTransform, std::string> ReadTransform(const json& entry, co
 } // namespace
 
 std::expected<StationCatalogue, std::string>
-LoadStationCatalogueFile(const std::string& path, const ItemCatalogue& items) {
-	const auto doc = ReadJsonFile(path, "Station catalogue");
+LoadStationCatalogueFile(const std::string& path, const ItemCatalogue& items, const ActiveModifiers& modifiers) {
+	const auto doc = ReadGameDocument(path, "Station catalogue", "stations", modifiers);
 	if (!doc) {
 		return std::unexpected(doc.error());
 	}

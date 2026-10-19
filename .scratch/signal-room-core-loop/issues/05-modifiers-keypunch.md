@@ -11,7 +11,7 @@ into a Raw Card with a 1.5 s Hold) and `telex_autostamp` (placing a Decoded Card
 
 **Blocked by:** 03 (Radios & the Antenna Coupler).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] A Modifier catalogue data file (id → `name`, `description`, `overrides` of `{doc, path, set}`), and the Shift
       file's `modifiers` list.

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "engine/engine.hpp"
+#include "modifiers.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
@@ -83,6 +84,28 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					);
 					const bool ended = world.get<ShiftWindow>().phase == ShiftPhase::Ended;
 					ui.Text(ended ? std::format("Stars: {}", score.stars) : std::string{"Stars: (at the hard stop)"});
+				}
+
+				if (world.has<ModifierCatalogue>() && ui.CollapsingHeader("Modifiers")) {
+					const auto& applied = world.get<AppliedModifiers>().ids;
+					ui.Text(std::format("Applied: {}", applied.empty() ? "(none)" : applied));
+					// Click to cycle Shift default -> forced on -> forced off. Takes effect on Reload.
+					auto& forced = world.get_mut<ModifierToggle>().forced;
+					for (const auto& id : world.get<ModifierCatalogue>().Ids()) {
+						const auto it = std::ranges::find(forced, id, &ModifierForce::id);
+						const char* label = it == forced.end() ? "Shift default" : (it->on ? "Forced on" : "Forced off");
+						if (ui.Button(std::format("{}: {}", id, label))) {
+							if (it == forced.end()) {
+								forced.push_back({.id = id, .on = true});
+							} else if (it->on) {
+								it->on = false;
+							} else {
+								forced.erase(it);
+							}
+						}
+						ui.Tooltip(world.get<ModifierCatalogue>().items.at(id).description);
+					}
+					ui.Text("Reload to apply");
 				}
 
 				if (ui.CollapsingHeader("Overlays")) {

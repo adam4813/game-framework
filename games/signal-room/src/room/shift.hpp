@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "modifiers.hpp"
 #include "ticket_rules.hpp"
 
 namespace signal_room {
@@ -64,7 +65,7 @@ struct Shift {
 };
 
 // Parse a Shift file. The error names the file and what was wrong with it.
-[[nodiscard]] std::expected<Shift, std::string> LoadShiftFile(const std::string& path);
+[[nodiscard]] std::expected<Shift, std::string> LoadShiftFile(const std::string& path, const ActiveModifiers& modifiers = {});
 
 // Check a Shift's tiers and frequencies against the rules and the frequency table, and that every frequency
 // the schedule uses is on an in-service Radio. The error names the file and the entry.

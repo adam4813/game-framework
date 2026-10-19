@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "engine/core/core.hpp"
+#include "modifiers.hpp"
 
 namespace signal_room {
 
@@ -49,6 +50,6 @@ struct StationCatalogue : engine::core::Registry<StationKind> {};
 // error names the file and the kind and Transform: an unknown Item id or verb, a missing or
 // non-positive number, or two Transforms of one kind sharing an input set.
 [[nodiscard]] std::expected<StationCatalogue, std::string>
-LoadStationCatalogueFile(const std::string& path, const ItemCatalogue& items);
+LoadStationCatalogueFile(const std::string& path, const ItemCatalogue& items, const ActiveModifiers& modifiers = {});
 
 } // namespace signal_room

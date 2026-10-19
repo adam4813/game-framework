@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "engine/core/core.hpp"
+#include "modifiers.hpp"
 #include "palette.hpp"
 
 namespace signal_room {
@@ -40,7 +41,7 @@ struct TicketRules {
 };
 
 // Parse the ticket rules file. The error names the file and the bad entry.
-[[nodiscard]] std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& path);
+[[nodiscard]] std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& path, const ActiveModifiers& modifiers = {});
 
 // One frequency: its label ("7.0") and the palette token of its colour.
 struct Frequency {

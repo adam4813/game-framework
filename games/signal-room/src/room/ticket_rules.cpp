@@ -53,8 +53,8 @@ std::expected<TierRule, std::string> ReadTier(const std::string& id, const json&
 
 } // namespace
 
-std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& path) {
-	const auto doc = ReadJsonFile(path, "Ticket rules");
+std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& path, const ActiveModifiers& modifiers) {
+	const auto doc = ReadGameDocument(path, "Ticket rules", "tickets", modifiers);
 	if (!doc) {
 		return std::unexpected(doc.error());
 	}

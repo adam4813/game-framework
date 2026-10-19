@@ -11,6 +11,7 @@
 #include "room/item_catalogue.hpp"
 #include "room/item_components.hpp"
 #include "room/layout.hpp"
+#include "room/modifiers.hpp"
 #include "room/operator_components.hpp"
 #include "room/palette.hpp"
 #include "room/radio_components.hpp"
@@ -57,6 +58,9 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("operator_circle")
 		.member<bool>("targeting_reach")
 		.add(EcsSingleton);
+	world.component<ModifierToggle>().add(EcsSingleton);
+	world.component<AppliedModifiers>().member<std::string>("ids").add(EcsSingleton);
+	world.component<ModifierCatalogue>().add(EcsSingleton);
 	world.component<LayoutErrors>().add(EcsSingleton);
 	world.component<Palette>().add(EcsSingleton);
 	world.component<GreyboxCatalogue>().add(EcsSingleton);
@@ -211,6 +215,8 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	RegisterComponents(world);
 	world.set<RoomState>({});
 	world.set<RoomOverlays>({});
+	world.set<ModifierToggle>({});
+	world.set<AppliedModifiers>({});
 	world.set<SeedPin>({});
 	// Defaults until the Room loads the tuning and bindings files.
 	world.set<MovementTuning>({});

@@ -1,6 +1,9 @@
 #include "room_scene.hpp"
 
 #include <filesystem>
+#include <format>
+#include <string>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -13,6 +16,7 @@
 #include "item_spawn.hpp"
 #include "layout.hpp"
 #include "layout_greybox.hpp"
+#include "modifiers.hpp"
 #include "operator_input.hpp"
 #include "operator_movement.hpp"
 #include "operator_spawn.hpp"
@@ -42,6 +46,14 @@ namespace {
 // Shift and Layout paths are asset-relative; an absolute path (test fixtures) is used as-is.
 std::string ResolveGamePath(const flecs::world& world, const std::string& path) {
 	return std::filesystem::path{path}.is_absolute() ? path : assets::ResolveAsset(world, path);
+}
+
+std::string JoinIds(const std::vector<std::string>& ids) {
+	std::string joined;
+	for (const auto& id : ids) {
+		joined += (joined.empty() ? "" : ", ") + id;
+	}
+	return joined;
 }
 
 } // namespace
@@ -99,6 +111,28 @@ void RoomScene::LoadRoom(const flecs::world& world) const {
 }
 
 std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world, const std::string& shiftPath) const {
+	// Which Modifiers are active comes from the unpatched Shift file and the dev toggle; every game
+	// document below is read through them.
+	const auto shiftFile = ResolveGamePath(world, shiftPath);
+	const auto& state = world.get<RoomState>();
+	const auto modifierCatalogue = LoadModifierCatalogueFile(
+		state.modifierCataloguePath.empty() ? assets::ResolveAsset(world, kModifierCatalogueFile)
+											: state.modifierCataloguePath
+	);
+	if (!modifierCatalogue) {
+		return std::unexpected(modifierCatalogue.error());
+	}
+	const auto shiftModifiers = ReadShiftModifierIds(shiftFile);
+	if (!shiftModifiers) {
+		return std::unexpected(shiftModifiers.error());
+	}
+	const auto active = ResolveActiveModifiers(*modifierCatalogue, *shiftModifiers, world.get<ModifierToggle>());
+	if (!active) {
+		return std::unexpected(std::format("Shift file {}: {}", shiftFile, active.error()));
+	}
+	world.set<ModifierCatalogue>(*modifierCatalogue);
+	world.set<AppliedModifiers>({.ids = JoinIds(active->ids)});
+
 	// Registries first: the Layout checks its kinds against the catalogue.
 	auto palette = LoadPaletteFile(assets::ResolveAsset(world, kPaletteFile));
 	if (!palette) {
@@ -108,7 +142,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!catalogue) {
 		return std::unexpected(catalogue.error());
 	}
-	auto ticketRules = LoadTicketRulesFile(assets::ResolveAsset(world, kTicketRulesFile));
+	auto ticketRules = LoadTicketRulesFile(assets::ResolveAsset(world, kTicketRulesFile), *active);
 	if (!ticketRules) {
 		return std::unexpected(ticketRules.error());
 	}
@@ -116,15 +150,15 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!frequencies) {
 		return std::unexpected(frequencies.error());
 	}
-	auto items = LoadItemCatalogueFile(assets::ResolveAsset(world, kItemCatalogueFile), *catalogue);
+	auto items = LoadItemCatalogueFile(assets::ResolveAsset(world, kItemCatalogueFile), *catalogue, *active);
 	if (!items) {
 		return std::unexpected(items.error());
 	}
-	auto stations = LoadStationCatalogueFile(assets::ResolveAsset(world, kStationCatalogueFile), *items);
+	auto stations = LoadStationCatalogueFile(assets::ResolveAsset(world, kStationCatalogueFile), *items, *active);
 	if (!stations) {
 		return std::unexpected(stations.error());
 	}
-	auto tuning = LoadTuningFile(assets::ResolveAsset(world, kTuningFile));
+	auto tuning = LoadTuningFile(assets::ResolveAsset(world, kTuningFile), *active);
 	if (!tuning) {
 		return std::unexpected(tuning.error());
 	}
@@ -144,8 +178,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<CouplerTuning>(tuning->coupler);
 	world.set<Bindings>(std::move(*bindings));
 
-	const auto shiftFile = ResolveGamePath(world, shiftPath);
-	const auto shift = LoadShiftFile(shiftFile);
+	const auto shift = LoadShiftFile(shiftFile, *active);
 	if (!shift) {
 		return std::unexpected(shift.error());
 	}

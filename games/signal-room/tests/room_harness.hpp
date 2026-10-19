@@ -11,6 +11,7 @@
 #include <flecs.h>
 
 #include "engine/engine_context.hpp"
+#include "room/modifiers.hpp"
 #include "room/ticket_components.hpp"
 
 namespace signal_room::test {
@@ -34,6 +35,14 @@ public:
 
 	// As LoadShift, with the attempt's seed pinned so the schedule repeats exactly.
 	std::expected<void, std::string> LoadShiftWithSeed(std::string_view shiftPath, uint64_t seed);
+
+	// As LoadShift, with the dev toggle forcing these Modifiers on or off. `catalogueFile` (absolute) replaces
+	// the shipped Modifier catalogue when not empty.
+	std::expected<void, std::string> LoadShiftWithModifiers(
+		std::string_view shiftPath,
+		const std::vector<signal_room::ModifierForce>& forced,
+		std::string_view catalogueFile = {}
+	);
 
 	// Re-read the current Shift and Layout from disk, as the Room panel's Reload button does.
 	std::expected<void, std::string> Reload();

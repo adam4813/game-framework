@@ -93,8 +93,8 @@ std::expected<Schedule, std::string> ReadSchedule(const nlohmann::json& schedule
 
 } // namespace
 
-std::expected<Shift, std::string> LoadShiftFile(const std::string& path) {
-	const auto doc = ReadJsonFile(path, "Shift");
+std::expected<Shift, std::string> LoadShiftFile(const std::string& path, const ActiveModifiers& modifiers) {
+	const auto doc = ReadGameDocument(path, "Shift", "shift", modifiers);
 	if (!doc) {
 		return std::unexpected(doc.error());
 	}
