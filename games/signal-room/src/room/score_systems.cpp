@@ -16,15 +16,9 @@ void RaiseOnScore(const flecs::world& world, const Event& event) {
 	world.event<Event>().template id<Score>().entity(world.entity<Score>()).ctx(event).emit();
 }
 
-// The share of the first band the On Air fraction exceeds (the last band when none is).
 float BandShare(const TicketRules& rules, const Ticket& ticket) {
-	const float fraction = ticket.onAirTotal > 0.0F ? ticket.onAirLeft / ticket.onAirTotal : 0.0F;
-	for (const auto& band : rules.bands) {
-		if (fraction > band.above) {
-			return band.share;
-		}
-	}
-	return rules.bands.empty() ? 1.0F : rules.bands.back().share;
+	const auto* band = FindBand(rules, ticket);
+	return band == nullptr ? 1.0F : band->share;
 }
 
 void ApplyDelta(const flecs::world& world, Score& score, const int delta, const ScoreReason reason) {

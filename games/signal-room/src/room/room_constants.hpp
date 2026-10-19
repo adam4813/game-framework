@@ -19,6 +19,8 @@ inline constexpr const char* kStationCatalogueFile = "stations.json";
 // Ticket rules and the frequency table (asset-relative), re-read on every Room load.
 inline constexpr const char* kTicketRulesFile = "tickets.json";
 inline constexpr const char* kFrequencyTableFile = "frequencies.json";
+// HUD layout and strings (asset-relative), re-read on every Room load.
+inline constexpr const char* kHudFile = "hud.json";
 // Feel tuning and keyboard bindings (asset-relative), re-read on every Room load.
 inline constexpr const char* kTuningFile = "tuning.json";
 inline constexpr const char* kBindingsFile = "bindings.json";

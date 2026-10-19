@@ -54,6 +54,14 @@
 		"overlay_worked": [90, 220, 110],
 		"overlay_operator": [245, 245, 245],
 		"overlay_ray": [250, 220, 60],
-		"overlay_cone": [250, 150, 60]
+		"overlay_cone": [250, 150, 60],
+		"hud_panel": [28, 30, 34, 225],
+		"hud_border": [90, 94, 102],
+		"hud_text": [236, 232, 220],
+		"hud_text_dim": [150, 148, 140],
+		"hud_track": [18, 18, 20],
+		"hud_standby": [96, 110, 128],
+		"hud_flash_clear": [90, 220, 110],
+		"hud_flash_lost": [255, 23, 68]
 	}
 }

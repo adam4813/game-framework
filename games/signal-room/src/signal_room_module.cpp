@@ -8,6 +8,8 @@
 #include "engine/engine.hpp"
 #include "room/bindings.hpp"
 #include "room/greybox_catalogue.hpp"
+#include "room/hud.hpp"
+#include "room/hud_layout.hpp"
 #include "room/item_catalogue.hpp"
 #include "room/item_components.hpp"
 #include "room/layout.hpp"
@@ -63,6 +65,14 @@ void RegisterComponents(const flecs::world& world) {
 	world.component<ModifierCatalogue>().add(EcsSingleton);
 	world.component<LayoutErrors>().add(EcsSingleton);
 	world.component<Palette>().add(EcsSingleton);
+	world.component<HudLayout>().add(EcsSingleton);
+	world.component<HudPulse>().member<float>("score").member<float>("chain").add(EcsSingleton);
+	world.component<HudCard>();
+	world.component<HudGauge>().member<float>("on_air").member<float>("standby").member<std::string>("band");
+	world.component<HudClock>();
+	world.component<HudClockTag>();
+	world.component<HudScore>();
+	world.component<HudChain>();
 	world.component<GreyboxCatalogue>().add(EcsSingleton);
 
 	world.component<Station>()

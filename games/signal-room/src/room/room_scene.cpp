@@ -10,6 +10,8 @@
 #include "bindings.hpp"
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
+#include "hud.hpp"
+#include "hud_layout.hpp"
 #include "item_catalogue.hpp"
 #include "item_interaction.hpp"
 #include "item_placement.hpp"
@@ -91,6 +93,9 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterTicketSimulation(world, roomRoot_);
 	RegisterScoreSystems(world, roomRoot_);
+	if (world.get<RoomState>().loadError.empty()) {
+		RegisterHud(world, roomRoot_);
+	}
 	RegisterRoomPanel(world, roomRoot_);
 
 	if (deferred) {
@@ -162,6 +167,10 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	if (!tuning) {
 		return std::unexpected(tuning.error());
 	}
+	auto hud = LoadHudLayoutFile(assets::ResolveAsset(world, kHudFile), *palette);
+	if (!hud) {
+		return std::unexpected(hud.error());
+	}
 	auto bindings = LoadBindingsFile(assets::ResolveAsset(world, kBindingsFile));
 	if (!bindings) {
 		return std::unexpected(bindings.error());
@@ -177,6 +186,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<DustPuffTuning>(tuning->dustPuff);
 	world.set<CouplerTuning>(tuning->coupler);
 	world.set<Bindings>(std::move(*bindings));
+	world.set<HudLayout>(std::move(*hud));
 
 	const auto shift = LoadShiftFile(shiftFile, *active);
 	if (!shift) {

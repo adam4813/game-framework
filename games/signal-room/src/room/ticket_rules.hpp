@@ -40,6 +40,12 @@ struct TicketRules {
 	std::vector<std::string> callsigns;
 };
 
+struct Ticket;
+
+// The gauge band a Ticket is in: the first whose `above` its On Air fraction exceeds, the last when none
+// is. Null only when the rules list no bands.
+[[nodiscard]] const GaugeBand* FindBand(const TicketRules& rules, const Ticket& ticket);
+
 // Parse the ticket rules file. The error names the file and the bad entry.
 [[nodiscard]] std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& path, const ActiveModifiers& modifiers = {});
 

@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "json_file.hpp"
+#include "ticket_components.hpp"
 
 using nlohmann::json;
 
@@ -115,6 +116,16 @@ std::expected<TicketRules, std::string> LoadTicketRulesFile(const std::string& p
 		return std::unexpected(std::format("Ticket rules file {} has no \"callsigns\"", path));
 	}
 	return rules;
+}
+
+const GaugeBand* FindBand(const TicketRules& rules, const Ticket& ticket) {
+	const float fraction = ticket.onAirTotal > 0.0F ? ticket.onAirLeft / ticket.onAirTotal : 0.0F;
+	for (const auto& band : rules.bands) {
+		if (fraction > band.above) {
+			return &band;
+		}
+	}
+	return rules.bands.empty() ? nullptr : &rules.bands.back();
 }
 
 const Frequency* FrequencyTable::Find(const std::string& label) const {
