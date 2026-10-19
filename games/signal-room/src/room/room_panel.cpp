@@ -12,9 +12,12 @@
 #include "room_constants.hpp"
 #include "room_overlays.hpp"
 #include "room_scene.hpp"
+#include "score_components.hpp"
 #include "room_tuning.hpp"
 #include "shift_panel.hpp"
 #include "station_catalogue.hpp"
+#include "ticket_components.hpp"
+#include "ticket_rules.hpp"
 
 using namespace engine;
 
@@ -63,6 +66,24 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 				}
 
 				DrawShiftSection(world, roomRoot, *shiftPanel);
+
+				if (world.has<Score>() && ui.CollapsingHeader("Score")) {
+					const auto& score = world.get<Score>();
+					const auto& chain = world.get<TicketRules>().handlerChain;
+					ui.Text(std::format("Score: {}   Par: {}", score.score, score.par));
+					ui.Text(
+						std::format(
+							"Chain: x{:.2f} (step {}, best {})   Cleared: {}   Lost: {}",
+							chain.empty() ? 1.0F : chain[static_cast<size_t>(score.chainStep)],
+							score.chainStep,
+							score.bestChainStep,
+							score.cleared,
+							score.lost
+						)
+					);
+					const bool ended = world.get<ShiftWindow>().phase == ShiftPhase::Ended;
+					ui.Text(ended ? std::format("Stars: {}", score.stars) : std::string{"Stars: (at the hard stop)"});
+				}
 
 				if (ui.CollapsingHeader("Overlays")) {
 					auto& overlays = world.get_mut<RoomOverlays>();

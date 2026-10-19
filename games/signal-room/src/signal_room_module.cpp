@@ -17,6 +17,7 @@
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
 #include "room/room_tuning.hpp"
+#include "room/score_components.hpp"
 #include "room/shift.hpp"
 #include "room/station_catalogue.hpp"
 #include "room/station_components.hpp"
@@ -173,6 +174,19 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("last_call")
 		.member<bool>("frozen")
 		.add(EcsSingleton);
+	world.component<Score>()
+		.member<int>("score")
+		.member<int>("chain_step")
+		.member<int>("par")
+		.member<int>("cleared")
+		.member<int>("lost")
+		.member<int>("best_chain_step")
+		.member<int>("stars")
+		.add(EcsSingleton);
+	world.component<StarRules>().add(EcsSingleton);
+	world.component<ScoreReason>().constant("Clear", ScoreReason::Clear).constant("LostIntercept", ScoreReason::LostIntercept);
+	world.component<ScoreChanged>();
+	world.component<ChainChanged>();
 	world.component<SeedPin>().member<bool>("pinned").member<uint64_t>("value").add(EcsSingleton);
 	world.component<ScheduleRng>().add(EcsSingleton);
 	world.component<ScheduleState>().add(EcsSingleton);

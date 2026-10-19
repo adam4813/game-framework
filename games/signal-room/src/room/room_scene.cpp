@@ -24,6 +24,7 @@
 #include "room_overlays.hpp"
 #include "room_panel.hpp"
 #include "room_tuning.hpp"
+#include "score_systems.hpp"
 #include "shift.hpp"
 #include "station_catalogue.hpp"
 #include "station_job.hpp"
@@ -77,6 +78,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterCarriedItemPlacement(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterTicketSimulation(world, roomRoot_);
+	RegisterScoreSystems(world, roomRoot_);
 	RegisterRoomPanel(world, roomRoot_);
 
 	if (deferred) {
@@ -171,6 +173,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	}
 	BuildRoomOverlays(world, roomRoot_);
 	StartShiftWindow(world, *shift);
+	StartScore(world, *shift);
 	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
 	return {};
 }

@@ -182,6 +182,30 @@ std::expected<Shift, std::string> LoadShiftFile(const std::string& path) {
 		}
 		shift.schedule = std::move(*schedule);
 	}
+	if (doc->contains("stars")) {
+		const auto& stars = doc->at("stars");
+		const auto read = [&](const char* key, std::vector<float>& out) {
+			const auto list = stars.is_object() ? stars.value(key, nlohmann::json::array()) : nlohmann::json{};
+			if (!list.is_array() || (!list.empty() && list.size() != 3)) {
+				return false;
+			}
+			return std::ranges::all_of(list, [&](const auto& n) {
+				if (!n.is_number()) {
+					return false;
+				}
+				out.push_back(n.template get<float>());
+				return true;
+			});
+		};
+		if (!read("fractions", shift.starFractions) || !read("absolute", shift.starAbsolute)) {
+			return std::unexpected(
+				std::format("Shift file {}: stars must be {{\"fractions\": [3 numbers]}} or {{\"absolute\": [3 numbers]}}", path)
+			);
+		}
+		if (!shift.starFractions.empty() && !shift.starAbsolute.empty()) {
+			return std::unexpected(std::format("Shift file {}: stars gives both fractions and absolute", path));
+		}
+	}
 	return shift;
 }
 

@@ -59,6 +59,8 @@ struct Shift {
 	std::vector<std::pair<std::string, std::string>> radios; // Radio placement name -> frequency label
 	float window{240.0F};                                    // s
 	Schedule schedule;
+	std::vector<float> starFractions; // empty: the Ticket rules' default
+	std::vector<float> starAbsolute;  // [1, 2, 3 stars] scores, empty: use fractions of par
 };
 
 // Parse a Shift file. The error names the file and what was wrong with it.

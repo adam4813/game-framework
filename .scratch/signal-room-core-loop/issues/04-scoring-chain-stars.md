@@ -11,7 +11,7 @@ thresholds). No HUD yet: the Room panel shows the numbers.
 
 **Blocked by:** 02 (Stations, Transforms & Jobs).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] A score singleton (`score`, `chain_step`, `par`, `cleared`, `lost`, `best_chain_step`, and `stars` once Ended),
       reflected, reset at attempt start and on Reload.
