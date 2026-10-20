@@ -108,6 +108,11 @@ void RegisterRoomPanel(const flecs::world& world, const flecs::entity roomRoot) 
 					ui.Text("Reload to apply");
 				}
 
+				if (ui.CollapsingHeader("Options")) {
+					ui.Checkbox("Auto-grab finished output", world.get_mut<RoomOptions>().autoGrab);
+					ui.Tooltip("An attended Job (hold, tap) puts its output straight into the Operator's hands. WalkAway Jobs like the Decoder still wait.");
+				}
+
 				if (ui.CollapsingHeader("Overlays")) {
 					auto& overlays = world.get_mut<RoomOverlays>();
 					// Draw every checkbox, then rebuild once if any changed.

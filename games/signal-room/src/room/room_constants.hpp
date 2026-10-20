@@ -44,6 +44,8 @@ inline constexpr float kStationItemInset = 0.3F;
 // Each Counter's dust emitter child, which a set-down bursts, and the palette token it puffs in.
 inline constexpr const char* kDustEmitterName = "dust";
 inline constexpr const char* kDustColourToken = "dust";
+// A transmitting Station's confetti emitter child, which each transmission bursts.
+inline constexpr const char* kConfettiEmitterName = "confetti";
 // A carried Item with tilt_to_camera turns its top this far (radians, about +x) toward the camera,
 // which looks down at about 55 degrees: square on to it.
 inline constexpr float kCarryTiltToCamera = 0.61F;

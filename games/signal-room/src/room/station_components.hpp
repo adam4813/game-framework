@@ -22,6 +22,26 @@ struct Job {
 	int taps{0};
 };
 
+// What a Station's lamp, riser bar and moving parts show (StationRead, derived from the Job phase and,
+// for Radios, the online and coupler state): Idle (lamp off), Running (amber blink), Done (green
+// steady), and for Radios OnAir (slow blink), Coupled (copying: steady), Resetting (quick grey blink
+// through a Coupler reset) and Dark (off).
+enum class ReadState { Idle, Running, Done, OnAir, Coupled, Resetting, Dark };
+
+// On each in-service Station, recomputed every frame by StationReadDrive. `fill` is the riser bar's
+// 0-1 fill, `cranked` whether an Operator Holds the Station. The rest is animation state: the blink
+// phase (0-1, lamp lit in the first half), the reels' and crank's angles in radians, and the seconds
+// left of the Telex's green flash and paper slide after a transmission.
+struct StationRead {
+	ReadState state{ReadState::Idle};
+	float fill{0.0F};
+	bool cranked{false};
+	float blinkPhase{0.0F};
+	float reelAngle{0.0F};
+	float crankAngle{0.0F};
+	float flashLeft{0.0F};
+};
+
 // On an Operator while it Holds the action key at a Station. Its Target is frozen to `station`;
 // releasing the key, any move input or a dash removes it. `since` is how long it has Held, in seconds.
 struct Holding {

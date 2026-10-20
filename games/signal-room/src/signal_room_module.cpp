@@ -60,6 +60,7 @@ void RegisterComponents(const flecs::world& world) {
 		.member<bool>("operator_circle")
 		.member<bool>("targeting_reach")
 		.add(EcsSingleton);
+	world.component<RoomOptions>().member<bool>("auto_grab").add(EcsSingleton);
 	world.component<ModifierToggle>().add(EcsSingleton);
 	world.component<AppliedModifiers>().member<std::string>("ids").add(EcsSingleton);
 	world.component<ModifierCatalogue>().add(EcsSingleton);
@@ -122,6 +123,42 @@ void RegisterComponents(const flecs::world& world) {
 		.member<float>("spread")
 		.add(EcsSingleton);
 	world.component<CouplerTuning>().member<float>("coupler_reset").add(EcsSingleton);
+	world.component<ConfettiTuning>()
+		.member<float>("count")
+		.member<float>("speed")
+		.member<float>("lifetime")
+		.member<float>("size")
+		.member<float>("spread")
+		.add(EcsSingleton);
+	world.component<ReadTuning>()
+		.member<float>("blink_slow")
+		.member<float>("blink_quick")
+		.member<float>("blink_min")
+		.member<float>("blink_max")
+		.member<float>("reel_speed")
+		.member<float>("reel_cranked_speed")
+		.member<float>("crank_speed")
+		.member<float>("telex_flash")
+		.member<float>("telex_slide")
+		.member<float>("dark_dim")
+		.add(EcsSingleton);
+	world.component<ReadState>()
+		.constant("Idle", ReadState::Idle)
+		.constant("Running", ReadState::Running)
+		.constant("Done", ReadState::Done)
+		.constant("OnAir", ReadState::OnAir)
+		.constant("Coupled", ReadState::Coupled)
+		.constant("Resetting", ReadState::Resetting)
+		.constant("Dark", ReadState::Dark);
+	world.component<StationRead>()
+		.member<ReadState>("state")
+		.member<float>("fill")
+		.member<bool>("cranked")
+		.member<float>("blink_phase")
+		.member<float>("reel_angle")
+		.member<float>("crank_angle")
+		.member<float>("flash_left");
+	world.component<PartHome>().member<glm::vec3>("position");
 	world.component<Bindings>().add(EcsSingleton);
 	world.component<ItemCatalogue>().add(EcsSingleton);
 	world.component<Operator>().member<std::string>("colour");
@@ -225,6 +262,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	RegisterComponents(world);
 	world.set<RoomState>({});
 	world.set<RoomOverlays>({});
+	world.set<RoomOptions>({});
 	world.set<ModifierToggle>({});
 	world.set<AppliedModifiers>({});
 	world.set<SeedPin>({});
@@ -233,6 +271,8 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	world.set<TargetingTuning>({});
 	world.set<DustPuffTuning>({});
 	world.set<CouplerTuning>({});
+	world.set<ConfettiTuning>({});
+	world.set<ReadTuning>({});
 	world.set<AntennaCoupler>({});
 	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);

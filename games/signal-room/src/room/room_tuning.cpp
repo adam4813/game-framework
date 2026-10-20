@@ -110,6 +110,43 @@ std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path, c
 		!read) {
 		return std::unexpected(read.error());
 	}
+	auto& confetti = tuning.confetti;
+	if (auto read = ReadFields(
+			*doc,
+			"confetti",
+			{
+				{"count", &confetti.count},
+				{"speed", &confetti.speed},
+				{"lifetime", &confetti.lifetime},
+				{"size", &confetti.size},
+				{"spread", &confetti.spread},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
+	auto& reads = tuning.reads;
+	if (auto read = ReadFields(
+			*doc,
+			"reads",
+			{
+				{"blink_slow", &reads.blinkSlow},
+				{"blink_quick", &reads.blinkQuick},
+				{"blink_min", &reads.blinkMin},
+				{"blink_max", &reads.blinkMax},
+				{"reel_speed", &reads.reelSpeed},
+				{"reel_cranked_speed", &reads.reelCrankedSpeed},
+				{"crank_speed", &reads.crankSpeed},
+				{"telex_flash", &reads.telexFlash},
+				{"telex_slide", &reads.telexSlide},
+				{"dark_dim", &reads.darkDim, Range::Fraction},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
 	auto& coupler = tuning.coupler;
 	if (auto read = ReadFields(*doc, "coupler", {{"coupler_reset", &coupler.couplerReset}}, path); !read) {
 		return std::unexpected(read.error());

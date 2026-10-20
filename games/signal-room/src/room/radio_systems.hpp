@@ -7,6 +7,7 @@
 
 #include "engine/core/core.hpp"
 #include "shift.hpp"
+#include "ticket_components.hpp"
 
 namespace signal_room {
 
@@ -15,6 +16,9 @@ namespace signal_room {
 // `shiftPath` and the Radio that has no frequency, or the Shift entry that names no Station.
 [[nodiscard]] std::expected<void, std::string>
 AssignRadios(const flecs::world& world, flecs::entity parent, const Shift& shift, const std::string& shiftPath);
+
+// Whether some Ticket on `frequency` is On Air.
+bool FrequencyOnAir(const flecs::query<const Ticket>& tickets, const std::string& frequency);
 
 // The colour of a frequency label from the frequency table and palette, or nullptr when either lacks it.
 const engine::core::Rgba* FrequencyColour(const flecs::world& world, const std::string& label);
@@ -27,7 +31,7 @@ const engine::core::Rgba* FrequencyBodyColour(const flecs::world& world, const s
 void EngageCoupler(const flecs::world& world, flecs::entity radio);
 
 // Register the Radio systems under the Room's root: the Coupler reset clock, each Radio's derived online
-// state, the disconnect on a Hold ending, the dimming of dark Radios and their frequency labels.
+// state, the disconnect on a Hold ending, their frequency labels.
 void RegisterRadioSystems(const flecs::world& world, flecs::entity roomRoot);
 
 } // namespace signal_room

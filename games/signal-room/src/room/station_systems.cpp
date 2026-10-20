@@ -1,10 +1,14 @@
 #include "station_systems.hpp"
 
+#include "engine/engine.hpp"
+#include "greybox_catalogue.hpp"
 #include "item_components.hpp"
 #include "operator_components.hpp"
 #include "room_components.hpp"
 #include "station_components.hpp"
 #include "station_job.hpp"
+
+using namespace engine;
 
 namespace signal_room {
 
@@ -48,6 +52,36 @@ void RegisterStationSystems(const flecs::world& world, const flecs::entity roomR
 				return;
 			}
 			PressStation(it.world(), it.entity(i), station, holders);
+		})
+		.child_of(roomRoot);
+
+	world.system("StationAutoGrab")
+		.with<Job>()
+		.write<Carries>(flecs::Wildcard)
+		.write<Holds>(flecs::Wildcard)
+		.kind(flecs::OnUpdate)
+		.each([operators = world.query_builder<const Operator>().with<Targets>(flecs::Wildcard).build()](
+				  flecs::iter& it, const size_t i) {
+			if (it.world().get<RoomOptions>().autoGrab && it.entity(i).get<Job>().phase == JobPhase::Done) {
+				AutoGrabOutput(it.world(), it.entity(i), operators);
+			}
+		})
+		.child_of(roomRoot);
+
+	world.system("StationItemSlide")
+		.with<Job>()
+		.kind(flecs::OnUpdate)
+		.each([](flecs::iter& it, const size_t i) {
+			const auto station = it.entity(i);
+			const auto* model = it.world().get<GreyboxCatalogue>().stations.Get(station.get<Station>().kind);
+			const auto phase = station.get<Job>().phase;
+			if (model == nullptr || !model->itemSlide || (phase != JobPhase::Running && phase != JobPhase::Done)) {
+				return;
+			}
+			const auto& slide = *model->itemSlide;
+			const float t = phase == JobPhase::Done ? 1.0F : station.get<Job>().progress;
+			const auto position = station.get<spatial::Transform>().position + glm::mix(slide.from, slide.to, t);
+			station.each<Holds>([&](const flecs::entity item) { item.get_mut<spatial::Transform>().position = position; });
 		})
 		.child_of(roomRoot);
 

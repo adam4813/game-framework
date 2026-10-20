@@ -42,6 +42,9 @@ void BuildGreyboxModel(
 		}
 		const auto colour = part.identity ? identity : part.colour;
 		e.set<spatial::Transform>(transform).set<render::Material>({.color = colour}).set<PartColour>({colour});
+		if (!part.name.empty()) {
+			e.set<PartHome>({part.offset * fit});
+		}
 		if (!part.visible) {
 			e.disable();
 		}

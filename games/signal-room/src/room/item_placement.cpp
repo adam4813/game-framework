@@ -17,6 +17,11 @@ void PlaceOnCounter(const flecs::entity item, const flecs::entity counter) {
 }
 
 void PlaceOnStation(const flecs::entity item, const flecs::entity station) {
+	const auto* model = station.world().get<GreyboxCatalogue>().stations.Get(station.get<Station>().kind);
+	if (model != nullptr && model->itemSlide) {
+		item.set<spatial::Transform>({.position = station.get<spatial::Transform>().position + model->itemSlide->from});
+		return;
+	}
 	const float southEdge = static_cast<float>(station.get<Station>().footprint.y) * 0.5F;
 	item.set<spatial::Transform>(
 		{.position = station.get<spatial::Transform>().position

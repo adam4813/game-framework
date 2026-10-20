@@ -2,6 +2,7 @@
 
 #include <flecs.h>
 
+#include "operator_components.hpp"
 #include "station_components.hpp"
 
 namespace signal_room {
@@ -25,6 +26,10 @@ void PressStation(
 // Advance a Running Job by `dt` seconds: a WalkAway runs by itself (faster while `held`, when its
 // Transform has a crank), a Hold verb only while `held`. Completes the Job at progress 1.
 void AdvanceJob(const flecs::world& world, flecs::entity station, float dt, bool held);
+
+// Hand a finished Job's first output to the empty-handed Operator Targeting `station`, when its Transform
+// is attended (not WalkAway). Returns whether an Operator took it.
+bool AutoGrabOutput(const flecs::world& world, flecs::entity station, const flecs::query<const Operator>& operators);
 
 // Give every in-service (not Tarped) Station under `parent` an Idle Job.
 void AddStationJobs(const flecs::world& world, flecs::entity parent);

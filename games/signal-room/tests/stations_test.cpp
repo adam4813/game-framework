@@ -45,6 +45,8 @@ constexpr float kSouth = 180.0F * kDegrees;
 // The Decoder fills cells (6..7, 3..4); the Counters south of it are (6,6) and (7,6). Standing in row 5
 // the Operator works the Decoder to its north and a Counter to its south.
 constexpr glm::vec2 kBesideCounterSouthLeft{6.5F, 5.4F};
+// The active Decoder is cell row 3 (Decoder2, tarped, is row 4), worked from the north.
+constexpr glm::vec2 kNorthOfDecoder{6.5F, 2.6F};
 constexpr glm::vec2 kBesideCounterSouthRight{7.5F, 5.4F};
 // The Telex is cell (10,3), worked from the west.
 constexpr glm::vec2 kWestOfTelex{9.6F, 3.5F};
@@ -116,7 +118,7 @@ void PickUp(RoomHarness& room, const glm::vec2 standing) {
 }
 
 void PlaceOnDecoder(RoomHarness& room, const glm::vec2 standing) {
-	StandAt(room, standing, kNorth);
+	StandAt(room, standing, kSouth);
 	Interact(room);
 }
 
@@ -124,13 +126,13 @@ void PlaceOnDecoder(RoomHarness& room, const glm::vec2 standing) {
 void StartDecoding(RoomHarness& room) {
 	PickUp(room, kBesideCounterSouthLeft);
 	ASSERT_EQ(CarriedId(room), "raw_card");
-	PlaceOnDecoder(room, kBesideCounterSouthLeft);
+	PlaceOnDecoder(room, kNorthOfDecoder);
 	ASSERT_EQ(JobOf(room, "Decoder").phase, JobPhase::Running);
 }
 
 // Walk the Decoded Card from a finished Decoder into the Operator's hands.
 void TakeDecodedCard(RoomHarness& room) {
-	StandAt(room, kBesideCounterSouthLeft, kNorth);
+	StandAt(room, kNorthOfDecoder, kSouth);
 	Interact(room);
 	ASSERT_EQ(CarriedId(room), "decoded_card");
 }
@@ -194,7 +196,7 @@ TEST(Stations, TheDecodedCardCannotBePickedUpWhileCarryingButCanOnceEmptyHanded)
 
 	PickUp(room, kBesideCounterSouthRight);
 	ASSERT_EQ(CarriedId(room), "raw_card");
-	StandAt(room, kBesideCounterSouthRight, kNorth);
+	StandAt(room, kNorthOfDecoder, kSouth);
 	Interact(room);
 	EXPECT_EQ(CarriedId(room), "raw_card");
 	EXPECT_EQ(HeldBy(room, "Decoder").get<Item>().id, "decoded_card");
@@ -217,7 +219,7 @@ TEST(Stations, ASecondRawCardIsRefusedAtABusyDecoderAndStaysCarried) {
 	StartDecoding(room);
 
 	PickUp(room, kBesideCounterSouthRight);
-	StandAt(room, kBesideCounterSouthRight, kNorth);
+	StandAt(room, kNorthOfDecoder, kSouth);
 	Interact(room);
 
 	EXPECT_EQ(CarriedId(room), "raw_card");
@@ -235,7 +237,7 @@ TEST(Stations, ADecodedCardOfferedToTheDecoderIsRefused) {
 	room.StepSeconds(6.5F);
 	TakeDecodedCard(room);
 
-	PlaceOnDecoder(room, kBesideCounterSouthLeft);
+	PlaceOnDecoder(room, kNorthOfDecoder);
 
 	EXPECT_EQ(CarriedId(room), "decoded_card");
 	EXPECT_EQ(refusals.count, 1);
@@ -289,7 +291,7 @@ TEST(Stations, PressingEmptyHandedAtAnIdleDecoderRaisesARefusal) {
 	Watch(room, refusals);
 	LoadDecodeRoute(room);
 
-	StandAt(room, kBesideCounterSouthLeft, kNorth);
+	StandAt(room, kNorthOfDecoder, kSouth);
 	Interact(room);
 
 	EXPECT_EQ(refusals.count, 1);

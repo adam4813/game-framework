@@ -34,6 +34,7 @@
 #include "shift.hpp"
 #include "station_catalogue.hpp"
 #include "station_job.hpp"
+#include "station_reads.hpp"
 #include "station_systems.hpp"
 #include "target_brighten.hpp"
 #include "ticket_rules.hpp"
@@ -90,6 +91,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterItemInteraction(world, roomRoot_);
 	RegisterStationSystems(world, roomRoot_);
 	RegisterCarriedItemPlacement(world, roomRoot_);
+	RegisterStationReads(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterTicketSimulation(world, roomRoot_);
 	RegisterScoreSystems(world, roomRoot_);
@@ -185,6 +187,8 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<TargetingTuning>(tuning->targeting);
 	world.set<DustPuffTuning>(tuning->dustPuff);
 	world.set<CouplerTuning>(tuning->coupler);
+	world.set<ConfettiTuning>(tuning->confetti);
+	world.set<ReadTuning>(tuning->reads);
 	world.set<Bindings>(std::move(*bindings));
 	world.set<HudLayout>(std::move(*hud));
 

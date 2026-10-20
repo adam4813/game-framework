@@ -71,9 +71,16 @@
 		},
 		{
 			"name": "Decoder",
-			"comment": "On the rug, worked from all four sides.",
+			"comment": "The active machine, the north half of the shared 2x2 table on the rug; Decoder2 stands south of it, so it is worked from the north, east and west.",
 			"components": {
-				"station": {"kind": "decoder", "cell": [6, 3], "footprint": [2, 2], "worked_sides": ["N", "E", "S", "W"]}
+				"station": {"kind": "decoder", "cell": [6, 3], "footprint": [2, 1], "worked_sides": ["N", "E", "W"]}
+			}
+		},
+		{
+			"name": "Decoder2",
+			"comment": "The machine to unlock, the south half of the shared table. Tarped until a Shift puts it in service.",
+			"components": {
+				"station": {"kind": "decoder", "cell": [6, 4], "footprint": [2, 1], "worked_sides": ["S", "E", "W"]}
 			}
 		},
 		{

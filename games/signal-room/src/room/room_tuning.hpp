@@ -41,6 +41,30 @@ struct DustPuffTuning {
 	float spread{0.9F};    // how far the burst fans out from straight up (0 is a column)
 };
 
+// World singleton loaded from the tuning file's "confetti" section: the burst the Telex plays on each
+// transmission, fields as DustPuffTuning.
+struct ConfettiTuning {
+	float count{40.0F};
+	float speed{2.2F};
+	float lifetime{0.9F};
+	float size{0.06F};
+	float spread{1.2F};
+};
+
+// World singleton loaded from the tuning file's "reads" section: how Stations show their state.
+struct ReadTuning {
+	float blinkSlow{1.0F};         // blinks per second, a Radio On Air
+	float blinkQuick{6.0F};        // blinks per second, a Radio in a Coupler reset
+	float blinkMin{1.0F};          // blinks per second of a Running lamp at progress 0
+	float blinkMax{6.0F};          // blinks per second of a Running lamp at progress 1
+	float reelSpeed{4.0F};         // rad/s, the Decoder's reels while Running
+	float reelCrankedSpeed{14.0F}; // rad/s, while cranked
+	float crankSpeed{9.0F};        // rad/s, the crank while cranked
+	float telexFlash{0.5F};        // s, the Telex's green flash and paper slide after a transmission
+	float telexSlide{0.4F};        // m, how far the paper slides up
+	float darkDim{0.45F};          // fraction (0-1) of its colour a dark Radio's body keeps
+};
+
 // World singleton loaded from the tuning file's "coupler" section: the Antenna Coupler. Edited live by the Room
 // panel like MovementTuning.
 struct CouplerTuning {
@@ -53,6 +77,8 @@ struct RoomTuning {
 	TargetingTuning targeting;
 	DustPuffTuning dustPuff;
 	CouplerTuning coupler;
+	ConfettiTuning confetti;
+	ReadTuning reads;
 };
 
 // Parse the tuning file; a missing section or field keeps its default. Every field must be a positive

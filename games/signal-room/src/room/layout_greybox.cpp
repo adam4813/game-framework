@@ -1,5 +1,8 @@
 #include "layout_greybox.hpp"
 
+#include <algorithm>
+#include <iterator>
+
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
 #include "greybox_model.hpp"
@@ -8,6 +11,7 @@
 #include "placements.hpp"
 #include "room_components.hpp"
 #include "room_constants.hpp"
+#include "station_catalogue.hpp"
 
 using namespace engine;
 
@@ -87,14 +91,40 @@ void BuildLayoutGreybox(const flecs::world& world, const flecs::entity parent) {
 	for (const auto& [e, s] : PlacementsOf<Station>(world, parent)) {
 		e.set<spatial::Transform>({.position = FootprintCentre(grid, s.cell, s.footprint)});
 		const auto& model = *catalogue.stations.Get(s.kind);
-		const auto& look = e.has<Tarped>() ? tarp : model;
+		const bool tarped = e.has<Tarped>();
+		const auto& look = tarped ? tarp : model;
 		// A Radio's identity parts (body, display) take its frequency's colour.
 		core::Rgba identity{};
 		if (e.has<Radio>()) {
 			const auto* colour = FrequencyBodyColour(world, e.get<Radio>().frequency);
 			identity = colour == nullptr ? identity : *colour;
 		}
+		if (tarped && model.tarpLift > 0.0F) {
+			// The base parts stay (a shared table); the tarp stands on them like a box over the machine.
+			GreyboxModel base;
+			std::ranges::copy_if(model.parts, std::back_inserter(base.parts), &GreyboxPart::base);
+			BuildGreyboxModel(world, e, base);
+			const auto lifted = world.entity()
+									.child_of(e)
+									.set_name("tarp")
+									.set<spatial::Transform>({.position = {0.0F, model.tarpLift, 0.0F}});
+			auto fit = FitFor(tarp, grid, s.footprint, model.height);
+			if (model.tarpSize.x > 0.0F) {
+				fit = {model.tarpSize.x, model.height, model.tarpSize.y};
+			}
+			BuildGreyboxModel(world, lifted, tarp, fit);
+			continue;
+		}
 		BuildGreyboxModel(world, e, look, FitFor(look, grid, s.footprint, model.height), identity);
+		// A Station whose kind transmits gets an idle confetti emitter (item bursts it, station_reads.cpp).
+		const auto& kind = *world.get<StationCatalogue>().Get(s.kind);
+		if (!e.has<Tarped>() && std::ranges::any_of(kind.transforms, &StationTransform::transmit)) {
+			world.entity()
+				.child_of(e)
+				.set_name(kConfettiEmitterName)
+				.set<spatial::Transform>({.position = {0.0F, model.Top(), 0.0F}})
+				.set<particles::ParticleEmitter>({.rate = 0.0F});
+		}
 	}
 
 	for (const auto& [e, c] : PlacementsOf<Counter>(world, parent)) {

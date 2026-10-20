@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <expected>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,19 +34,35 @@ struct GreyboxPart {
 	bool visible{true};
 	// The part's colour token is `identity`: it takes the Operator's identity colour when built.
 	bool identity{false};
+	// The part stays when its Station is Tarped: the table the tarp then sits on top of.
+	bool base{false};
 };
 
 // The colour token a part uses to take its Operator's identity colour (the Operator model's body and
 // collar), resolved when the model is built rather than from the Palette.
 inline constexpr const char* kIdentityColourToken = "identity";
 
+// Where a Station's Items travel while its Job runs: from `from` at progress 0 to `to` at progress 1,
+// as offsets from the footprint centre at floor level (the Decoder's card goes in one side and out the other).
+struct ItemSlide {
+	glm::vec3 from{0.0F};
+	glm::vec3 to{0.0F};
+};
+
 // A kind's greybox look. A footprint-fitted model (the tarp, the rug) is authored for a 1×1 cell and
 // 1 m tall: its offsets and sizes stretch to the footprint across and to `height` up. `height` is
-// also how tall the tarp stands when a Station of this kind is Tarped.
+// also how tall the tarp stands (above `tarpLift`) when a Station of this kind is Tarped.
 struct GreyboxModel {
 	std::vector<GreyboxPart> parts;
 	bool fitFootprint{false};
 	float height{1.0F};
+	std::optional<ItemSlide> itemSlide; // Station kinds only
+	// Station kinds only: how high above the floor a Tarp starts. Above 0, a Tarped Station keeps its `base`
+	// parts and the tarp stands on them, so a locked machine reads as part of one unit.
+	float tarpLift{0.0F};
+	// With `tarpLift`: the tarp box's width and depth in metres (0 = the whole footprint), centred, so it can match
+	// the machine it covers rather than the table.
+	glm::vec2 tarpSize{0.0F};
 
 	// How high the unfitted model's top surface stands: the highest top of its parts that hang off no
 	// other part, ignoring rotation. What sits on a Counter sits at its Counter model's Top().

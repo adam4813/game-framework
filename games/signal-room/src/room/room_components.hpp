@@ -75,6 +75,13 @@ struct RoomOverlays {
 	bool targetingReach{false};
 };
 
+// World singleton: play options toggled from the Room panel, kept across Reloads. `autoGrab`: when an
+// attended Job (one that needs the Operator: Hold, Tap, Instant) finishes with outputs, the Operator
+// Targeting the Station picks one up if empty-handed. Unattended Jobs (WalkAway) never auto-grab.
+struct RoomOptions {
+	bool autoGrab{false};
+};
+
 // Tag on the floor's cell tiles built from the FloorGrid.
 struct FloorTile {};
 
@@ -138,6 +145,11 @@ struct SpawnMarker {
 // Material (the Target brighten) can be undone.
 struct PartColour {
 	engine::core::Rgba colour;
+};
+
+// On each named greybox part: where the catalogue put it (local), so an animation can offset from it.
+struct PartHome {
+	glm::vec3 position{0.0F};
 };
 
 // On a Station or Counter whose parts are drawn brightened as some Operator's Target. TargetBrighten

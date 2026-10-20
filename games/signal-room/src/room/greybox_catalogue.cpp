@@ -61,7 +61,20 @@ std::expected<GreyboxModel, std::string> ParseModel(const Palette& palette, cons
 	GreyboxModel model{
 		.fitFootprint = j.value("fit", std::string{}) == "footprint",
 		.height = j.value("height", GreyboxModel{}.height),
+		.tarpLift = j.value("tarp_lift", 0.0F),
+		.tarpSize = {j.value("tarp_size", std::vector<float>{0.0F, 0.0F}).at(0), j.value("tarp_size", std::vector<float>{0.0F, 0.0F}).at(1)},
 	};
+	if (j.contains("item_slide")) {
+		const auto& slide = j.at("item_slide");
+		const auto from = ReadVec3(slide, "from", glm::vec3{0.0F}, context + " item_slide");
+		const auto to = ReadVec3(slide, "to", glm::vec3{0.0F}, context + " item_slide");
+		for (const auto* vec : {&from, &to}) {
+			if (!*vec) {
+				return std::unexpected(vec->error());
+			}
+		}
+		model.itemSlide = ItemSlide{.from = *from, .to = *to};
+	}
 	const auto parts = j.value("parts", json::array());
 	for (size_t i = 0; i < parts.size(); ++i) {
 		const auto& p = parts[i];
@@ -98,6 +111,7 @@ std::expected<GreyboxModel, std::string> ParseModel(const Palette& palette, cons
 			.colour = *colour,
 			.visible = p.value("visible", true),
 			.identity = identity,
+			.base = p.value("base", false),
 		});
 	}
 	return model;

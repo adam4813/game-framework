@@ -25,14 +25,6 @@ namespace {
 constexpr float kLabelFontSize = 13.0F;
 // The part names the greybox catalogue gives a Radio's display and traffic lamp.
 constexpr const char* kDisplayPart = "display";
-constexpr const char* kLampPart = "lamp";
-constexpr const char* kLampOffToken = "lamp_off";
-
-bool OnAir(const flecs::query<const Ticket>& tickets, const std::string& frequency) {
-	return tickets.find([&](const Ticket& ticket) {
-		return ticket.state == TicketState::OnAir && ticket.frequency == frequency;
-	});
-}
 
 void Raise(const flecs::world& world, const auto& event, const flecs::entity radio) {
 	world.event<std::remove_cvref_t<decltype(event)>>().template id<Radio>().entity(radio).emit();
@@ -56,7 +48,7 @@ void RegisterOnlineState(const flecs::world& world, const flecs::entity roomRoot
 			const auto& coupler = it.world().get<AntennaCoupler>();
 			const auto self = it.entity(i);
 			const bool online =
-				OnAir(tickets, radio.frequency)
+				FrequencyOnAir(tickets, radio.frequency)
 				&& (coupler.coupled == 0 || coupler.coupled == self.id())
 				&& coupler.resetLeft <= 0.0F;
 			if (online && !radio.online) {
@@ -83,26 +75,6 @@ void RegisterDisconnect(const flecs::world& world, const flecs::entity roomRoot)
 			coupler.coupled = 0;
 			coupler.resetLeft = world.get<CouplerTuning>().couplerReset;
 			Raise(world, CouplerReleased{}, world.entity(holding.station));
-		})
-		.child_of(roomRoot);
-}
-
-// The traffic lamp lights in the frequency colour while the Radio is online; the Radio itself never changes.
-void RegisterDimming(const flecs::world& world, const flecs::entity roomRoot) {
-	world.system<const Radio>("RadioLamp")
-		.kind(flecs::PreStore)
-		.each([](const flecs::entity radio, const Radio& state) {
-			const auto* bright = FrequencyColour(radio.world(), state.frequency);
-			const auto* off = radio.world().get<Palette>().Get(kLampOffToken);
-			const auto part = radio.lookup(kLampPart);
-			if (bright == nullptr || off == nullptr || !part || !part.has<PartColour>()) {
-				return;
-			}
-			const auto colour = state.online ? *bright : *off;
-			part.get_mut<PartColour>().colour = colour;
-			if (!radio.has<Brightened>()) {
-				part.get_mut<render::Material>().color = colour;
-			}
 		})
 		.child_of(roomRoot);
 }
@@ -136,6 +108,12 @@ void RegisterLabels(const flecs::world& world, const flecs::entity roomRoot) {
 }
 
 } // namespace
+
+bool FrequencyOnAir(const flecs::query<const Ticket>& tickets, const std::string& frequency) {
+	return tickets.find([&](const Ticket& ticket) {
+		return ticket.state == TicketState::OnAir && ticket.frequency == frequency;
+	});
+}
 
 const core::Rgba* FrequencyColour(const flecs::world& world, const std::string& label) {
 	const auto* frequency = world.get<FrequencyTable>().Find(label);
@@ -192,7 +170,6 @@ void RegisterRadioSystems(const flecs::world& world, const flecs::entity roomRoo
 	RegisterCouplerReset(world, roomRoot);
 	RegisterOnlineState(world, roomRoot);
 	RegisterDisconnect(world, roomRoot);
-	RegisterDimming(world, roomRoot);
 	RegisterLabels(world, roomRoot);
 }
 

@@ -23,47 +23,55 @@
 	},
 	"stations": {
 		"radio": {
-			"comment": "A set on a wall bench: body and display in the Radio's duller body colour (identity); the bright frequency colour is the label and the lit lamp, rear riser with the progress bar, antenna whip, traffic lamp on a post.",
+			"comment": "A set on a wall bench: body and display in the Radio's duller body colour (identity); the bright frequency colour is the label and the lit lamp, rear riser, progress bar floating in front of the set, copied cards come out on the front of the bench, antenna whip, traffic lamp on a post.",
 			"height": 1.1,
+			"item_slide": {"from": [0, 0.64, 0.3], "to": [0, 0.64, 0.3]},
 			"parts": [
 				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 0.8], "colour": "wood"},
 				{"shape": "cube", "offset": [-0.89, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [0.89, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [-0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"shape": "cube", "offset": [0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
-				{"name": "body", "shape": "cube", "offset": [-0.25, 0.83, -0.05], "size": [1.0, 0.42, 0.5], "colour": "identity"},
-				{"shape": "cube", "offset": [-0.25, 0.83, -0.34], "size": [0.05, 0.42, 0.05], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [-0.25, 1.22, -0.34], "size": [0.7, 0.36, 0.05], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
-				{"name": "display", "shape": "cube", "offset": [-0.25, 1.27, -0.31], "size": [0.4, 0.15, 0.02], "rotation": [-0.35, 0, 0], "colour": "identity"},
-				{"name": "riser_bar", "shape": "cube", "offset": [-0.25, 1.12, -0.3], "size": [0.6, 0.07, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "body", "shape": "cube", "offset": [0, 0.83, -0.05], "size": [1.0, 0.42, 0.5], "colour": "identity"},
+				{"shape": "cube", "offset": [0, 0.83, -0.34], "size": [0.05, 0.42, 0.05], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0, 1.22, -0.34], "size": [0.7, 0.36, 0.05], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
+				{"name": "display", "shape": "cube", "offset": [0, 1.27, -0.31], "size": [0.4, 0.15, 0.02], "rotation": [-0.35, 0, 0], "colour": "identity"},
+				{"name": "bar_outline", "shape": "cube", "offset": [0.0, 0.95, 0.3], "size": [0.90, 0.24, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_outline"},
+				{"name": "bar_track", "shape": "cube", "offset": [0.0, 0.954, 0.316], "size": [0.80, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "riser_bar", "shape": "cube", "offset": [0.0, 0.958, 0.332], "size": [0.80, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
 				{"name": "antenna", "shape": "capsule", "offset": [-0.7, 1.52, -0.25], "size": [0.03, 0.9, 0.03], "colour": "antenna"},
 				{"shape": "cube", "offset": [0.18, 1.29, -0.34], "size": [0.04, 0.5, 0.04], "colour": "metal_dark"},
 				{"name": "lamp", "shape": "sphere", "offset": [0.18, 1.6, -0.34], "size": [0.24, 0.24, 0.24], "colour": "lamp_off"}
 			]
 		},
 		"decoder": {
-			"comment": "A cabinet on a sturdy 2x2 table: two tape reels lying on the top deck, a side crank, a rear riser with the progress bar and the lamp on a post above it.",
-			"height": 1.5,
+			"comment": "A cabinet on a 2x1 table half (two halves stack north-south into one 2x2 table on the rug): two tape reels lying on the top deck, a side crank, the lamp on a post, and a progress bar floating just above the reels. The card slides in at the west end and out the east (item_slide). 'tarp_lift' and 'height' put a Tarped machine's tarp on top of the table (the 'base' parts) as a box 0.55 m tall.",
+			"height": 0.55,
+			"tarp_lift": 0.62,
+			"tarp_size": [1.2, 0.7],
+			"item_slide": {"from": [-0.85, 0.9, 0.15], "to": [0.85, 0.9, 0.15]},
 			"parts": [
-				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 1.9], "colour": "decoder_table"},
-				{"shape": "cube", "offset": [-0.86, 0.28, -0.86], "size": [0.1, 0.56, 0.1], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [0.86, 0.28, -0.86], "size": [0.1, 0.56, 0.1], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [-0.86, 0.28, 0.86], "size": [0.1, 0.56, 0.1], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [0.86, 0.28, 0.86], "size": [0.1, 0.56, 0.1], "colour": "metal_dark"},
-				{"name": "body", "shape": "cube", "offset": [-0.2, 0.87, -0.2], "size": [1.1, 0.5, 0.9], "colour": "decoder_cabinet"},
-				{"name": "reel_l", "shape": "sphere", "offset": [-0.45, 1.14, -0.1], "size": [0.4, 0.05, 0.4], "colour": "reel"},
-				{"name": "reel_r", "shape": "sphere", "offset": [0.05, 1.14, -0.1], "size": [0.4, 0.05, 0.4], "colour": "reel"},
-				{"name": "crank", "shape": "cube", "offset": [0.38, 1.02, -0.2], "size": [0.05, 0.3, 0.05], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 1.0], "colour": "decoder_table", "base": true},
+				{"shape": "cube", "offset": [-0.86, 0.28, -0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [0.86, 0.28, -0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [-0.86, 0.28, 0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [0.86, 0.28, 0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"name": "body", "shape": "cube", "offset": [0, 0.87, 0], "size": [1.1, 0.5, 0.6], "colour": "decoder_cabinet"},
+				{"name": "reel_l", "shape": "sphere", "offset": [-0.25, 1.14, 0.05], "size": [0.4, 0.05, 0.4], "colour": "reel"},
+				{"parent": "reel_l", "shape": "cube", "offset": [0, 0.7, 0], "size": [0.85, 0.6, 0.15], "colour": "metal_dark"},
+				{"name": "reel_r", "shape": "sphere", "offset": [0.25, 1.14, 0.05], "size": [0.4, 0.05, 0.4], "colour": "reel"},
+				{"parent": "reel_r", "shape": "cube", "offset": [0, 0.7, 0], "size": [0.85, 0.6, 0.15], "colour": "metal_dark"},
+				{"name": "crank", "shape": "cube", "offset": [0.58, 1.02, 0], "size": [0.05, 0.3, 0.05], "colour": "metal_dark"},
 				{"parent": "crank", "shape": "capsule", "offset": [0.07, 0.15, 0], "size": [0.07, 0.16, 0.07], "rotation": [0, 0, 1.5708], "colour": "crank_grip"},
-				{"shape": "cube", "offset": [-0.2, 0.87, -0.72], "size": [0.05, 0.5, 0.05], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [-0.2, 1.27, -0.72], "size": [0.8, 0.3, 0.05], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
-				{"name": "riser_bar", "shape": "cube", "offset": [-0.2, 1.27, -0.68], "size": [0.7, 0.07, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
-				{"shape": "cube", "offset": [-0.2, 1.57, -0.74], "size": [0.04, 0.3, 0.04], "colour": "metal_dark"},
-				{"name": "lamp", "shape": "sphere", "offset": [-0.2, 1.84, -0.74], "size": [0.32, 0.32, 0.32], "colour": "lamp_off"}
+				{"name": "bar_outline", "shape": "cube", "offset": [0.0, 1.45, -0.1], "size": [0.80, 0.24, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_outline"},
+				{"name": "bar_track", "shape": "cube", "offset": [0.0, 1.454, -0.084], "size": [0.70, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "riser_bar", "shape": "cube", "offset": [0.0, 1.458, -0.068], "size": [0.70, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"shape": "cube", "offset": [-0.52, 1.27, -0.15], "size": [0.04, 0.3, 0.04], "colour": "metal_dark"},
+				{"name": "lamp", "shape": "sphere", "offset": [-0.52, 1.5, -0.15], "size": [0.32, 0.32, 0.32], "colour": "lamp_off"}
 			]
 		},
 		"telex": {
-			"comment": "A low unit on a stand with a platen roll; the paper sheet stands behind it only while loaded (hidden when idle). Rear riser with the progress bar above the paper, lamp on a post.",
+			"comment": "A low unit on a stand with a platen roll; the paper sheet stands behind it only while loaded (hidden when idle). Lamp on a post (no progress bar: a tap job has none to show).",
 			"height": 0.75,
 			"parts": [
 				{"shape": "cube", "offset": [0, 0.59, 0], "size": [0.8, 0.06, 0.8], "colour": "wood"},
@@ -74,9 +82,6 @@
 				{"name": "body", "shape": "cube", "offset": [0, 0.77, 0.05], "size": [0.55, 0.3, 0.5], "colour": "telex_body"},
 				{"name": "platen", "shape": "capsule", "offset": [0, 0.96, -0.12], "size": [0.14, 0.5, 0.14], "rotation": [0, 0, 1.5708], "colour": "platen"},
 				{"name": "paper", "shape": "cube", "offset": [0, 1.12, -0.16], "size": [0.36, 0.34, 0.01], "rotation": [-0.3, 0, 0], "colour": "paper", "visible": false},
-				{"shape": "cube", "offset": [-0.1, 0.96, -0.34], "size": [0.04, 0.68, 0.04], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [-0.1, 1.4, -0.34], "size": [0.4, 0.2, 0.04], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
-				{"name": "riser_bar", "shape": "cube", "offset": [-0.1, 1.4, -0.31], "size": [0.34, 0.06, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
 				{"shape": "cube", "offset": [0.24, 0.97, -0.3], "size": [0.04, 0.7, 0.04], "colour": "metal_dark"},
 				{"name": "lamp", "shape": "sphere", "offset": [0.24, 1.36, -0.3], "size": [0.18, 0.18, 0.18], "colour": "lamp_off"}
 			]
@@ -92,9 +97,6 @@
 				{"shape": "cube", "offset": [0.37, 0.28, 0.32], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
 				{"name": "body", "shape": "cube", "offset": [0, 0.745, 0], "size": [0.6, 0.25, 0.45], "colour": "keypunch_body"},
 				{"shape": "cube", "offset": [0, 0.9, 0.02], "size": [0.6, 0.05, 0.38], "rotation": [0.45, 0, 0], "colour": "keypunch_top"},
-				{"shape": "cube", "offset": [-0.1, 0.82, -0.3], "size": [0.04, 0.4, 0.04], "colour": "metal_dark"},
-				{"shape": "cube", "offset": [-0.1, 1.1, -0.3], "size": [0.4, 0.2, 0.04], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
-				{"name": "riser_bar", "shape": "cube", "offset": [-0.1, 1.1, -0.27], "size": [0.34, 0.06, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
 				{"shape": "cube", "offset": [0.24, 0.92, -0.28], "size": [0.04, 0.6, 0.04], "colour": "metal_dark"},
 				{"name": "lamp", "shape": "sphere", "offset": [0.24, 1.26, -0.28], "size": [0.16, 0.16, 0.16], "colour": "lamp_off"}
 			]

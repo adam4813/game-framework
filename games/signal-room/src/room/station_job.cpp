@@ -271,6 +271,21 @@ void AdvanceJob(const flecs::world& world, const flecs::entity station, const fl
 	}
 }
 
+bool AutoGrabOutput(const flecs::world& world, const flecs::entity station, const flecs::query<const Operator>& operators) {
+	const auto& job = station.get<Job>();
+	const auto* transform = FindTransform(KindOf(world, station), job.transform);
+	if (job.phase != JobPhase::Done || transform == nullptr || transform->verb == Verb::WalkAway) {
+		return false;
+	}
+	return operators.find([&](const flecs::entity op, const Operator&) {
+		if (op.target<Targets>() != station || op.target<Carries>()) {
+			return false;
+		}
+		PickUpOutput(op, station);
+		return true;
+	});
+}
+
 void AddStationJobs(const flecs::world& world, const flecs::entity parent) {
 	std::vector<flecs::entity> stations;
 	world.query_builder<const Station>()
@@ -279,7 +294,7 @@ void AddStationJobs(const flecs::world& world, const flecs::entity parent) {
 		.build()
 		.each([&](const flecs::entity station, const Station&) { stations.push_back(station); });
 	for (const auto station : stations) {
-		station.set<Job>({});
+		station.set<Job>({}).set<StationRead>({});
 	}
 }
 

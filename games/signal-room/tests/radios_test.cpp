@@ -33,10 +33,11 @@ using testing::HasSubstr;
 namespace {
 
 constexpr float kNorth = 0.0F;
+constexpr float kSouth = 3.1415927F;
 constexpr float kEast = -1.5707963F;
 // Radio1 fills cells (1..2, 0), worked from the south.
 constexpr glm::vec2 kSouthOfRadio1{1.6F, 1.4F};
-constexpr glm::vec2 kSouthOfDecoder{6.5F, 5.4F};
+constexpr glm::vec2 kNorthOfDecoder{6.5F, 2.6F};
 constexpr glm::vec2 kWestOfTelex{9.6F, 3.5F};
 
 std::string Fixture(const std::string_view name) {
@@ -242,7 +243,7 @@ TEST(Radios, ShiftOneRoutePlaysFromRadioThroughDecoderAndTelexToClearTheTicket) 
 	Interact(room);
 	ASSERT_EQ(FindOperator(room).target<Carries>().get<Item>().id, "raw_card");
 
-	StandAt(room, kSouthOfDecoder, kNorth);
+	StandAt(room, kNorthOfDecoder, kSouth);
 	Interact(room);
 	room.StepSeconds(6.5F);
 	ASSERT_EQ(JobOf(room, "Decoder").phase, JobPhase::Done);

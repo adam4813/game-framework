@@ -103,9 +103,11 @@ TEST(RoomLayout, InServiceStationsShowTheirLampAndRiserBarAndTarpedOnesDoNot) {
 		EXPECT_TRUE(decoder.lookup(part)) << part;
 	}
 	const auto telex = FindStation(room, "Telex");
-	for (const auto* part : {"body", "lamp", "riser_bar", "platen", "paper"}) {
+	for (const auto* part : {"body", "lamp", "platen", "paper"}) {
 		EXPECT_TRUE(telex.lookup(part)) << part;
 	}
+	// A tap job has no progress to show.
+	EXPECT_FALSE(telex.lookup("riser_bar"));
 
 	const auto radio2 = FindStation(room, "Radio2");
 	EXPECT_FALSE(radio2.lookup("lamp"));

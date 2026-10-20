@@ -266,8 +266,9 @@ TEST(OperatorMovement, TheOperatorCannotCrossTheOpenSouthEdge) {
 TEST(OperatorMovement, TheStormWindowCellsAreWalkable) {
 	RoomHarness room;
 	ASSERT_TRUE(room.LoadShift(kShift1).has_value());
-	// Between Radio2 (4-5,0) and Radio3 (8-9,0), on the line between window cells (6,0) and (7,0).
-	PlaceOperator(room, {7.0F, 2.5F});
+	// Between Radio2 (4-5,0) and Radio3 (8-9,0), on the line between window cells (6,0) and (7,0), just north of
+	// the tarped Decoder2 (6-7,1-2).
+	PlaceOperator(room, {7.0F, 0.8F});
 
 	HoldFor(room, {KeyCode::W}, 1.0F);
 
