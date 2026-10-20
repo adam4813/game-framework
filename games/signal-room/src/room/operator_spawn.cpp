@@ -7,6 +7,7 @@
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
 #include "greybox_model.hpp"
+#include "guidance.hpp"
 #include "operator_components.hpp"
 #include "palette.hpp"
 #include "placements.hpp"
@@ -52,6 +53,7 @@ std::expected<void, std::string> SpawnRoster(
 							.set<Dash>({})
 							.set<spatial::Transform>({.position = grid.CellCentre(marker->second.cell)});
 		BuildGreyboxModel(world, op, model, glm::vec3{1.0F}, *colour);
+		SpawnBubble(world, parent, op);
 	}
 	return {};
 }

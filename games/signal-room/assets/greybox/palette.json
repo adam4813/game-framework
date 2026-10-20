@@ -51,6 +51,8 @@
 		"item_spool": [92, 74, 58],
 		"dust": [196, 186, 162, 200],
 		"confetti": [250, 250, 245, 230],
+		"bubble": [248, 248, 244],
+		"bubble_outline": [18, 18, 20],
 		"overlay_grid": [20, 20, 20],
 		"overlay_solid": [230, 60, 50],
 		"overlay_worked": [90, 220, 110],

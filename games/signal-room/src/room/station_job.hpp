@@ -3,12 +3,18 @@
 #include <flecs.h>
 
 #include "operator_components.hpp"
+#include "station_catalogue.hpp"
 #include "station_components.hpp"
 
 namespace signal_room {
 
 // Raise a Refusal on `op`: its press at `target` could do nothing. Changes nothing else.
 void Refuse(const flecs::world& world, flecs::entity op, flecs::entity target, RefusalReason reason);
+
+// The Transform of `station`'s kind that would take the Item `carried` into a free input slot right now (the
+// Station is Idle or Loading and the Item fits), or nullptr. PressStation's carrying rule and the where-to-go
+// chevrons both ask this, so they can't disagree.
+const StationTransform* TransformTaking(const flecs::world& world, flecs::entity station, flecs::entity carried);
 
 // Resolve `op`'s `interact` press at the in-service `station` it Targets, by the Interact rules:
 // - carrying: place the Item if the Job is Idle or Loading and some Transform of the kind takes it into

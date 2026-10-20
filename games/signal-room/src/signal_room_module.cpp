@@ -8,6 +8,7 @@
 #include "engine/engine.hpp"
 #include "room/bindings.hpp"
 #include "room/greybox_catalogue.hpp"
+#include "room/guidance.hpp"
 #include "room/hud.hpp"
 #include "room/hud_layout.hpp"
 #include "room/item_catalogue.hpp"
@@ -142,6 +143,17 @@ void RegisterComponents(const flecs::world& world) {
 		.member<float>("telex_slide")
 		.member<float>("dark_dim")
 		.add(EcsSingleton);
+	world.component<GuidanceTuning>()
+		.member<float>("chevron_height")
+		.member<float>("chevron_bob")
+		.member<float>("chevron_bob_rate")
+		.member<float>("chevron_spacing")
+		.member<float>("bubble_duration")
+		.member<float>("bubble_side")
+		.member<float>("bubble_height")
+		.add(EcsSingleton);
+	world.component<Chevron>().member<flecs::entity_t>("operator").member<flecs::entity_t>("station").member<float>("age");
+	world.component<Bubble>().member<flecs::entity_t>("operator").member<std::string>("glyph").member<float>("time_left");
 	world.component<ReadState>()
 		.constant("Idle", ReadState::Idle)
 		.constant("Running", ReadState::Running)
@@ -273,6 +285,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 	world.set<CouplerTuning>({});
 	world.set<ConfettiTuning>({});
 	world.set<ReadTuning>({});
+	world.set<GuidanceTuning>({});
 	world.set<AntennaCoupler>({});
 	world.set<Bindings>({});
 	RegisterLayoutLoaders(world);

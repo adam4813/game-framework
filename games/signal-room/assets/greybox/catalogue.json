@@ -21,6 +21,33 @@
 			{"name": "visor", "shape": "cube", "offset": [0, 1.1, -0.14], "size": [0.24, 0.08, 0.08], "colour": "operator_visor"}
 		]
 	},
+	"chevron": {
+		"comment": "The where-to-go chevron: a down-pointing V in the carrying Operator's identity colour, tip at the origin. GuidanceChevrons floats it over each Station that would take the carried Item.",
+		"parts": [
+			{"shape": "cube", "offset": [-0.134, 0.113, 0], "size": [0.35, 0.1, 0.06], "rotation": [0, 0, -0.7], "colour": "identity"},
+			{"shape": "cube", "offset": [0.134, 0.113, 0], "size": [0.35, 0.1, 0.06], "rotation": [0, 0, 0.7], "colour": "identity"}
+		]
+	},
+	"bubble": {
+		"comment": "The Bubble above an Operator: a white comic-book thought bubble, each circle outlined in black (a black disc with a smaller white one in front), with two small circles trailing down toward the Operator on the west. The glyph shown on it is one of the 'glyphs' entries.",
+		"parts": [
+			{"shape": "sphere", "offset": [0, 0, 0], "size": [0.58, 0.58, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [0, 0, 0.03], "size": [0.5, 0.5, 0.08], "colour": "bubble"},
+			{"shape": "sphere", "offset": [-0.3, -0.3, 0], "size": [0.2, 0.2, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [-0.3, -0.3, 0.03], "size": [0.14, 0.14, 0.08], "colour": "bubble"},
+			{"shape": "sphere", "offset": [-0.4, -0.46, 0], "size": [0.12, 0.12, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [-0.4, -0.46, 0.03], "size": [0.07, 0.07, 0.08], "colour": "bubble"}
+		]
+	},
+	"glyphs": {
+		"refuse": {
+			"comment": "A red x on the Bubble: a refused press.",
+			"parts": [
+				{"shape": "cube", "offset": [0, 0, 0.09], "size": [0.38, 0.07, 0.03], "rotation": [0, 0, 0.785], "colour": "lamp_red"},
+				{"shape": "cube", "offset": [0, 0, 0.09], "size": [0.38, 0.07, 0.03], "rotation": [0, 0, -0.785], "colour": "lamp_red"}
+			]
+		}
+	},
 	"stations": {
 		"radio": {
 			"comment": "A set on a wall bench: body and display in the Radio's duller body colour (identity); the bright frequency colour is the label and the lit lamp, rear riser, progress bar floating in front of the set, copied cards come out on the front of the bench, antenna whip, traffic lamp on a post.",

@@ -100,8 +100,12 @@ struct GreyboxCatalogue {
 	// the Counter holding it, or a point in front of the Operator carrying it.
 	engine::core::Registry<GreyboxModel> items;
 	engine::core::Registry<WallStyle> walls;
+	// Bubble glyphs, keyed by glyph id (`refuse`; spec 3 adds AI intent glyphs), drawn on the Bubble.
+	engine::core::Registry<GreyboxModel> glyphs;
 	GreyboxModel counter;
 	GreyboxModel operatorModel; // "operator" in the file
+	GreyboxModel chevron;       // the where-to-go chevron; its `identity` parts take the Operator's colour
+	GreyboxModel bubble;        // the Bubble's backing, which a glyph is drawn over
 	FloorStyle floor;
 };
 

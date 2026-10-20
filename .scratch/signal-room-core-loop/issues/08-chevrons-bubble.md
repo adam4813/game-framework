@@ -11,20 +11,20 @@ the side, for a short time.
 
 **Blocked by:** 02 (Stations, Transforms & Jobs).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One acceptance check ("would this Station take this Item now") shared by the interact rule and the chevrons, so
+- [x] One acceptance check ("would this Station take this Item now") shared by the interact rule and the chevrons, so
       the two can't disagree.
-- [ ] Chevrons per carrying Operator over each accepting Station, in the Operator's identity colour, from a greybox
+- [x] Chevrons per carrying Operator over each accepting Station, in the Operator's identity colour, from a greybox
       catalogue `chevron` entry; height, bob and side-by-side spacing in tuning. Don't assume one Operator.
-- [ ] A Bubble per Operator; the refusal event shows the `refuse` glyph (a red ✗) for a data duration, restarting on a
+- [x] A Bubble per Operator; the refusal event shows the `refuse` glyph (a red ✗) for a data duration, restarting on a
       repeat. A glyph table in data (spec 3 adds AI intent glyphs).
-- [ ] Harness tests:
+- [x] Harness tests:
   - carrying a Raw Card puts a chevron over the Decoder only; once the Decoder is busy, none;
   - carrying a Decoded Card puts one over the Telex;
   - empty-handed, no chevrons; Counters never get one;
   - a refused press shows the ✗; it is gone after its duration;
   - a successful press shows no ✗.
-- [ ] Runtime: desktop build; screenshot a chevron over the Decoder and a ✗ after a refused press. No asserts.
+- [x] Runtime: desktop build; screenshot a chevron over the Decoder and a ✗ after a refused press. No asserts.
 
 ## Comments

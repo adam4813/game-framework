@@ -115,28 +115,13 @@ void PlaceCarried(const flecs::world& world, const flecs::entity op, const flecs
 		return;
 	}
 
-	auto held = HeldItems(station);
-	std::vector<std::string> have{carried.get<Item>().id};
-	for (const auto item : held) {
-		have.push_back(item.get<Item>().id);
-	}
-	const auto& kind = KindOf(world, station);
-	const auto takes = [&](const StationTransform& transform) {
-		return !transform.inputs.empty() && FitsInside(have, transform.inputs);
-	};
-	const StationTransform* transform = nullptr;
-	if (job.phase == JobPhase::Loading) {
-		transform = FindTransform(kind, job.transform);
-		transform = transform != nullptr && takes(*transform) ? transform : nullptr;
-	}
-	else if (const auto found = std::ranges::find_if(kind.transforms, takes); found != kind.transforms.end()) {
-		transform = &*found;
-	}
+	const auto* transform = TransformTaking(world, station, carried);
 	if (transform == nullptr) {
 		Refuse(world, op, station, RefusalReason::WrongItem);
 		return;
 	}
 
+	auto held = HeldItems(station);
 	op.remove<Carries>(carried);
 	station.add<Holds>(carried);
 	PlaceOnStation(carried, station);
@@ -226,6 +211,27 @@ void PressEmptyHanded(
 }
 
 } // namespace
+
+const StationTransform* TransformTaking(const flecs::world& world, const flecs::entity station, const flecs::entity carried) {
+	const auto& job = station.get<Job>();
+	if (job.phase != JobPhase::Idle && job.phase != JobPhase::Loading) {
+		return nullptr;
+	}
+	std::vector<std::string> have{carried.get<Item>().id};
+	for (const auto item : HeldItems(station)) {
+		have.push_back(item.get<Item>().id);
+	}
+	const auto& kind = KindOf(world, station);
+	const auto takes = [&](const StationTransform& transform) {
+		return !transform.inputs.empty() && FitsInside(have, transform.inputs);
+	};
+	if (job.phase == JobPhase::Loading) {
+		const auto* loading = FindTransform(kind, job.transform);
+		return loading != nullptr && takes(*loading) ? loading : nullptr;
+	}
+	const auto found = std::ranges::find_if(kind.transforms, takes);
+	return found == kind.transforms.end() ? nullptr : &*found;
+}
 
 void Refuse(const flecs::world& world, const flecs::entity op, const flecs::entity target, const RefusalReason reason) {
 	world.event<Refusal>().id<Operator>().entity(op).ctx(Refusal{.target = target.id(), .reason = reason}).emit();

@@ -147,6 +147,24 @@ std::expected<RoomTuning, std::string> LoadTuningFile(const std::string& path, c
 		!read) {
 		return std::unexpected(read.error());
 	}
+	auto& guidance = tuning.guidance;
+	if (auto read = ReadFields(
+			*doc,
+			"guidance",
+			{
+				{"chevron_height", &guidance.chevronHeight},
+				{"chevron_bob", &guidance.chevronBob},
+				{"chevron_bob_rate", &guidance.chevronBobRate},
+				{"chevron_spacing", &guidance.chevronSpacing},
+				{"bubble_duration", &guidance.bubbleDuration},
+				{"bubble_side", &guidance.bubbleSide},
+				{"bubble_height", &guidance.bubbleHeight},
+			},
+			path
+		);
+		!read) {
+		return std::unexpected(read.error());
+	}
 	auto& coupler = tuning.coupler;
 	if (auto read = ReadFields(*doc, "coupler", {{"coupler_reset", &coupler.couplerReset}}, path); !read) {
 		return std::unexpected(read.error());

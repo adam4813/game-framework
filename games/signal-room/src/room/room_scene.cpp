@@ -11,6 +11,7 @@
 #include "engine/engine.hpp"
 #include "greybox_catalogue.hpp"
 #include "hud.hpp"
+#include "guidance.hpp"
 #include "hud_layout.hpp"
 #include "item_catalogue.hpp"
 #include "item_interaction.hpp"
@@ -92,6 +93,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterStationSystems(world, roomRoot_);
 	RegisterCarriedItemPlacement(world, roomRoot_);
 	RegisterStationReads(world, roomRoot_);
+	RegisterGuidance(world, roomRoot_);
 	RegisterTargetBrighten(world, roomRoot_);
 	RegisterTicketSimulation(world, roomRoot_);
 	RegisterScoreSystems(world, roomRoot_);
@@ -189,6 +191,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	world.set<CouplerTuning>(tuning->coupler);
 	world.set<ConfettiTuning>(tuning->confetti);
 	world.set<ReadTuning>(tuning->reads);
+	world.set<GuidanceTuning>(tuning->guidance);
 	world.set<Bindings>(std::move(*bindings));
 	world.set<HudLayout>(std::move(*hud));
 

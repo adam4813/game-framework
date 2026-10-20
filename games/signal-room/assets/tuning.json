@@ -1,5 +1,5 @@
 {
-	"comment": "Room feel tuning, re-read on every Room load. The Room panel edits it live without saving. Times are seconds, distances metres, angles degrees. The dash cooldown starts when the dash ends. Targeting: the ray picks the cell ray_length ahead; failing that, the nearest workable thing within cone_range and cone_half_angle of facing. The Target pulses brighten_rate times a second, blending up to brighten_strength (0-1) toward the Operator's colour lightened brighten_lift (0-1) toward white. The Antenna Coupler keeps every Radio dark for coupler_reset s after it disconnects (keep it under 0.5). Station reads: lamps blink blink_min..blink_max times a second as a Job progresses (a Radio On Air blink_slow, in a Coupler reset blink_quick); reels spin reel_speed rad/s (reel_cranked_speed cranked) and the crank crank_speed; a dark Radio keeps dark_dim of its body colour; a transmission flashes the Telex green and slides its paper telex_slide m up over telex_flash s, bursting confetti like the dust puff. A set-down puffs dust_puff.count particles off the Counter at speed m/s, each starting size m in radius and living lifetime s, fanned spread (0 is a column) from straight up.",
+	"comment": "Room feel tuning, re-read on every Room load. The Room panel edits it live without saving. Times are seconds, distances metres, angles degrees. The dash cooldown starts when the dash ends. Targeting: the ray picks the cell ray_length ahead; failing that, the nearest workable thing within cone_range and cone_half_angle of facing. The Target pulses brighten_rate times a second, blending up to brighten_strength (0-1) toward the Operator's colour lightened brighten_lift (0-1) toward white. The Antenna Coupler keeps every Radio dark for coupler_reset s after it disconnects (keep it under 0.5). Station reads: lamps blink blink_min..blink_max times a second as a Job progresses (a Radio On Air blink_slow, in a Coupler reset blink_quick); reels spin reel_speed rad/s (reel_cranked_speed cranked) and the crank crank_speed; a dark Radio keeps dark_dim of its body colour; a transmission flashes the Telex green and slides its paper telex_slide m up over telex_flash s, bursting confetti like the dust puff. Guidance: a chevron floats chevron_height m over a Station (bobbing chevron_bob m, chevron_bob_rate times a second; several Operators' chevrons sit chevron_spacing m apart); a refusal shows the Bubble bubble_duration s, bubble_side m to the Operator's east and bubble_height m up. A set-down puffs dust_puff.count particles off the Counter at speed m/s, each starting size m in radius and living lifetime s, fanned spread (0 is a column) from straight up.",
 	"movement": {
 		"walk_speed": 4.5,
 		"accel_time": 0.08,
@@ -39,6 +39,15 @@
 		"telex_flash": 0.5,
 		"telex_slide": 0.4,
 		"dark_dim": 0.45
+	},
+	"guidance": {
+		"chevron_height": 2.0,
+		"chevron_bob": 0.12,
+		"chevron_bob_rate": 1.2,
+		"chevron_spacing": 0.45,
+		"bubble_duration": 1.0,
+		"bubble_side": 0.61,
+		"bubble_height": 2.28
 	},
 	"dust_puff": {
 		"count": 14,

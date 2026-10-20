@@ -65,6 +65,17 @@ struct ReadTuning {
 	float darkDim{0.45F};          // fraction (0-1) of its colour a dark Radio's body keeps
 };
 
+// World singleton loaded from the tuning file's "guidance" section: the where-to-go chevrons and the Bubble.
+struct GuidanceTuning {
+	float chevronHeight{2.0F};   // m above the floor a chevron's tip floats at
+	float chevronBob{0.12F};     // m, the bob's amplitude
+	float chevronBobRate{1.2F};  // bobs per second
+	float chevronSpacing{0.45F}; // m between side-by-side chevrons of several Operators over one Station
+	float bubbleDuration{1.0F};  // s a glyph shows after a refusal
+	float bubbleSide{0.71F};     // m east of the Operator
+	float bubbleHeight{2.28F};   // m above the floor
+};
+
 // World singleton loaded from the tuning file's "coupler" section: the Antenna Coupler. Edited live by the Room
 // panel like MovementTuning.
 struct CouplerTuning {
@@ -79,6 +90,7 @@ struct RoomTuning {
 	CouplerTuning coupler;
 	ConfettiTuning confetti;
 	ReadTuning reads;
+	GuidanceTuning guidance;
 };
 
 // Parse the tuning file; a missing section or field keeps its default. Every field must be a positive

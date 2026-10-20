@@ -176,11 +176,20 @@ std::expected<GreyboxCatalogue, std::string> LoadGreyboxCatalogueFile(const std:
 		return std::unexpected(std::format("Greybox file {}: {}", path, operatorModel.error()));
 	}
 	catalogue.operatorModel = std::move(*operatorModel);
+	for (const auto& [key, target] :
+		 {std::pair{"chevron", &catalogue.chevron}, std::pair{"bubble", &catalogue.bubble}}) {
+		auto model = ParseModel(palette, doc->value(key, json::object()), key);
+		if (!model) {
+			return std::unexpected(std::format("Greybox file {}: {}", path, model.error()));
+		}
+		*target = std::move(*model);
+	}
 
 	for (const auto& result :
 		 {ParseModels(palette, *doc, "stations", catalogue.stations),
 		  ParseModels(palette, *doc, "props", catalogue.props),
 		  ParseModels(palette, *doc, "items", catalogue.items),
+		  ParseModels(palette, *doc, "glyphs", catalogue.glyphs),
 		  ParseWalls(palette, *doc, catalogue.walls),
 		  ParseFloor(palette, *doc, catalogue.floor)}) {
 		if (!result) {
