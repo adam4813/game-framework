@@ -23,6 +23,8 @@ uniform float shininess;
 uniform float shadowPass;
 uniform vec4 shadowColor;
 
+uniform float unlit; // > 0.5: output the base colour without lighting
+
 out vec4 finalColor;
 
 void main() {
@@ -33,6 +35,11 @@ void main() {
 
 	vec4 texel = texture(texture0, fragTexCoord);
 	vec4 base = texel * colDiffuse * fragColor;
+
+	if (unlit > 0.5) {
+		finalColor = base;
+		return;
+	}
 
 	vec3 normal = normalize(fragNormal);
 	vec3 l = normalize(-lightDir);

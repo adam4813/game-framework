@@ -177,6 +177,7 @@ struct LitState {
 	int loc_shininess = -1;
 	int loc_shadow_pass = -1;
 	int loc_shadow_color = -1;
+	int loc_unlit = -1;
 
 	bool shadows_enabled = false;
 	glm::mat4 shadow_matrix{1.0f};
@@ -208,6 +209,7 @@ struct InstancedState {
 	int loc_shadow_pass = -1;
 	int loc_shadow_color = -1;
 	int loc_shadow_matrix = -1;
+	int loc_unlit = -1;
 };
 
 InstancedState g_inst;
@@ -458,6 +460,7 @@ void InitLitResources() {
 	g_lit.loc_specular = GetShaderLocation(g_lit.shader, "specularStrength");
 	g_lit.loc_shininess = GetShaderLocation(g_lit.shader, "shininess");
 	g_lit.loc_shadow_pass = GetShaderLocation(g_lit.shader, "shadowPass");
+	g_lit.loc_unlit = GetShaderLocation(g_lit.shader, "unlit");
 	g_lit.loc_shadow_color = GetShaderLocation(g_lit.shader, "shadowColor");
 
 	const Image white_img = GenImageColor(1, 1, WHITE);
@@ -507,6 +510,8 @@ void DrawLitMeshWithFallbackTexture(
 	constexpr float kOff = 0.0f;
 	constexpr float kOn = 1.0f;
 	SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+	const float unlit = material.unlit ? kOn : kOff;
+	SetShaderValue(g_lit.shader, g_lit.loc_unlit, &unlit, SHADER_UNIFORM_FLOAT);
 
 	if (wireframe) {
 		DrawMeshWithMaterial(mesh, g_lit.material, model, true);
@@ -590,6 +595,7 @@ void InitInstancedResources() {
 	g_inst.loc_specular = GetShaderLocation(g_inst.shader, "specularStrength");
 	g_inst.loc_shininess = GetShaderLocation(g_inst.shader, "shininess");
 	g_inst.loc_shadow_pass = GetShaderLocation(g_inst.shader, "shadowPass");
+	g_inst.loc_unlit = GetShaderLocation(g_inst.shader, "unlit");
 	g_inst.loc_shadow_color = GetShaderLocation(g_inst.shader, "shadowColor");
 	g_inst.loc_shadow_matrix = GetShaderLocation(g_inst.shader, "shadowMatrix");
 
@@ -722,6 +728,8 @@ int DrawInstancedGroup(
 	constexpr float kOff = 0.0f;
 	constexpr float kOn = 1.0f;
 	SetShaderValue(g_inst.shader, g_inst.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+	const float unlit = material.unlit ? kOn : kOff;
+	SetShaderValue(g_inst.shader, g_inst.loc_unlit, &unlit, SHADER_UNIFORM_FLOAT);
 
 	auto issue = [&] {
 		rlEnableVertexArray(rm.mesh.vaoId);

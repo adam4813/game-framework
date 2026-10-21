@@ -100,6 +100,8 @@ variant for WebGL).
 - **Phong shading** — ambient + one directional light + specular, configured from `AmbientLight` and `DirectionalLight`.
 - **Shadows** — cheap **planar projected shadows** flattened onto `DirectionalLight.shadow_ground_y`. No render targets,
   so it works on desktop and WebGL alike.
+- **Unlit** — `Material.unlit` draws the colour exactly as given, skipping the scene light (flat white art, markers).
+  It is independent of `cast_shadow`, which only controls the projected shadow.
 - **Textures** — `AlbedoMap { path, handle }` on the material entity is resolved to a platform handle via the
   `RegisterPathAsset<AlbedoMap>()` observer. `ShaderMap { stages, handle }` similarly loads a custom GLSL shader.
 

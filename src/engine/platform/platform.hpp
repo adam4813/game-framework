@@ -54,6 +54,7 @@ struct DrawMaterial {
 	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
+	bool unlit{false}; // draw the tint as-is, skipping the scene lighting
 };
 
 // Identifiers for the backend's built-in unit primitive meshes. Fetch a batchable handle for one

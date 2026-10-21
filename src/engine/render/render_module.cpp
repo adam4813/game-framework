@@ -66,6 +66,7 @@ platform::DrawMaterial MakeDrawMaterial(const flecs::entity mat_e) {
 		.tint = mat->color,
 		.wireframe = mat->wireframe,
 		.cast_shadow = mat->cast_shadow,
+		.unlit = mat->unlit,
 	};
 }
 
@@ -141,6 +142,7 @@ platform::DrawMaterial MaterialFromColumns(const Material* mat, const AlbedoMap*
 		.tint = mat->color,
 		.wireframe = mat->wireframe,
 		.cast_shadow = mat->cast_shadow,
+		.unlit = mat->unlit,
 	};
 }
 
@@ -311,6 +313,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		m.color = JRgba(j, "color", m.color);
 		m.wireframe = j.value("wireframe", m.wireframe);
 		m.cast_shadow = j.value("cast_shadow", m.cast_shadow);
+		m.unlit = j.value("unlit", m.unlit);
 		e.set<Material>(m);
 	});
 	level::RegisterComponentLoader(world, "albedo", [](const flecs::entity e, const json& j) {
@@ -419,6 +422,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<core::Rgba>("color")
 		.member<bool>("wireframe")
 		.member<bool>("cast_shadow")
+		.member<bool>("unlit")
 		.add<scripting::ScriptTraversal>(world.component<RenderWith>());
 	world.component<AlbedoMap>().member<std::string>("path").member<int>("handle").add<scripting::ScriptTraversal>(
 		world.component<RenderWith>()

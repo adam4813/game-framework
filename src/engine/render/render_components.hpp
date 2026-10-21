@@ -59,6 +59,7 @@ struct Material {
 	core::Rgba color{.r = 200, .g = 200, .b = 200, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
+	bool unlit{false}; // draw the colour as-is, skipping the scene lighting
 };
 
 // Convention: each texture-map component carries `std::string path` and `int handle`. They are
