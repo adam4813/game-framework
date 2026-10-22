@@ -113,6 +113,7 @@ void RegisterOperatorTargeting(const flecs::world& world, const flecs::entity ro
 				op.remove<Targets>(flecs::Wildcard);
 			}
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

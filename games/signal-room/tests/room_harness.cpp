@@ -9,6 +9,7 @@
 #include "null_platform.hpp"
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
+#include "room/ticket_simulation.hpp"
 #include "signal_room_module.hpp"
 
 namespace signal_room::test {
@@ -60,6 +61,9 @@ std::expected<void, std::string> RoomHarness::Reload() {
 std::expected<void, std::string> RoomHarness::LoadResult() const {
 	if (const auto& error = World().get<RoomState>().loadError; !error.empty()) {
 		return std::unexpected(error);
+	}
+	if (!keepBriefing_) {
+		SetShiftPhase(World(), ShiftPhase::Running);
 	}
 	return {};
 }

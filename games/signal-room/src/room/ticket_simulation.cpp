@@ -86,7 +86,7 @@ void RaiseOnClock(const flecs::world& world, const auto& event) {
 // The hard stop: open Tickets go unscored and Items in flight are destroyed.
 void EndShift(const flecs::world& world, ShiftWindow& clock) {
 	clock.windowLeft = 0.0F;
-	clock.phase = ShiftPhase::Ended;
+	SetShiftPhase(world, ShiftPhase::Ended);
 	world.delete_with<Ticket>();
 	world.delete_with<Item>();
 	RaiseOnClock(world, ShiftEnded{});
@@ -113,6 +113,7 @@ void RegisterShiftWindow(const flecs::world& world, const flecs::entity roomRoot
 				}
 			}
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 
@@ -147,6 +148,7 @@ void RegisterTicketGauges(const flecs::world& world, const flecs::entity roomRoo
 			Raise<LostIntercept, Ticket>(world, it.entity(i));
 			it.entity(i).destruct();
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 
@@ -201,6 +203,7 @@ void RegisterCollectionSchedule(const flecs::world& world, const flecs::entity r
 				clock.nextArrival = DrawInterval(rng, schedule);
 			}
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 
@@ -249,6 +252,25 @@ void RegisterTransmissionObserver(const flecs::world& world, const flecs::entity
 
 } // namespace
 
+void SetShiftPhase(const flecs::world& world, const ShiftPhase phase) {
+	world.get_mut<ShiftWindow>().phase = phase;
+	// Briefing and Ended hold the Room's simulation (ADR 0004); Render, UI and the panel keep running. A fresh
+	// attempt's Briefing is held by the Shift flow after one frame instead: the engine's transform propagation is
+	// Pausable, so a Room paused from its first frame would never be drawn behind the card.
+	if (phase == ShiftPhase::Running) {
+		world.remove<scene::Paused>();
+	} else if (phase == ShiftPhase::Ended) {
+		world.add<scene::Paused>();
+	}
+	RaiseOnClock(world, ShiftPhaseChanged{});
+}
+
+void EndShiftNow(const flecs::world& world) {
+	if (auto& clock = world.get_mut<ShiftWindow>(); clock.phase != ShiftPhase::Ended) {
+		EndShift(world, clock);
+	}
+}
+
 void StartShiftWindow(const flecs::world& world, const Shift& shift) {
 	const auto& pin = world.get<SeedPin>();
 	const uint64_t seed = pin.pinned ? pin.value : world.get_mut<ecs::RngState>().Next();
@@ -262,6 +284,7 @@ void StartShiftWindow(const flecs::world& world, const Shift& shift) {
 	world.set<ScheduleRng>(scheduleRng);
 	world.set<ScheduleState>({});
 	world.set<Schedule>(shift.schedule);
+	SetShiftPhase(world, ShiftPhase::Briefing);
 	spdlog::info("[Tickets] Window started: Window {} s, seed {}", shift.window, seed);
 }
 

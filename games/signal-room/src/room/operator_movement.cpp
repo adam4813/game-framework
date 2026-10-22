@@ -144,6 +144,7 @@ void RegisterOperatorMovement(const flecs::world& world, const flecs::entity roo
 				}
 			}
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

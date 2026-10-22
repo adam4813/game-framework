@@ -11,6 +11,13 @@
 		{"spawn": "spawn_1", "colour": "p1"}
 	],
 	"radios": {"Radio1": "7.0"},
+	"briefing": {
+		"notes": [
+			"Tickets pile up on the rack along the top. Each one names a frequency.",
+			"The gauge under a Ticket drains: green, then amber, then red. Clear it before it empties.",
+			"Copy at the Radio, Decode, then stamp it at the Telex on the Ticket's frequency."
+		]
+	},
 	"window": 240,
 	"schedule": {
 		"interval": [25, 35],

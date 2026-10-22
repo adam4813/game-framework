@@ -29,12 +29,13 @@ struct Ticket {
 	bool unlosable{false};   // pinned Tickets that never run out (the timer rests at 0)
 };
 
-// Shift flow phase. Later tickets add Briefing, Orientation and Results around these.
-enum class ShiftPhase { Running, Ended };
+// Shift flow phase: the Briefing card over the paused Room, then Running, then Ended (the results screen,
+// also paused). A later ticket inserts Orientation after Briefing.
+enum class ShiftPhase { Briefing, Running, Ended };
 
 // World singleton: the Window and the schedule's clock. They tick only while Running and not `frozen`.
 struct ShiftWindow {
-	ShiftPhase phase{ShiftPhase::Running};
+	ShiftPhase phase{ShiftPhase::Briefing};
 	float window{240.0F};     // s, the Shift's full Window
 	float windowLeft{240.0F}; // s
 	uint64_t seed{0};         // the attempt's seed
@@ -71,6 +72,8 @@ struct TicketCleared {};
 struct LostIntercept {};
 struct LastCall {};
 struct ShiftEnded {};
+// Raised on the ShiftWindow whenever its phase changes, including the attempt's start at Briefing.
+struct ShiftPhaseChanged {};
 // Raised on the ShiftWindow by whatever transmits (the Telex); carries the frequency label and the
 // transmitting Station (0 when a test raises it directly).
 struct Transmission {

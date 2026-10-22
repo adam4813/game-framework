@@ -38,6 +38,7 @@ void RegisterCouplerReset(const flecs::world& world, const flecs::entity roomRoo
 		.each([](flecs::iter& it, size_t, AntennaCoupler& coupler) {
 			coupler.resetLeft = std::max(0.0F, coupler.resetLeft - it.delta_time());
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

@@ -62,6 +62,7 @@ struct Shift {
 	Schedule schedule;
 	std::vector<float> starFractions; // empty: the Ticket rules' default
 	std::vector<float> starAbsolute;  // [1, 2, 3 stars] scores, empty: use fractions of par
+	std::vector<std::string> briefingNotes; // the Briefing card's note lines
 };
 
 // Parse a Shift file. The error names the file and what was wrong with it.

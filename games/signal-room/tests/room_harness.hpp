@@ -47,6 +47,10 @@ public:
 	// Re-read the current Shift and Layout from disk, as the Room panel's Reload button does.
 	std::expected<void, std::string> Reload();
 
+	// Leave the next loads and Reloads at the Briefing, as a player sees them. By default the harness
+	// starts the Shift (no frame passes) so tests that are not about the Briefing begin with a live Room.
+	void KeepBriefing(const bool keep = true) { keepBriefing_ = keep; }
+
 	void Hold(int key);
 	void Release(int key);
 	// Hold a key for the next frame only.
@@ -72,6 +76,7 @@ private:
 	std::set<int> held_;
 	std::set<int> tapped_;
 	std::set<int> touched_;
+	bool keepBriefing_{false};
 };
 
 } // namespace signal_room::test

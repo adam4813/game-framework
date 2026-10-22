@@ -93,6 +93,7 @@ void RegisterItemInteraction(const flecs::world& world, const flecs::entity room
 			const glm::vec2 position{transform.position.x, transform.position.z};
 			motion.facing = FacingToward(it.world().get<FloorGrid>(), counter.get<Counter>(), position, motion.facing);
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

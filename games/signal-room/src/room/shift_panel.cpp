@@ -48,12 +48,19 @@ void DrawShiftSection(const flecs::world& world, const flecs::entity roomRoot, S
 	ui.Text(
 		std::format(
 			"Phase: {}   Window left: {} ({:.1f} s)   Tickets: {}",
-			clock.phase == ShiftPhase::Running ? "Running" : "Ended",
+			clock.phase == ShiftPhase::Briefing ? "Briefing" : (clock.phase == ShiftPhase::Running ? "Running" : "Ended"),
 			ClockText(clock.windowLeft),
 			clock.windowLeft,
 			world.count<Ticket>()
 		)
 	);
+	if (ui.Button("Skip Briefing") && clock.phase == ShiftPhase::Briefing) {
+		SetShiftPhase(world, ShiftPhase::Running);
+	}
+	ui.SameLine();
+	if (ui.Button("End Shift")) {
+		EndShiftNow(world);
+	}
 	ui.Checkbox("Freeze Window", clock.frozen);
 	ui.Tooltip("Stops the clock, the schedule and every Ticket gauge");
 

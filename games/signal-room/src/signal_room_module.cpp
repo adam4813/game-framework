@@ -22,6 +22,7 @@
 #include "room/room_scene.hpp"
 #include "room/room_tuning.hpp"
 #include "room/score_components.hpp"
+#include "room/shift_flow.hpp"
 #include "room/shift.hpp"
 #include "room/station_catalogue.hpp"
 #include "room/station_components.hpp"
@@ -215,7 +216,10 @@ void RegisterComponents(const flecs::world& world) {
 	world.component<RadioOnline>();
 
 	world.component<TicketState>().constant("StandBy", TicketState::StandBy).constant("OnAir", TicketState::OnAir);
-	world.component<ShiftPhase>().constant("Running", ShiftPhase::Running).constant("Ended", ShiftPhase::Ended);
+	world.component<ShiftPhase>()
+		.constant("Briefing", ShiftPhase::Briefing)
+		.constant("Running", ShiftPhase::Running)
+		.constant("Ended", ShiftPhase::Ended);
 	world.component<Ticket>()
 		.member<std::string>("callsign")
 		.member<std::string>("tier")
@@ -262,6 +266,9 @@ void RegisterComponents(const flecs::world& world) {
 	world.component<LostIntercept>();
 	world.component<LastCall>();
 	world.component<ShiftEnded>();
+	world.component<ShiftPhaseChanged>();
+	world.component<ShiftBriefing>().member<std::string>("name").add(EcsSingleton);
+	world.component<FlowUi>().add(EcsSingleton);
 	world.component<Transmission>();
 }
 

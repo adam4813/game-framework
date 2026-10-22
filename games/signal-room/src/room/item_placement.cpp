@@ -44,6 +44,7 @@ void RegisterCarriedItemPlacement(const flecs::world& world, const flecs::entity
 			transform.rotation = item.get<Item>().tiltToCamera ? glm::vec3{kCarryTiltToCamera, 0.0F, 0.0F}
 															   : glm::vec3{0.0F, motion.facing, 0.0F};
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

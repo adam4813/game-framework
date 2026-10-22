@@ -32,8 +32,31 @@ struct HudLayout {
 	float popSeconds{0.3F};  // s a score or chain label stays scaled
 	float popScale{1.35F};
 
+	// The Briefing card and the results screen (both engine UI Modals), centred on the screen.
+	float flowWidth{560.0F};
+	float flowHeight{380.0F};
+	float flowPadding{24.0F};
+	float flowTitleFont{32.0F};
+	float flowBodyFont{20.0F};
+	float flowButtonWidth{200.0F};
+	float flowButtonHeight{48.0F};
+	float flowBackdropAlpha{110.0F}; // 0-255, low enough that the Room shows through
+
 	std::string lastCallLabel{"LAST CALL"};
 	std::string chainPrefix{"x"};
+	std::string routeArrow{" -> "};
+	std::string routeLabel{"Route"};
+	std::string briefingStart{"Start Shift"};
+	std::string resultsTitle{"Shift over"};
+	std::string scoreLabel{"Score"};
+	std::string parLabel{"Par"};
+	std::string starsLabel{"Stars"};
+	std::string starFull{"*"};
+	std::string starEmpty{"-"};
+	std::string clearedLabel{"Cleared"};
+	std::string lostLabel{"Lost Intercepts"};
+	std::string bestChainLabel{"Best chain"};
+	std::string retryLabel{"Retry"};
 
 	engine::core::Rgba panel{};
 	engine::core::Rgba border{};

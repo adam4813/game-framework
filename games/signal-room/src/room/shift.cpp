@@ -182,6 +182,14 @@ std::expected<Shift, std::string> LoadShiftFile(const std::string& path, const A
 		}
 		shift.schedule = std::move(*schedule);
 	}
+	if (doc->contains("briefing")) {
+		const auto notes = doc->at("briefing").is_object() ? doc->at("briefing").value("notes", nlohmann::json::array())
+														   : nlohmann::json{};
+		if (!notes.is_array() || !std::ranges::all_of(notes, [](const auto& n) { return n.is_string(); })) {
+			return std::unexpected(std::format("Shift file {}: briefing must be {{\"notes\": [text, ...]}}", path));
+		}
+		shift.briefingNotes = notes.get<std::vector<std::string>>();
+	}
 	if (doc->contains("stars")) {
 		const auto& stars = doc->at("stars");
 		const auto read = [&](const char* key, std::vector<float>& out) {

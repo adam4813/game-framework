@@ -28,6 +28,7 @@ void RegisterStationHolding(const flecs::world& world, const flecs::entity roomR
 			}
 			holding.since += it.delta_time();
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 
@@ -53,6 +54,7 @@ void RegisterStationSystems(const flecs::world& world, const flecs::entity roomR
 			}
 			PressStation(it.world(), it.entity(i), station, holders);
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 
 	world.system("StationAutoGrab")
@@ -66,6 +68,7 @@ void RegisterStationSystems(const flecs::world& world, const flecs::entity roomR
 				AutoGrabOutput(it.world(), it.entity(i), operators);
 			}
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 
 	world.system("StationItemSlide")
@@ -83,6 +86,7 @@ void RegisterStationSystems(const flecs::world& world, const flecs::entity roomR
 			const auto position = station.get<spatial::Transform>().position + glm::mix(slide.from, slide.to, t);
 			station.each<Holds>([&](const flecs::entity item) { item.get_mut<spatial::Transform>().position = position; });
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 
 	world.system("StationJobProgress")
@@ -94,6 +98,7 @@ void RegisterStationSystems(const flecs::world& world, const flecs::entity roomR
 			const bool held = holders.find([&](const Holding& holding) { return holding.station == station.id(); });
 			AdvanceJob(it.world(), station, it.delta_time(), held);
 		})
+		.add<ecs::Pausable>()
 		.child_of(roomRoot);
 }
 

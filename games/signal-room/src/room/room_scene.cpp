@@ -32,6 +32,7 @@
 #include "room_panel.hpp"
 #include "room_tuning.hpp"
 #include "score_systems.hpp"
+#include "shift_flow.hpp"
 #include "shift.hpp"
 #include "station_catalogue.hpp"
 #include "station_job.hpp"
@@ -71,6 +72,15 @@ void RoomScene::InitializePipeline(const flecs::world& world) {
 					.without(flecs::Disabled).up(flecs::DependsOn)
 					.without(flecs::Disabled).up(flecs::ChildOf)
 					.build();
+	// The Briefing and results screens hold the Room: the same systems minus the Pausable ones.
+	pausedPipeline_ = world.pipeline()
+						.with(flecs::System)
+						.without<scene::MenuScene>()
+						.without<ecs::Pausable>()
+						.with(flecs::Phase).cascade(flecs::DependsOn)
+						.without(flecs::Disabled).up(flecs::DependsOn)
+						.without(flecs::Disabled).up(flecs::ChildOf)
+						.build();
 	// clang-format on
 }
 
@@ -99,6 +109,7 @@ void RoomScene::Load(flecs::world& world) {
 	RegisterScoreSystems(world, roomRoot_);
 	if (world.get<RoomState>().loadError.empty()) {
 		RegisterHud(world, roomRoot_);
+		RegisterShiftFlow(world, roomRoot_);
 	}
 	RegisterRoomPanel(world, roomRoot_);
 
@@ -210,6 +221,8 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 		return inService;
 	}
 
+	world.set<ShiftBriefing>({.name = shift->name, .notes = shift->briefingNotes});
+
 	AddStationJobs(world, roomRoot_);
 	if (auto radios = AssignRadios(world, roomRoot_, *shift, shiftFile); !radios) {
 		return radios;
@@ -234,6 +247,8 @@ void RoomScene::Unload(flecs::world& world) {
 		roomRoot_ = {};
 	}
 	UnloadLayout(world);
+	// The next Load pauses again if it starts at Briefing; leaving the Room must not leave the world paused.
+	world.remove<scene::Paused>();
 }
 
 void StartRoom(const flecs::world& world, const std::string& shiftPath) {
