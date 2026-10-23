@@ -55,6 +55,8 @@ struct DrawMaterial {
 	bool wireframe{false};
 	bool cast_shadow{true};
 	bool unlit{false}; // draw the tint as-is, skipping the scene lighting
+	bool depth_write{true};      // when false, the draw tests depth but doesn't write it (transparent pass)
+	bool fade_transparent{false}; // selects the occluder-fade shader's transparent (ghost) pass
 };
 
 // Identifiers for the backend's built-in unit primitive meshes. Fetch a batchable handle for one
@@ -101,6 +103,18 @@ struct LightParams {
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;
 	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
+};
+
+// Occluder-fade configuration pushed to fade-aware shaders (e.g. the upright-quad cutout shader).
+// Upright sprites that cover `focus` (typically the camera's LookAt target, i.e. the player) on
+// screen become alpha-blended translucent so the focus shows through. The test is screen-space, so
+// tall quads leaning over the focus fade too. `enabled == false` (or `strength == 0`) renders those
+// shaders as a plain cutout.
+struct OcclusionFadeParams {
+	glm::vec3 focus{0.0f};  // world-space point to keep visible
+	float radius = 130.0f;  // screen-space radius (pixels) of the fade region around the focus
+	float strength = 0.75f; // transparency applied over the focus (0 = off, 1 = fully invisible)
+	bool enabled = false;
 };
 
 enum class MouseButton { Left = 0, Right = 1 };
@@ -179,6 +193,9 @@ public:
 	// Uploads scene lighting + shadow configuration to the lit shader. Call once per frame after
 	// BeginMode3D and before drawing primitives.
 	virtual void SetLighting(const LightParams& lighting) = 0;
+	// Uploads occluder-fade configuration to fade-aware shaders (upright cutout quads). Call once
+	// per frame after BeginMode3D and before drawing the quads. A disabled value clears the effect.
+	virtual void SetOcclusionFade(const OcclusionFadeParams& fade) = 0;
 	virtual void DrawCube(const glm::mat4& transform, glm::vec3 size, const DrawMaterial& material) = 0;
 	virtual void DrawSphere(const glm::mat4& transform, float radius, const DrawMaterial& material) = 0;
 	virtual void DrawQuad(const glm::mat4& transform, glm::vec2 size, const DrawMaterial& material) = 0;

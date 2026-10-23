@@ -140,6 +140,23 @@ struct Camera {
 // Exclusive — a camera looks at exactly one entity. Consumed by Render3DBegin and the debug renderer.
 struct LookAt {};
 
+// Singleton: Stardew-style occluder fade. Upright cutout quads (trees, buildings, NPCs) that cover
+// the camera's LookAt focus on screen become alpha-blended translucent so the focus (the player)
+// shows through. The focus point is taken each frame from the active camera's LookAt target — this
+// component only carries tuning. Set one on the world to enable; remove it (or set enabled=false)
+// to turn the effect off. Consumed by the RenderOcclusionFadeUpload system. Requires the faded
+// meshes to carry TransparentPass so they draw after the opaque scene.
+struct OcclusionFade {
+	float radius{130.0F};  // screen-space radius (px) of the fade region around the focus
+	float strength{0.75F}; // transparency over the focus (0 = off, 1 = fully invisible)
+	bool  enabled{true};
+};
+
+// Tag: draw this entity's DynamicMesh in the post-opaque transparent pass (alpha-blended) that runs
+// after the player and other opaque geometry, instead of the normal opaque dynamic-mesh pass. Lets
+// occluder-fade shaders reveal what is already in the framebuffer behind the quad (the player).
+struct TransparentPass {};
+
 // A sprite atlas (texture sheet with uniform or irregular tile layout).
 // Carries the atlas image path and its pixel dimensions. Entities that ARE a sprite atlas also
 // carry AlbedoMap, Material, and ShaderMap directly — the atlas entity is the material entity.

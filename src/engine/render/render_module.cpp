@@ -434,6 +434,11 @@ RenderModule::RenderModule(const flecs::world& world) {
 	world.component<MeshPrimitive>().member<std::string>("path").member<int>("handle");
 	world.component<DynamicMesh>().member<int>("handle");
 	world.component<AmbientLight>().member<core::Rgba>("color").member<float>("intensity");
+	world.component<OcclusionFade>()
+		.member<float>("radius")
+		.member<float>("strength")
+		.member<bool>("enabled");
+	world.component<TransparentPass>();
 	world.component<DirectionalLight>()
 		.member<glm::vec3>("direction")
 		.member<core::Rgba>("color")
@@ -660,6 +665,34 @@ RenderModule::RenderModule(const flecs::world& world) {
 					  })
 					  .add<scene::GameScene>();
 
+	// === SYSTEM: Upload occluder-fade focus ===
+	// Derives the fade focus from the active camera's LookAt target (the thing we don't want hidden,
+	// e.g. the player) so no per-frame game code is needed; the OcclusionFade singleton only tunes
+	// radius/depth/strength. Pushing a disabled value when the singleton is absent clears any stale
+	// fade left on the backend.
+	std::ignore = world.system("RenderOcclusionFadeUpload")
+					  .kind(flecs::OnStore)
+					  .run([camera_query](const flecs::iter& it) {
+						  const auto& platform_ref = it.world().get<platform::PlatformRef>();
+						  if (!it.world().get<Render3DState>().active) return;
+						  platform::OcclusionFadeParams fade; // defaults: disabled
+						  const auto* cfg = it.world().try_get<OcclusionFade>();
+						  if (cfg != nullptr && cfg->enabled && camera_query.is_true()) {
+							  const auto camera = camera_query.first();
+							  const flecs::entity target_ent = camera.target<const LookAt>();
+							  const auto* target =
+								  target_ent ? target_ent.try_get<const spatial::WorldTransform>() : nullptr;
+							  if (target != nullptr) {
+								  fade.enabled = true;
+								  fade.focus = target->position;
+								  fade.radius = cfg->radius;
+								  fade.strength = cfg->strength;
+							  }
+						  }
+						  platform_ref.ptr->SetOcclusionFade(fade);
+					  })
+					  .add<scene::GameScene>();
+
 	// === SYSTEMS: Enqueue primitives (batched + GPU-instanced at flush) ===
 	// Cube / sphere / quad map 1:1 to a built-in unit mesh; their component drives only the local
 	// scale. The systems enqueue a draw command (frustum-culled) instead of issuing a draw call, so
@@ -754,16 +787,32 @@ RenderModule::RenderModule(const flecs::world& world) {
 	);
 
 	// === SYSTEM: Flush the render queue as GPU-instanced batches ===
+	// Query for the transparent occluder-ghost pass: the TransparentPass-tagged upright cutout quads.
+	// They were already drawn opaque by RenderDynamicMeshes (which DISCARDED the fragments covering
+	// the focus, punching a hole the player shows through). This query redraws ONLY those covering
+	// fragments as a depth-write-off, alpha-blended ghost so a faint silhouette remains over the
+	// player. It is iterated at the end of Render3DFlush — AFTER SubmitBatch has drawn the player and
+	// other opaque instanced primitives — so the blend lands over the player (guaranteed ordering,
+	// independent of Flecs' intra-phase system order).
+	const auto ghost_query = world.query_builder<const spatial::WorldTransform, const DynamicMesh>()
+								 .with<RenderWith>(flecs::Wildcard)
+								 .optional()
+								 .self()
+								 .up()
+								 .with<TransparentPass>()
+								 .build();
+
 	std::ignore = world.system("Render3DFlush")
 					  .kind(flecs::OnStore)
-					  .run([](const flecs::iter& it) {
+					  .run([ghost_query](const flecs::iter& it) {
 						  profiling::Zone _zone{"Render3DFlush"};
 						  auto& queue = it.world().get_mut<RenderQueue>();
 						  auto& stats = it.world().get_mut<RenderStats>();
 						  const auto flush_start = std::chrono::steady_clock::now();
 						  stats.enqueue_ms =
 							  std::chrono::duration<double, std::milli>(flush_start - g_render_begin_time).count();
-						  if (it.world().get<Render3DState>().active && !queue.commands.empty()) {
+						  const bool active = it.world().get<Render3DState>().active;
+						  if (active && !queue.commands.empty()) {
 							  const auto& platform_ref = it.world().get<platform::PlatformRef>();
 							  platform::BatchStats batch;
 							  {
@@ -782,6 +831,28 @@ RenderModule::RenderModule(const flecs::world& world) {
 							  stats.draw_ms = 0.0;
 						  }
 						  queue.commands.clear();
+
+						  // Transparent occluder-ghost pass — see ghost_query above. Drawn here, after the
+						  // opaque batch, so the alpha blend reveals the player behind the faded quads.
+						  if (active) {
+							  auto& platform = *it.world().get<platform::PlatformRef>().ptr;
+							  const auto& cull = it.world().get<CameraFrustum>();
+							  ghost_query.each([&platform, &cull](
+												   const flecs::iter& git, const size_t i, const spatial::WorldTransform& wt, const DynamicMesh& mesh
+											   ) {
+								  if (mesh.handle < 0) return;
+								  const auto entity = git.entity(i);
+								  if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
+									  if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) {
+										  return;
+									  }
+								  }
+								  platform::DrawMaterial ghost = ResolveDrawMaterial(entity);
+								  ghost.depth_write = false;     // don't occlude the player or disturb the opaque z-sort
+								  ghost.fade_transparent = true; // shader renders only the faded (covering) fragments
+								  platform.DrawDynamicMesh(mesh.handle, wt.matrix, ghost);
+							  });
+						  }
 					  })
 					  .add<scene::GameScene>();
 

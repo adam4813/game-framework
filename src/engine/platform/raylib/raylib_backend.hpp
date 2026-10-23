@@ -51,6 +51,7 @@ public:
 	void BeginMode3D(const Camera3DParams& camera) override;
 	void EndMode3D() override;
 	void SetLighting(const LightParams& lighting) override;
+	void SetOcclusionFade(const OcclusionFadeParams& fade) override;
 	void DrawCube(const glm::mat4& transform, glm::vec3 size, const DrawMaterial& material) override;
 	void DrawSphere(const glm::mat4& transform, float radius, const DrawMaterial& material) override;
 	void DrawQuad(const glm::mat4& transform, glm::vec2 size, const DrawMaterial& material) override;

@@ -10,11 +10,15 @@ uniform mat4 matModel;
 
 out vec2 fragTexCoord;
 out vec4 fragColor;
+out vec3 fragWorldPos;
 
 void main()
 {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
 
-    gl_Position = matProjection * matView * matModel * vec4(vertexPosition, 1.0);
+    vec4 worldPos = matModel * vec4(vertexPosition, 1.0);
+    fragWorldPos = worldPos.xyz;
+
+    gl_Position = matProjection * matView * worldPos;
 }

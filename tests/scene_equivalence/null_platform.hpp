@@ -54,6 +54,7 @@ public:
 	void BeginMode3D(const engine::platform::Camera3DParams&) override {}
 	void EndMode3D() override {}
 	void SetLighting(const engine::platform::LightParams&) override {}
+	void SetOcclusionFade(const engine::platform::OcclusionFadeParams&) override {}
 	void DrawCube(const glm::mat4&, glm::vec3, const engine::platform::DrawMaterial&) override {}
 	void DrawSphere(const glm::mat4&, float, const engine::platform::DrawMaterial&) override {}
 	void DrawQuad(const glm::mat4&, glm::vec2, const engine::platform::DrawMaterial&) override {}

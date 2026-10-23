@@ -118,6 +118,12 @@ struct CustomShaderEntry {
 	Shader shader{};
 	Material material{};
 	Texture2D white{};
+	// Optional occluder-fade uniform locations (-1 when the shader doesn't declare them).
+	int loc_fade_focus = -1;
+	int loc_fade_screen_pos = -1;
+	int loc_fade_radius = -1;
+	int loc_fade_strength = -1;
+	int loc_fade_pass = -1;
 };
 
 std::vector<CustomShaderEntry> g_custom_shaders;
@@ -231,6 +237,15 @@ std::vector<RenderMesh> g_render_meshes;
 LightParams g_light_params;
 glm::vec3 g_view_pos{0.0f};
 
+// Cached occluder-fade state, fed to fade-aware custom shaders at draw time. Updated by
+// SetOcclusionFade each frame; `enabled == false` makes DrawCustomMesh push a zero strength so the
+// cutout renders opaque.
+OcclusionFadeParams g_fade{};
+
+// The raylib camera for the current 3D pass, cached in BeginMode3D so the occluder-fade path can
+// project the focus world position to screen space (GetWorldToScreen) for the coverage test.
+Camera3D g_camera3d{};
+
 Texture2D ResolveTextureHandle(const int texture, const Texture2D& fallback) {
 	return (texture >= 0 && texture < static_cast<int>(g_textures.size())) ? g_textures[static_cast<size_t>(texture)]
 																		   : fallback;
@@ -242,6 +257,30 @@ CustomShaderEntry* ResolveCustomShaderEntry(const int shader) {
 	}
 	auto& entry = g_custom_shaders[static_cast<size_t>(shader)];
 	return entry.ready ? &entry : nullptr;
+}
+
+// Pushes the cached occluder-fade uniforms to a fade-aware custom shader. No-op for shaders that
+// don't declare the fade uniforms (their locations stay -1). `strength` is zeroed when the effect
+// is disabled so the quad renders as a plain alpha-tested cutout. `transparentPass` selects the
+// shader's ghost pass (draw only the covering fragments) vs. the opaque pass (punch the hole). The
+// focus world position is projected to screen space here for a resolution-correct coverage test.
+void ApplyOcclusionFade(const CustomShaderEntry& entry, const bool transparentPass) {
+	if (entry.loc_fade_focus < 0) {
+		return;
+	}
+	const float focus[3] = {g_fade.focus.x, g_fade.focus.y, g_fade.focus.z};
+	const float strength = g_fade.enabled ? g_fade.strength : 0.0f;
+	const float pass = transparentPass ? 1.0f : 0.0f;
+	// GetWorldToScreen returns top-left-origin pixels; flip Y into gl_FragCoord space (bottom-left).
+	const Vector2 sp = GetWorldToScreen(Vector3{g_fade.focus.x, g_fade.focus.y, g_fade.focus.z}, g_camera3d);
+	const float screen_pos[2] = {sp.x, static_cast<float>(GetScreenHeight()) - sp.y};
+	SetShaderValue(entry.shader, entry.loc_fade_focus, focus, SHADER_UNIFORM_VEC3);
+	SetShaderValue(entry.shader, entry.loc_fade_screen_pos, screen_pos, SHADER_UNIFORM_VEC2);
+	SetShaderValue(entry.shader, entry.loc_fade_radius, &g_fade.radius, SHADER_UNIFORM_FLOAT);
+	SetShaderValue(entry.shader, entry.loc_fade_strength, &strength, SHADER_UNIFORM_FLOAT);
+	if (entry.loc_fade_pass >= 0) {
+		SetShaderValue(entry.shader, entry.loc_fade_pass, &pass, SHADER_UNIFORM_FLOAT);
+	}
 }
 
 // glm is column-major; map column i to raylib Matrix column i (raylib is also column-major).
@@ -548,6 +587,7 @@ bool DrawCustomMesh(
 	entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
 	entry->material.maps[MATERIAL_MAP_DIFFUSE].texture =
 		ResolveTextureHandle(material.texture, fallback_texture.id != 0 ? fallback_texture : entry->white);
+	ApplyOcclusionFade(*entry, material.fade_transparent);
 	DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
 	return true;
 }
@@ -556,6 +596,7 @@ bool DrawCustomMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial
 	if (const auto* entry = ResolveCustomShaderEntry(material.shader)) {
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(material.texture, entry->white);
+		ApplyOcclusionFade(*entry, material.fade_transparent);
 		DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
 		return true;
 	}
@@ -1033,6 +1074,7 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 		.projection = orthographic ? CAMERA_ORTHOGRAPHIC : CAMERA_PERSPECTIVE,
 	};
 	::BeginMode3D(cam);
+	g_camera3d = cam; // cached for GetWorldToScreen in the occluder-fade path
 
 	g_view_pos = camera.position;
 
@@ -1454,11 +1496,25 @@ void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform
 	const Mesh& mesh = g_dynamic_meshes[static_cast<size_t>(handle)];
 	if (mesh.vertexCount == 0) return;
 
-	if (DrawCustomMesh(mesh, transform, material)) {
-		return;
+	// Transparent pass: test depth but don't write it, so the alpha-blended ghost neither hides the
+	// player nor disturbs the opaque z-sort. rlDrawRenderBatchActive() flushes raylib's queued
+	// geometry so the depth-mask toggle brackets exactly this mesh's draw.
+	const bool restore_depth_mask = !material.depth_write;
+	if (restore_depth_mask) {
+		rlDrawRenderBatchActive();
+		rlDisableDepthMask();
 	}
-	if (g_lit.ready) {
+
+	const bool drawn = DrawCustomMesh(mesh, transform, material);
+	if (!drawn && g_lit.ready) {
 		DrawLitMesh(mesh, transform, material);
+	}
+
+	if (restore_depth_mask) {
+		rlDrawRenderBatchActive();
+		rlEnableDepthMask();
+	}
+	if (drawn || g_lit.ready) {
 		return;
 	}
 
@@ -1565,10 +1621,20 @@ int RaylibBackend::LoadShader(const std::vector<ShaderStage>& stages) {
 	entry.material.maps[MATERIAL_MAP_DIFFUSE].texture = entry.white;
 	entry.ready = true;
 
+	// Optional occluder-fade uniforms: present only in fade-aware shaders (e.g. cutout.fs). A missing
+	// uniform returns -1, so ApplyOcclusionFade skips shaders that don't opt in.
+	entry.loc_fade_focus = GetShaderLocation(entry.shader, "fadeFocus");
+	entry.loc_fade_screen_pos = GetShaderLocation(entry.shader, "fadeScreenPos");
+	entry.loc_fade_radius = GetShaderLocation(entry.shader, "fadeRadius");
+	entry.loc_fade_strength = GetShaderLocation(entry.shader, "fadeStrength");
+	entry.loc_fade_pass = GetShaderLocation(entry.shader, "fadePass");
+
 	const int handle = static_cast<int>(g_custom_shaders.size());
 	g_custom_shaders.push_back(entry);
 	return handle;
 }
+
+void RaylibBackend::SetOcclusionFade(const OcclusionFadeParams& fade) { g_fade = fade; }
 
 void RaylibBackend::UnloadShader(const int handle) {
 	if (handle < 0 || handle >= static_cast<int>(g_custom_shaders.size())) return;
