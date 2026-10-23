@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <nlohmann/json.hpp>
 
+#include "camera_projection.hpp"
 #include "engine/assets/assets.hpp"
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
@@ -20,7 +21,6 @@
 #include "engine/scene/scene.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "engine/spatial/spatial.hpp"
-#include "camera_projection.hpp"
 #include "render_components.hpp"
 #include "render_queue.hpp"
 
@@ -98,7 +98,9 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 		.each([draw](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const TPrim& prim) {
 			if (!it.world().get<Render3DState>().active) return;
 			const auto platform_ref = it.world().get<platform::PlatformRef>();
-			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(it.entity(i)));
+			const auto entity = it.entity(i);
+			if (!entity.has<Material>() && !entity.has<RenderWith>(flecs::Wildcard)) return;
+			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(entity));
 		})
 		.template add<scene::GameScene>();
 }
@@ -291,9 +293,8 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		c.aspect_ratio = j.value("aspect_ratio", c.aspect_ratio);
 		c.near_plane = j.value("near", c.near_plane);
 		c.far_plane = j.value("far", c.far_plane);
-		c.projection = j.value("projection", std::string{"perspective"}) == "orthographic"
-						   ? Projection::Orthographic
-						   : Projection::Perspective;
+		c.projection = j.value("projection", std::string{"perspective"}) == "orthographic" ? Projection::Orthographic
+																						   : Projection::Perspective;
 		c.ortho_size = j.value("ortho_size", c.ortho_size);
 		e.set<Camera>(c);
 	});
