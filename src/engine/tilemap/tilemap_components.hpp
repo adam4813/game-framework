@@ -136,6 +136,13 @@ struct Tilemap {
 		kDefaultPixelsPerWorldUnit
 	}; // Pixels mapped to one world unit; renderer + gameplay derive scale from this
 	std::vector<uint32_t> tile_ids; // References to tile descriptors (not raw colors)
+
+	// Optional per-tile movement override, indexed like tile_ids (z * width + x). A non-zero entry
+	// forces that tile non-walkable regardless of its TileDescriptor — this is where the
+	// world-object layer (buildings, trees, props) stamps collision that is decoupled from the flat
+	// terrain tile underneath. Empty means "no overrides" (zero cost); when populated it is sized to
+	// width*height.
+	std::vector<uint8_t> blocked_override;
 };
 
 // World-space size of one tile in `tm` — the single source of truth both the renderer mesh and the
@@ -157,6 +164,28 @@ struct Tilemap {
 	}
 	const size_t idx = static_cast<size_t>(z) * tm.width + static_cast<size_t>(x);
 	return idx < tm.tile_ids.size() ? tm.tile_ids[idx] : kInvalidTileId;
+}
+
+// Whether (x, z) is blocked by a movement override (e.g. a world-object footprint). An empty
+// override vector means no overrides, so this is false. Out-of-range coordinates are not blocked
+// here (bounds are handled by the caller / IsTileWalkable).
+[[nodiscard]] inline bool IsTileBlocked(const Tilemap& tm, const int x, const int z) {
+	if (tm.blocked_override.empty() || !InBounds(tm, x, z)) {
+		return false;
+	}
+	const size_t idx = static_cast<size_t>(z) * tm.width + static_cast<size_t>(x);
+	return idx < tm.blocked_override.size() && tm.blocked_override[idx] != 0;
+}
+
+// Combined walkability query: a tile is walkable when it is in bounds, not covered by a blocking
+// movement override, and its TileDescriptor is walkable (an unknown descriptor is treated as
+// walkable, matching the historical grid-movement behaviour). Out-of-range tiles are not walkable.
+[[nodiscard]] inline bool IsTileWalkable(const Tilemap& tm, const TileSet& ts, const int x, const int z) {
+	if (!InBounds(tm, x, z) || IsTileBlocked(tm, x, z)) {
+		return false;
+	}
+	const TileDescriptor* descriptor = ts.GetTile(GetTileIdAt(tm, x, z));
+	return descriptor == nullptr || descriptor->walkable;
 }
 
 // --- Grid mutation operations ------------------------------------------------------------------
