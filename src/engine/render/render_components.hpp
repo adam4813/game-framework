@@ -109,6 +109,14 @@ struct DirectionalLight {
 // particles and other entities that mutate their material per-frame can continue to use either.
 struct RenderWith {};
 
+// Opt-in sphere frustum cull for positioned entities (e.g. individual upright sprites).
+// RegisterPrimitiveRenderer skips the draw call when the entity's WorldTransform position
+// is outside a sphere of this radius. Entities without this component are never position-culled
+// (e.g. the tilemap ring-buffer mesh and the streaming world-object layer).
+struct FrustumCullRadius {
+	float radius{2.0F};
+};
+
 // Camera projection mode. Perspective uses a vertical field of view; Orthographic uses a fixed
 // world-space view height (Camera::ortho_size) for a foreshortened, scale-independent look.
 // Default (int) underlying type: Flecs enum reflection reads 4 bytes, so a narrower type would

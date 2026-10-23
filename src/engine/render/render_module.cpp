@@ -112,13 +112,12 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 				&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
 				return;
 			}
-			// Frustum-cull positioned entities (e.g. per-entity creature/NPC sprites). Skip when
-			// the world position is exactly the origin: streaming meshes bake absolute vertices at
-			// (0,0,0) world and must never be position-culled.
-			const glm::vec3 pos{wt.matrix[3]};
-			const auto& cull = it.world().get<CameraFrustum>();
-			if (cull.valid && (pos.x != 0.0F || pos.z != 0.0F)) {
-				if (!cull.frustum.ContainsSphere(pos, 2.0F)) return;
+			// Opt-in sphere frustum cull: only applied to entities that carry FrustumCullRadius
+			// (e.g. per-entity creature/NPC sprites). Static or streaming meshes omit this
+			// component and are never position-culled.
+			if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
+				const auto& cull = it.world().get<CameraFrustum>();
+				if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) return;
 			}
 			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(entity));
 		})
@@ -410,6 +409,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 
 	// === Reflection ===
 	world.component<RenderWith>().add(flecs::Exclusive);
+	world.component<FrustumCullRadius>().member<float>("radius");
 	world.component<LookAt>().add(flecs::Exclusive);
 	world.component<SpriteAtlas>()
 		.member<std::string>("texture_path")
