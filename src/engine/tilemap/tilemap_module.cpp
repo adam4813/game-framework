@@ -245,17 +245,32 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 			const float cam_y = std::abs(transform.position.y);
 			if (cam_y <= 0.0f) return;
 
-			const float half_vfov = glm::radians(camera.fov * 0.5f);
-			const float half_hfov = std::atan(camera.aspect_ratio * std::tan(half_vfov));
-
 			tilemap_query.each([&](const flecs::entity tilemap_entity, const Tilemap& tm, TilemapViewport& vp) {
 				if (vp.buffer_width > 0) return; // already sized (e.g. multiple cameras)
 
 				const float tile_size = TileWorldSize(tm);
-				const int vis_w = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_hfov) / tile_size));
-				const int vis_h = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_vfov) / tile_size));
-				vp.buffer_width = std::min(vis_w + 4, static_cast<int>(tm.width));
-				vp.buffer_height = std::min(vis_h + 4, static_cast<int>(tm.height));
+				int vis_w, vis_h;
+
+				if (camera.projection == render::Projection::Orthographic) {
+					// For orthographic cameras use ortho_size directly.  The oblique tilt
+					// (camera.position.z != 0) projects more ground into the Z direction than
+					// the flat view-height alone, so scale vis_h by a tilt factor derived from
+					// the ratio of the camera's Z-offset to its height.
+					const float cam_z_abs = std::abs(transform.position.z);
+					const float tilt_scale = 1.0f + cam_z_abs / std::max(1.0f, cam_y);
+					vis_w = static_cast<int>(std::ceil(camera.ortho_size * camera.aspect_ratio / tile_size));
+					vis_h = static_cast<int>(std::ceil(camera.ortho_size * tilt_scale / tile_size));
+				}
+				else {
+					// Perspective: coverage = 2 * cam_y * tan(half_fov)
+					const float half_vfov = glm::radians(camera.fov * 0.5f);
+					const float half_hfov = std::atan(camera.aspect_ratio * std::tan(half_vfov));
+					vis_w = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_hfov) / tile_size));
+					vis_h = static_cast<int>(std::ceil(2.0f * cam_y * std::tan(half_vfov) / tile_size));
+				}
+
+				vp.buffer_width = std::min(vis_w + 8, static_cast<int>(tm.width));
+				vp.buffer_height = std::min(vis_h + 8, static_cast<int>(tm.height));
 
 				tilemap_entity.modified<Tilemap>(); // triggers TilemapBuildMesh with correct buffer
 			});

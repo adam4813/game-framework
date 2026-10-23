@@ -10,7 +10,7 @@ namespace {
 // The batch key: everything that must be uniform across an instanced draw. tint is excluded so
 // per-instance colour does not fragment batches.
 auto BatchKey(const RenderCommand& c) {
-	return std::tuple{c.mesh, c.material.shader, c.material.texture, c.material.wireframe, c.material.cast_shadow};
+	return std::tuple{c.mesh, c.material.shader, c.material.texture, c.material.wireframe, c.material.cast_shadow, c.material.unlit};
 }
 } // namespace
 

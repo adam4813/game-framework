@@ -105,13 +105,13 @@ void RegisterGridMovementSystems(
 				// Held but initial delay hasn't elapsed yet — wait
 				if (!just_pressed && mover.hold_elapsed < mover.initial_delay) return;
 
-				// Lambda to check if a tile is walkable (out-of-bounds is treated as blocked).
+				// Lambda to check if a tile is walkable (out-of-bounds + blocking world-object
+				// footprints are treated as blocked; delegates to the shared tilemap walkability layer).
 				auto is_walkable = [&](const int x, const int z) -> bool {
 					const auto* tilemap = tilemapEntity.try_get<tilemap::Tilemap>();
 					const auto* tile_set = tilemapEntity.target<level::UseRegistry>().try_get<tilemap::TileSet>();
-					if (!tilemap || !tile_set || !tilemap::InBounds(*tilemap, x, z)) return false;
-					const auto* descriptor = tile_set->GetTile(tilemap::GetTileIdAt(*tilemap, x, z));
-					return descriptor == nullptr || descriptor->walkable;
+					if (!tilemap || !tile_set) return false;
+					return tilemap::IsTileWalkable(*tilemap, *tile_set, x, z);
 				};
 
 				// For diagonal moves, allow sliding along walls:

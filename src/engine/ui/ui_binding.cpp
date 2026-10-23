@@ -120,7 +120,9 @@ void SetWidgetValue(const flecs::entity e, const BindingValue& v) {
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 BindingValue ReadBlackboard(const flecs::entity bb_entity, const std::string& key) {
-	if (!bb_entity.is_alive() || !bb_entity.has<ai::Blackboard>()) {
+	// is_valid (not is_alive): a binding source may legitimately be 0/destroyed; is_alive(0) asserts
+	// (debug) / reads out of bounds (release) under flecs 4.x, whereas is_valid returns false safely.
+	if (!bb_entity.is_valid() || !bb_entity.has<ai::Blackboard>()) {
 		return {};
 	}
 	const auto& bb = bb_entity.get<ai::Blackboard>();
@@ -132,7 +134,7 @@ BindingValue ReadBlackboard(const flecs::entity bb_entity, const std::string& ke
 }
 
 void WriteBlackboard(const flecs::entity bb_entity, const std::string& key, const BindingValue& v) {
-	if (!bb_entity.is_alive() || !bb_entity.has<ai::Blackboard>()) {
+	if (!bb_entity.is_valid() || !bb_entity.has<ai::Blackboard>()) {
 		return;
 	}
 	auto& bb = bb_entity.get_mut<ai::Blackboard>();
@@ -179,7 +181,7 @@ BindingValue::Kind ClassifyMetaType(const ecs_entity_t type) {
 }
 
 BindingValue ReadEntityField(const flecs::world& world, const flecs::entity source, const DataBinding& bind) {
-	if (!source.is_alive() || !bind.component) {
+	if (!source.is_valid() || !bind.component) {
 		return {};
 	}
 	const void* ptr = ecs_get_id(world.c_ptr(), source, bind.component);
@@ -213,7 +215,7 @@ void WriteEntityField(
 	const DataBinding& bind,
 	const BindingValue& v
 ) {
-	if (!source.is_alive() || !bind.component) {
+	if (!source.is_valid() || !bind.component) {
 		return;
 	}
 	void* ptr = ecs_get_mut_id(world.c_ptr(), source, bind.component);
@@ -324,7 +326,7 @@ void RegisterUIBindings(const flecs::world& world) {
 
 flecs::entity
 BindToBlackboard(const flecs::entity e, const flecs::entity blackboard, std::string key, const BindMode mode) {
-	if (blackboard.is_alive() && !blackboard.has<ai::Blackboard>()) {
+	if (blackboard.is_valid() && !blackboard.has<ai::Blackboard>()) {
 		blackboard.set<ai::Blackboard>({});
 	}
 	e.add<BindsTo>(blackboard);

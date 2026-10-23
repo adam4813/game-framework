@@ -15,6 +15,10 @@ state without modifying code.
 
 ## Setup
 
+- **Port:** the engine default is `27750`; a Game Target may bake in its own (its `AGENTS.md` says which), and
+  `FLECS_REST_PORT=<port>` on the game's launch overrides either. Set the same `FLECS_REST_PORT` for `flecs-api.js` and
+  `flecs-mcp.js`, so you can run your instance beside the user's. After launch, `wait <Leaf>` confirms the server on
+  that port is the game you started.
 - **Explorer UI:** https://flecs.dev/explorer — auto-connects to `localhost:27750`
 - **Script helper:** `tools/flecs-api.js` — Node.js wrapper (no dependencies) for querying and mutating the running
   game. Full usage is documented in the file header.
@@ -61,13 +65,21 @@ jump directly.
 
 ## Other Capabilities
 
-- **Raw input override:** Use `override-input` / `restore-input` to drive input programmatically
-- **Component queries:** Set component values via the REST API: `PUT /component/<path>?component=<c>&value=<json>` —
-  e.g., to place an entity on a specific tile
+- **Keyboard:** `press-keys "D LeftShift" 400` holds keys for 400 ms through the engine's `KeyOverride`
+  (`flecs_press_keys` over MCP). Keys are KeyCode constant names (`W`, `Up`, `LeftShift`, `Space`), and game code sees
+  an ordinary press.
+- **Mouse:** `override-input` / `restore-input` inject an `InputState` value. Mouse only: `InputState`'s keys aren't
+  reflected.
+- **Setting values:** `set <component> '<json>' [entity]` merges the JSON fields into a component and waits until a
+  read-back shows them (`flecs_set` over MCP; `applied: false` can be a false negative when the value moves on or the
+  entity vanishes first, so confirm with a `query`). Omit `entity` for a singleton, whose value lives on the component's own
+  entity. A value a scene only reads in `Load` (e.g. a debug-overlay flag) takes effect after `switch-scene` to the
+  already-active scene, which reloads it.
 - **Querying:** Use the REST API endpoints to query entities, components, and system state
 
 ## Important Notes
 
+- **Run the game from the Debug build.** Flecs asserts only fire there; see `docs/agents/debugging-toolbelt.md`.
 - **Scene entity IDs are runtime-assigned.** Always discover them on each game launch via `list-scenes`; never hardcode
   them.
 - **When MCP tools are available**, prefer `flecs_*` tools over shelling out to the CLI script.

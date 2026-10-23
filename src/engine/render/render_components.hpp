@@ -59,6 +59,7 @@ struct Material {
 	core::Rgba color{.r = 200, .g = 200, .b = 200, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
+	bool unlit{false}; // draw the colour as-is, skipping the scene lighting
 };
 
 // Convention: each texture-map component carries `std::string path` and `int handle`. They are
@@ -108,18 +109,53 @@ struct DirectionalLight {
 // particles and other entities that mutate their material per-frame can continue to use either.
 struct RenderWith {};
 
-// Perspective camera projection attributes (fov, aspect, near/far) plus the world up vector.
+// Opt-in sphere frustum cull for positioned entities (e.g. individual upright sprites).
+// RegisterPrimitiveRenderer skips the draw call when the entity's WorldTransform position
+// is outside a sphere of this radius. Entities without this component are never position-culled
+// (e.g. the tilemap ring-buffer mesh and the streaming world-object layer).
+struct FrustumCullRadius {
+	float radius{2.0F};
+};
+
+// Camera projection mode. Perspective uses a vertical field of view; Orthographic uses a fixed
+// world-space view height (Camera::ortho_size) for a foreshortened, scale-independent look.
+// Default (int) underlying type: Flecs enum reflection reads 4 bytes, so a narrower type would
+// serialize the padding after it.
+enum class Projection { Perspective, Orthographic };
+
+// Camera projection attributes plus the world up vector. Perspective cameras use `fov`;
+// orthographic cameras use `ortho_size` (the vertical view height in world units). `aspect_ratio`,
+// `near_plane`, and `far_plane` apply to both modes.
 struct Camera {
 	glm::vec3 up{0.0F, 1.0F, 0.0F};
 	float fov{60.0F};
 	float aspect_ratio{16.0F / 9.0F};
 	float near_plane{0.1F};
 	float far_plane{100.0F};
+	Projection projection{Projection::Perspective};
+	float ortho_size{20.0F};
 };
 
 // Relationship: `camera.add<LookAt>(target)` aims the camera at `target`'s WorldTransform position.
 // Exclusive — a camera looks at exactly one entity. Consumed by Render3DBegin and the debug renderer.
 struct LookAt {};
+
+// Singleton: Stardew-style occluder fade. Upright cutout quads (trees, buildings, NPCs) that cover
+// the camera's LookAt focus on screen become alpha-blended translucent so the focus (the player)
+// shows through. The focus point is taken each frame from the active camera's LookAt target — this
+// component only carries tuning. Set one on the world to enable; remove it (or set enabled=false)
+// to turn the effect off. Consumed by the RenderOcclusionFadeUpload system. Requires the faded
+// meshes to carry TransparentPass so they draw after the opaque scene.
+struct OcclusionFade {
+	float radius{130.0F};  // screen-space radius (px) of the fade region around the focus
+	float strength{0.75F}; // transparency over the focus (0 = off, 1 = fully invisible)
+	bool  enabled{true};
+};
+
+// Tag: draw this entity's DynamicMesh in the post-opaque transparent pass (alpha-blended) that runs
+// after the player and other opaque geometry, instead of the normal opaque dynamic-mesh pass. Lets
+// occluder-fade shaders reveal what is already in the framebuffer behind the quad (the player).
+struct TransparentPass {};
 
 // A sprite atlas (texture sheet with uniform or irregular tile layout).
 // Carries the atlas image path and its pixel dimensions. Entities that ARE a sprite atlas also

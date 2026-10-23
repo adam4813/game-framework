@@ -2,7 +2,8 @@
  * flecs-api.js — cross-platform helpers for the Flecs Remote (REST) API.
  *
  * The engine starts the Flecs Remote API automatically (see engine/ecs/flecs_remote and the
- * project AI instructions); it listens on http://localhost:27750. This module wraps the REST
+ * project AI instructions); it listens on http://localhost:27750, or on the port in FLECS_REST_PORT
+ * when the game was launched with it (this client reads the same variable). This module wraps the REST
  * endpoints that are useful when inspecting or driving a running game from an agent or the
  * terminal — querying entities/components and mutating component state (e.g. switching the
  * active scene without touching the keyboard).
@@ -42,6 +43,8 @@
  *   node flecs-api.js entity FallingCube.CubeJumpScript
  *   node flecs-api.js add    "#768" engine.scene.SceneManagementModule.Active
  *   node flecs-api.js remove "#765" engine.scene.SceneManagementModule.Active
+ *   node flecs-api.js set engine.render.RenderModule.AmbientLight '{"intensity":0.8}'      // singleton value
+ *   node flecs-api.js set engine.spatial.SpatialModule.Transform '{"position":{"x":1,"y":0,"z":2}}' Player  // one entity
  *   node flecs-api.js switch-scene Cube        // switch by scene identity name (preferred)
  *   node flecs-api.js switch-scene "#807"      // ...or by raw runtime id
  *   node flecs-api.js scenes                   // scene(s) currently carrying Active
@@ -51,9 +54,13 @@
  *   node flecs-api.js toggle-pause     // flip the current pause state
  *   node flecs-api.js list-buttons     // all UI Button entities: id, name, label
  *   node flecs-api.js click PlayButton // fire a UI button's OnClick (by name or #id)
- *   node flecs-api.js override-input '{"mouse":{"left":{"pressed":true}}}'
+ *   node flecs-api.js override-input '{"mouse":{"left":{"pressed":true}}}'   // mouse only
+ *   node flecs-api.js press-keys "D LeftShift" 400   // hold keys (KeyCode names) for 400 ms
  *   node flecs-api.js restore-input
- *   (append --host http://host:port to target a different server)
+ *   node flecs-api.js find FloorGrid           // full dot-path(s) of a component, for query
+ *   node flecs-api.js wait                     // poll until the REST server answers (after launch)
+ *   node flecs-api.js wait FloorGrid 60000     // ...and until that component exists (right game?)
+ *   (append --host http://host:port, or set FLECS_HOST / FLECS_REST_PORT, to target another server)
  */
 
 "use strict";
@@ -78,6 +85,10 @@ const INPUT_STATE_COMPONENT = "engine.input.InputState";
 // platform input in, InputResetFrameState (PostUpdate) clears the per-frame "pressed"/scroll
 // flags. Disabling both lets an injected InputState value persist so scripts can observe it.
 const INPUT_DRIVER_SYSTEMS = ["InputPoll", "InputResetFrameState"];
+
+// Full path of the KeyOverride singleton (engine/input/input_components.hpp). InputPoll treats the
+// KeyCode names in its space-separated `held` string as physically held keys.
+const KEY_OVERRIDE_COMPONENT = "engine.input.InputModule.KeyOverride";
 
 // UI component/tag paths (registered inside engine::ui::UIModule). Adding the click-request tag to
 // a Button entity makes the UI module fire that button's OnClick handler + SoundEffect on the next
@@ -157,6 +168,24 @@ class FlecsClient {
 	// https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html#put-component
 	addComponent(path, component, value) {
 		return this.request("PUT", "/component/" + entityRoute(path), {component, value});
+	}
+
+	// Set a component's value from a JSON object. `entity` defaults to the component itself, which is
+	// where a singleton's value lives; the REST server merges the given fields into the current value.
+	// Polls until a read-back shows the new value, since REST writes apply on the next frame.
+	async setComponent(component, value, entity = component) {
+		const payload = typeof value === "string" ? value : JSON.stringify(value);
+		const result = await this.addComponent(entity, component, payload);
+		if (result && result.error) return result;
+		const wanted = JSON.parse(payload);
+		const leaf = String(component).split(".").pop();
+		const applied = await this.waitFor(async () => {
+			const info = await this.entity(entity, {values: true});
+			const components = (info && info.components) || {};
+			const current = Object.entries(components).find(([k]) => k === component || k.split(".").pop() === leaf);
+			return current && Object.entries(wanted).every(([k, v]) => JSON.stringify(current[1][k]) === JSON.stringify(v));
+		});
+		return {entity, component, applied};
 	}
 
 	// Remove a component/tag from an entity.
@@ -312,6 +341,18 @@ class FlecsClient {
 		return {entityId, frames};
 	}
 
+	// Hold keyboard keys (KeyCode names: "W", "Up", "LeftShift", "Space", ...) for `ms`, then release
+	// them. Goes through InputPoll, so game code sees an ordinary press: `pressed` on the first frame,
+	// held after. Unknown names are logged by the game and ignored.
+	async pressKeys(names, ms = 500) {
+		const held = names.join(" ");
+		const pressed = await this.setComponent(KEY_OVERRIDE_COMPONENT, {held});
+		if (pressed && pressed.error) return pressed;
+		await new Promise((r) => setTimeout(r, ms));
+		await this.setComponent(KEY_OVERRIDE_COMPONENT, {held: ""});
+		return {held, ms};
+	}
+
 	// Re-enable InputPoll if overrideInput was interrupted.
 	async restoreInput() {
 		const sysList = await this.resolveEntityIds("flecs.system.System", INPUT_DRIVER_SYSTEMS);
@@ -382,6 +423,44 @@ class FlecsClient {
 		return {target, ref, consumed};
 	}
 
+	// Resolve a component's leaf name ("FloorGrid") to its full dot-path(s) for use in query():
+	// exact leaf matches first, else case-insensitive substring matches. Saves guessing which
+	// module scope a type was registered under.
+	async findComponent(leaf) {
+		const res = await this.query("flecs.core.Component");
+		const rows = (res && res.results) || [];
+		const pathOf = (r) => (r.parent ? `${r.parent}.${r.name}` : r.name);
+		const exact = rows.filter((r) => r.name === leaf).map(pathOf);
+		if (exact.length) return exact;
+		const needle = String(leaf).toLowerCase();
+		return rows.filter((r) => String(r.name).toLowerCase().includes(needle)).map(pathOf);
+	}
+
+	// Poll until the REST server answers (e.g. right after launching the game). With `component`,
+	// also wait until a component with that leaf name is registered: this confirms the game on the
+	// port is the one you launched, not another running instance.
+	async waitReady({component, timeoutMs = 30000, intervalMs = 250} = {}) {
+		const start = Date.now();
+		while (Date.now() - start < timeoutMs) {
+			try {
+				await this.request("GET", "/world");
+				if (!component) return {ready: true, ms: Date.now() - start};
+				const paths = await this.findComponent(component);
+				if (paths.some((p) => p.split(".").pop() === component)) {
+					return {ready: true, ms: Date.now() - start, component: paths};
+				}
+			} catch {
+				/* server not up yet */
+			}
+			await new Promise((r) => setTimeout(r, intervalMs));
+		}
+		throw new Error(
+			component
+				? `No server registering "${component}" within ${timeoutMs} ms (is another game on the port?)`
+				: `No Flecs REST server within ${timeoutMs} ms`
+		);
+	}
+
 	// List every UI Button entity with its address and label, so buttons (including anonymous ones
 	// created by the factories) can be discovered and clicked by id or full path.
 	async listButtons() {
@@ -406,6 +485,7 @@ module.exports = {
 	SCENE_ACTIVE_TAG,
 	INPUT_STATE_COMPONENT,
 	INPUT_DRIVER_SYSTEMS,
+	KEY_OVERRIDE_COMPONENT,
 	UI_BUTTON_COMPONENT,
 	UI_CLICK_REQUEST_TAG
 };
@@ -415,7 +495,7 @@ async function main(argv) {
 	const args = argv.slice(2);
 
 	// Extract --host and boolean flags; keep positional args in order.
-	let host = process.env.FLECS_HOST || "http://localhost:27750";
+	let host = process.env.FLECS_HOST || `http://localhost:${process.env.FLECS_REST_PORT || 27750}`;
 	const flags = new Set();
 	const positional = [];
 	for (let i = 0; i < args.length; i++) {
@@ -438,12 +518,12 @@ async function main(argv) {
 	switch (verb) {
 		case "query": {
 			// Guard: an unresolved component name throws a C++ exception inside the game process,
-			// crashing it. Require every term to be qualified with an "engine.", "game." or "flecs."
-			// (built-ins such as flecs.system.System) prefix so bare names like "SoundEffect" (which
-			// will fail) are caught early.
+			// crashing it. Require every term to be a dotted module path ("engine.", "flecs." built-ins
+			// such as flecs.system.System, or a Game Target's module like "<game>.") so bare names
+			// like "SoundEffect" (which will fail) are caught early.
 			const terms = (arg1 || "").split(",").map((t) => t.trim());
 			const unqualified = terms.filter(
-				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !/\b(engine|game|flecs)\./.test(t)
+				(t) => t && !t.startsWith("(") && !t.startsWith("#") && !t.includes(".")
 			);
 			if (unqualified.length) {
 				console.error(
@@ -465,6 +545,10 @@ async function main(argv) {
 		case "add":
 			print(await flecs.addComponent(arg1, arg2));
 			break;
+		case "set":
+			// arg1 = component path, arg2 = JSON value, optional 3rd = entity (defaults to the singleton).
+			print(await flecs.setComponent(arg1, arg2, positional[3] || arg1));
+			break;
 		case "remove":
 			print(await flecs.removeComponent(arg1, arg2));
 			break;
@@ -484,6 +568,10 @@ async function main(argv) {
 		case "override-input":
 			// arg1 is a component-value expression (JSON). Defaults to a held left mouse click.
 			print(await flecs.overrideInput(arg1 || '{"mouse":{"left":{"pressed":true}}}'));
+			break;
+		case "press-keys":
+			// arg1: space- or comma-separated KeyCode names; arg2: hold time in ms (default 500).
+			print(await flecs.pressKeys(String(arg1 || "").split(/[\s,]+/).filter(Boolean), arg2 ? Number(arg2) : undefined));
 			break;
 		case "restore-input":
 			print(await flecs.restoreInput());
@@ -506,14 +594,23 @@ async function main(argv) {
 		case "paused":
 			print({paused: await flecs.isPaused()});
 			break;
+		case "find":
+			print(await flecs.findComponent(arg1));
+			break;
+		case "wait":
+			print(await flecs.waitReady({component: arg1, timeoutMs: arg2 ? Number(arg2) : undefined}));
+			break;
 		default:
 			console.log(
-				"Usage: node flecs-api.js <query|entity|add|remove|toggle|switch-scene|scenes|list-scenes|\n" +
+				"Usage: node flecs-api.js <query|entity|add|set|remove|toggle|switch-scene|scenes|list-scenes|\n" +
 				"                          click|list-buttons|pause|resume|toggle-pause|paused|\n" +
-				"                          override-input|restore-input> [args] [--host URL]\n" +
+				"                          override-input|press-keys|restore-input|find|wait> [args] [--host URL]\n" +
 				"       [--entity-ids] [--values] [--full-paths]\n" +
 				"       switch-scene accepts a scene identity name (e.g. Cube, Title, Tilemap) or a raw #id.\n" +
 				"       click accepts a Button name (e.g. PlayButton) or a raw #id (see list-buttons).\n" +
+				"       set <component> <json> [entity] sets a value (the singleton when no entity is given).\n" +
+				"       find <Leaf> prints a component's full path; wait [Leaf] [ms] polls until the game is up.\n" +
+				"       Server: FLECS_HOST, else localhost:FLECS_REST_PORT, else localhost:27750.\n" +
 				"Docs:  https://www.flecs.dev/flecs/md_docs_2FlecsRemoteApi.html"
 			);
 			process.exitCode = verb ? 1 : 0;

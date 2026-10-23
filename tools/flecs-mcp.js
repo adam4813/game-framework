@@ -24,6 +24,7 @@
  *   node tools/flecs-mcp.js                       # defaults to http://localhost:27750
  *   node tools/flecs-mcp.js --host http://host:port
  *   FLECS_HOST=http://host:port node tools/flecs-mcp.js
+ *   FLECS_REST_PORT=27760 node tools/flecs-mcp.js   # a game serving on its own port, on localhost
  *
  * Register in Claude Desktop (claude_desktop_config.json):
  *   {
@@ -72,7 +73,7 @@ const SERVER_VERSION = "0.1.0";
 const DEFAULT_PROTOCOL = "2025-06-18";
 
 // ---- host / client ----
-let host = process.env.FLECS_HOST || "http://localhost:27750";
+let host = process.env.FLECS_HOST || `http://localhost:${process.env.FLECS_REST_PORT || 27750}`;
 {
 	const argv = process.argv.slice(2);
 	for (let i = 0; i < argv.length; i++) {
@@ -139,6 +140,21 @@ const tools = [
 			});
 			return {entity: a.entity, component: a.component, added: true, confirmed};
 		},
+	},
+	{
+		name: "flecs_set",
+		description:
+			"Set a component's value from a JSON object (fields are merged into the current value). `entity` defaults to the component itself, which is where a singleton's value lives. Waits until a read-back shows the new value; `applied:false` means it was not observed within the retry window.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				component: {type: "string", description: "Component full dot-path (see flecs_find_component)."},
+				value: {type: "string", description: 'JSON object, e.g. {"solid_cells":true}.'},
+				entity: {type: "string", description: "Optional entity path or #id; omit for a singleton."},
+			},
+			required: ["component", "value"],
+		},
+		handler: (a) => flecs.setComponent(a.component, a.value, a.entity || a.component),
 	},
 	{
 		name: "flecs_remove",
@@ -233,7 +249,7 @@ const tools = [
 	{
 		name: "flecs_override_input",
 		description:
-			"Disable InputPoll and inject an InputState value for several frames (e.g. a held mouse click), then re-enable InputPoll.",
+			"Disable InputPoll and inject an InputState value for several frames (e.g. a held mouse click), then re-enable InputPoll. Mouse only: InputState's keys aren't reflected; use flecs_press_keys for the keyboard.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -247,6 +263,24 @@ const tools = [
 			required: ["state"],
 		},
 		handler: (a) => flecs.overrideInput(a.state, {frames: a.frames, intervalMs: a.interval_ms}),
+	},
+	{
+		name: "flecs_press_keys",
+		description:
+			"Hold keyboard keys through the engine's KeyOverride for a time, then release them. Game code sees an ordinary press (pressed on the first frame, held after).",
+		inputSchema: {
+			type: "object",
+			properties: {
+				keys: {
+					type: "array",
+					items: {type: "string"},
+					description: 'KeyCode constant names, e.g. ["W", "Up", "LeftShift", "Space"].',
+				},
+				ms: {type: "integer", description: "How long to hold them, in ms (default 500)."},
+			},
+			required: ["keys"],
+		},
+		handler: (a) => flecs.pressKeys(a.keys, a.ms),
 	},
 	{
 		name: "flecs_restore_input",
@@ -273,6 +307,30 @@ const tools = [
 			required: ["button"],
 		},
 		handler: (a) => flecs.click(a.button),
+	},
+	{
+		name: "flecs_find_component",
+		description:
+			'Resolve a component leaf name (e.g. "FloorGrid") to its full dot-path(s) for flecs_query. Use before querying a type whose module scope you do not know.',
+		inputSchema: {
+			type: "object",
+			properties: {leaf: {type: "string", description: 'Component leaf name, e.g. "FloorGrid".'}},
+			required: ["leaf"],
+		},
+		handler: (a) => flecs.findComponent(a.leaf),
+	},
+	{
+		name: "flecs_wait",
+		description:
+			"Poll until the game's REST server answers, e.g. right after launching it. Pass a component leaf name to also confirm the right game is on the port.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				component: {type: "string", description: "Optional component leaf name the game registers."},
+				timeout_ms: {type: "number", description: "Give up after this long (default 30000)."},
+			},
+		},
+		handler: (a) => flecs.waitReady({component: a.component, timeoutMs: a.timeout_ms}),
 	},
 ];
 

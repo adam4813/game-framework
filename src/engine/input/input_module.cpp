@@ -1,5 +1,11 @@
 #include "input_module.hpp"
 
+#include <algorithm>
+#include <format>
+#include <ranges>
+#include <string_view>
+#include <vector>
+
 #include <spdlog/spdlog.h>
 
 #include <flecs.h>
@@ -7,6 +13,7 @@
 #include "engine/platform/platform.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "input_components.hpp"
+#include "key_names.hpp"
 
 namespace engine::input {
 
@@ -15,43 +22,33 @@ void RegisterScriptConstants(const flecs::world& world) {
 	// === Script KeyCode constants ===
 	// Expose engine::input::KeyCode as Key_<Name> globals so scripts never need raw integers or
 	// backend-specific codes (see scripting/README.md for the naming convention).
+	std::vector<scripting::ScriptConstant> constants;
+	for (const auto& [name, code] : KeyNames()) {
+		constants.push_back({std::format("Key_{}", name), scripting::ScriptValueType::MakeInt(), std::to_string(code)});
+	}
+	scripting::RegisterGlobalConstantsForScripts(world, std::move(constants));
+}
 
-	// clang-format off
-#define K(Name) scripting::ScriptConstant{"Key_" #Name, scripting::ScriptValueType::MakeInt(), std::to_string(KeyCode::Name)}
+// The names in KeyOverride::held, split on spaces.
+std::vector<std::string_view> OverrideKeyNames(const KeyOverride& keyOverride) {
+	std::vector<std::string_view> names;
+	for (const auto word : std::views::split(std::string_view{keyOverride.held}, ' ')) {
+		if (!word.empty()) {
+			names.emplace_back(word.begin(), word.end());
+		}
+	}
+	return names;
+}
 
-	scripting::RegisterGlobalConstantsForScripts(world, {
-		// Special
-		K(Return), K(Escape), K(Backspace), K(Tab), K(Space), K(Delete),
-		// Letters
-		K(A), K(B), K(C), K(D), K(E), K(F), K(G), K(H), K(I), K(J), K(K), K(L), K(M),
-		K(N), K(O), K(P), K(Q), K(R), K(S), K(T), K(U), K(V), K(W), K(X), K(Y), K(Z),
-		// Numbers
-		K(Key0), K(Key1), K(Key2), K(Key3), K(Key4),
-		K(Key5), K(Key6), K(Key7), K(Key8), K(Key9),
-		// Symbols
-		K(Minus), K(Equals), K(LeftBracket), K(RightBracket), K(Backslash),
-		K(Semicolon), K(Apostrophe), K(Comma), K(Period), K(Slash), K(Grave),
-		// Arrows
-		K(Right), K(Left), K(Down), K(Up),
-		// Navigation
-		K(Home), K(End), K(PageUp), K(PageDown), K(Insert),
-		// Function keys
-		K(F1), K(F2), K(F3), K(F4), K(F5), K(F6),
-		K(F7), K(F8), K(F9), K(F10), K(F11), K(F12),
-		// Numpad
-		K(NumPad0), K(NumPad1), K(NumPad2), K(NumPad3), K(NumPad4),
-		K(NumPad5), K(NumPad6), K(NumPad7), K(NumPad8), K(NumPad9),
-		K(NumPadMultiply), K(NumPadAdd), K(NumPadSubtract),
-		K(NumPadDecimal), K(NumPadDivide), K(NumPadEnter),
-		// Modifiers
-		K(LeftCtrl), K(LeftShift), K(LeftAlt), K(LeftCmd),
-		K(RightCtrl), K(RightShift), K(RightAlt), K(RightCmd),
-		// Locks / misc
-		K(CapsLock), K(NumLock), K(ScrollLock), K(PrintScreen), K(Pause),
-	});
-
-#undef K
-	// clang-format on
+// The key codes the KeyOverride singleton holds down (unknown names are skipped; OnSet reports them).
+std::vector<int> OverrideKeys(const KeyOverride& keyOverride) {
+	std::vector<int> codes;
+	for (const auto name : OverrideKeyNames(keyOverride)) {
+		if (const auto code = KeyCodeFromName(name)) {
+			codes.push_back(*code);
+		}
+	}
+	return codes;
 }
 } // namespace
 
@@ -86,6 +83,18 @@ InputModule::InputModule(const flecs::world& world) {
 	// from &InputState::mouse, so we can expose mouse without reflecting the preceding keys
 	// std::array.
 	world.component<InputState>().member("mouse", &InputState::mouse);
+
+	world.component<KeyOverride>().member<std::string>("held").add(EcsSingleton);
+	world.set<KeyOverride>({});
+	world.observer<const KeyOverride>("KeyOverrideNameCheck")
+		.event(flecs::OnSet)
+		.each([](const KeyOverride& keyOverride) {
+			for (const auto name : OverrideKeyNames(keyOverride)) {
+				if (!KeyCodeFromName(name)) {
+					spdlog::warn("[InputModule] KeyOverride names unknown key '{}' (use a KeyCode name)", name);
+				}
+			}
+		});
 	scripting::RegisterSingletonForScripts(world, world.component<InputState>());
 	scripting::RegisterComponentMethodForScripts<&InputState::IsKeyDown>(world, "IsKeyDown");
 	scripting::RegisterComponentMethodForScripts<&InputState::WasKeyPressed>(world, "WasKeyPressed");
@@ -110,11 +119,13 @@ InputModule::InputModule(const flecs::world& world) {
 		const bool keyboard_free = !debug_ui.CapturesKeyboard();
 		const bool mouse_free = !debug_ui.CapturesMouse();
 
-		// Poll keyboard input
+		// Poll keyboard input; keys the KeyOverride holds count as physically down.
+		const auto overridden = OverrideKeys(it.world().get<KeyOverride>());
 		for (size_t i = 0; i < keys.size(); ++i) {
 			auto& key_state = keys[i];
 			const bool was_pressed = key_state.state;
-			const bool now_pressed = keyboard_free && platform.ptr->IsKeyDown(static_cast<int>(i));
+			const bool now_pressed = (keyboard_free && platform.ptr->IsKeyDown(static_cast<int>(i)))
+									 || std::ranges::contains(overridden, static_cast<int>(i));
 
 			// Track press events (transition from unpressed to pressed)
 			key_state.pressed = !was_pressed && now_pressed;

@@ -1,10 +1,56 @@
 #include "flecs_remote.hpp"
 
+#include <charconv>
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
+
+#include <spdlog/spdlog.h>
 
 namespace engine::ecs {
 
-void InitializeRemoteAPI(flecs::world& world, const int rest_port) {
+namespace {
+
+// An environment variable's value, or nullopt when unset. Windows' CRT deprecates getenv.
+std::optional<std::string> ReadEnv(const char* name) {
+#if defined(_WIN32)
+	char* buffer = nullptr;
+	size_t length = 0;
+	if (_dupenv_s(&buffer, &length, name) != 0 || buffer == nullptr) {
+		return std::nullopt;
+	}
+	std::string value{buffer};
+	std::free(buffer);
+	return value;
+#else
+	const char* value = std::getenv(name);
+	return value != nullptr ? std::optional<std::string>{value} : std::nullopt;
+#endif
+}
+
+// The REST port: kRestPortEnv when it holds a valid port number, else `fallback`.
+int ResolveRestPort(const int fallback) {
+	const auto env = ReadEnv(kRestPortEnv);
+	if (!env) {
+		return fallback;
+	}
+	const std::string_view text{*env};
+	int port = 0;
+	const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), port);
+	if (ec != std::errc{} || end != text.data() + text.size() || port <= 0 || port > 65535) {
+		spdlog::warn("[FlecsRemote] Ignoring {}='{}' (not a port number); using {}", kRestPortEnv, text, fallback);
+		return fallback;
+	}
+	return port;
+}
+
+} // namespace
+
+void InitializeRemoteAPI(flecs::world& world, const int default_rest_port) {
+	const int rest_port = ResolveRestPort(default_rest_port);
+	spdlog::info("[FlecsRemote] REST API on port {}", rest_port);
 	world.import<flecs::stats>();
 
 	// The stats addon installs a pipeline monitor that calls ecs_pipeline_stats_get() every frame for

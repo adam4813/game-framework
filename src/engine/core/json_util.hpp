@@ -87,74 +87,85 @@ LoadJsonFile(const std::string_view path, const std::string_view log_tag) {
 
 // --- Shared JSON field parsers -----------------------------------------------------------------
 // One home for turning JSON arrays into the engine's math/color/rect types, so data loaders don't
-// each reinvent them. Each returns `def` when the key is absent or the array is the wrong shape.
+// each reinvent them. Each returns `def` when the key is absent. A key that is present but not an
+// array of at least N numbers also returns `def`, and logs a warning naming the key, so a typo in
+// data shows up in the log instead of silently becoming the default.
 
-[[nodiscard]] inline glm::vec2 JVec2(const nlohmann::json& j, const char* key, const glm::vec2 def) {
+namespace detail {
+
+// The array under `key` when it holds at least `count` numbers; nullptr (with a warning) when the
+// key is present but malformed, and nullptr silently when it is absent.
+[[nodiscard]] inline const nlohmann::json* NumberArray(const nlohmann::json& j, const char* key, const size_t count) {
 	if (!j.contains(key)) {
-		return def;
+		return nullptr;
 	}
 	const auto& a = j.at(key);
-	if (!a.is_array() || a.size() < 2) {
+	const bool numbers =
+		a.is_array()
+		&& a.size() >= count
+		&& std::all_of(a.begin(), a.begin() + static_cast<std::ptrdiff_t>(count), [](const nlohmann::json& v) {
+			   return v.is_number();
+		   });
+	if (!numbers) {
+		spdlog::warn("[Json] '{}' must be an array of {} numbers, got {}; using the default", key, count, a.dump());
+		return nullptr;
+	}
+	return &a;
+}
+
+} // namespace detail
+
+[[nodiscard]] inline glm::vec2 JVec2(const nlohmann::json& j, const char* key, const glm::vec2 def) {
+	const auto* a = detail::NumberArray(j, key, 2);
+	if (a == nullptr) {
 		return def;
 	}
-	return {a[0].get<float>(), a[1].get<float>()};
+	return {(*a)[0].get<float>(), (*a)[1].get<float>()};
 }
 
 [[nodiscard]] inline glm::vec3 JVec3(const nlohmann::json& j, const char* key, const glm::vec3 def) {
-	if (!j.contains(key)) {
+	const auto* a = detail::NumberArray(j, key, 3);
+	if (a == nullptr) {
 		return def;
 	}
-	const auto& a = j.at(key);
-	if (!a.is_array() || a.size() < 3) {
-		return def;
-	}
-	return {a[0].get<float>(), a[1].get<float>(), a[2].get<float>()};
+	return {(*a)[0].get<float>(), (*a)[1].get<float>(), (*a)[2].get<float>()};
 }
 
 // Parse a JSON [r, g, b, a] array (0-255) into a platform::Rgba.
 [[nodiscard]] inline Rgba JRgba(const nlohmann::json& j, const char* key, const Rgba def) {
-	if (!j.contains(key)) {
-		return def;
-	}
-	const auto& a = j.at(key);
-	if (!a.is_array() || a.size() < 4) {
+	const auto* a = detail::NumberArray(j, key, 4);
+	if (a == nullptr) {
 		return def;
 	}
 	return {
-		.r = static_cast<std::uint8_t>(a[0].get<int>()),
-		.g = static_cast<std::uint8_t>(a[1].get<int>()),
-		.b = static_cast<std::uint8_t>(a[2].get<int>()),
-		.a = static_cast<std::uint8_t>(a[3].get<int>())
+		.r = static_cast<std::uint8_t>((*a)[0].get<int>()),
+		.g = static_cast<std::uint8_t>((*a)[1].get<int>()),
+		.b = static_cast<std::uint8_t>((*a)[2].get<int>()),
+		.a = static_cast<std::uint8_t>((*a)[3].get<int>())
 	};
 }
 
 // Parse a JSON [r, g, b, a] array (0-255) into a normalized 0-1 glm::vec4 (tint/vertex-color form).
 [[nodiscard]] inline glm::vec4 JColorNormalized(const nlohmann::json& j, const char* key, const glm::vec4 def) {
-	if (!j.contains(key)) {
-		return def;
-	}
-	const auto& a = j.at(key);
-	if (!a.is_array() || a.size() < 4) {
+	const auto* a = detail::NumberArray(j, key, 4);
+	if (a == nullptr) {
 		return def;
 	}
 	return {
-		a[0].get<float>() / 255.0F,
-		a[1].get<float>() / 255.0F,
-		a[2].get<float>() / 255.0F,
-		a[3].get<float>() / 255.0F
+		(*a)[0].get<float>() / 255.0F,
+		(*a)[1].get<float>() / 255.0F,
+		(*a)[2].get<float>() / 255.0F,
+		(*a)[3].get<float>() / 255.0F
 	};
 }
 
 // Parse a JSON [x, y, w, h] pixel-rect array into a platform::Rect.
 [[nodiscard]] inline Rect JRect(const nlohmann::json& j, const char* key, const Rect def = {}) {
-	if (!j.contains(key)) {
+	const auto* a = detail::NumberArray(j, key, 4);
+	if (a == nullptr) {
 		return def;
 	}
-	const auto& a = j.at(key);
-	if (!a.is_array() || a.size() < 4) {
-		return def;
-	}
-	return {.x = a[0].get<float>(), .y = a[1].get<float>(), .w = a[2].get<float>(), .h = a[3].get<float>()};
+	return {.x = (*a)[0].get<float>(), .y = (*a)[1].get<float>(), .w = (*a)[2].get<float>(), .h = (*a)[3].get<float>()};
 }
 
 } // namespace engine::core

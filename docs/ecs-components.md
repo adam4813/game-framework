@@ -1,18 +1,7 @@
 # ECS Components, Singletons & Tags
 
-Flecs 4.x conventions used throughout the engine:
-
-- **Components are plain-data structs** — no logic, no virtual methods. A method is only justified when it does real
-  work — interrogating/manipulating a non-trivial member (e.g. a container) or acting as a factory — not a trivial field
-  accessor/mutator. Examples that qualify: `WorldTransform::ComputeMatrix` (composes the world matrix),
-  `ecs::MakeWorldTransform` (factory), `Cooldown::Ready` (computed predicate).
-- **Tags** are zero-size structs used purely for filtering.
-- **Singletons** are components stored on the world (`world.set<T>({})`), kept as aggregates so
-  `set<T>({})` works.
-- **Systems are stateless**; they query components and use `it.delta_time()` for timing.
-- **Reflection then scripting**: a module first reflects a component for the Flecs Explorer
-  (`world.component<T>().member<...>(...)`) and *then* registers it for scripting (`RegisterComponentForScripts`). Core
-  math types are reflected once in `EngineContext`.
+The conventions for components, tags, singletons and reflection are in
+[CODING_STANDARDS.md](../CODING_STANDARDS.md#ecs-flecs-4x). This page catalogues what exists.
 
 ## Core transforms (`engine::spatial`, `src/engine/spatial/spatial_components.hpp`)
 

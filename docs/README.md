@@ -85,4 +85,4 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
   singletons. The one-way dependency (engine never includes game code) is maintained, making this safe and convenient.
 - **Naming** — `snake_case` files, `PascalCase` types/methods/functions, `camelCase` locals/fields.
 
-See the repository [AGENTS.md](../AGENTS.md) for the full authoring guide and build commands.
+See [CODING_STANDARDS.md](../CODING_STANDARDS.md) for the coding rules and [AGENTS.md](../AGENTS.md) for build commands.

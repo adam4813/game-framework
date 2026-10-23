@@ -8,6 +8,7 @@
 #include "engine/spatial/spatial.hpp"
 
 #include "render_components.hpp"
+#include "camera_projection.hpp"
 
 // TODO(scripting): expose ScreenProjector to AngelScript so scripts can project 3D world
 // positions to screen-space pixels (e.g. to place UI labels above entities). Register as a
@@ -41,7 +42,7 @@ struct ScreenProjector {
 		const float viewport_h
 	) {
 		const glm::mat4 view = glm::lookAt(cam_wt.position, look_target, cam.up);
-		const glm::mat4 proj = glm::perspective(glm::radians(cam.fov), cam.aspect_ratio, cam.near_plane, cam.far_plane);
+		const glm::mat4 proj = BuildProjection(cam, cam.aspect_ratio);
 		return ScreenProjector{.view_proj = proj * view, .viewport_w = viewport_w, .viewport_h = viewport_h};
 	}
 

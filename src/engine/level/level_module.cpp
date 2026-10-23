@@ -152,10 +152,22 @@ private:
 				if (!file_data) {
 					continue;
 				}
-				it->second(e, *file_data);
+				ApplyComponent(it->second, e, key, *file_data);
 				continue;
 			}
-			it->second(e, value);
+			ApplyComponent(it->second, e, key, value);
+		}
+	}
+
+	// A loader reading a wrongly typed value (nlohmann throws on `get<int>()` of a string) skips that
+	// one component with a warning, rather than aborting the whole level load.
+	static void
+	ApplyComponent(const ComponentLoader& loader, const flecs::entity e, const std::string& key, const json& value) {
+		try {
+			loader(e, value);
+		}
+		catch (const json::exception& ex) {
+			spdlog::warn("[Level] Skipping component '{}' on entity '{}': {}", key, e.name().c_str(), ex.what());
 		}
 	}
 

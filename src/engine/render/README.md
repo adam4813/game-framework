@@ -8,7 +8,8 @@ render systems resolve the world matrix and material, then issue draw calls thro
 ## Relationships and Material Entities
 
 Each renderable entity links to a named **material entity** via the `(RenderWith, mat_entity)` relationship. The
-material entity carries all surface data: `Material` (colour, wireframe, cast-shadow flag), optionally `AlbedoMap`
+material entity carries all surface data: `Material` (colour, wireframe, cast-shadow flag; wireframe is desktop-only,
+since WebGL has no polygon wire mode), optionally `AlbedoMap`
 (diffuse texture), and optionally `ShaderMap` (custom GLSL shader stages). This mirrors AAA engine conventions where
 materials own their texture references and multiple objects can share the same material entity.
 
@@ -99,6 +100,8 @@ variant for WebGL).
 - **Phong shading** — ambient + one directional light + specular, configured from `AmbientLight` and `DirectionalLight`.
 - **Shadows** — cheap **planar projected shadows** flattened onto `DirectionalLight.shadow_ground_y`. No render targets,
   so it works on desktop and WebGL alike.
+- **Unlit** — `Material.unlit` draws the colour exactly as given, skipping the scene light (flat white art, markers).
+  It is independent of `cast_shadow`, which only controls the projected shadow.
 - **Textures** — `AlbedoMap { path, handle }` on the material entity is resolved to a platform handle via the
   `RegisterPathAsset<AlbedoMap>()` observer. `ShaderMap { stages, handle }` similarly loads a custom GLSL shader.
 

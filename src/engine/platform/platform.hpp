@@ -26,14 +26,21 @@ struct PlatformRef {
 	Platform* ptr;
 };
 
-// Parameters for a perspective 3D camera. Uses glm math types (a core dependency) so game
-// code gets the vector operations for free. Converted to the backend's native camera when
-// BeginMode3D is called.
+// Projection mode for a 3D camera. Perspective applies a vertical field of view; Orthographic
+// uses a fixed world-space view height (Camera3DParams::ortho_size) with no foreshortening.
+enum class CameraProjection : uint8_t { Perspective, Orthographic };
+
+// Parameters for a 3D camera. Uses glm math types (a core dependency) so game code gets the
+// vector operations for free. Converted to the backend's native camera when BeginMode3D is called.
+// `fov_y` is the vertical field of view for perspective cameras; `ortho_size` is the vertical view
+// height in world units for orthographic cameras.
 struct Camera3DParams {
 	glm::vec3 position{0.0f};
 	glm::vec3 target{0.0f};
 	glm::vec3 up{0.0f, 1.0f, 0.0f};
 	float fov_y = 60.0f;
+	CameraProjection projection = CameraProjection::Perspective;
+	float ortho_size = 20.0f;
 };
 
 struct ShaderStage {
@@ -47,6 +54,9 @@ struct DrawMaterial {
 	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
+	bool unlit{false}; // draw the tint as-is, skipping the scene lighting
+	bool depth_write{true};      // when false, the draw tests depth but doesn't write it (transparent pass)
+	bool fade_transparent{false}; // selects the occluder-fade shader's transparent (ghost) pass
 };
 
 // Identifiers for the backend's built-in unit primitive meshes. Fetch a batchable handle for one
@@ -93,6 +103,18 @@ struct LightParams {
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;
 	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
+};
+
+// Occluder-fade configuration pushed to fade-aware shaders (e.g. the upright-quad cutout shader).
+// Upright sprites that cover `focus` (typically the camera's LookAt target, i.e. the player) on
+// screen become alpha-blended translucent so the focus shows through. The test is screen-space, so
+// tall quads leaning over the focus fade too. `enabled == false` (or `strength == 0`) renders those
+// shaders as a plain cutout.
+struct OcclusionFadeParams {
+	glm::vec3 focus{0.0f};  // world-space point to keep visible
+	float radius = 130.0f;  // screen-space radius (pixels) of the fade region around the focus
+	float strength = 0.75f; // transparency applied over the focus (0 = off, 1 = fully invisible)
+	bool enabled = false;
 };
 
 enum class MouseButton { Left = 0, Right = 1 };
@@ -171,6 +193,9 @@ public:
 	// Uploads scene lighting + shadow configuration to the lit shader. Call once per frame after
 	// BeginMode3D and before drawing primitives.
 	virtual void SetLighting(const LightParams& lighting) = 0;
+	// Uploads occluder-fade configuration to fade-aware shaders (upright cutout quads). Call once
+	// per frame after BeginMode3D and before drawing the quads. A disabled value clears the effect.
+	virtual void SetOcclusionFade(const OcclusionFadeParams& fade) = 0;
 	virtual void DrawCube(const glm::mat4& transform, glm::vec3 size, const DrawMaterial& material) = 0;
 	virtual void DrawSphere(const glm::mat4& transform, float radius, const DrawMaterial& material) = 0;
 	virtual void DrawQuad(const glm::mat4& transform, glm::vec2 size, const DrawMaterial& material) = 0;
