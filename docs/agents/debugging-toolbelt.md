@@ -9,10 +9,16 @@ and `FLECS_REST_PORT=<port>` on launch overrides either; give the tools the same
 `node tools/flecs-api.js` (run it with no arguments for its verbs). The `flecs-remote-api` skill covers scene
 switching, UI clicks and input overrides.
 
+- **Launch the Debug build** (`cmake --build --preset desktop-debug`, then `build/desktop/games/<game>/Debug/<game>.exe`).
+  Flecs asserts only fire in Debug; a Release run reports a clean log while a bad Flecs call goes unnoticed.
+  Verify runtime behaviour on Debug, and grep its log for `assert` and `fatal`.
 - **After launching, run `node tools/flecs-api.js wait <Leaf>`** with a component only your game registers. It polls
   until the server answers and that component exists. The second check matters: the user often has another game
   instance running, and only one process can hold port 27750. If `wait` times out with "another game on the port?",
   the port belongs to someone else's instance. Leave it running and relaunch yours with a free `FLECS_REST_PORT`.
+- **`set` can report `applied: false` when the value did land.** Its read-back misses a value that has already
+  moved on (a draining timer) or an entity that has already gone (a Ticket set to expire). Confirm with a `query`
+  rather than trusting the flag.
 - **Stop only the processes you started**, by PID (`Stop-Process -Id $proc.Id`). Killing by image name
   (`taskkill /IM sandbox.exe`) also kills the user's instances.
 - **Query by full dot-path.** `find <Leaf>` prints a component's path (`find Transform` gives

@@ -71,13 +71,15 @@ jump directly.
 - **Mouse:** `override-input` / `restore-input` inject an `InputState` value. Mouse only: `InputState`'s keys aren't
   reflected.
 - **Setting values:** `set <component> '<json>' [entity]` merges the JSON fields into a component and waits until a
-  read-back shows them (`flecs_set` over MCP). Omit `entity` for a singleton, whose value lives on the component's own
+  read-back shows them (`flecs_set` over MCP; `applied: false` can be a false negative when the value moves on or the
+  entity vanishes first, so confirm with a `query`). Omit `entity` for a singleton, whose value lives on the component's own
   entity. A value a scene only reads in `Load` (e.g. a debug-overlay flag) takes effect after `switch-scene` to the
   already-active scene, which reloads it.
 - **Querying:** Use the REST API endpoints to query entities, components, and system state
 
 ## Important Notes
 
+- **Run the game from the Debug build.** Flecs asserts only fire there; see `docs/agents/debugging-toolbelt.md`.
 - **Scene entity IDs are runtime-assigned.** Always discover them on each game launch via `list-scenes`; never hardcode
   them.
 - **When MCP tools are available**, prefer `flecs_*` tools over shelling out to the CLI script.
