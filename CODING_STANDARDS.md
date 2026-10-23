@@ -20,7 +20,7 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
   file when designers tune them. Implementation constants that only one algorithm uses (iteration counts, epsilons)
   sit at the top of that `.cpp`'s anonymous namespace. Repeating a magic number across files means it wants a header.
 - **JSON goes through the shared helpers.** Engine code uses `engine::core` (`LoadJsonFile`, the `J*` field parsers);
-  a game uses its own one reader (Signal Room: `ReadJsonFile`). Load errors name the file and the bad entry.
+  a game routes every JSON load through one reader of its own. Load errors name the file and the bad entry.
 
 ## Simplicity and patterns
 
@@ -105,8 +105,8 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 
 - **Every Raylib (and ImGui) call goes through `platform::Platform`** (ADR 0001). Game and engine logic use its
   interface and POD types (`Rect`, `Rgba`, glm).
-- **Game logic reads input through the engine**: `InputState`, and in a game its action layer (Signal Room's
-  `Bindings` → `OperatorActions`), never raw key codes in logic.
+- **Game logic reads input through the engine**: `InputState`, and in a game its action layer (key bindings
+  mapped to game actions), never raw key codes in logic.
 - **Includes point one way**: engine code never includes game code; game code includes `engine/engine.hpp`.
 
 ## Code style
@@ -138,5 +138,5 @@ it by eye.
   way the code computes them.
 - **A new engine component appears in the scene-equivalence test** (`tests/scene_equivalence/`, see the
   `create-module` skill) and `COMPONENT_COVERAGE.md`.
-- **Engine tests register with `add_engine_test`**, a Game Target's with its own helper (`add_signal_room_test`), so
+- **Engine tests register with `add_engine_test`**, a Game Target's with its own helper (`add_<game>_test`), so
   `ctest --preset desktop-test-release` runs them all.

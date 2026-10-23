@@ -8,7 +8,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - The spec is `.scratch/<feature-slug>/spec.md`. Past about 100 lines, it is an **index**: the problem, the solution,
   a Sections table (one row per topic: link + what it covers), out of scope and notes. Each topic lives in
   `.scratch/<feature-slug>/spec/<topic>.md` with its user stories next to its implementation decisions; testing
-  decisions get their own section. Example: `.scratch/signal-room-room-bootstrap/`.
+  decisions get their own section. Example: `.scratch/<game>-<feature>/spec.md` + `spec/<topic>.md`.
 - A ticket's `Spec:` line links the index and names the sections it implements
   (`Spec: [spec](../spec.md). Read: [Movement](../spec/operator-movement.md), [Testing](../spec/testing.md).`), so an
   implementer reads only those.
