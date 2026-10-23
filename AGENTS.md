@@ -94,4 +94,4 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 ### Domain docs
 
-Single-context: `docs/GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
+Multi-context: `GLOSSARY-MAP.md` lists each context's glossary and ADRs. See `docs/agents/domain.md`.
