@@ -112,6 +112,14 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 				&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
 				return;
 			}
+			// Frustum-cull positioned entities (e.g. per-entity creature/NPC sprites). Skip when
+			// the world position is exactly the origin: streaming meshes bake absolute vertices at
+			// (0,0,0) world and must never be position-culled.
+			const glm::vec3 pos{wt.matrix[3]};
+			const auto& cull = it.world().get<CameraFrustum>();
+			if (cull.valid && (pos.x != 0.0F || pos.z != 0.0F)) {
+				if (!cull.frustum.ContainsSphere(pos, 2.0F)) return;
+			}
 			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(entity));
 		})
 		.template add<scene::GameScene>();
