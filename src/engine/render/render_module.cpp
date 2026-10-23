@@ -56,6 +56,10 @@ thread_local int64_t tl_render_frame_gen = -1;
 // AlbedoMap and ShaderMap are components on the material entity itself (materials own their
 // texture/shader references, consistent with how AAA engines structure material assets).
 platform::DrawMaterial MakeDrawMaterial(const flecs::entity mat_e) {
+	// Guard an invalid (0) material entity — e.g. a RenderWith target that is unset or not yet
+	// resolved. is_valid() is safe for id 0, whereas try_get/ecs_get_id on 0 asserts (debug) or reads
+	// out of bounds (release) under flecs 4.x. A material-less primitive renders with the default.
+	if (!mat_e.is_valid()) return {};
 	const auto* mat = mat_e.try_get<Material>();
 	if (!mat) return {};
 	const auto* albedo = mat_e.try_get<AlbedoMap>();
