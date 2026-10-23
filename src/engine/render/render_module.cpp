@@ -79,9 +79,14 @@ platform::DrawMaterial MakeDrawMaterial(const flecs::entity mat_e) {
 // (e.g. thousands of agents) that each need a distinct colour should carry a plain Material value
 // rather than a unique RenderWith target — a unique relationship pair per entity would put every
 // entity in its own Flecs table (archetype fragmentation) and destroy iteration performance.
+// Falls back to the parent entity's RenderWith for overflow chunk children that inherit material.
 platform::DrawMaterial ResolveDrawMaterial(const flecs::entity e) {
 	if (e.has<Material>()) return MakeDrawMaterial(e);
-	return MakeDrawMaterial(e.target<RenderWith>());
+	const flecs::entity mat = e.target<RenderWith>();
+	if (mat.is_valid()) return MakeDrawMaterial(mat);
+	// Overflow chunk entities are children of a carrier that owns the RenderWith relationship.
+	const flecs::entity parent = e.parent();
+	return MakeDrawMaterial(parent.is_valid() ? parent.target<RenderWith>() : flecs::entity{});
 }
 
 // Registers a draw system for primitive component TPrim. The per-primitive draw calls differ, so it is
@@ -99,7 +104,14 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 			if (!it.world().get<Render3DState>().active) return;
 			const auto platform_ref = it.world().get<platform::PlatformRef>();
 			const auto entity = it.entity(i);
-			if (!entity.has<Material>() && !entity.has<RenderWith>(flecs::Wildcard)) return;
+			// Entities must have a material source: inline Material, a direct (RenderWith,*) pair,
+			// or a parent with (RenderWith,*) — the latter covers overflow chunk children whose
+			// atlas/material is inherited from the carrier entity.
+			if (!entity.has<Material>()
+				&& !entity.has<RenderWith>(flecs::Wildcard)
+				&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
+				return;
+			}
 			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(entity));
 		})
 		.template add<scene::GameScene>();
