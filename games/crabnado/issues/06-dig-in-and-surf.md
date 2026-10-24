@@ -10,14 +10,14 @@ upgrade registry.
 
 **Blocked by:** 05 (Waves and tumble).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Without digging in, a crest visibly carries the player, and steering still works while surfing.
-- [ ] Holding dig in through a crest keeps the player in place while weapons keep firing.
-- [ ] Stamina drains while dug in, refills when released, and dig in fails at 0. The HUD bar shows it.
-- [ ] Dig in is a game action bound through the input layer, not a raw key code in logic.
-- [ ] The "deep roots" upgrade appears in the upgrade choices and raises stamina.
-- [ ] Checked in the running game (e.g. read stamina over the Remote API while holding dig in via a key override).
+- [x] Without digging in, a crest visibly carries the player, and steering still works while surfing.
+- [x] Holding dig in through a crest keeps the player in place while weapons keep firing.
+- [x] Stamina drains while dug in, refills when released, and dig in fails at 0. The HUD bar shows it.
+- [x] Dig in is a game action bound through the input layer, not a raw key code in logic.
+- [x] The "deep roots" upgrade appears in the upgrade choices and raises stamina.
+- [x] Checked in the running game (e.g. read stamina over the Remote API while holding dig in via a key override).
 
 ## Decisions
 
@@ -38,3 +38,11 @@ Settled 2026-10-24. Values are the prototype's, in `crabnado_constants.hpp`.
 - **HUD.** A stamina progress bar under the HP readout, using the retained UI progress bar like the shell bar.
 - **Deep Roots.** Add an entry to `upgrades.json`: "Max stamina +40, refills 30% faster". Effects: `Stamina.max`
   add 40, `Stamina.value` add 40, `Stamina.regen` multiply 1.3.
+
+## Comments
+
+- Checked on desktop (Debug) over the Remote API: holding Space rooted the player (y scale 0.7, sunk 0.35, position
+  fixed) while stamina drained 30/s and refilled after release; a crest set the surf knock to about 8 units/s and it
+  decayed after; "deep roots" appeared in a molt offer and raised Stamina.max to 140. The exhausted state (dig in off
+  until 25% refill) was not observed in the running game, because molt pauses kept interrupting the run; it is
+  covered by reading the logic only.

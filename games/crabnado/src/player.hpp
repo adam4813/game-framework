@@ -19,12 +19,29 @@ struct PlayerStats {
 	float pickup_range{0.0F};
 };
 
+// The player's dig-in stamina. Holding dig in drains `drain` per second and roots the crab (`dug_in`); otherwise
+// it refills at `regen`. At 0 the crab is `exhausted` and cannot dig in until stamina refills to a quarter of
+// `max`.
+struct Stamina {
+	float value{0.0F};
+	float max{0.0F};
+	float regen{0.0F};
+	float drain{0.0F};
+	bool exhausted{false};
+	bool dug_in{false};
+};
+
+// The velocity (units/s) a crest gives the player on top of steering. Zero while dug in, decays after a crest.
+struct SurfKnock {
+	glm::vec2 velocity{0.0F};
+};
+
 // A camera that keeps `offset` from the player (north-up: it never rotates).
 struct FollowCamera {
 	glm::vec3 offset{0.0F};
 };
 
-// Registers and reflects the player components and the PlayerMove, PlayerDefeat and CameraFollow
+// Registers and reflects the player components and the PlayerStamina, PlayerMove, PlayerDefeat and CameraFollow
 // systems. Call from the module constructor.
 void RegisterPlayer(const flecs::world& world);
 
