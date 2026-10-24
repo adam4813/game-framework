@@ -30,6 +30,7 @@ constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
 constexpr core::Rgba kSweptAwayColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
+constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
 constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
 constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
 constexpr float kStaminaBarWidth = 200.0F;
@@ -267,8 +268,8 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	const auto& stats = player.get<PlayerStats>();
 	const int seconds = static_cast<int>(run.clock);
 	hud_.get_mut<ui::Label>().text = std::format(
-		"HP {:.0f}/{:.0f}   {}:{:02}   kills {}   rock slams {}", std::ceil(stats.hp), stats.max_hp, seconds / 60,
-		seconds % 60, run.kills, run.rock_kills
+		"HP {:.0f}/{:.0f}   {}:{:02} {}   kills {}   rock slams {}", std::ceil(stats.hp), stats.max_hp, seconds / 60,
+		seconds % 60, WaveStageName(run.clock), run.kills, run.rock_kills
 	);
 	readout_.get_mut<ui::Label>().text = readout;
 	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
@@ -295,8 +296,18 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 		return;
 	}
 	const glm::vec3 p = player.get<spatial::Transform>().position;
-	const auto warning = NextBigCrestIn(world.get<WaveField>(), {p.x, p.z}, constants::kBigCrestWarning);
-	telegraph_.get_mut<ui::Label>().text = warning ? std::format("BIG CREST in {:.1f} s", *warning) : std::string{};
+	const auto& field = world.get<WaveField>();
+	const glm::vec2 position{p.x, p.z};
+	auto& label = telegraph_.get_mut<ui::Label>();
+	label.color = kTelegraphColor;
+	if (const auto rogue = NextRogueIn(field, position, constants::kRogueWarning)) {
+		label.text = std::format("ROGUE WAVE in {:.1f} s", *rogue);
+		label.color = kRogueColor;
+	} else if (const auto crest = NextBigCrestIn(field, position, constants::kBigCrestWarning)) {
+		label.text = std::format("BIG CREST in {:.1f} s", *crest);
+	} else {
+		label.text = field.notice_timer > 0.0F ? "A cross-swell is building" : "";
+	}
 }
 
 void ArenaScene::UpdateMolt(const flecs::world& world) const {

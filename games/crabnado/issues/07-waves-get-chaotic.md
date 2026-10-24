@@ -10,13 +10,13 @@ they read the same wave field.
 
 **Blocked by:** 05 (Waves and tumble).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Before 1:30 all crests travel along the current wind.
-- [ ] After a wind shift past 1:30, crests from two directions are visible and stack where they meet.
-- [ ] After 3:00, rogue waves appear with a warning.
-- [ ] Rogue wave timing and direction draw from `RngState`.
-- [ ] Checked in the running game by setting the run clock over the Remote API (e.g. jump to 1:25, 2:55).
+- [x] Before 1:30 all crests travel along the current wind.
+- [x] After a wind shift past 1:30, crests from two directions are visible and stack where they meet.
+- [x] After 3:00, rogue waves appear with a warning.
+- [x] Rogue wave timing and direction draw from `RngState`.
+- [x] Checked in the running game by setting the run clock over the Remote API (e.g. jump to 1:25, 2:55).
 - [ ] Optional: the wave-field ramp tests from the testing section, if the ramp proves fragile. Not required.
 
 ## Decisions
@@ -41,3 +41,9 @@ Settled 2026-10-24. Port the prototype's `updateWaves`. Constants: `kCrossSwellA
 - **Remote checks.** Setting the clock to 1:25 and waiting for a shift (or setting `Wind.shift_timer` low) must show
   two crossing directions. Setting it to 2:55 must show a rogue within about 20 s.
 - **Tests: skip.** The Remote API clock jump makes the ramp quick to check.
+
+## Comments
+
+Checked on desktop over the Remote API: one swell before 1:30; a shift past 1:30 faded the old swell and added one along
+the new bearing; a rogue spawned ~6 s after 3:00 within 0.6 rad of the wind, with "ROGUE WAVE in 1.2 s" in the
+telegraph label and the stage name in the HUD. The optional ramp tests were skipped.

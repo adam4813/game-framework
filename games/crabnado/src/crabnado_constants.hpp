@@ -74,6 +74,27 @@ inline constexpr float kWavePeriod = 6.0F;
 inline constexpr float kWaveWidth = 3.4F;
 inline constexpr float kWaveBigAmp = 2.2F;
 inline constexpr float kWavePushK = 9.0F;
+// The ramp to chaos, in run-clock seconds: from kCrossSwellAt a wind shift adds a cross-swell and the old swells
+// fade (amp falls by dt / kSwellFadeTime; a new swell grows over kSwellGrowTime and shows its notice for
+// kCrossSwellNotice seconds). From kRogueAt rogue waves arrive: the first after kRogueFirstMin..Max seconds, then
+// every kRogueGapMin..Max. A rogue's bearing is the wind's +/- kRogueSpread, its amp kRogueAmp and its width
+// kWaveWidth * sqrt(kRogueWidthK). It reaches the player kRogueLead seconds after it spawns, is warned of
+// kRogueWarning seconds ahead, and is removed once past the arena by kRogueExitMargin.
+inline constexpr float kCrossSwellAt = 90.0F;
+inline constexpr float kRogueAt = 180.0F;
+inline constexpr float kSwellFadeTime = 45.0F;
+inline constexpr float kSwellGrowTime = 4.0F;
+inline constexpr float kCrossSwellNotice = 2.0F;
+inline constexpr float kRogueFirstMin = 6.0F;
+inline constexpr float kRogueFirstMax = 10.0F;
+inline constexpr float kRogueGapMin = 12.0F;
+inline constexpr float kRogueGapMax = 20.0F;
+inline constexpr float kRogueSpread = 0.6F;
+inline constexpr float kRogueAmp = 2.6F;
+inline constexpr float kRogueWidthK = 1.6F;
+inline constexpr float kRogueLead = 2.5F;
+inline constexpr float kRogueWarning = 2.6F;
+inline constexpr float kRogueExitMargin = 30.0F;
 // A tide pool calms waves by up to this fraction at its centre, over the outer kTidePoolCalmEdge of its radius.
 inline constexpr float kTidePoolCalm = 0.92F;
 inline constexpr float kTidePoolCalmEdge = 0.4F;
