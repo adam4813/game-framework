@@ -250,6 +250,8 @@ public:
 	virtual int LoadSound(std::string_view path) = 0; // returns handle, or -1
 	virtual void UnloadSound(int handle) = 0;
 	virtual void PlaySound(int handle) = 0;
+	// Pitch (and speed) multiplier applied to the sound's next plays; 1 is unchanged.
+	virtual void SetSoundPitch(int handle, float pitch) = 0;
 
 	// Streamed music (one decoded chunk at a time, for long tracks). LoadMusic returns a handle or -1
 	// and deduplicates by path. PlayMusic restarts the track from the start; `loop` makes it wrap.

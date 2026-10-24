@@ -47,14 +47,18 @@ void RegisterClawSnap(const flecs::world& world) {
 			claw.ring_timer = constants::kClawRingTime;
 
 			const flecs::world world = it.world();
-			PlaySfx(world, Sfx::ClawSnap);
 			const glm::vec2 position{transform.position.x, transform.position.z};
 			const auto& grid = world.get<CrowdGrid>();
+			bool hit = false;
 			grid.ForEachNear(position, claw.radius + grid.max_radius, [&](const CrowdEntry& e) {
 				if (glm::length(e.position - position) < claw.radius + e.radius) {
 					DamageEnemy(world.entity(e.entity), claw.damage);
+					hit = true;
 				}
 			});
+			if (hit) {
+				PlaySfx(world, Sfx::ClawSnap);
+			}
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
