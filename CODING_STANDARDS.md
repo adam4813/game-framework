@@ -68,9 +68,12 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
   a `Register*System()` function or the module constructor.
 - **One `.kind(phase)` per system.** A second `.kind()` silently replaces the first. Phases: `PreUpdate` input,
   `OnUpdate` logic/physics/AI/debug panels, `OnStore` 3D render, `OnUI` 2D overlays, `PostUpdate` per-frame cleanup.
-- **Scene systems are scene-scoped**, in one of two ways: `.add<scene::YourSceneTag>()` for systems registered once
-  (a module constructor), or `.child_of(sceneRoot)` for systems a scene's `Load()` creates under the root entity that
-  `Unload()` destroys. An unscoped system runs in every scene.
+- **Scene systems are scene-scoped**, in one of two ways: `.child_of(sceneRoot)` for a system that a scene's `Load()`
+  creates under the root entity `Unload()` destroys (it runs in that scene only), or a mode tag
+  (`.add<scene::GameScene>()` / `.add<scene::MenuScene>()`) for a system registered once in a module constructor (it
+  runs in every gameplay or every menu scene, since scene pipelines filter on these). A scene's identity tag
+  (`ArenaSceneTag`) belongs on the scene entity only: no pipeline filters on it, and `FindScene` can return a system
+  that carries it. An unscoped system runs in every scene.
 - **Pausing is data** (ADR 0004): simulation systems add `.add<ecs::Pausable>()`; input, render, UI, audio and debug
   systems omit it.
 - **Event-driven over polling.** A discrete state change reacts through an observer (`OnSet` for values, `OnAdd` /

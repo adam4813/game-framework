@@ -141,7 +141,9 @@ namespace engine::<name> {
   // Grab the platform once if the module renders/plays audio (pointer is stable).
 
   // (3) Systems — see the flecs-systems skill for the correct API.
-  // Scope per-scene by calling .add<scene::YourSceneTag>() on the returned system entity.
+  // Scope with a mode tag on the returned system entity: .add<scene::GameScene>() (gameplay scenes)
+  // or .add<scene::MenuScene>() (menu scenes). A system for one scene only is created in that scene's
+  // Load() with .child_of(sceneRoot). Never put a scene's identity tag on a system.
   // Use a single .kind(phase) for ordering — never chain two .kind() calls (the second
   // overwrites the first). Pick the phase:
   //   flecs::PreUpdate  — input reading
@@ -156,7 +158,7 @@ namespace engine::<name> {
       // ... use platform + component ...
     })
     .add<ecs::Pausable>()          // omit if this system should keep running while paused
-    .add<scene::YourSceneTag>();   // replace with the scene(s) this system belongs to
+    .add<scene::GameScene>();      // or scene::MenuScene; omit to run in every scene
 
   spdlog::info("[<Name>Module] Registered <name> systems with Flecs");
 }

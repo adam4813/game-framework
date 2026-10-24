@@ -18,7 +18,7 @@ code reviewers on ticket 01 flagged that as a breach of the `AGENTS.md` rule.
 ## What to do
 
 - Make `FindScene` match only scene entities: `.with<SceneTag>().with<SceneComponent>()`.
-- Reword the `AGENTS.md` rule: scope scene systems by parenting them to the scene root (`.child_of(sceneRoot_)`), or
-  filter them with a mode tag (`scene::GameScene` / `scene::MenuScene`). The identity tag belongs on the scene entity
-  only.
+- ~~Reword the rule~~ Done 2026-10-23 (Crabnado ticket 01 retro): `CODING_STANDARDS.md`, `docs/README.md`, the
+  `create-module` skill and `src/engine/debug/README.md` now scope systems by `.child_of(sceneRoot_)` or a mode tag,
+  and say the identity tag belongs on the scene entity only.
 - Add a unit test: a system carrying a scene's identity tag doesn't stop `ActivateScene` from activating that scene.
