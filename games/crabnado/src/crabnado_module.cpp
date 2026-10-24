@@ -5,8 +5,13 @@
 #include <spdlog/spdlog.h>
 
 #include "arena_scene.hpp"
+#include "claw_snap.hpp"
+#include "controls.hpp"
+#include "crabnado.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
+#include "player.hpp"
+#include "run.hpp"
 #include "title_scene.hpp"
 
 using namespace engine;
@@ -17,7 +22,14 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
 	ui::SetDefaultClickSound(world, platform->AssetDirectory() + "/audio/sfx/click.wav");
 
+	// Systems in one phase run in registration order: input, run clock, player, crabnado, then the horde
+	// (whose grid the claw snap reads).
+	RegisterControls(world);
+	RegisterRun(world);
+	RegisterPlayer(world);
+	RegisterCrabnado(world);
 	RegisterHorde(world);
+	RegisterClawSnap(world);
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();

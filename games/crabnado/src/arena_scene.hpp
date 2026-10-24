@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 
 #include <flecs.h>
 
@@ -11,10 +12,10 @@ namespace crabnado {
 // Identity tag for the arena scene (used to find and switch to it).
 struct ArenaSceneTag {};
 
-// The gameplay scene: the tide-pool arena a run plays out in (see the spec). For now it holds the
-// horde performance check (ticket 01): a sand floor under a fixed angled camera, a debug control that
-// spawns crabs in batches, and an FPS / enemy-count readout. Load() builds everything under one root
-// entity and Unload() destroys it.
+// The gameplay scene: the arena a run plays out in (see the spec). Load() starts a run: the player's
+// hermit crab, the crabnado and a camera that follows the player, plus a HUD (HP, clock, kills) and the
+// horde performance check's debug control (ticket 01). Everything lives under one root entity that
+// Unload() destroys. Losing the run pauses the scene.
 class ArenaScene : public engine::scene::SceneBase {
 public:
 	void InitializePipeline(const flecs::world& world) override;
@@ -28,14 +29,18 @@ public:
 private:
 	void BuildStage(const flecs::world& world);
 	void BuildUI(const flecs::world& world);
-	// The debug control: spawns a batch of crabs (up to kHordeDebugMax) or clears them all.
-	void SpawnBatch(const flecs::world& world, int enemyCount) const;
+	void UpdateHud(const flecs::world& world, const std::string& readout) const;
+	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
+	void SpawnBatch(int enemyCount) const;
 	void ClearHorde(const flecs::world& world);
 
 	flecs::entity sceneRoot_;
 	flecs::entity horde_; // parent of every enemy, so clearing the horde is one destruct
+	flecs::entity crabnado_;
 	flecs::entity uiRoot_;
+	flecs::entity hud_;
 	flecs::entity readout_;
+	flecs::entity sweptAway_;
 };
 
 } // namespace crabnado

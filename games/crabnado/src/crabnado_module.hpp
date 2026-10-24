@@ -4,7 +4,7 @@
 
 namespace crabnado {
 
-// Crabnado's top-level Flecs module: registers the horde and the game's scenes, then activates the title scene.
+// Crabnado's top-level Flecs module: registers the run, player, crabnado, horde and claw snap, and the game's scenes, then activates the title scene.
 // Requires the EngineContext singleton the EngineContext constructor sets on the world.
 class CrabnadoModule {
 public:
