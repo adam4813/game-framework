@@ -32,7 +32,6 @@ namespace {
 
 // The deep sea under the water tiles, showing through the gaps between them and past the farthest tiles.
 constexpr core::Rgba kSeabedColor{.r = 0x0f, .g = 0x3a, .b = 0x55, .a = 255};
-constexpr core::Rgba kReadoutColor{.r = 245, .g = 245, .b = 235, .a = 255};
 constexpr core::Rgba kResultsHeadingColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
 constexpr core::Rgba kVictoryHeadingColor{.r = 40, .g = 150, .b = 80, .a = 255};
@@ -245,18 +244,6 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 			   )
 			   .set_name("Hud")
 			   .child_of(uiRoot_);
-
-	readout_ = ui::CreateLabel(world, {.x = 16.0F, .y = 46.0F, .w = w - 260.0F, .h = 20.0F}, "", 16.0F)
-				   .set<ui::Label>({.font_size = 16.0F, .color = kReadoutColor, .align = ui::TextAlign::Left})
-				   .set_name("Readout")
-				   .child_of(uiRoot_);
-
-	const std::string help = std::format(
-		"[=] throw {} crabs   [Backspace] clear", constants::kHordeDebugBatch
-	);
-	std::ignore = ui::CreateLabel(world, {.x = 16.0F, .y = 68.0F, .w = w - 260.0F, .h = 20.0F}, help, 16.0F)
-					  .set<ui::Label>({.text = help, .font_size = 16.0F, .color = kReadoutColor, .align = ui::TextAlign::Left})
-					  .child_of(uiRoot_);
 
 	const core::Rect barRect{.x = barX, .y = kMoltBarTop, .w = kMoltBarWidth, .h = kMoltBarHeight};
 	moltBar_ = ui::CreateProgressBar(
@@ -655,33 +642,31 @@ void ArenaScene::Tick(const flecs::world& world, float) {
 	const int enemyCount = world.count<Enemy>();
 	world.set<HordeReadout>({.enemy_count = enemyCount, .fps = platform->Fps()});
 
-	const std::string readout = std::format("FPS {}   enemies {}", platform->Fps(), enemyCount);
-	UpdateHud(world, readout);
+	UpdateHud(world);
 
 	bool spawn = false;
 	bool clear = false;
 	auto& debugUi = platform->GetDebugUi();
 	if (debugUi.BeginPanel("Horde")) {
-		debugUi.Text(readout);
+		debugUi.Text(std::format("FPS {}   enemies {}", platform->Fps(), enemyCount));
 		spawn = debugUi.Button(std::format("Spawn {}", constants::kHordeDebugBatch));
 		debugUi.SameLine();
 		clear = debugUi.Button("Clear");
 	}
 	debugUi.EndPanel();
 
-	const auto& input = world.get<input::InputState>();
-	if (spawn || input.WasKeyPressed(input::KeyCode::Equals)) {
+	if (spawn) {
 		SpawnBatch(enemyCount);
 	}
-	if (clear || input.WasKeyPressed(input::KeyCode::Backspace)) {
+	if (clear) {
 		ClearHorde(world);
 	}
 }
 
-void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout) const {
+void ArenaScene::UpdateHud(const flecs::world& world) const {
 	const auto& run = world.get<RunState>();
 	const flecs::entity player = FindPlayer(world);
-	if (!player || !hud_.has<ui::Label>() || !readout_.has<ui::Label>()) {
+	if (!player || !hud_.has<ui::Label>()) {
 		return;
 	}
 	const auto& stats = player.get<PlayerStats>();
@@ -694,7 +679,6 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 		killsLabel_.get_mut<ui::Label>().text = std::format("{}", run.kills);
 		waveLabel_.get_mut<ui::Label>().text = WaveStageName(run.clock);
 	}
-	readout_.get_mut<ui::Label>().text = readout;
 	UpdateResults(world);
 	UpdateMolt(world);
 	UpdateTelegraph(world, player);
@@ -926,7 +910,6 @@ void ArenaScene::Unload(flecs::world& world) {
 	crabnado_ = {};
 	music_ = {};
 	hud_ = {};
-	readout_ = {};
 	resultsModal_ = {};
 	resultsHeading_ = {};
 	resultsStats_ = {};
