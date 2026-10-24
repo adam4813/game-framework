@@ -16,6 +16,8 @@ public:
 	void Shutdown() override {}
 	[[nodiscard]] int Width() const override { return 1280; }
 	[[nodiscard]] int Height() const override { return 720; }
+	void SetFullscreen(bool) override {}
+	[[nodiscard]] bool IsFullscreen() const override { return false; }
 	[[nodiscard]] float DeltaTime() const override { return 0.016F; }
 	[[nodiscard]] double Time() const override { return 0.0; }
 	[[nodiscard]] std::string AssetDirectory() const override { return assetDirectory_; }

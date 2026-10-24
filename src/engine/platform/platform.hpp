@@ -129,8 +129,13 @@ public:
 	virtual void Init(int width, int height, std::string_view title) = 0;
 	[[nodiscard]] virtual bool ShouldClose() const = 0;
 	virtual void Shutdown() = 0;
+	// The logical canvas size the game draws on, fixed at Init. The window can be resized, maximized or made
+	// fullscreen; the backend scales the canvas to fit it (letterboxed) and maps the mouse back to canvas pixels.
 	[[nodiscard]] virtual int Width() const = 0;
 	[[nodiscard]] virtual int Height() const = 0;
+	// Fullscreen on or off. Desktop uses a borderless window over the whole monitor.
+	virtual void SetFullscreen(bool fullscreen) = 0;
+	[[nodiscard]] virtual bool IsFullscreen() const = 0;
 	[[nodiscard]] virtual float DeltaTime() const = 0;
 	[[nodiscard]] virtual double Time() const = 0;
 	[[nodiscard]] virtual std::string AssetDirectory() const = 0;
