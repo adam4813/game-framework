@@ -1,0 +1,152 @@
+name: Build Games
+
+# Builds every Game Target under games/ (ADR-0006) for each platform and uploads one artifact per
+# game per platform. The WASM artifact is laid out for itch.io: unzip-and-upload, index.html at the root.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  EM-VERSION: '4.0.10'
+  VCPKG-COMMIT: 'dd3097e305afa53f7b4312371f62058d2e665320'
+
+jobs:
+  discover:
+    name: Discover games
+    runs-on: ubuntu-latest
+    outputs:
+      games: ${{ steps.list.outputs.games }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # A game is any games/<name>/ with a CMakeLists.txt; its executable target shares the folder name.
+      - name: List Game Targets
+        id: list
+        shell: bash
+        run: |
+          mkdir -p games
+          games=$(find games -mindepth 2 -maxdepth 2 -name CMakeLists.txt -printf '%h\n' \
+            | xargs -r -n1 basename | sort | jq -R . | jq -cs .)
+          echo "Found games: $games"
+          echo "games=$games" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.game }} (${{ matrix.platform }})
+    needs: discover
+    # A ref with no games/ (main before any game lands) has nothing to build.
+    if: needs.discover.outputs.games != '[]'
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.discover.outputs.games) }}
+        platform: [ linux, windows, wasm ]
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            target: Desktop
+            preset: desktop
+          - platform: windows
+            os: windows-latest
+            target: Desktop
+            preset: desktop
+          - platform: wasm
+            os: ubuntu-latest
+            target: WebAssembly
+            preset: wasm
+          # macOS later: add a platform here with its os/target/preset.
+
+    env:
+      OUT_DIR: build/${{ matrix.preset }}/games/${{ matrix.game }}/Release
+      STAGE_DIR: dist/${{ matrix.game }}-${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Engine Environment
+        uses: $/.github/actions/setup-environment
+        with:
+          em-version: ${{ env.EM-VERSION }}
+          vcpkg-commit: ${{ env.VCPKG-COMMIT }}
+          target: ${{ matrix.target }}
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build ${{ matrix.game }}
+        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}
+
+      # Binary plus the assets folder copied next to it. Tarred so the executable bit survives
+      # upload-artifact's zip.
+      - name: Package Linux build
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          mkdir -p "$STAGE_DIR"
+          cp "$OUT_DIR/${{ matrix.game }}" "$STAGE_DIR/"
+          cp -r "$OUT_DIR/assets" "$STAGE_DIR/"
+          tar -czf "dist/${{ matrix.game }}-linux.tar.gz" -C dist "${{ matrix.game }}-linux"
+          echo "ARTIFACT_PATH=dist/${{ matrix.game }}-linux.tar.gz" >> "$GITHUB_ENV"
+
+      # The vcpkg toolchain copies dependency DLLs next to the exe (applocal deps); ship them with it.
+      # No tarball needed: Windows has no executable bit to lose in the artifact zip.
+      - name: Package Windows build
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          mkdir -p "$STAGE_DIR"
+          cp "$OUT_DIR/${{ matrix.game }}.exe" "$STAGE_DIR/"
+          find "$OUT_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$STAGE_DIR/" \;
+          cp -r "$OUT_DIR/assets" "$STAGE_DIR/"
+          echo "ARTIFACT_PATH=$STAGE_DIR" >> "$GITHUB_ENV"
+
+      # itch.io wants a zip with index.html at its root and relative references. The Emscripten
+      # shell loads <game>.js by relative name, which in turn fetches <game>.wasm and <game>.data,
+      # so renaming only the HTML is enough. The artifact zip GitHub produces is the itch upload.
+      - name: Package WASM build for itch.io
+        if: matrix.platform == 'wasm'
+        shell: bash
+        run: |
+          game='${{ matrix.game }}'
+          mkdir -p "$STAGE_DIR"
+          cp "$OUT_DIR/$game.html" "$STAGE_DIR/index.html"
+          for ext in js wasm data; do cp "$OUT_DIR/$game.$ext" "$STAGE_DIR/"; done
+          echo "ARTIFACT_PATH=$STAGE_DIR" >> "$GITHUB_ENV"
+
+      # Checks itch.io's documented HTML5 limits so a bad upload fails here, not on the itch page.
+      - name: Check itch.io HTML5 constraints
+        if: matrix.platform == 'wasm'
+        shell: bash
+        run: |
+          cd "$STAGE_DIR"
+          fail=0
+          [ -f index.html ] || { echo "::error::index.html missing"; fail=1; }
+          grep -q "src=\"${{ matrix.game }}.js\"" index.html \
+            || { echo "::error::index.html does not load ${{ matrix.game }}.js by relative path"; fail=1; }
+          count=$(find . -type f | wc -l)
+          [ "$count" -le 1000 ] || { echo "::error::$count files, itch allows 1000"; fail=1; }
+          total=$(du -sb . | cut -f1)
+          [ "$total" -le $((500 * 1024 * 1024)) ] || { echo "::error::$total bytes total, itch allows 500MB"; fail=1; }
+          big=$(find . -type f -size +200M)
+          [ -z "$big" ] || { echo "::error::files over itch's 200MB limit: $big"; fail=1; }
+          ls -la
+          exit $fail
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.game }}-${{ matrix.platform }}
+          path: ${{ env.ARTIFACT_PATH }}
+          if-no-files-found: error
