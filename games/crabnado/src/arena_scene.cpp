@@ -84,7 +84,15 @@ void ArenaScene::Load(flecs::world& world) {
 void ArenaScene::BuildStage(const flecs::world& world) {
 	world.set<render::AmbientLight>({.color = {.r = 120, .g = 130, .b = 150, .a = 255}, .intensity = 0.45F});
 
+	// A scene Load runs in a deferred frame, so the level's entities wouldn't exist for BuildArena to cache.
+	const bool deferred = world.is_deferred();
+	if (deferred) {
+		world.defer_suspend();
+	}
 	BuildArena(world, sceneRoot_);
+	if (deferred) {
+		world.defer_resume();
+	}
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);

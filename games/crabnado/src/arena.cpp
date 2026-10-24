@@ -1,6 +1,5 @@
 #include "arena.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -17,7 +16,6 @@ namespace crabnado {
 namespace {
 
 constexpr const char* kArenaLevel = "levels/crabnado/arena.level.json";
-constexpr core::Rgba kPoolColor{.r = 0x1d, .g = 0x66, .b = 0x80, .a = 255};
 constexpr core::Rgba kRockColor{.r = 0x6f, .g = 0x7c, .b = 0x80, .a = 255};
 constexpr core::Rgba kDriftwoodColor{.r = 0x7a, .g = 0x66, .b = 0x50, .a = 255};
 // A rock is a sphere flattened to this fraction of its radius, sunk so its top sits at kRockHeight radii.
@@ -79,16 +77,6 @@ void CacheAndDress(const flecs::world& world, const flecs::entity parent) {
 			pools.push_back({.center = {transform.position.x, transform.position.z}, .radius = pool.radius});
 		}
 	);
-	// The water tiles were spawned before the pools were known: tint the ones inside a pool.
-	world.query_builder<WaterTile, const spatial::Transform>().build().each(
-		[&](WaterTile& tile, const spatial::Transform& transform) {
-			const glm::vec2 center{transform.position.x, transform.position.z};
-			if (std::ranges::any_of(pools, [&](const TidePool& pool) { return glm::length(center - pool.center) < pool.radius; })) {
-				tile.base = kPoolColor;
-			}
-		}
-	);
-
 	SpawnDriftwood(world, parent, world.get<ArenaEdge>());
 	spdlog::info("[Arena] {} rocks, {} pools", rocks.size(), pools.size());
 }
@@ -102,21 +90,6 @@ void RegisterArena(const flecs::world& world) {
 	world.set<ArenaEdge>({.radius = constants::kArenaRadius});
 	world.set<Rocks>({});
 	world.set<TidePools>({});
-
-	world.set<ArenaPending>({});
-
-	world.system<ArenaPending>("ArenaBuild")
-		.term_at(0)
-		.singleton()
-		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, ArenaPending& pending) {
-			if (!pending.parent) {
-				return;
-			}
-			CacheAndDress(it.world(), pending.parent);
-			pending.parent = {};
-		})
-		.add<scene::GameScene>();
 
 	level::RegisterComponentLoader(world, "rock", [](const flecs::entity e, const nlohmann::json& j) {
 		e.set<Rock>({.radius = j.value("radius", 1.0F)});
@@ -134,11 +107,10 @@ void BuildArena(const flecs::world& world, const flecs::entity parent) {
 		spdlog::error("[Arena] Could not load {}", kArenaLevel);
 		return;
 	}
-	world.set<ArenaPending>({.parent = parent});
+	CacheAndDress(world, parent);
 }
 
 void ClearArena(const flecs::world& world) {
-	world.set<ArenaPending>({});
 	world.set<Rocks>({});
 	world.set<TidePools>({});
 }
