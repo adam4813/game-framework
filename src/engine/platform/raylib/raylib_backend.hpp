@@ -42,6 +42,7 @@ public:
 	void DrawRoundedRectLines(Rect r, float roundness, float thickness, Rgba c) override;
 	void DrawText(std::string_view text, float x, float y, float size, Rgba c) override;
 	[[nodiscard]] float MeasureText(std::string_view text, float size) const override;
+	bool SetTextFont(std::string_view path) override;
 	void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) override;
 	void DrawCircle(glm::vec2 center, float radius, Rgba c) override;
 	void DrawTexturedRect(int texture, Rect dest, Rgba tint) override;

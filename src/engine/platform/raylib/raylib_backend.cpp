@@ -131,6 +131,13 @@ struct CustomShaderEntry {
 
 std::vector<CustomShaderEntry> g_custom_shaders;
 
+// The font DrawText/MeasureText use once SetTextFont succeeds; texture id 0 means raylib's built-in font.
+Font g_text_font{};
+// Pixel size the font atlas is rasterised at; text at other sizes is scaled from it.
+constexpr int kTextFontBaseSize = 96;
+// Extra space between glyphs, as a fraction of the font size.
+constexpr float kTextFontSpacing = 0.02F;
+
 // Loaded textures, indexed by the handle returned from LoadTexture.
 std::vector<Texture2D> g_textures;
 // Maps canonical path → handle
@@ -841,6 +848,10 @@ void RaylibBackend::Shutdown() {
 	}
 	g_textures.clear();
 	g_texture_paths.clear();
+	if (g_text_font.texture.id != 0) {
+		UnloadFont(g_text_font);
+		g_text_font = {};
+	}
 	for (const Sound& s : g_sounds) {
 		if (s.frameCount != 0) {
 			::UnloadSound(s);
@@ -1038,11 +1049,42 @@ void RaylibBackend::DrawText(
 	const float size,
 	const Rgba c
 ) {
-	::DrawText(std::string(text).c_str(), static_cast<int>(x), static_cast<int>(y), static_cast<int>(size), ToRay(c));
+	if (g_text_font.texture.id == 0) {
+		::DrawText(std::string(text).c_str(), static_cast<int>(x), static_cast<int>(y), static_cast<int>(size), ToRay(c));
+		return;
+	}
+	DrawTextEx(g_text_font, std::string(text).c_str(), Vector2{.x = x, .y = y}, size, size * kTextFontSpacing, ToRay(c));
 }
 
 float RaylibBackend::MeasureText(const std::string_view text, const float size) const {
-	return static_cast<float>(::MeasureText(std::string(text).c_str(), static_cast<int>(size)));
+	if (g_text_font.texture.id == 0) {
+		return static_cast<float>(::MeasureText(std::string(text).c_str(), static_cast<int>(size)));
+	}
+	return MeasureTextEx(g_text_font, std::string(text).c_str(), size, size * kTextFontSpacing).x;
+}
+
+bool RaylibBackend::SetTextFont(const std::string_view path) {
+	// Printable ASCII and Latin-1 (accented letters, « », ×, ·), so text isn't limited to plain ASCII.
+	std::vector<int> codepoints;
+	for (int c = 32; c <= 255; ++c) {
+		if (c < 127 || c >= 160) {
+			codepoints.push_back(c);
+		}
+	}
+	const Font font = LoadFontEx(std::string(path).c_str(), kTextFontBaseSize, codepoints.data(), static_cast<int>(codepoints.size()));
+	// LoadFontEx falls back to raylib's default font (not a failure it reports) when the file is missing.
+	if (font.texture.id == 0 || font.texture.id == GetFontDefault().texture.id) {
+		spdlog::warn("[Platform] Could not load font '{}'; keeping the current one", path);
+		return false;
+	}
+	if (g_text_font.texture.id != 0) {
+		UnloadFont(g_text_font);
+	}
+	g_text_font = font;
+	// Rasterised once at a large size, so mipmaps keep small UI text from shimmering when scaled down.
+	GenTextureMipmaps(&g_text_font.texture);
+	::SetTextureFilter(g_text_font.texture, TEXTURE_FILTER_TRILINEAR);
+	return true;
 }
 
 void RaylibBackend::DrawLine(const glm::vec2 a, const glm::vec2 b, const float thickness, const Rgba c) {

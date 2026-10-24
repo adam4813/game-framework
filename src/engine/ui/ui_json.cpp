@@ -81,6 +81,8 @@ void RegisterUILevelLoaders(const flecs::world& world) {
 		l.align = ParseAlign(j.value("align", std::string{}), l.align);
 		l.wrap = j.value("wrap", l.wrap);
 		l.line_spacing = j.value("line_spacing", l.line_spacing);
+		l.outline = j.value("outline", l.outline);
+		l.outline_color = JRgba(j, "outline_color", l.outline_color);
 		e.set<Label>(std::move(l));
 	});
 	level::RegisterComponentLoader(world, "button", [](const flecs::entity e, const json& j) {
@@ -93,6 +95,7 @@ void RegisterUILevelLoaders(const flecs::world& world) {
 		b.border_color = JRgba(j, "border_color", b.border_color);
 		b.text_color = JRgba(j, "text_color", b.text_color);
 		b.roundness = j.value("roundness", b.roundness);
+		b.border_thickness = j.value("border_thickness", b.border_thickness);
 		b.texture = LoadTextureField(e.world(), j);
 		e.set<Button>(std::move(b));
 	});

@@ -20,13 +20,13 @@ void SetDefaultClickSound(const flecs::world& world, std::string path);
 /// Create a background panel occupying `rect`. Override styling via the optional `panel`.
 flecs::entity CreatePanel(const flecs::world& world, core::Rect rect, Panel panel = {});
 
-/// Create a static text label occupying `rect`.
+/// Create a static text label occupying `rect`, coloured with UIConfig::label_color.
 flecs::entity CreateLabel(const flecs::world& world, core::Rect rect, std::string text, float font_size = 20.0F);
 
 /// Create a clickable button occupying `rect`. When clicked it invokes `on_click` (if set) and
 /// fires an audio::SoundEffect component, if one is attached to the returned entity. Pass a
 /// `texture` handle (from platform LoadTexture) to render a tiled textured background instead of a
-/// flat colour.
+/// flat colour. Its style comes from UIConfig::button.
 flecs::entity CreateButton(
 	const flecs::world& world,
 	core::Rect rect,
@@ -63,6 +63,8 @@ flecs::entity CreateScrollRect(const flecs::world& world, core::Rect rect, const
 
 /// Create a modal dialog: a centred Panel of size `rect` over a full-screen backdrop, rendered
 /// above all other UI. Parent content to the returned entity. Toggle via `entity.get_mut<Modal>()`.
+/// The panel and backdrop colour come from UIConfig (`modal.backdrop_color` is replaced); set the
+/// components on the returned entity to override them.
 flecs::entity CreateModal(const flecs::world& world, core::Rect rect, const Modal& modal = {});
 
 /// Create a checkbox occupying `rect`, with `label` drawn to the right of the box. `on_change` is
