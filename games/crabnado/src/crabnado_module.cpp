@@ -8,11 +8,14 @@
 #include "claw_snap.hpp"
 #include "controls.hpp"
 #include "crabnado.hpp"
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "shells.hpp"
 #include "title_scene.hpp"
+#include "upgrades.hpp"
 
 using namespace engine;
 
@@ -23,13 +26,15 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	ui::SetDefaultClickSound(world, platform->AssetDirectory() + "/audio/sfx/click.wav");
 
 	// Systems in one phase run in registration order: input, run clock, player, crabnado, then the horde
-	// (whose grid the claw snap reads).
+	// (whose grid the claw snap reads), then shells and molting.
 	RegisterControls(world);
 	RegisterRun(world);
 	RegisterPlayer(world);
 	RegisterCrabnado(world);
 	RegisterHorde(world);
 	RegisterClawSnap(world);
+	RegisterShells(world);
+	RegisterUpgrades(world, platform->AssetDirectory() + std::string{constants::kUpgradesPath});
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();

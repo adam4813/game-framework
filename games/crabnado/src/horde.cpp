@@ -8,6 +8,7 @@
 #include "crowd_grid.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "shells.hpp"
 
 using namespace engine;
 
@@ -64,6 +65,7 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("speed")
 		.member<float>("radius")
 		.member<float>("contact_dps")
+		.member<int>("xp")
 		.member<float>("flash")
 		.member<core::Rgba>("color");
 	world.component<Airborne>().member<glm::vec3>("velocity");
@@ -197,13 +199,17 @@ void RegisterHorde(const flecs::world& world) {
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	world.system<const Enemy>("EnemyDefeat")
+	world.system<const Enemy, const spatial::Transform>("EnemyDefeat")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, const size_t i, const Enemy& enemy) {
-			if (enemy.hp <= 0.0F) {
-				++it.world().get_mut<RunState>().kills;
-				it.entity(i).destruct();
+		.each([](const flecs::iter& it, const size_t i, const Enemy& enemy, const spatial::Transform& transform) {
+			if (enemy.hp > 0.0F) {
+				return;
 			}
+			const flecs::world world = it.world();
+			const flecs::entity defeated = it.entity(i);
+			++world.get_mut<RunState>().kills;
+			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
+			defeated.destruct();
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -251,6 +257,7 @@ void ThrowCrab(const flecs::world& world, const flecs::entity parent, const glm:
 				 .speed = constants::kCrabSpeed,
 				 .radius = constants::kCrabRadius,
 				 .contact_dps = constants::kCrabContactDps,
+				 .xp = constants::kCrabXp,
 				 .color = kCrabColor}
 			)
 			.set<Airborne>({.velocity = {ground.x, vy, ground.y}})

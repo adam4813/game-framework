@@ -1,0 +1,30 @@
+{
+  "long_reach": {
+    "name": "Long Reach",
+    "description": "Claw snap radius +20%",
+    "effects": [{ "stat": "ClawSnap.radius", "op": "multiply", "value": 1.2 }]
+  },
+  "scuttle": {
+    "name": "Scuttle",
+    "description": "Move speed +12%",
+    "effects": [{ "stat": "PlayerStats.speed", "op": "multiply", "value": 1.12 }]
+  },
+  "sharper_claws": {
+    "name": "Sharper Claws",
+    "description": "Claw snap damage +50%",
+    "effects": [{ "stat": "ClawSnap.damage", "op": "multiply", "value": 1.5 }]
+  },
+  "thick_shell": {
+    "name": "Thick Shell",
+    "description": "Max HP +25 and heal 25",
+    "effects": [
+      { "stat": "PlayerStats.max_hp", "op": "add", "value": 25 },
+      { "stat": "PlayerStats.hp", "op": "add", "value": 25 }
+    ]
+  },
+  "tide_pull": {
+    "name": "Tide Pull",
+    "description": "Shell pickup range +40%",
+    "effects": [{ "stat": "PlayerStats.pickup_range", "op": "multiply", "value": 1.4 }]
+  }
+}

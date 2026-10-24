@@ -12,6 +12,7 @@
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "upgrades.hpp"
 
 using namespace engine;
 
@@ -23,6 +24,12 @@ constexpr core::Rgba kSandColor{.r = 232, .g = 210, .b = 155, .a = 255};
 constexpr core::Rgba kReadoutColor{.r = 245, .g = 245, .b = 235, .a = 255};
 constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
 constexpr core::Rgba kSweptAwayColor{.r = 200, .g = 50, .b = 35, .a = 255};
+constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
+constexpr float kMoltBarWidth = 400.0F;
+constexpr float kMoltModalWidth = 780.0F;
+constexpr float kMoltModalHeight = 300.0F;
+constexpr float kChoiceWidth = 236.0F;
+constexpr float kChoiceGap = 16.0F;
 // Where the crabnado starts, away from the player at the centre.
 constexpr glm::vec2 kCrabnadoStart{30.0F, -25.0F};
 
@@ -119,6 +126,19 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					  .set_name("TitleButton")
 					  .child_of(uiRoot_);
 
+	moltBar_ = ui::CreateProgressBar(
+				   world,
+				   {.x = (w - kMoltBarWidth) / 2.0F, .y = 14.0F, .w = kMoltBarWidth, .h = 22.0F},
+				   {.fill_color = kShellBarColor}
+	)
+				   .set_name("MoltBar")
+				   .child_of(uiRoot_);
+	moltLabel_ = ui::CreateLabel(world, {.x = (w - kMoltBarWidth) / 2.0F, .y = 40.0F, .w = kMoltBarWidth, .h = 22.0F}, "", 20.0F)
+					 .set<ui::Label>({.font_size = 20.0F, .color = kHudColor})
+					 .set_name("MoltLabel")
+					 .child_of(uiRoot_);
+	BuildMoltModal(world, w, h);
+
 	// Placeholder run end until the results screen (ticket 13).
 	const std::string sweptAway = "Swept away";
 	sweptAway_ = ui::CreateLabel(world, {.x = 0.0F, .y = h / 2.0F - 40.0F, .w = w, .h = 80.0F}, sweptAway, 64.0F)
@@ -126,6 +146,37 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set<ui::UIElement>({.visible = false})
 					 .set_name("SweptAway")
 					 .child_of(uiRoot_);
+}
+
+void ArenaScene::BuildMoltModal(const flecs::world& world, const float width, const float height) {
+	const float x = (width - kMoltModalWidth) / 2.0F;
+	const float y = (height - kMoltModalHeight) / 2.0F;
+	moltModal_ =
+		ui::CreateModal(world, {.x = x, .y = y, .w = kMoltModalWidth, .h = kMoltModalHeight}, {.open = false})
+			.set_name("MoltModal")
+			.child_of(uiRoot_);
+	const std::string title = "Molt! Pick an upgrade (1/2/3)";
+	std::ignore = ui::CreateLabel(world, {.x = x, .y = y + 20.0F, .w = kMoltModalWidth, .h = 36.0F}, title, 32.0F)
+					  .child_of(moltModal_);
+
+	const float rowWidth = kMoltChoices * kChoiceWidth + (kMoltChoices - 1) * kChoiceGap;
+	for (int i = 0; i < kMoltChoices; ++i) {
+		const float cx = x + (kMoltModalWidth - rowWidth) / 2.0F + static_cast<float>(i) * (kChoiceWidth + kChoiceGap);
+		choiceButtons_[i] = ui::CreateButton(
+								world,
+								{.x = cx, .y = y + 84.0F, .w = kChoiceWidth, .h = 64.0F},
+								"",
+								[i](const flecs::entity button) { ChooseUpgrade(button.world(), i); }
+		)
+								.set<ui::UIElement>({})
+								.set_name(std::format("Choice{}", i + 1).c_str())
+								.child_of(moltModal_);
+		choiceDescriptions_[i] =
+			ui::CreateLabel(world, {.x = cx, .y = y + 160.0F, .w = kChoiceWidth, .h = 100.0F}, "", 20.0F)
+				.set<ui::Label>({.font_size = 20.0F, .wrap = true})
+				.set<ui::UIElement>({})
+				.child_of(moltModal_);
+	}
 }
 
 void ArenaScene::Tick(const flecs::world& world, float) {
@@ -169,6 +220,40 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	);
 	readout_.get_mut<ui::Label>().text = readout;
 	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
+	UpdateMolt(world);
+}
+
+void ArenaScene::UpdateMolt(const flecs::world& world) const {
+	if (!moltBar_.has<ui::ProgressBar>() || !moltLabel_.has<ui::Label>() || !moltModal_.has<ui::Modal>()) {
+		return;
+	}
+	const auto& run = world.get<RunState>();
+	auto& bar = moltBar_.get_mut<ui::ProgressBar>();
+	bar.max = static_cast<float>(run.shells_needed);
+	bar.value = static_cast<float>(run.shells);
+	moltLabel_.get_mut<ui::Label>().text =
+		std::format("Molt {}   {}/{} shells", run.molt_level, run.shells, run.shells_needed);
+
+	const bool molting = run.phase == RunPhase::Molting;
+	moltModal_.get_mut<ui::Modal>().open = molting;
+	if (!molting) {
+		return;
+	}
+	const auto& offer = world.get<MoltOffer>();
+	for (int i = 0; i < kMoltChoices; ++i) {
+		const Upgrade* upgrade = FindUpgrade(world, offer.ids[i]);
+		const flecs::entity button = choiceButtons_[i];
+		const flecs::entity description = choiceDescriptions_[i];
+		if (!button.has<ui::UIElement>() || !description.has<ui::UIElement>()) {
+			continue;
+		}
+		button.get_mut<ui::UIElement>().visible = upgrade != nullptr;
+		description.get_mut<ui::UIElement>().visible = upgrade != nullptr;
+		if (upgrade != nullptr) {
+			button.get_mut<ui::Button>().label = std::format("{}. {}", i + 1, upgrade->name);
+			description.get_mut<ui::Label>().text = upgrade->description;
+		}
+	}
 }
 
 void ArenaScene::SpawnBatch(const int enemyCount) const {
@@ -198,6 +283,11 @@ void ArenaScene::Unload(flecs::world& world) {
 	hud_ = {};
 	readout_ = {};
 	sweptAway_ = {};
+	moltBar_ = {};
+	moltLabel_ = {};
+	moltModal_ = {};
+	choiceButtons_ = {};
+	choiceDescriptions_ = {};
 }
 
 } // namespace crabnado
