@@ -82,6 +82,9 @@ namespace {
 std::vector<Sound> g_sounds;
 // Maps canonical path → sound handle; prevents re-loading the same file from disk.
 std::unordered_map<std::string, int> g_sound_paths;
+// Streamed music, stored the same way as sounds.
+std::vector<Music> g_music;
+std::unordered_map<std::string, int> g_music_paths;
 
 // The procedural audio stream and the source it pulls from. raylib's AudioCallback carries no user
 // pointer, so the static trampoline reaches the active source through this global.
@@ -844,6 +847,13 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_sounds.clear();
+	for (const Music& m : g_music) {
+		if (m.frameCount != 0) {
+			::UnloadMusicStream(m);
+		}
+	}
+	g_music.clear();
+	g_music_paths.clear();
 	for (const Model& m : g_models) {
 		if (m.meshCount != 0) {
 			::UnloadModel(m);
@@ -1765,6 +1775,76 @@ void RaylibBackend::UnloadSound(const int handle) {
 	::UnloadSound(sound);
 	sound.frameCount = 0;
 	std::erase_if(g_sound_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+int RaylibBackend::LoadMusic(const std::string_view path) {
+	if (!IsAudioDeviceReady()) {
+		return -1;
+	}
+	const std::string key{path};
+	if (const auto it = g_music_paths.find(key); it != g_music_paths.end()) {
+		return it->second;
+	}
+	const Music m = ::LoadMusicStream(key.c_str());
+	if (m.frameCount == 0) {
+		return -1;
+	}
+	const int handle = static_cast<int>(g_music.size());
+	g_music.push_back(m);
+	g_music_paths[key] = handle;
+	return handle;
+}
+
+void RaylibBackend::UnloadMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	Music& music = g_music[static_cast<std::size_t>(handle)];
+	if (music.frameCount == 0) {
+		return; // already unloaded
+	}
+	::UnloadMusicStream(music);
+	music.frameCount = 0;
+	std::erase_if(g_music_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+void RaylibBackend::PlayMusic(const int handle, const bool loop) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	Music& music = g_music[static_cast<std::size_t>(handle)];
+	if (music.frameCount == 0) {
+		return;
+	}
+	music.looping = loop;
+	::PlayMusicStream(music);
+}
+
+void RaylibBackend::StopMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::StopMusicStream(music);
+	}
+}
+
+void RaylibBackend::UpdateMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::UpdateMusicStream(music);
+	}
+}
+
+void RaylibBackend::SetMusicVolume(const int handle, const float volume) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::SetMusicVolume(music, volume);
+	}
 }
 
 // ── Procedural audio ──

@@ -14,6 +14,7 @@ enum class AssetType : int {
 	Texture,
 	Sound,
 	Mesh,
+	Music,
 };
 
 // Tracks a single loaded asset's reference count. The platform backend owns the handle;

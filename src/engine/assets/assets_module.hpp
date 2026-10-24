@@ -45,6 +45,9 @@ inline int LoadTexture(const flecs::world& world, const std::string_view path) {
 inline int LoadSound(const flecs::world& world, const std::string_view path) {
 	return Acquire(world, AssetType::Sound, path);
 }
+inline int LoadMusic(const flecs::world& world, const std::string_view path) {
+	return Acquire(world, AssetType::Music, path);
+}
 inline int LoadMesh(const flecs::world& world, const std::string_view path) {
 	return Acquire(world, AssetType::Mesh, path);
 }

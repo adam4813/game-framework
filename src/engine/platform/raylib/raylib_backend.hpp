@@ -88,6 +88,12 @@ public:
 	int LoadSound(std::string_view path) override;
 	void UnloadSound(int handle) override;
 	void PlaySound(int handle) override;
+	int LoadMusic(std::string_view path) override;
+	void UnloadMusic(int handle) override;
+	void PlayMusic(int handle, bool loop) override;
+	void StopMusic(int handle) override;
+	void UpdateMusic(int handle) override;
+	void SetMusicVolume(int handle, float volume) override;
 
 	void StartSynth(audio::SynthSource* source) override;
 	void StopSynth() override;

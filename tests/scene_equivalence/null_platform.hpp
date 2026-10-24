@@ -95,6 +95,12 @@ public:
 	int LoadSound(std::string_view) override { return -1; }
 	void UnloadSound(int) override {}
 	void PlaySound(int) override {}
+	int LoadMusic(std::string_view) override { return -1; }
+	void UnloadMusic(int) override {}
+	void PlayMusic(int, bool) override {}
+	void StopMusic(int) override {}
+	void UpdateMusic(int) override {}
+	void SetMusicVolume(int, float) override {}
 
 	void StartSynth(engine::audio::SynthSource*) override {}
 	void StopSynth() override {}
