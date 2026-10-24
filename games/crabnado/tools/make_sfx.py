@@ -132,6 +132,20 @@ def rock_crush(rng):
     return out
 
 
+def player_death(rng):
+    # A sinking tone with a wobble, and a low thud at the start.
+    out = []
+    phase = 0.0
+    for i in range(n(1.1)):
+        t = i / RATE
+        freq = 520 * math.exp(-1.6 * t) + 8 * math.sin(2 * math.pi * 6 * t)
+        phase += 2 * math.pi * freq / RATE
+        tone = math.sin(phase) * min(1.0, t * 80) * math.exp(-2.2 * t) * 0.6
+        thud = math.sin(2 * math.pi * 70 * t) * math.exp(-12 * t)
+        out.append(tone + thud + rng.uniform(-1, 1) * math.exp(-40 * t) * 0.3)
+    return out
+
+
 def main():
     rng = random.Random(7)
     write("claw_click.wav", click_pair(rng, 0.045))
@@ -143,6 +157,7 @@ def main():
     write("rogue_warning.wav", rogue_warning(rng), 0.6)
     write("enemy_defeat.wav", enemy_defeat(rng), 0.35)
     write("rock_crush.wav", rock_crush(rng), 0.6)
+    write("player_death.wav", player_death(rng), 0.7)
 
 
 if __name__ == "__main__":
