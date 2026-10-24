@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  wasm_shell.html — Emscripten --shell-file for every Game Target.
+
+  The page is only the canvas. raylib (FLAG_WINDOW_RESIZABLE) sizes #canvas to window.innerWidth/innerHeight at init
+  and on every resize, so anything else on the page (Emscripten's default logo, controls and console) pushes the canvas
+  past the viewport and itch.io's iframe clips it. Output and errors go to the JavaScript console.
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Game</title>
+	<style>
+		html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+		/* No border or padding on the canvas, or mouse coordinates drift. */
+		canvas { display: block; border: 0; outline: none; }
+		#status { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+			color: #ccc; font: 16px sans-serif; pointer-events: none; }
+	</style>
+</head>
+<body>
+	<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+	<div id="status">Loading…</div>
+	<script>
+		var statusElement = document.getElementById("status");
+		var Module = {
+			canvas: document.getElementById("canvas"),
+			print: function (text) { console.log(text); },
+			printErr: function (text) { console.error(text); },
+			setStatus: function (text) {
+				statusElement.textContent = text;
+				statusElement.style.display = text ? "flex" : "none";
+			},
+		};
+		// Keyboard input needs the canvas focused once itch's click-to-play iframe gets the click.
+		Module.canvas.addEventListener("pointerdown", function () { Module.canvas.focus(); });
+	</script>
+	{{{ SCRIPT }}}
+</body>
+</html>

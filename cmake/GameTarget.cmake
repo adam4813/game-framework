@@ -27,7 +27,8 @@ function(setup_game_target target)
     set(INITIAL_MEMORY_BYTES 67108864)
     set(MAXIMUM_MEMORY_BYTES 134217728)
 
-    set_target_properties(${target} PROPERTIES SUFFIX ".html")
+    set(SHELL_FILE ${CMAKE_SOURCE_DIR}/tools/wasm_shell.html)
+    set_target_properties(${target} PROPERTIES SUFFIX ".html" LINK_DEPENDS ${SHELL_FILE})
     target_link_options(${target} PRIVATE
         -sWASM=1
         -sUSE_GLFW=3
@@ -37,6 +38,8 @@ function(setup_game_target target)
         -sALLOW_MEMORY_GROWTH=1
         -sGL_ENABLE_GET_PROC_ADDRESS=1
         --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets
+        # Canvas-only page so raylib's window-sized canvas fits an itch.io iframe without clipping.
+        "SHELL:--shell-file ${SHELL_FILE}"
         -sSTACK_SIZE=512KB
         # SHELL: keeps each flag paired with its path; CMake would de-duplicate a bare repeated --pre-js.
         "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js"
