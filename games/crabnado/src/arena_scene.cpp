@@ -14,6 +14,8 @@
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "settings.hpp"
+#include "settings_menu.hpp"
 #include "sfx.hpp"
 #include "ui_theme.hpp"
 #include "enemy_types.hpp"
@@ -112,7 +114,7 @@ const ui::Button kCardStyle{
 constexpr float kResultsModalWidth = 520.0F;
 constexpr float kResultsModalHeight = 380.0F;
 constexpr float kPauseModalWidth = 360.0F;
-constexpr float kPauseModalHeight = 240.0F;
+constexpr float kPauseModalHeight = 312.0F;
 constexpr float kModalButtonWidth = 200.0F;
 constexpr float kModalButtonHeight = 56.0F;
 constexpr float kChoiceGap = 16.0F;
@@ -168,9 +170,10 @@ void ArenaScene::Load(flecs::world& world) {
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
 	crestCued_ = false;
-	music_ = world.entity("Music").child_of(sceneRoot_).set<audio::Music>(
-		{.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true, .volume = constants::kMusicVolume}
-	);
+	music_ = world.entity("Music")
+				 .child_of(sceneRoot_)
+				 .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true})
+				 .set<MusicLevel>({constants::kMusicVolume});
 	horde_ = world.entity().child_of(sceneRoot_);
 	BuildStage(world);
 	BuildUI(world);
@@ -576,7 +579,7 @@ void ArenaScene::BuildPauseModal(const flecs::world& world, const float width, c
 					  .child_of(pauseModal_);
 	std::ignore = ui::CreateButton(
 					  world,
-					  {.x = bx, .y = y + 160.0F, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  {.x = bx, .y = y + 232.0F, .w = kModalButtonWidth, .h = kModalButtonHeight},
 					  "Quit to title",
 					  [onTitle = onTitlePressed](flecs::entity) {
 						  if (onTitle) {
@@ -586,29 +589,40 @@ void ArenaScene::BuildPauseModal(const flecs::world& world, const float width, c
 	)
 					  .set_name("QuitButton")
 					  .child_of(pauseModal_);
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = bx, .y = y + 160.0F, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  "Settings",
+					  [this](flecs::entity) { settingsModal_.get_mut<ui::Modal>().open = true; }
+	)
+					  .set_name("PauseSettingsButton")
+					  .child_of(pauseModal_);
+	settingsModal_ = BuildSettingsModal(world, uiRoot_, width, height);
 }
 
 void ArenaScene::UpdateResults(const flecs::world& world) const {
-	if (!resultsModal_.has<ui::Modal>() || !pauseModal_.has<ui::Modal>() || !resultsHeading_.has<ui::Label>() ||
-		!resultsStats_.has<ui::Label>()) {
+	if (!resultsModal_.has<ui::Modal>() || !pauseModal_.has<ui::Modal>() || !settingsModal_.has<ui::Modal>() ||
+		!resultsHeading_.has<ui::Label>() || !resultsStats_.has<ui::Label>()) {
 		return;
 	}
 	const auto& run = world.get<RunState>();
 	const bool won = run.phase == RunPhase::Won;
 	const bool ended = won || run.phase == RunPhase::Lost;
 	resultsModal_.get_mut<ui::Modal>().open = ended;
-	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused;
+	// Settings opens from the pause menu and stands in for it; unpausing (Esc) closes both.
+	auto& settings = settingsModal_.get_mut<ui::Modal>();
+	settings.open = settings.open && run.menu_paused;
+	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused && !settings.open;
 	const bool lost = run.phase == RunPhase::Lost;
-	if (music_.has<audio::Music>()) {
-		music_.get_mut<audio::Music>().volume =
+	if (music_.has<MusicLevel>()) {
+		music_.get_mut<MusicLevel>().volume =
 			lost ? 0.0F : (ended ? constants::kEndedMusicVolume : constants::kMusicVolume);
 	}
 	if (lost && !sceneRoot_.lookup("GameOverMusic")) {
-		std::ignore = world.entity("GameOverMusic").child_of(sceneRoot_).set<audio::Music>(
-			{.path = assets::ResolveAsset(world, "audio/crabnado/gameover.ogg"),
-			 .loop = true,
-			 .volume = constants::kGameOverMusicVolume}
-		);
+		std::ignore = world.entity("GameOverMusic")
+						  .child_of(sceneRoot_)
+						  .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/gameover.ogg"), .loop = true})
+						  .set<MusicLevel>({constants::kGameOverMusicVolume});
 	}
 	if (!ended) {
 		return;
@@ -875,6 +889,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	resultsHeading_ = {};
 	resultsStats_ = {};
 	pauseModal_ = {};
+	settingsModal_ = {};
 	moltBar_ = {};
 	moltLabel_ = {};
 	moltChip_ = {};

@@ -69,6 +69,7 @@ private:
 	flecs::entity resultsHeading_;
 	flecs::entity resultsStats_;
 	flecs::entity pauseModal_;
+	flecs::entity settingsModal_;
 	flecs::entity moltBar_;
 	flecs::entity moltLabel_;
 	flecs::entity moltChip_;

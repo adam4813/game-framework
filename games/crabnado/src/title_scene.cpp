@@ -5,6 +5,8 @@
 #include <string_view>
 
 #include "crabnado_constants.hpp"
+#include "settings.hpp"
+#include "settings_menu.hpp"
 #include "title_backdrop.hpp"
 #include "title_logo.hpp"
 #include "ui_theme.hpp"
@@ -27,6 +29,12 @@ constexpr float kTitleOutlineWidth = 5.0F;
 constexpr float kButtonWidth = 200.0F;
 constexpr float kButtonHeight = 56.0F;
 constexpr float kButtonGap = 24.0F;
+// Settings is a size down from Play and Credits, centred under them.
+constexpr float kSmallButtonWidth = 160.0F;
+constexpr float kSmallButtonHeight = 40.0F;
+constexpr float kSmallButtonGap = 14.0F;
+constexpr float kSmallButtonFontSize = 22.0F;
+constexpr float kSmallButtonBorder = 3.0F;
 
 } // namespace
 
@@ -54,9 +62,10 @@ void TitleScene::Load(flecs::world& world) {
 
 	uiRoot_ = world.entity("TitleUI");
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
-	std::ignore = world.entity("Music").child_of(uiRoot_).set<audio::Music>(
-		{.path = assets::ResolveAsset(world, "audio/crabnado/title.ogg"), .loop = true, .volume = constants::kTitleMusicVolume}
-	);
+	std::ignore = world.entity("Music")
+					  .child_of(uiRoot_)
+					  .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/title.ogg"), .loop = true})
+					  .set<MusicLevel>({constants::kTitleMusicVolume});
 
 	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h * kTitleTop, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
 					  .set<ui::Label>({.text = title,
@@ -92,6 +101,22 @@ void TitleScene::Load(flecs::world& world) {
 					  .set_name("CreditsButton")
 					  .child_of(uiRoot_);
 	BuildCreditsModal(world, w, h);
+
+	// A whole set, not get_mut, for the smaller style: Load() runs deferred, so CreateButton's Button isn't readable yet.
+	ui::Button smallStyle = world.get<ui::UIConfig>().button;
+	smallStyle.label = "Settings";
+	smallStyle.font_size = kSmallButtonFontSize;
+	smallStyle.border_thickness = kSmallButtonBorder;
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = (w - kSmallButtonWidth) / 2.0F, .y = buttonsTop + kButtonHeight + kSmallButtonGap, .w = kSmallButtonWidth, .h = kSmallButtonHeight},
+					  "Settings",
+					  [this](flecs::entity) { settingsModal_.get_mut<ui::Modal>().open = true; }
+	)
+					  .set<ui::Button>(smallStyle)
+					  .set_name("SettingsButton")
+					  .child_of(uiRoot_);
+	settingsModal_ = BuildSettingsModal(world, uiRoot_, w, h);
 }
 
 void TitleScene::BuildCreditsModal(const flecs::world& world, const float width, const float height) {
@@ -140,6 +165,7 @@ void TitleScene::Unload(flecs::world&) {
 		uiRoot_.destruct();
 		uiRoot_ = {};
 		creditsModal_ = {};
+		settingsModal_ = {};
 	}
 }
 
