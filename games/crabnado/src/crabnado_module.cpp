@@ -18,6 +18,7 @@
 #include "run.hpp"
 #include "sfx.hpp"
 #include "shells.hpp"
+#include "title_backdrop.hpp"
 #include "title_scene.hpp"
 #include "upgrades.hpp"
 #include "waves.hpp"
@@ -45,6 +46,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterBubbles(world);
 	RegisterRiptide(world);
 	RegisterShells(world);
+	RegisterTitleBackdrop(world);
 	RegisterUpgrades(world, platform->AssetDirectory() + std::string{constants::kUpgradesPath});
 
 	{
