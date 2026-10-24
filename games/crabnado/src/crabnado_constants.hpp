@@ -79,6 +79,9 @@ inline constexpr float kPlayerWindPush = 1.5F;
 inline constexpr float kEnemyWindPush = 1.2F;
 // The crabnado's next waypoint shifts this far downwind per unit of strength.
 inline constexpr float kCrabnadoWindBias = 14.0F;
+// How many wind lines are drawn, as a share of the full count: the arena's streaks and the title's breeze
+// lines. 1 is the original density.
+inline constexpr float kWindLineDensity = 0.25F;
 
 // ── Waves (prototype values) ──
 // Crests travel at kWaveSpeed units per second, kWavePeriod seconds apart, and are Gaussian bands of
@@ -163,6 +166,15 @@ inline constexpr float kBossSlamBounce = -0.3F;
 inline constexpr int kBossSlamsToWin = 3;
 inline constexpr float kBossSpawnFactor = 0.35F;
 inline constexpr float kBossBannerTime = 3.0F;
+// The storm wind-up: from kBossWindUpAt to kBossAt the crabnado darkens to storm grey and spins and sways harder,
+// then stays that way through the boss. At full storm it spins kStormSpin times faster, and its rings sway
+// kStormSwayRate times faster and kStormSwayReach times wider. Each slam flashes it pale, fading over
+// 1 / kStormFlashFade seconds.
+inline constexpr float kBossWindUpAt = 270.0F;
+inline constexpr float kStormSpin = 2.0F;
+inline constexpr float kStormSwayRate = 1.8F;
+inline constexpr float kStormSwayReach = 1.6F;
+inline constexpr float kStormFlashFade = 2.5F;
 
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;

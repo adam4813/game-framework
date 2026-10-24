@@ -5,6 +5,7 @@
 #include <numbers>
 
 #include "crabnado.hpp"
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "player.hpp"
 
@@ -61,7 +62,9 @@ constexpr glm::vec3 kFocusRest{0.0F, 4.0F, 0.0F};
 constexpr glm::vec3 kCameraPanned{0.0F, 15.0F, 20.0F};
 constexpr glm::vec3 kFocusPanned{0.0F, 3.0F, -45.0F};
 
-constexpr int kBreezeCount = 60;
+// kWindLineDensity thins out the full count of breeze lines.
+constexpr int kBreezeFullCount = 60;
+constexpr int kBreezeCount = static_cast<int>(kBreezeFullCount * constants::kWindLineDensity);
 constexpr float kBreezeLength = 4.0F;
 constexpr float kBreezeThickness = 0.1F;
 

@@ -22,8 +22,9 @@ constexpr float kMeanderAmount = 0.04F;
 constexpr float kSwellRate = 0.31F;
 
 // Streaks: short unlit bars scattered over a square of half-size kStreakSpread around the player, wrapping
-// at its edges. Speed and length grow with strength, so gusts show.
-constexpr int kStreakCount = 140;
+// at its edges. Speed and length grow with strength, so gusts show. kWindLineDensity thins out the full count.
+constexpr int kStreakFullCount = 140;
+constexpr int kStreakCount = static_cast<int>(kStreakFullCount * constants::kWindLineDensity);
 constexpr float kStreakSpread = 45.0F;
 constexpr float kStreakSpeed = 18.0F;
 constexpr float kStreakBaseLength = 1.5F;
