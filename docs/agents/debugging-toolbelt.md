@@ -35,6 +35,17 @@ switching, UI clicks and input overrides.
   the build, loads it in headless Chrome, and saves the PNG plus a `.console.log` with the page's console. Grep that
   log for the game's `[info]`/`[error]` lines and for `Aborted`.
 
+- **Desktop on macOS** (no `pwsh`): bring the game to the front, then capture the whole screen and read the PNG back:
+
+  ```bash
+  osascript -e 'tell application "System Events" to set frontmost of (first process whose name is "<game>") to true'
+  screencapture -x <scratchpad>/shot.png
+  ```
+
+  The terminal app needs the Screen Recording permission (System Settings → Privacy & Security). Without it, the
+  capture shows only the desktop wallpaper. Prefer the full screen over a `-R x,y,w,h` crop: the region is in points,
+  not the PNG's pixels, so a crop guessed from a screenshot misses.
+
 Write screenshots to your scratchpad, not the repo.
 
 ## Logs

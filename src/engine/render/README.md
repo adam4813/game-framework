@@ -166,3 +166,22 @@ e.add<engine::render::RenderWith>(mat);
 
 The shape component describes the base primitive; the `WorldTransform` matrix is applied on top.
 
+### Many entities, each with its own colour (hordes, tile grids, hit flash)
+
+Put a plain `Material` on each entity instead of a `RenderWith` target. The cube, sphere and quad enqueuers read an
+inline `Material` as a table column (the fast path), and the platform still instances every command with the same mesh
+into one draw call, because colour is per instance. A unique material entity per renderable puts every entity in its own
+table and falls back to a per-entity relationship lookup. To tint one instance (a hit flash), change its `Material.color`
+in place.
+
+```cpp
+// A crab: a root with a Transform, and child spheres that each carry their own tint.
+world.entity().child_of(crab)
+    .set<spatial::Transform>({.position = {0.85F, 0.5F, 0.7F}})
+    .set<render::SpherePrimitive>({.radius = 0.32F})
+    .set<render::Material>({.color = {216, 69, 43, 255}});
+```
+
+Working example: `games/crabnado/src/horde.cpp`. `RenderStats` (`queued`, `draw_calls`, `instances`) confirms the
+batching at runtime.
+

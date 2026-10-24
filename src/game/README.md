@@ -8,6 +8,7 @@ the working reference for a few engine features. Find the feature you need below
 | A scene's shape: pipeline, `Load`/`Unload` under one root entity, `Tick` | `synth_scene.cpp` (smallest), `cube_scene.cpp` |
 | Scene content from a Level JSON (camera + `look_at`, lights, primitives, materials, `render_with` children, scripts) | `cube_scene.cpp` + `assets/levels/demo.level.json` |
 | Game-registered level loaders and tags | `tilemap_scene.cpp` (`RegisterLoaders`, `dialog_node`) |
+| Thousands of tinted primitives that stay one instanced draw call (inline `Material`, not `RenderWith`) | `src/engine/render/README.md` ("Many entities"), `games/crabnado/src/horde.cpp` |
 | A continuous particle emitter (`particle_emitter` in JSON) | `assets/levels/demo.level.json`, `src/engine/particles/README.md` |
 | Timers, cooldowns and tweens (a pulse, a fade) | `assets/scripts/timer_tween_demo.as`, `src/engine/timer/README.md` |
 | Building a `GridNavGraph` and sending path requests | `tilemap_scene.cpp` (`SetupPathfindingAgent`), `src/engine/pathfinding/README.md` |
