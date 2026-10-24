@@ -35,7 +35,7 @@ struct RunState {
 	uint64_t seed{0};
 };
 
-// Shells needed for the molt after `moltLevel` (the prototype's 6 + level * 5, less 5 so the first is 6).
+// Shells needed for the molt after `moltLevel` (geometric: kShellsFirstMolt * kShellsGrowth^(level - 1)).
 [[nodiscard]] int ShellsNeeded(int moltLevel);
 
 // Registers and reflects RunState and the RunClock system. Call from the module constructor.

@@ -103,7 +103,7 @@ void RegisterCrabnado(const flecs::world& world) {
 		.each([](const flecs::iter& it, const size_t i, Crabnado& crabnado, const spatial::Transform& transform) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
-			if (!IsRunning(run.phase)) {
+			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay) {
 				return;
 			}
 			const float factor = run.phase == RunPhase::Boss ? constants::kBossSpawnFactor : 1.0F;

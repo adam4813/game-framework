@@ -1,6 +1,7 @@
 #include "run.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 #include <spdlog/spdlog.h>
 
@@ -63,7 +64,9 @@ void RegisterRun(const flecs::world& world) {
 }
 
 int ShellsNeeded(const int moltLevel) {
-	return constants::kShellsFirstMolt + (moltLevel - 1) * constants::kShellsPerMolt;
+	return static_cast<int>(std::lround(
+		static_cast<float>(constants::kShellsFirstMolt) * std::pow(constants::kShellsGrowth, static_cast<float>(moltLevel - 1))
+	));
 }
 
 void StartRun(const flecs::world& world) {

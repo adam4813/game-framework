@@ -31,8 +31,11 @@ inline constexpr float kCrabnadoSpeed = 6.0F;
 inline constexpr float kCrabnadoRoamFraction = 0.6F;
 inline constexpr float kCrabnadoArriveRadius = 2.0F;
 // Spawns per second: kSpawnRateBase + kSpawnRateGrowth * clock seconds.
-inline constexpr float kSpawnRateBase = 1.6F;
-inline constexpr float kSpawnRateGrowth = 0.09F;
+// Base 1.6 -> 1.0 and growth 0.09 -> 0.035 (ticket 15): scripted circling runs died at 0:70-0:100 on the old curve.
+inline constexpr float kSpawnRateBase = 1.0F;
+inline constexpr float kSpawnRateGrowth = 0.035F;
+// No throws for this many seconds at the start of a run (ticket 15).
+inline constexpr float kFirstThrowDelay = 3.0F;
 // Throw: the landing point is 6–32 units from the crabnado toward the player, ±10 units of jitter.
 inline constexpr float kThrowMinDistance = 6.0F;
 inline constexpr float kThrowMaxDistance = 32.0F;
@@ -175,9 +178,10 @@ inline constexpr float kPlayerPickupRange = 5.0F;
 inline constexpr float kShellFlySpeed = 25.0F;
 // A flying shell is collected within this distance of the player.
 inline constexpr float kShellCollectRadius = 1.0F;
-// Shells needed per molt: kShellsFirstMolt, then kShellsPerMolt more for each molt after it.
-inline constexpr int kShellsFirstMolt = 6;
-inline constexpr int kShellsPerMolt = 5;
+// Shells needed per molt (first molt 6 -> 18, ticket 15): round(kShellsFirstMolt * kShellsGrowth^(level - 1)). Geometric because the kill rate rises
+// with the spawn rate; the old linear 6 + 5 per molt gave a 4th molt at 0:18 (ticket 15).
+inline constexpr int kShellsFirstMolt = 18;
+inline constexpr float kShellsGrowth = 1.3F;
 // Upgrade registry, relative to the asset directory.
 inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
 inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
