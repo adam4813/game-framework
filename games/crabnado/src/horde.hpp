@@ -20,6 +20,10 @@ struct Enemy {
 	float radius{0.0F};
 	float contact_dps{0.0F};
 	int xp{0};
+	// Index into the EnemyRegistry, and the type's tumble threshold and gait copied at spawn.
+	int type{0};
+	float tumble_min{0.0F};
+	bool walks_sideways{true};
 	float flash{0.0F};
 	engine::core::Rgba color{};
 	// Seconds left of a wave tumble: no chasing and no contact damage. `knock` is the velocity the crest
@@ -46,10 +50,10 @@ struct HordeReadout {
 // crowding chase, contact damage, defeat, hit flash). Call from the module constructor.
 void RegisterHorde(const flecs::world& world);
 
-// Throws one crab from `from` (the crabnado's base) toward a landing point between it and `target`, as a
+// Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) toward a landing point between it and `target`, as a
 // child of `parent` (so the scene's Unload destroys it). Draws from the world's RngState; enemy HP grows
 // with the run clock.
-void ThrowCrab(const flecs::world& world, flecs::entity parent, glm::vec2 from, glm::vec2 target);
+void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 target);
 
 // Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
 // its shell.

@@ -18,12 +18,6 @@ inline constexpr int kHordeDebugBatch = 100;
 inline constexpr int kHordeDebugMax = 1000;
 inline constexpr float kArenaRadius = 70.0F;
 
-// ── Crab (prototype values; the enemy-type registry replaces these with ticket 09) ──
-inline constexpr float kCrabHp = 3.0F;
-inline constexpr float kCrabSpeed = 4.2F;
-inline constexpr float kCrabRadius = 0.9F;
-inline constexpr float kCrabContactDps = 10.0F;
-inline constexpr int kCrabXp = 1;
 // Enemy HP grows over the run: hp * (1 + clock / kEnemyHpGrowthSeconds).
 inline constexpr float kEnemyHpGrowthSeconds = 240.0F;
 // Each frame a landed enemy moves out of this fraction of its overlap with its neighbours.
@@ -98,9 +92,8 @@ inline constexpr float kFoamRamp = 1.3F;
 inline constexpr float kBigCrestWarning = 2.2F;
 // Shells drift with this fraction of the wave push until they fly to the player.
 inline constexpr float kShellWavePush = 0.4F;
-// Enemies above this wave height are tumbled for kTumbleTime seconds, spinning at kTumbleSpin radians per
+// Enemies over their type's tumble_min wave height are tumbled for kTumbleTime seconds, spinning at kTumbleSpin radians per
 // second. Their knock decays by exp(-kKnockDecay * dt) once the crest has passed.
-inline constexpr float kCrabTumbleMin = 0.55F;
 inline constexpr float kTumbleTime = 0.9F;
 inline constexpr float kTumbleSpin = 9.0F;
 inline constexpr float kKnockDecay = 3.0F;
@@ -143,6 +136,7 @@ inline constexpr float kShellCollectRadius = 1.0F;
 inline constexpr int kShellsFirstMolt = 6;
 inline constexpr int kShellsPerMolt = 5;
 // Upgrade registry, relative to the asset directory.
+inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
 inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
 
 // ── Claw snap ──

@@ -6,6 +6,7 @@
 
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "enemy_types.hpp"
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
@@ -42,7 +43,10 @@ void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, cons
 		target = {p.x, p.z};
 	}
 	for (int i = 0; i < count; ++i) {
-		ThrowCrab(world, horde, from, target);
+		const int type = PickEnemyType(world, world.get<RunState>().clock);
+		if (type >= 0) {
+			ThrowEnemy(world, horde, type, from, target);
+		}
 	}
 }
 
