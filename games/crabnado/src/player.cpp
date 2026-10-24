@@ -7,6 +7,7 @@
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "run.hpp"
+#include "wind.hpp"
 
 using namespace engine;
 
@@ -45,21 +46,22 @@ void RegisterPlayer(const flecs::world& world) {
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, const PlayerStats& stats,
 				  spatial::Transform& transform) {
+			// The wind pushes the crab whether it walks or not, so walking upwind is slower.
+			glm::vec2 velocity = WindPush(it.world().get<Wind>(), constants::kPlayerWindPush);
 			const float length = glm::length(intent.move);
-			if (length <= 0.0F) {
-				return;
+			if (length > 0.0F) {
+				const glm::vec2 direction = intent.move / length;
+				velocity += direction * stats.speed;
+				// Scuttle sideways: the crab faces 90° off its direction of travel.
+				transform.rotation.y = std::atan2(direction.x, direction.y) + std::numbers::pi_v<float> / 2.0F;
 			}
-			const glm::vec2 direction = intent.move / length;
-			glm::vec2 position = glm::vec2{transform.position.x, transform.position.z} +
-				direction * stats.speed * it.delta_time();
+			glm::vec2 position = glm::vec2{transform.position.x, transform.position.z} + velocity * it.delta_time();
 			const float distance = glm::length(position);
 			if (distance > constants::kArenaRadius) {
 				position *= constants::kArenaRadius / distance;
 			}
 			transform.position.x = position.x;
 			transform.position.z = position.y;
-			// Scuttle sideways: the crab faces 90° off its direction of travel.
-			transform.rotation.y = std::atan2(direction.x, direction.y) + std::numbers::pi_v<float> / 2.0F;
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();

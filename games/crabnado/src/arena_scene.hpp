@@ -16,7 +16,7 @@ struct ArenaSceneTag {};
 
 // The gameplay scene: the arena a run plays out in (see the spec). Load() starts a run: the player's
 // hermit crab, the crabnado and a camera that follows the player, plus a HUD (HP, clock, kills, the shell
-// bar toward the next molt), the molt modal that offers upgrades, and the horde performance check's debug
+// bar toward the next molt, the wind compass), wind streaks, the molt modal that offers upgrades, and the horde performance check's debug
 // control (ticket 01). Everything lives under one root entity that Unload() destroys. Losing the run
 // pauses the scene.
 class ArenaScene : public engine::scene::SceneBase {

@@ -8,7 +8,7 @@
 namespace crabnado {
 
 // The crabnado travels toward `waypoint` at `speed`, picking a new one inside kCrabnadoRoamFraction of
-// the arena radius when it arrives. `spawn_debt` accumulates the spawn rate; each whole unit is one throw.
+// the arena radius, biased downwind, when it arrives. `spawn_debt` accumulates the spawn rate; each whole unit is one throw.
 struct Crabnado {
 	glm::vec2 waypoint{0.0F};
 	float speed{0.0F};

@@ -13,6 +13,7 @@
 #include "player.hpp"
 #include "run.hpp"
 #include "upgrades.hpp"
+#include "wind.hpp"
 
 using namespace engine;
 
@@ -30,6 +31,9 @@ constexpr float kMoltModalWidth = 780.0F;
 constexpr float kMoltModalHeight = 300.0F;
 constexpr float kChoiceWidth = 236.0F;
 constexpr float kChoiceGap = 16.0F;
+constexpr float kCompassRadius = 56.0F;
+constexpr float kCompassMargin = 30.0F;
+constexpr float kCompassTop = 90.0F;
 // Where the crabnado starts, away from the player at the centre.
 constexpr glm::vec2 kCrabnadoStart{30.0F, -25.0F};
 
@@ -58,6 +62,7 @@ void ArenaScene::InitializePipeline(const flecs::world& world) {
 
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
+	StartWind(world);
 	sceneRoot_ = world.entity("Arena");
 	horde_ = world.entity().child_of(sceneRoot_);
 	BuildStage(world);
@@ -70,6 +75,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
+	SpawnWindStreaks(world, sceneRoot_);
 
 	const glm::vec3 cameraOffset{0.0F, constants::kCameraHeight, constants::kCameraBack};
 	std::ignore = world.entity("Camera")
@@ -138,6 +144,12 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set_name("MoltLabel")
 					 .child_of(uiRoot_);
 	BuildMoltModal(world, w, h);
+
+	// Under the Title button. The WindCompassDraw system draws it into the UI draw list.
+	std::ignore = world.entity("WindCompass")
+					  .child_of(uiRoot_)
+					  .set<WindCompass>({.center = {w - kCompassMargin - kCompassRadius, kCompassTop + kCompassRadius},
+										 .radius = kCompassRadius});
 
 	// Placeholder run end until the results screen (ticket 13).
 	const std::string sweptAway = "Swept away";
