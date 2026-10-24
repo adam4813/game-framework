@@ -13,8 +13,8 @@ current Mac yet, so set that up first.
 
 **Status:** resolved
 
-- [ ] ~~The `wasm` preset builds Crabnado, and its page loads and reaches the title scene in a browser.~~ Waived: WASM
-      is out for this game (see Comments).
+- [ ] ~~The `wasm` preset builds Crabnado, and its page loads and reaches the title scene in a browser.~~ Deferred to
+      the end-of-jam WASM pass (see Comments).
 - [x] In the game scene, the debug control spawns crabs in batches up to about 1,000, and they walk toward the centre.
 - [x] FPS and enemy count are visible on screen (and in the debug UI on desktop).
 - [x] ~~The measured browser result~~ The measured desktop result (enemy count vs. FPS) is recorded under `## Comments` below, along with the chosen
@@ -40,5 +40,7 @@ macOS Intel, Release desktop build, driven over the Remote API:
 Desktop holds the vsync limit at 1,000 crabs (4,000 entities: the crab root plus a body and two claw spheres). Because
 of vsync, the headroom isn't measured.
 
-**2026-10-23, WASM waived.** The user decided to skip WASM for Crabnado, so the desktop result decides the horde cap:
-**`kHordeCap` = 1,000** (in `src/crabnado_constants.hpp`). Desktop holds about 60 fps there.
+**2026-10-23, WASM deferred.** WASM is validated once at the end of the jam (`games/crabnado/AGENTS.md`), so the
+desktop result sets the horde cap for now: **`kHordeCap` = 1,000** (in `src/crabnado_constants.hpp`). Desktop holds
+about 60 fps there. The end-of-jam pass rechecks it in the browser: press `=` until the readout drops below about
+60 fps, and lower the cap if needed (the spec's fallback is about 400).
