@@ -12,7 +12,7 @@ by victory.
 
 **Blocked by:** 08 (Tide-pool arena).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] At 5:00 the boss warning shows and the crabnado starts chasing the player.
 - [ ] Big crests are telegraphed during the boss.

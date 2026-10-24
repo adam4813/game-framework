@@ -70,7 +70,8 @@ void RegisterCrabnado(const flecs::world& world) {
 	world.component<Crabnado>()
 		.member<glm::vec2>("waypoint")
 		.member<float>("speed")
-		.member<float>("spawn_debt");
+		.member<float>("spawn_debt")
+		.member<glm::vec2>("knock");
 	world.component<ThrowsInto>().add(flecs::Exclusive);
 
 	world.system<Crabnado, spatial::Transform>("CrabnadoRoam")
@@ -78,6 +79,10 @@ void RegisterCrabnado(const flecs::world& world) {
 		.each([](const flecs::iter& it, size_t, Crabnado& crabnado, spatial::Transform& transform) {
 			const float dt = it.delta_time();
 			transform.rotation.y += kSpin * dt;
+			// The boss phase moves it instead (see boss.cpp).
+			if (it.world().get<RunState>().phase >= RunPhase::Boss) {
+				return;
+			}
 			const glm::vec2 position{transform.position.x, transform.position.z};
 			const glm::vec2 toWaypoint = crabnado.waypoint - position;
 			const float distance = glm::length(toWaypoint);
@@ -98,11 +103,12 @@ void RegisterCrabnado(const flecs::world& world) {
 		.each([](const flecs::iter& it, const size_t i, Crabnado& crabnado, const spatial::Transform& transform) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
-			if (run.phase != RunPhase::Playing) {
+			if (!IsRunning(run.phase)) {
 				return;
 			}
+			const float factor = run.phase == RunPhase::Boss ? constants::kBossSpawnFactor : 1.0F;
 			crabnado.spawn_debt +=
-				(constants::kSpawnRateBase + constants::kSpawnRateGrowth * run.clock) * it.delta_time();
+				(constants::kSpawnRateBase + constants::kSpawnRateGrowth * run.clock) * factor * it.delta_time();
 			const int throws = static_cast<int>(crabnado.spawn_debt);
 			crabnado.spawn_debt -= static_cast<float>(throws);
 			ThrowAtPlayer(world, it.entity(i), transform.position, throws);

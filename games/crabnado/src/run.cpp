@@ -1,5 +1,7 @@
 #include "run.hpp"
 
+#include <algorithm>
+
 #include <spdlog/spdlog.h>
 
 #include "crabnado_constants.hpp"
@@ -14,6 +16,8 @@ void RegisterRun(const flecs::world& world) {
 	world.component<RunPhase>()
 		.constant("Playing", RunPhase::Playing)
 		.constant("Molting", RunPhase::Molting)
+		.constant("Boss", RunPhase::Boss)
+		.constant("Won", RunPhase::Won)
 		.constant("Lost", RunPhase::Lost);
 	world.component<RunState>()
 		.member<RunPhase>("phase")
@@ -24,6 +28,9 @@ void RegisterRun(const flecs::world& world) {
 		.member<int>("shells")
 		.member<int>("shells_needed")
 		.member<bool>("menu_paused")
+		.member<int>("slams")
+		.member<float>("slam_cooldown")
+		.member<float>("banner_timer")
 		.member<uint64_t>("seed");
 	world.set<RunState>({});
 
@@ -32,8 +39,9 @@ void RegisterRun(const flecs::world& world) {
 		.singleton()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, RunState& run) {
-			if (run.phase == RunPhase::Playing) {
+			if (IsRunning(run.phase)) {
 				run.clock += it.delta_time();
+				run.banner_timer = std::max(0.0F, run.banner_timer - it.delta_time());
 			}
 		})
 		.add<ecs::Pausable>()
@@ -67,7 +75,7 @@ void StartRun(const flecs::world& world) {
 
 void SetMenuPaused(const flecs::world& world, const bool paused) {
 	auto& run = world.get_mut<RunState>();
-	if (run.phase != RunPhase::Playing || run.menu_paused == paused) {
+	if (!IsRunning(run.phase) || run.menu_paused == paused) {
 		return;
 	}
 	run.menu_paused = paused;
@@ -78,9 +86,19 @@ void SetMenuPaused(const flecs::world& world, const bool paused) {
 	}
 }
 
+void WinRun(const flecs::world& world) {
+	auto& run = world.get_mut<RunState>();
+	if (run.phase != RunPhase::Boss) {
+		return;
+	}
+	run.phase = RunPhase::Won;
+	world.add<scene::Paused>();
+	spdlog::info("[Run] Crabnado broken apart at {:.1f}s with {} kills", run.clock, run.kills);
+}
+
 void LoseRun(const flecs::world& world) {
 	auto& run = world.get_mut<RunState>();
-	if (run.phase != RunPhase::Playing) {
+	if (!IsRunning(run.phase)) {
 		return;
 	}
 	run.phase = RunPhase::Lost;

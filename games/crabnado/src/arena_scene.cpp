@@ -32,6 +32,9 @@ constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
 constexpr core::Rgba kResultsHeadingColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
+constexpr core::Rgba kVictoryHeadingColor{.r = 40, .g = 150, .b = 80, .a = 255};
+constexpr core::Rgba kBossColor{.r = 170, .g = 40, .b = 30, .a = 255};
+constexpr core::Rgba kBannerColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
 constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
 constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
@@ -48,6 +51,8 @@ constexpr float kModalButtonWidth = 200.0F;
 constexpr float kModalButtonHeight = 56.0F;
 constexpr float kChoiceWidth = 236.0F;
 constexpr float kChoiceGap = 16.0F;
+// During the boss the telegraph always shows the next big crest, not only in the last seconds.
+constexpr float kBossCrestLookahead = 3.0F * constants::kWavePeriod;
 constexpr float kCompassRadius = 56.0F;
 constexpr float kCompassMargin = 30.0F;
 constexpr float kCompassTop = 90.0F;
@@ -182,6 +187,14 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set<ui::Label>({.font_size = 26.0F, .color = kTelegraphColor})
 					 .set_name("Telegraph")
 					 .child_of(uiRoot_);
+	bossLabel_ = ui::CreateLabel(world, {.x = (w - kMoltBarWidth) / 2.0F, .y = 98.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 24.0F)
+					 .set<ui::Label>({.font_size = 24.0F, .color = kBossColor})
+					 .set_name("BossLabel")
+					 .child_of(uiRoot_);
+	bannerLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.28F, .w = w, .h = 44.0F}, "", 38.0F)
+					   .set<ui::Label>({.font_size = 38.0F, .color = kBannerColor})
+					   .set_name("BannerLabel")
+					   .child_of(uiRoot_);
 	staminaBar_ = ui::CreateProgressBar(
 					  world,
 					  {.x = 16.0F, .y = kStaminaBarTop, .w = kStaminaBarWidth, .h = 16.0F},
@@ -320,17 +333,20 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 		return;
 	}
 	const auto& run = world.get<RunState>();
-	const bool lost = run.phase == RunPhase::Lost;
-	resultsModal_.get_mut<ui::Modal>().open = lost;
+	const bool won = run.phase == RunPhase::Won;
+	const bool ended = won || run.phase == RunPhase::Lost;
+	resultsModal_.get_mut<ui::Modal>().open = ended;
 	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused;
-	if (!lost) {
+	if (!ended) {
 		return;
 	}
 	const int seconds = static_cast<int>(run.clock);
-	resultsHeading_.get_mut<ui::Label>().text = "Swept away";
+	auto& heading = resultsHeading_.get_mut<ui::Label>();
+	heading.text = won ? "Victory!" : "Swept away";
+	heading.color = won ? kVictoryHeadingColor : kResultsHeadingColor;
 	resultsStats_.get_mut<ui::Label>().text = std::format(
-		"Time survived  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}", seconds / 60, seconds % 60, run.kills,
-		run.rock_kills, run.molt_level
+		"{}Time {}  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}", won ? "The crabnado breaks apart!\n" : "",
+		won ? "to win" : "survived", seconds / 60, seconds % 60, run.kills, run.rock_kills, run.molt_level
 	);
 }
 
@@ -378,6 +394,7 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	UpdateResults(world);
 	UpdateMolt(world);
 	UpdateTelegraph(world, player);
+	UpdateBoss(world);
 	UpdateStamina(player);
 }
 
@@ -394,6 +411,22 @@ void ArenaScene::UpdateStamina(const flecs::entity player) const {
 	stateLabel_.get_mut<ui::Label>().text = stamina.dug_in ? "DUG IN" : (surfing ? "SURFING" : "");
 }
 
+void ArenaScene::UpdateBoss(const flecs::world& world) const {
+	if (!bossLabel_.has<ui::Label>() || !bannerLabel_.has<ui::Label>()) {
+		return;
+	}
+	const auto& run = world.get<RunState>();
+	const bool boss = run.phase == RunPhase::Boss;
+	bossLabel_.get_mut<ui::Label>().text =
+		boss ? std::format("CRABNADO \xC2\xB7 slams left {}", constants::kBossSlamsToWin - run.slams) : "";
+	std::string banner;
+	if (boss && run.banner_timer > 0.0F) {
+		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
+								: std::format("SLAM! {}/{}", run.slams, constants::kBossSlamsToWin);
+	}
+	bannerLabel_.get_mut<ui::Label>().text = banner;
+}
+
 void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity player) const {
 	if (!telegraph_.has<ui::Label>()) {
 		return;
@@ -408,7 +441,9 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 		label.color = kRogueColor;
 	} else if (const auto riptide = BoostedCrestIn(field, position, constants::kBigCrestWarning)) {
 		label.text = std::format("RIPTIDE CREST in {:.1f} s", *riptide);
-	} else if (const auto crest = NextBigCrestIn(field, position, constants::kBigCrestWarning)) {
+	} else if (const auto crest = NextBigCrestIn(
+				   field, position, world.get<RunState>().phase == RunPhase::Boss ? kBossCrestLookahead : constants::kBigCrestWarning
+			   )) {
 		label.text = std::format("BIG CREST in {:.1f} s", *crest);
 	} else {
 		label.text = field.notice_timer > 0.0F ? "A cross-swell is building" : "";
@@ -482,6 +517,8 @@ void ArenaScene::Unload(flecs::world& world) {
 	moltBar_ = {};
 	moltLabel_ = {};
 	telegraph_ = {};
+	bossLabel_ = {};
+	bannerLabel_ = {};
 	moltModal_ = {};
 	choiceButtons_ = {};
 	choiceDescriptions_ = {};

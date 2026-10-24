@@ -91,6 +91,7 @@ void AddRogue(WaveField& field, const Wind& wind, const glm::vec2 playerPosition
 
 void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 	const float clock = world.get<RunState>().clock;
+	const RunPhase phase = world.get<RunState>().phase;
 	const auto& wind = world.get<Wind>();
 	auto& rng = world.get_mut<ecs::RngState>();
 	field.time += dt;
@@ -98,7 +99,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 
 	if (wind.shifts != field.last_shifts) {
 		field.last_shifts = wind.shifts;
-		if (clock >= constants::kCrossSwellAt) {
+		if (clock >= constants::kCrossSwellAt && phase != RunPhase::Boss) {
 			AddCrossSwell(field, wind, rng);
 		}
 	}
@@ -122,7 +123,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 		}
 	}
 
-	if (clock >= constants::kRogueAt) {
+	if (clock >= constants::kRogueAt && phase != RunPhase::Boss) {
 		field.rogue_timer -= dt;
 		if (field.rogue_timer <= 0.0F) {
 			field.rogue_timer = rng.NextFloatRange(constants::kRogueGapMin, constants::kRogueGapMax);
