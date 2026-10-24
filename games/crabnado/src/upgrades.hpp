@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -26,11 +27,23 @@ struct UpgradeEffect {
 	float value{0.0F};
 };
 
+// An eligibility condition: the player's reflected float `stat` ("Riptide.level") must be at least `min` and at
+// most `max`, where set.
+struct UpgradeRequirement {
+	std::string component;
+	std::string member;
+	std::optional<float> min;
+	std::optional<float> max;
+};
+
 struct Upgrade {
 	std::string id;
 	std::string name;
 	std::string description;
 	std::vector<UpgradeEffect> effects;
+	std::optional<UpgradeRequirement> requires_;
+	// The first molt offers one eligible flagged upgrade in its first slot.
+	bool first_molt{false};
 };
 
 // Singleton: every upgrade, in id order.

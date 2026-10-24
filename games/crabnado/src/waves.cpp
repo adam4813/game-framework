@@ -161,7 +161,9 @@ void RegisterWaves(const flecs::world& world) {
 		.member<float>("amp")
 		.member<bool>("follow")
 		.member<bool>("grow")
-		.member<bool>("fade");
+		.member<bool>("fade")
+		.member<int>("boost_n")
+		.member<float>("boost_mult");
 	world.component<Rogue>().member<float>("direction").member<float>("t0").member<float>("amp");
 	world.component<WaveField>()
 		.member<float>("time")
@@ -224,6 +226,9 @@ WaveSample SampleWaves(const WaveField& field, const std::span<const TidePool> p
 		if (IsBigCrest(static_cast<int>(n))) {
 			k *= constants::kWaveBigAmp;
 		}
+		if (swell.boost_mult > 0.0F && static_cast<int>(n) == swell.boost_n) {
+			k *= swell.boost_mult;
+		}
 		height += k;
 		push += BearingDirection(swell.direction) * k;
 	}
@@ -264,6 +269,33 @@ std::optional<float> NextBigCrestIn(const WaveField& field, const glm::vec2 posi
 		}
 	}
 	return std::nullopt;
+}
+
+std::optional<float> BoostNextCrest(
+	WaveField& field, const glm::vec2 position, const float lead, const float multiplier
+) {
+	const Swell* primary = PrimarySwell(field);
+	if (primary == nullptr) {
+		return std::nullopt;
+	}
+	Swell& swell = field.swells[static_cast<size_t>(primary - field.swells.data())];
+	const float q = Phase(swell, field.time, position);
+	int n = static_cast<int>(std::ceil(q));
+	if ((static_cast<float>(n) - q) * constants::kWavePeriod < lead) {
+		++n;
+	}
+	swell.boost_n = n;
+	swell.boost_mult = multiplier;
+	return (static_cast<float>(n) - q) * constants::kWavePeriod;
+}
+
+std::optional<float> BoostedCrestIn(const WaveField& field, const glm::vec2 position, const float within) {
+	const Swell* swell = PrimarySwell(field);
+	if (swell == nullptr || swell->boost_mult <= 0.0F) {
+		return std::nullopt;
+	}
+	const float seconds = (static_cast<float>(swell->boost_n) - Phase(*swell, field.time, position)) * constants::kWavePeriod;
+	return seconds > 0.0F && seconds <= within ? std::optional{seconds} : std::nullopt;
 }
 
 std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 position, const float within) {

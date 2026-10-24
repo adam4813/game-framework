@@ -13,6 +13,7 @@
 #include "engine/engine.hpp"
 #include "horde.hpp"
 #include "player.hpp"
+#include "riptide.hpp"
 #include "run.hpp"
 #include "shells.hpp"
 #include "title_scene.hpp"
@@ -39,6 +40,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterHorde(world);
 	RegisterClawSnap(world);
 	RegisterBubbles(world);
+	RegisterRiptide(world);
 	RegisterShells(world);
 	RegisterUpgrades(world, platform->AssetDirectory() + std::string{constants::kUpgradesPath});
 

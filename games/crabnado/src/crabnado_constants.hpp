@@ -171,6 +171,14 @@ inline constexpr float kHitFlashTime = 0.08F;
 // ── Bubbles (prototype values) ──
 // Fired at the nearest landed enemy within kBubbleRange, kBubbleSpread radians apart. In flight a bubble gains
 // the wind push times kBubbleWindDrift plus the wave push times kBubbleWaveDrift, per second.
+
+// Riptide: unlocked by an upgrade. Every kRiptideCooldown seconds it multiplies the next crest of the primary swell
+// that is at least kRiptideLead seconds away by kRiptideMultiplier. The first fire comes kRiptideFirstDelay s after
+// the unlock.
+inline constexpr float kRiptideCooldown = 8.0F;
+inline constexpr float kRiptideMultiplier = 2.2F;
+inline constexpr float kRiptideLead = 1.0F;
+inline constexpr float kRiptideFirstDelay = 2.0F;
 inline constexpr float kBubbleDamage = 2.0F;
 inline constexpr float kBubbleCooldown = 0.7F;
 inline constexpr float kBubbleSpeed = 22.0F;

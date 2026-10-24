@@ -16,6 +16,7 @@
 #include "run.hpp"
 #include "enemy_types.hpp"
 #include "upgrades.hpp"
+#include "riptide.hpp"
 #include "waves.hpp"
 #include "wind.hpp"
 
@@ -100,6 +101,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
 	AddBubbles(player);
+	AddRiptide(player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
 	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);
@@ -305,6 +307,8 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 	if (const auto rogue = NextRogueIn(field, position, constants::kRogueWarning)) {
 		label.text = std::format("ROGUE WAVE in {:.1f} s", *rogue);
 		label.color = kRogueColor;
+	} else if (const auto riptide = BoostedCrestIn(field, position, constants::kBigCrestWarning)) {
+		label.text = std::format("RIPTIDE CREST in {:.1f} s", *riptide);
 	} else if (const auto crest = NextBigCrestIn(field, position, constants::kBigCrestWarning)) {
 		label.text = std::format("BIG CREST in {:.1f} s", *crest);
 	} else {
