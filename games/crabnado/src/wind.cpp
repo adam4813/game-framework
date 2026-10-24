@@ -182,8 +182,12 @@ void StartWind(const flecs::world& world) {
 	);
 }
 
+glm::vec2 BearingDirection(const float bearing) {
+	return {std::sin(bearing), -std::cos(bearing)};
+}
+
 glm::vec2 WindDirection(const Wind& wind) {
-	return {std::sin(wind.direction), -std::cos(wind.direction)};
+	return BearingDirection(wind.direction);
 }
 
 glm::vec2 WindPush(const Wind& wind, const float scale) {

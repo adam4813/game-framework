@@ -22,6 +22,10 @@ struct Enemy {
 	int xp{0};
 	float flash{0.0F};
 	engine::core::Rgba color{};
+	// Seconds left of a wave tumble: no chasing and no contact damage. `knock` is the velocity the crest
+	// carries it with, in units per second; the root spins on its local x axis meanwhile.
+	float tumble{0.0F};
+	glm::vec2 knock{0.0F};
 };
 
 // An enemy in flight on its ballistic arc. Removed when it lands.

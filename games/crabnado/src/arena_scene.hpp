@@ -34,6 +34,7 @@ private:
 	void BuildUI(const flecs::world& world);
 	void BuildMoltModal(const flecs::world& world, float width, float height);
 	void UpdateMolt(const flecs::world& world) const;
+	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
 	void UpdateHud(const flecs::world& world, const std::string& readout) const;
 	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
 	void SpawnBatch(int enemyCount) const;
@@ -48,6 +49,7 @@ private:
 	flecs::entity sweptAway_;
 	flecs::entity moltBar_;
 	flecs::entity moltLabel_;
+	flecs::entity telegraph_;
 	flecs::entity moltModal_;
 	std::array<flecs::entity, kMoltChoices> choiceButtons_;
 	std::array<flecs::entity, kMoltChoices> choiceDescriptions_;

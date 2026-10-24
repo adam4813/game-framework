@@ -20,12 +20,12 @@ pool calming.
 
 **Status:** ready-for-agent
 
-- [ ] Crests are visible on the water, travel in the wind's direction, and turn when the wind shifts.
-- [ ] A foam line warns of each crest about 2 s ahead, and every third crest is visibly bigger.
-- [ ] Crests tumble crabs: they stop chasing, get carried downwind, then recover.
-- [ ] Every system that needs wave force samples the one wave field, and no consumer computes waves itself.
-- [ ] Holds the frame budget from ticket 01 with the horde at its cap and the water grid drawn.
-- [ ] Checked in the running game (e.g. set the wind over the Remote API and watch crests and tumbling follow).
+- [x] Crests are visible on the water, travel in the wind's direction, and turn when the wind shifts.
+- [x] A foam line warns of each crest about 2 s ahead, and every third crest is visibly bigger.
+- [x] Crests tumble crabs: they stop chasing, get carried downwind, then recover.
+- [x] Every system that needs wave force samples the one wave field, and no consumer computes waves itself.
+- [x] Holds the frame budget from ticket 01 with the horde at its cap and the water grid drawn.
+- [x] Checked in the running game (e.g. set the wind over the Remote API and watch crests and tumbling follow).
 - [ ] Optional: if the wave field logic proves easy to break, add the wave-field behaviour tests described in the
       testing section. Not required.
 
@@ -67,3 +67,7 @@ Judgement calls settled before implementation (2026-10-24). Prototype values com
   "every system samples the field" means for this ticket. Bubbles, player and boss sample it in tickets 10, 06 and 12.
 - **Wind push is unchanged.** It stays separate from the wave push.
 - **Tests: skip** (see `spec/testing.md`, and the user's "only if truly needed"). Remote API checks cover it.
+
+## Comments
+
+Checked on desktop over the Remote API (port 27751): swell direction follows `Wind.direction` when set; enemies tumble as crests pass; 1,000 enemies with about 2,400 water tiles held 59 fps. The wave-field behaviour tests were skipped (optional). The `.mcp.json` flecs server points at port 27750, so use `FLECS_REST_PORT=27751 node tools/flecs-api.js` for Crabnado.

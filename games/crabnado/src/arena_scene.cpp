@@ -13,6 +13,7 @@
 #include "player.hpp"
 #include "run.hpp"
 #include "upgrades.hpp"
+#include "waves.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -26,6 +27,7 @@ constexpr core::Rgba kReadoutColor{.r = 245, .g = 245, .b = 235, .a = 255};
 constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
 constexpr core::Rgba kSweptAwayColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
+constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
 constexpr float kMoltBarWidth = 400.0F;
 constexpr float kMoltModalWidth = 780.0F;
 constexpr float kMoltModalHeight = 300.0F;
@@ -63,6 +65,7 @@ void ArenaScene::InitializePipeline(const flecs::world& world) {
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
 	StartWind(world);
+	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
 	horde_ = world.entity().child_of(sceneRoot_);
 	BuildStage(world);
@@ -75,6 +78,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
+	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);
 
 	const glm::vec3 cameraOffset{0.0F, constants::kCameraHeight, constants::kCameraBack};
@@ -89,7 +93,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 
 	std::ignore = world.entity("Sand")
 					  .child_of(sceneRoot_)
-					  .set<spatial::Transform>({})
+					  .set<spatial::Transform>({.position = {0.0F, constants::kSandY, 0.0F}})
 					  .set<render::QuadPrimitive>({.size = glm::vec2{2.0F * (constants::kArenaRadius + 30.0F)}})
 					  .set<render::Material>({.color = kSandColor, .cast_shadow = false});
 }
@@ -142,6 +146,10 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 	moltLabel_ = ui::CreateLabel(world, {.x = (w - kMoltBarWidth) / 2.0F, .y = 40.0F, .w = kMoltBarWidth, .h = 22.0F}, "", 20.0F)
 					 .set<ui::Label>({.font_size = 20.0F, .color = kHudColor})
 					 .set_name("MoltLabel")
+					 .child_of(uiRoot_);
+	telegraph_ = ui::CreateLabel(world, {.x = (w - kMoltBarWidth) / 2.0F, .y = 66.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 26.0F)
+					 .set<ui::Label>({.font_size = 26.0F, .color = kTelegraphColor})
+					 .set_name("Telegraph")
 					 .child_of(uiRoot_);
 	BuildMoltModal(world, w, h);
 
@@ -233,6 +241,16 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	readout_.get_mut<ui::Label>().text = readout;
 	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
 	UpdateMolt(world);
+	UpdateTelegraph(world, player);
+}
+
+void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity player) const {
+	if (!telegraph_.has<ui::Label>()) {
+		return;
+	}
+	const glm::vec3 p = player.get<spatial::Transform>().position;
+	const auto warning = NextBigCrestIn(world.get<WaveField>(), {p.x, p.z}, constants::kBigCrestWarning);
+	telegraph_.get_mut<ui::Label>().text = warning ? std::format("BIG CREST in {:.1f} s", *warning) : std::string{};
 }
 
 void ArenaScene::UpdateMolt(const flecs::world& world) const {
@@ -297,6 +315,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	sweptAway_ = {};
 	moltBar_ = {};
 	moltLabel_ = {};
+	telegraph_ = {};
 	moltModal_ = {};
 	choiceButtons_ = {};
 	choiceDescriptions_ = {};

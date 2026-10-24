@@ -44,6 +44,9 @@ void RegisterWind(const flecs::world& world);
 // Starts a fresh wind for a run: a random direction and shift and gust timers, drawn from RngState.
 void StartWind(const flecs::world& world);
 
+// The unit vector a compass bearing (radians clockwise from north) points along on the ground plane (x, z).
+[[nodiscard]] glm::vec2 BearingDirection(float bearing);
+
 // The unit vector the wind blows along on the ground plane (x, z).
 [[nodiscard]] glm::vec2 WindDirection(const Wind& wind);
 
