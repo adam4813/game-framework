@@ -162,11 +162,15 @@ flecs::entity SpawnPlayer(const flecs::world& world, const flecs::entity parent)
 								   )
 								   .set<SurfKnock>({})
 								   .set<spatial::Transform>({});
+	AddCrabBody(world, crab);
+	return crab;
+}
+
+void AddCrabBody(const flecs::world& world, const flecs::entity crab) {
 	AddPart(world, crab, {0.0F, 0.4F, 0.2F}, {1.0F, 0.5F, 0.8F}, 0.8F, kBodyColor);
 	AddPart(world, crab, {0.0F, 0.9F, -0.4F}, {1.0F, 0.9F, 1.1F}, 0.9F, kShellColor);
 	AddPart(world, crab, {-0.7F, 0.45F, 0.8F}, glm::vec3{1.0F}, 0.3F, kBodyColor);
 	AddPart(world, crab, {0.7F, 0.45F, 0.8F}, glm::vec3{1.0F}, 0.3F, kBodyColor);
-	return crab;
 }
 
 flecs::entity FindPlayer(const flecs::world& world) {

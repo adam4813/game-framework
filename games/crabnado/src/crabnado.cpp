@@ -117,15 +117,7 @@ void RegisterCrabnado(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
-flecs::entity SpawnCrabnado(
-	const flecs::world& world, const flecs::entity parent, const flecs::entity horde, const glm::vec2 position
-) {
-	const flecs::entity crabnado = world.entity("Crabnado")
-									  .child_of(parent)
-									  .set<Crabnado>({.waypoint = PickWaypoint(world), .speed = constants::kCrabnadoSpeed})
-									  .add<ThrowsInto>(horde)
-									  .set<spatial::Transform>({.position = {position.x, 0.0F, position.y}});
-
+void AddFunnel(const flecs::world& world, const flecs::entity crabnado) {
 	for (int layer = 0; layer < kFunnelLayers; ++layer) {
 		const float radius = kFunnelBaseRadius + kFunnelFlare * static_cast<float>(layer);
 		std::ignore = world.entity()
@@ -152,6 +144,18 @@ flecs::entity SpawnCrabnado(
 						  .set<render::SpherePrimitive>({.radius = 0.45F})
 						  .set<render::Material>({.color = kSpeckColor});
 	}
+}
+
+flecs::entity SpawnCrabnado(
+	const flecs::world& world, const flecs::entity parent, const flecs::entity horde, const glm::vec2 position
+) {
+	const flecs::entity crabnado = world.entity("Crabnado")
+									  .child_of(parent)
+									  .set<Crabnado>({.waypoint = PickWaypoint(world), .speed = constants::kCrabnadoSpeed})
+									  .add<ThrowsInto>(horde)
+									  .set<spatial::Transform>({.position = {position.x, 0.0F, position.y}});
+
+	AddFunnel(world, crabnado);
 	return crabnado;
 }
 

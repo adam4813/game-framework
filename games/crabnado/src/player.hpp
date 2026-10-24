@@ -48,6 +48,9 @@ void RegisterPlayer(const flecs::world& world);
 // Spawns the player's hermit crab at the arena centre as a child of `parent`.
 flecs::entity SpawnPlayer(const flecs::world& world, flecs::entity parent);
 
+// Adds the hermit crab's look (body, shell and claws, forward is local +z) as children of `crab`.
+void AddCrabBody(const flecs::world& world, flecs::entity crab);
+
 // The player entity, or an invalid entity when no run is loaded.
 [[nodiscard]] flecs::entity FindPlayer(const flecs::world& world);
 

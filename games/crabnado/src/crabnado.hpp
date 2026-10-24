@@ -23,6 +23,9 @@ struct ThrowsInto {};
 // Registers and reflects the crabnado components and the CrabnadoRoam and CrabnadoThrow systems.
 void RegisterCrabnado(const flecs::world& world);
 
+// Adds the crabnado's look (a funnel of spheres with crabs caught in it) as children of `crabnado`.
+void AddFunnel(const flecs::world& world, flecs::entity crabnado);
+
 // Spawns the crabnado at `position` as a child of `parent`, throwing enemies into `horde`.
 flecs::entity SpawnCrabnado(const flecs::world& world, flecs::entity parent, flecs::entity horde, glm::vec2 position);
 
