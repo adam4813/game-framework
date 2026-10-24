@@ -56,7 +56,7 @@ private:
 	mutable bool crestCued_{false};
 	// Whether the cue for the rogue wave now in warning range has played.
 	mutable bool rogueCued_{false};
-	void UpdateHud(const flecs::world& world, const std::string& readout) const;
+	void UpdateHud(const flecs::world& world) const;
 	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
 	void SpawnBatch(int enemyCount) const;
 	void ClearHorde(const flecs::world& world);
@@ -66,7 +66,6 @@ private:
 	flecs::entity crabnado_;
 	flecs::entity uiRoot_;
 	flecs::entity hud_;
-	flecs::entity readout_;
 	flecs::entity music_;
 	flecs::entity resultsModal_;
 	flecs::entity resultsHeading_;
