@@ -22,6 +22,13 @@ inline constexpr float kTitleMusicVolume = 0.4F;
 inline constexpr float kEndedMusicVolume = 0.15F;
 inline constexpr float kGameOverMusicVolume = 0.5F;
 
+// ── Run start ──
+// A run opens with a 3-2-1 countdown of kCountdownTime seconds, the scene paused, then "Go!" shows for kGoTime.
+inline constexpr float kCountdownTime = 3.0F;
+inline constexpr float kGoTime = 0.7F;
+// After a molt, play resumes after kResumeTime seconds of "Ready...", then the same "Go!".
+inline constexpr float kResumeTime = 1.0F;
+
 // ── Horde ──
 // Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).
 inline constexpr int kHordeCap = 1000;

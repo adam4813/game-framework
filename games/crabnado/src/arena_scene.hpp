@@ -50,6 +50,7 @@ private:
 	void UpdateMolt(const flecs::world& world) const;
 	void UpdateStamina(flecs::entity player) const;
 	void UpdateBoss(const flecs::world& world) const;
+	void UpdateCountdown(const flecs::world& world) const;
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
 	// Whether the cue for the current big crest has played, so it plays once per crest.
 	mutable bool crestCued_{false};
@@ -92,6 +93,7 @@ private:
 	flecs::entity telegraph_;
 	flecs::entity bossLabel_;
 	flecs::entity bannerLabel_;
+	flecs::entity countdownLabel_;
 	flecs::entity moltModal_;
 	// Stat lines a molt card has room for.
 	static constexpr int kMaxStatLines = 3;

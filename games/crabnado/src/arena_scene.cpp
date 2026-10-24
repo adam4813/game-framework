@@ -38,6 +38,9 @@ constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
 constexpr core::Rgba kVictoryHeadingColor{.r = 40, .g = 150, .b = 80, .a = 255};
 constexpr core::Rgba kBossColor{.r = 170, .g = 40, .b = 30, .a = 255};
 constexpr core::Rgba kBannerColor{.r = 255, .g = 244, .b = 220, .a = 255};
+// The start countdown's numbers: kCountdownFontSize, popping in kCountdownPop larger.
+constexpr float kCountdownFontSize = 120.0F;
+constexpr float kCountdownPop = 0.5F;
 constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
 constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
 constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
@@ -290,6 +293,10 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					   .set<ui::Label>({.font_size = 38.0F, .color = kBannerColor, .outline = 3.0F, .outline_color = kHudOutlineColor})
 					   .set_name("BannerLabel")
 					   .child_of(uiRoot_);
+	countdownLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.3F, .w = w, .h = kCountdownFontSize * 2.0F}, "", kCountdownFontSize)
+						  .set<ui::Label>({.font_size = kCountdownFontSize, .color = kBannerColor, .outline = 6.0F, .outline_color = kHudOutlineColor})
+						  .set_name("CountdownLabel")
+						  .child_of(uiRoot_);
 	BuildLoadout(world, h);
 	BuildMoltModal(world, w, h);
 
@@ -692,6 +699,7 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	UpdateMolt(world);
 	UpdateTelegraph(world, player);
 	UpdateBoss(world);
+	UpdateCountdown(world);
 	UpdateStamina(player);
 	UpdateWeapons(player);
 }
@@ -728,6 +736,29 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 								: std::format("SLAM! {}/{}", run.slams, constants::kBossSlamsToWin);
 	}
 	bannerLabel_.get_mut<ui::Label>().text = banner;
+}
+
+void ArenaScene::UpdateCountdown(const flecs::world& world) const {
+	if (!countdownLabel_.has<ui::Label>()) {
+		return;
+	}
+	const auto& run = world.get<RunState>();
+	const float countdown = run.countdown;
+	auto& label = countdownLabel_.get_mut<ui::Label>();
+	if (countdown <= -constants::kGoTime) {
+		label.text.clear();
+		return;
+	}
+	// Each number lands big and settles over its second; "Go!" does the same over kGoTime.
+	const float settle = countdown > 0.0F ? countdown - std::ceil(countdown) + 1.0F : 1.0F + countdown / constants::kGoTime;
+	// The clock only stands at 0 before the first countdown ends, so a later countdown is the resume after a molt.
+	if (countdown <= 0.0F) {
+		label.text = "Go!";
+	}
+	else {
+		label.text = run.clock > 0.0F ? "Ready..." : std::format("{}", static_cast<int>(std::ceil(countdown)));
+	}
+	label.font_size = kCountdownFontSize * (1.0F + kCountdownPop * settle * settle * settle);
 }
 
 void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity player) const {
@@ -912,6 +943,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	telegraph_ = {};
 	bossLabel_ = {};
 	bannerLabel_ = {};
+	countdownLabel_ = {};
 	moltModal_ = {};
 	moltCards_ = {};
 	confirmButton_ = {};

@@ -8,6 +8,8 @@ Back to the [spec](../spec.md).
 1a. As a player, I want a short comic telling the story (Warlord Snapjaw's challenge, the Hermit King's vow, the
     barrier going up) between the title and the arena, a panel at a time with Next, and a Skip button, so that I know
     why I'm fighting but can get straight to it.
+1b. As a player, I want a 3-2-1-Go! countdown over the arena before anything moves, so that I'm ready when the run
+    starts.
 2. As a player, I want to move my hermit crab with WASD or the arrow keys, so that I can dodge the horde.
 3. As a player, I want my hermit crab to scuttle sideways when it moves, so that it reads as a crab.
 4. As a player, I want my weapons to fire on their own, so that I can focus on movement and the waves.
@@ -23,7 +25,8 @@ Back to the [spec](../spec.md).
 11. As a player, I want shells within a short range to fly to me, so that collecting them isn't fiddly.
 12. As a player, I want to molt (level up) when I've collected enough shells, so that I get stronger over the run.
 13. As a player, I want the game to pause when I molt and show 3 upgrade cards I select with 1/2/3 (or a
-    click) and confirm with Enter (or the Confirm button), so that I can choose without being hit or misclicking.
+    click) and confirm with Enter (or the Confirm button), so that I can choose without being hit or misclicking. After the choice, a one-second "Ready..." and "Go!" hold the
+    pause, so that I can get my hands back on the movement keys.
 14. As a player, I want each molt to need more shells than the last, so that upgrades stay meaningful.
 15. As a player, I want to see my HP, so that I know how close I am to losing.
 16. As a player, I want touching an enemy to drain my HP over time, so that being surrounded is dangerous.
