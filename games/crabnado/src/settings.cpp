@@ -17,6 +17,7 @@ namespace crabnado {
 namespace {
 
 constexpr std::string_view kSaveSlot = "crabnado_settings";
+constexpr std::string_view kDisplaySaveSlot = "crabnado_display";
 
 float MusicGain(const AudioSettings& settings) {
 	return settings.music_muted ? 0.0F : settings.music_volume;
@@ -66,6 +67,21 @@ void WriteSettings(const flecs::world& world, const AudioSettings& settings) {
 	world.get<platform::PlatformRef>().ptr->WriteSave(kSaveSlot, j.dump());
 }
 
+DisplaySettings ReadDisplaySettings(const flecs::world& world) {
+	DisplaySettings settings;
+	const std::string text = world.get<platform::PlatformRef>().ptr->ReadSave(kDisplaySaveSlot);
+	if (text.empty()) {
+		return settings;
+	}
+	const nlohmann::json j = nlohmann::json::parse(text, nullptr, false);
+	if (!j.is_object()) {
+		spdlog::warn("[Settings] Save slot '{}' is not a JSON object; using the defaults", kDisplaySaveSlot);
+		return settings;
+	}
+	settings.fullscreen = j.value("fullscreen", settings.fullscreen);
+	return settings;
+}
+
 } // namespace
 
 void RegisterSettings(const flecs::world& world) {
@@ -74,11 +90,16 @@ void RegisterSettings(const flecs::world& world) {
 		.member<float>("sfx_volume")
 		.member<bool>("music_muted")
 		.member<bool>("sfx_muted");
+	world.component<DisplaySettings>().member<bool>("fullscreen");
 	world.component<MusicLevel>().member<float>("volume");
 
 	const AudioSettings settings = ReadSettings(world);
 	world.set<AudioSettings>(settings);
 	ApplySfxVolume(world, settings);
+
+	const DisplaySettings display = ReadDisplaySettings(world);
+	world.set<DisplaySettings>(display);
+	world.get<platform::PlatformRef>().ptr->SetFullscreen(display.fullscreen);
 
 	// Unscoped and not Pausable, so music follows the setting in every scene, paused or not.
 	world.system<audio::Music, const MusicLevel>("ApplyMusicSettings")
@@ -92,6 +113,13 @@ void SetAudioSettings(const flecs::world& world, const AudioSettings& settings) 
 	world.set<AudioSettings>(settings);
 	ApplySfxVolume(world, settings);
 	WriteSettings(world, settings);
+}
+
+void SetDisplaySettings(const flecs::world& world, const DisplaySettings& settings) {
+	world.set<DisplaySettings>(settings);
+	auto* platform = world.get<platform::PlatformRef>().ptr;
+	platform->SetFullscreen(settings.fullscreen);
+	platform->WriteSave(kDisplaySaveSlot, nlohmann::json{{"fullscreen", settings.fullscreen}}.dump());
 }
 
 } // namespace crabnado
