@@ -10,6 +10,7 @@
 #include "enemy_types.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 #include "shells.hpp"
 #include "waves.hpp"
 #include "wind.hpp"
@@ -251,6 +252,7 @@ void RegisterHorde(const flecs::world& world) {
 			auto& run = world.get_mut<RunState>();
 			++run.kills;
 			run.rock_kills += enemy.slammed ? 1 : 0;
+			PlaySfx(world, enemy.slammed ? Sfx::RockCrush : Sfx::EnemyDefeat);
 			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
 			defeated.destruct();
 		})

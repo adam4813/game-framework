@@ -109,15 +109,40 @@ def rogue_warning(rng):
     return out
 
 
+def enemy_defeat(rng):
+    # A short wet crunch: falling tone plus a puff of noise.
+    out = []
+    phase = 0.0
+    for i in range(n(0.12)):
+        t = i / RATE
+        phase += 2 * math.pi * (420 - 2200 * t) / RATE
+        out.append(math.sin(phase) * math.exp(-35 * t) * 0.7 + rng.uniform(-1, 1) * math.exp(-60 * t) * 0.5)
+    return out
+
+
+def rock_crush(rng):
+    # Heavy crunch: a low thud under crackling noise.
+    out = []
+    phase = 0.0
+    for i in range(n(0.3)):
+        t = i / RATE
+        phase += 2 * math.pi * (110 - 200 * t) / RATE
+        crackle = rng.uniform(-1, 1) * (1.0 if rng.random() < 0.35 else 0.2) * math.exp(-18 * t)
+        out.append(math.sin(phase) * math.exp(-14 * t) + crackle * 0.8)
+    return out
+
+
 def main():
     rng = random.Random(7)
     write("claw_click.wav", click_pair(rng, 0.045))
-    write("claw_snap.wav", claw_snap(rng), 0.7)
-    write("bubble_pop.wav", bubble_pop(rng), 0.6)
+    write("claw_snap.wav", claw_snap(rng), 0.175)
+    write("bubble_pop.wav", bubble_pop(rng), 0.3)
     write("crest.wav", crest_whoosh(rng), 0.8)
     write("molt.wav", molt_chime(rng), 0.7)
     write("boss_slam.wav", boss_slam(rng), 0.9)
     write("rogue_warning.wav", rogue_warning(rng), 0.6)
+    write("enemy_defeat.wav", enemy_defeat(rng), 0.35)
+    write("rock_crush.wav", rock_crush(rng), 0.6)
 
 
 if __name__ == "__main__":
