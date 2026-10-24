@@ -1828,6 +1828,15 @@ void RaylibBackend::SetSoundPitch(const int handle, const float pitch) {
 	}
 }
 
+void RaylibBackend::SetSoundVolume(const int handle, const float volume) {
+	if (handle < 0 || handle >= static_cast<int>(g_sounds.size())) {
+		return;
+	}
+	if (const Sound& sound = g_sounds[static_cast<std::size_t>(handle)]; sound.frameCount != 0) {
+		::SetSoundVolume(sound, volume);
+	}
+}
+
 int RaylibBackend::LoadMusic(const std::string_view path) {
 	if (!IsAudioDeviceReady()) {
 		return -1;

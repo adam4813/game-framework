@@ -97,6 +97,7 @@ public:
 	void UnloadSound(int) override {}
 	void PlaySound(int) override {}
 	void SetSoundPitch(int, float) override {}
+	void SetSoundVolume(int, float) override {}
 	int LoadMusic(std::string_view) override { return -1; }
 	void UnloadMusic(int) override {}
 	void PlayMusic(int, bool) override {}
