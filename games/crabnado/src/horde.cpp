@@ -4,6 +4,7 @@
 #include <cmath>
 #include <numbers>
 
+#include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
 #include "player.hpp"
@@ -71,7 +72,8 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("flash")
 		.member<core::Rgba>("color")
 		.member<float>("tumble")
-		.member<glm::vec2>("knock");
+		.member<glm::vec2>("knock")
+		.member<bool>("slammed");
 	world.component<Airborne>().member<glm::vec3>("velocity");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
 	world.set<HordeReadout>({});
@@ -139,6 +141,8 @@ void RegisterHorde(const flecs::world& world) {
 			const float dt = it.delta_time();
 			const glm::vec2 drift = WindPush(it.world().get<Wind>(), constants::kEnemyWindPush) * dt;
 			const auto& waves = it.world().get<WaveField>();
+			const auto& pools = it.world().get<TidePools>().pools;
+			const auto& rocks = it.world().get<Rocks>().circles;
 			while (it.next()) {
 				auto enemies = it.field<Enemy>(0);
 				auto transforms = it.field<spatial::Transform>(1);
@@ -147,7 +151,7 @@ void RegisterHorde(const flecs::world& world) {
 					spatial::Transform& transform = transforms[i];
 					const glm::vec2 position{transform.position.x, transform.position.z};
 
-					const WaveSample wave = SampleWaves(waves, {}, position);
+					const WaveSample wave = SampleWaves(waves, pools, position);
 					if (wave.height > constants::kCrabTumbleMin) {
 						enemy.tumble = constants::kTumbleTime;
 						enemy.knock = wave.push;
@@ -181,8 +185,20 @@ void RegisterHorde(const flecs::world& world) {
 						position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax,
 						constants::kArenaRadius + kEdgeSlack
 					);
-					transform.position.x = moved.x;
-					transform.position.z = moved.y;
+					glm::vec2 settled = moved;
+					if (PushOutOfRocks(rocks, settled, enemy.radius) && tumbling) {
+						// A rock slam: the harder the crest threw it, the harder it hits.
+						const float speed = glm::length(enemy.knock);
+						if (speed > constants::kSlamMinSpeed) {
+							enemy.hp -= (speed - constants::kSlamSpeedOffset) * constants::kSlamDamage;
+							enemy.flash = constants::kSlamFlashTime;
+							enemy.slammed = true;
+							SetTint(it.entity(i), kFlashColor);
+						}
+						enemy.knock *= constants::kSlamBounce;
+					}
+					transform.position.x = settled.x;
+					transform.position.z = settled.y;
 					if (distance > 0.0001F && !tumbling) {
 						// Crabs walk sideways: face 90° off the direction of travel.
 						transform.rotation.y = std::atan2(heading.x, heading.y) + std::numbers::pi_v<float> / 2.0F;
@@ -228,7 +244,9 @@ void RegisterHorde(const flecs::world& world) {
 			}
 			const flecs::world world = it.world();
 			const flecs::entity defeated = it.entity(i);
-			++world.get_mut<RunState>().kills;
+			auto& run = world.get_mut<RunState>();
+			++run.kills;
+			run.rock_kills += enemy.slammed ? 1 : 0;
 			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
 			defeated.destruct();
 		})

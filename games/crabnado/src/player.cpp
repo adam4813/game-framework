@@ -5,6 +5,7 @@
 #include <numbers>
 
 #include "controls.hpp"
+#include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "run.hpp"
@@ -83,7 +84,7 @@ void RegisterPlayer(const flecs::world& world) {
 				  const Stamina& stamina, SurfKnock& surf, spatial::Transform& transform) {
 			const float dt = it.delta_time();
 			const glm::vec2 current{transform.position.x, transform.position.z};
-			const WaveSample wave = SampleWaves(it.world().get<WaveField>(), {}, current);
+			const WaveSample wave = SampleWaves(it.world().get<WaveField>(), it.world().get<TidePools>().pools, current);
 			// Dug in: the crab is rooted, so wind, waves and steering are all ignored.
 			if (stamina.dug_in) {
 				surf.velocity = glm::vec2{0.0F};
@@ -105,6 +106,7 @@ void RegisterPlayer(const flecs::world& world) {
 				transform.rotation.y = std::atan2(direction.x, direction.y) + std::numbers::pi_v<float> / 2.0F;
 			}
 			glm::vec2 position = current + velocity * dt;
+			PushOutOfRocks(it.world().get<Rocks>().circles, position, constants::kPlayerContactRadius);
 			const float distance = glm::length(position);
 			if (distance > constants::kArenaRadius) {
 				position *= constants::kArenaRadius / distance;

@@ -1,0 +1,21 @@
+{
+	"singletons": {
+		"arena_edge": { "radius": 70, "driftwood": 60 }
+	},
+	"entities": [
+		{ "name": "Rock1", "components": { "transform": { "position": [-28, 0, -18] }, "rock": { "radius": 4 } } },
+		{ "name": "Rock2", "components": { "transform": { "position": [-21, 0, -13] }, "rock": { "radius": 3 } } },
+		{ "name": "Rock3", "components": { "transform": { "position": [18, 0, -30] }, "rock": { "radius": 4.5 } } },
+		{ "name": "Rock4", "components": { "transform": { "position": [34, 0, 8] }, "rock": { "radius": 3.5 } } },
+		{ "name": "Rock5", "components": { "transform": { "position": [31, 0, 15] }, "rock": { "radius": 4 } } },
+		{ "name": "Rock6", "components": { "transform": { "position": [-8, 0, 32] }, "rock": { "radius": 5 } } },
+		{ "name": "Rock7", "components": { "transform": { "position": [-42, 0, 20] }, "rock": { "radius": 3.5 } } },
+		{ "name": "Rock8", "components": { "transform": { "position": [4, 0, -48] }, "rock": { "radius": 4 } } },
+		{ "name": "Rock9", "components": { "transform": { "position": [48, 0, -22] }, "rock": { "radius": 3.5 } } },
+		{ "name": "Rock10", "components": { "transform": { "position": [-50, 0, -36] }, "rock": { "radius": 4 } } },
+		{ "name": "Pool1", "components": { "transform": { "position": [-10, 0, -4] }, "tide_pool": { "radius": 8 } } },
+		{ "name": "Pool2", "components": { "transform": { "position": [24, 0, 30] }, "tide_pool": { "radius": 9 } } },
+		{ "name": "Pool3", "components": { "transform": { "position": [-38, 0, -2] }, "tide_pool": { "radius": 7 } } },
+		{ "name": "Pool4", "components": { "transform": { "position": [40, 0, -42] }, "tide_pool": { "radius": 8 } } }
+	]
+}

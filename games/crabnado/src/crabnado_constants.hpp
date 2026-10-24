@@ -105,6 +105,14 @@ inline constexpr float kTumbleTime = 0.9F;
 inline constexpr float kTumbleSpin = 9.0F;
 inline constexpr float kKnockDecay = 3.0F;
 
+// A tumbling enemy knocked into a rock faster than kSlamMinSpeed takes (speed - kSlamSpeedOffset) * kSlamDamage
+// and flashes for kSlamFlashTime; its knock is then multiplied by kSlamBounce.
+inline constexpr float kSlamMinSpeed = 5.0F;
+inline constexpr float kSlamSpeedOffset = 4.0F;
+inline constexpr float kSlamDamage = 1.6F;
+inline constexpr float kSlamFlashTime = 0.2F;
+inline constexpr float kSlamBounce = -0.2F;
+
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;

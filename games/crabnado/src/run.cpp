@@ -18,6 +18,7 @@ void RegisterRun(const flecs::world& world) {
 		.member<RunPhase>("phase")
 		.member<float>("clock")
 		.member<int>("kills")
+		.member<int>("rock_kills")
 		.member<int>("molt_level")
 		.member<int>("shells")
 		.member<int>("shells_needed")

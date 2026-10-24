@@ -1,5 +1,6 @@
 #include "shells.hpp"
 
+#include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "player.hpp"
@@ -50,7 +51,7 @@ void RegisterShells(const flecs::world& world) {
 					shell.flying = shell.flying || distance < range;
 					if (!shell.flying) {
 						// Unclaimed shells ride the water and drift with the waves.
-						const WaveSample wave = SampleWaves(waves, {}, position);
+						const WaveSample wave = SampleWaves(waves, world.get<TidePools>().pools, position);
 						const glm::vec2 drifted = position + wave.push * constants::kShellWavePush * dt;
 						transform.position = {drifted.x, wave.height * constants::kWaterHeightScale + kShellHeight, drifted.y};
 						continue;

@@ -10,15 +10,15 @@ Rock and pool components load through game-registered level loaders.
 
 **Blocked by:** 05 (Waves and tumble).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The arena (rocks, pools, edge) comes from level JSON, and moving a rock in the JSON moves it in game with no
+- [x] The arena (rocks, pools, edge) comes from level JSON, and moving a rock in the JSON moves it in game with no
       rebuild.
-- [ ] Rocks stop the player and walking enemies.
-- [ ] A crest that tumbles crabs into a rock kills them (a visible slam), and a crest that misses rocks only tumbles.
-- [ ] Standing in a pool, crests don't move the player or enemies.
-- [ ] No one can leave the arena edge.
-- [ ] Checked in the running game (e.g. query rock and pool entities and watch a slam over the Remote API).
+- [x] Rocks stop the player and walking enemies.
+- [x] A crest that tumbles crabs into a rock kills them (a visible slam), and a crest that misses rocks only tumbles.
+- [x] Standing in a pool, crests don't move the player or enemies.
+- [x] No one can leave the arena edge.
+- [x] Checked in the running game (e.g. query rock and pool entities and watch a slam over the Remote API).
 
 ## Decisions
 
@@ -47,3 +47,15 @@ Settled 2026-10-24.
 - **"No rebuild" means no C++ recompile.** Assets are copied into the build directory after each build, so edit the
   copied `arena.level.json` (or rebuild, which only re-copies assets) and press Title → Play. The level loads on every
   scene Load. No file watcher is needed.
+
+## Comments
+
+- Checked on desktop (Debug) over the Remote API: 10 rocks and 4 pools load from `arena.level.json` as `Rock` and
+  `PoolSite` entities; the player walking into rock 1 stopped at radius + 0.9 and slid around it; `rock_kills` reached
+  4 within the first minute from crests alone; editing a rock's position in the copied JSON and pressing Title → Play
+  moved it with no rebuild.
+- A scene `Load` runs in a deferred frame, so the level's entities don't exist yet when `BuildArena` returns. The
+  `ArenaBuild` system builds the `Rocks` and `TidePools` caches, dresses the rocks, places the driftwood and tints the
+  pool water tiles on the first frame instead. Rocks and pools are active from frame 1 of the run.
+- Not observed in the running game: a player standing in a pool while a crest passes (the calm maths is the ticket 05
+  `SampleWaves`, now fed the pools), and the pool tint by eye.
