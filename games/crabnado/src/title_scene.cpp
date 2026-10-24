@@ -8,6 +8,7 @@
 
 #include "crabnado_constants.hpp"
 #include "title_backdrop.hpp"
+#include "title_logo.hpp"
 #include "engine/engine.hpp"
 
 using namespace engine;
@@ -20,6 +21,7 @@ constexpr float kCreditsWidth = 900.0F;
 constexpr float kCreditsHeight = 520.0F;
 constexpr float kCreditsLineHeight = 52.0F;
 constexpr float kTitleFontSize = 96.0F;
+constexpr float kTitleTop = 0.07F; // fraction of the screen height, leaving room for the shells perched on top
 constexpr core::Rgba kTitleColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTitleOutlineColor{.r = 18, .g = 40, .b = 70, .a = 255};
 constexpr float kTitleOutlineWidth = 5.0F;
@@ -60,7 +62,7 @@ void TitleScene::Load(flecs::world& world) {
 
 	// Labels have no outline, so the title is drawn as a ring of dark copies under the light one.
 	const auto addTitle = [&](const float dx, const float dy, const core::Rgba color) {
-		std::ignore = ui::CreateLabel(world, {.x = dx, .y = h * 0.03F + dy, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
+		std::ignore = ui::CreateLabel(world, {.x = dx, .y = h * kTitleTop + dy, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
 						  .set<ui::Label>({.text = title, .font_size = kTitleFontSize, .color = color})
 						  .child_of(uiRoot_);
 	};
@@ -69,6 +71,8 @@ void TitleScene::Load(flecs::world& world) {
 		addTitle(std::cos(angle) * kTitleOutlineWidth, std::sin(angle) * kTitleOutlineWidth, kTitleOutlineColor);
 	}
 	addTitle(0.0F, 0.0F, kTitleColor);
+	// The label centres its text vertically, so the glyphs start half the slack below the rect's top.
+	std::ignore = world.entity("TitleLogo").child_of(uiRoot_).set<TitleLogo>({.top = h * kTitleTop + 4.0F, .font_size = kTitleFontSize});
 
 	// Side by side on the island's beach, below the crab.
 	const float buttonsTop = h * 0.78F;
