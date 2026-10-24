@@ -315,8 +315,9 @@ void ChooseUpgrade(const flecs::world& world, const int choice) {
 		ApplyEffect(world, player, effect);
 	}
 	world.set<MoltOffer>({});
-	run.phase = run.clock >= constants::kBossAt ? RunPhase::Boss : RunPhase::Playing;
-	world.remove<scene::Paused>();
+	// The scene stays paused for a short countdown, so the player can get their hands back on the keys.
+	run.phase = RunPhase::Countdown;
+	run.countdown = constants::kResumeTime;
 	spdlog::info("[Run] Molt {}: chose {}", run.molt_level, upgrade->id);
 }
 

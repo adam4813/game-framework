@@ -16,6 +16,7 @@ namespace crabnado {
 
 void RegisterRun(const flecs::world& world) {
 	world.component<RunPhase>()
+		.constant("Countdown", RunPhase::Countdown)
 		.constant("Playing", RunPhase::Playing)
 		.constant("Molting", RunPhase::Molting)
 		.constant("Boss", RunPhase::Boss)
@@ -33,7 +34,8 @@ void RegisterRun(const flecs::world& world) {
 		.member<int>("slams")
 		.member<float>("slam_cooldown")
 		.member<float>("banner_timer")
-		.member<uint64_t>("seed");
+		.member<uint64_t>("seed")
+		.member<float>("countdown");
 	world.set<RunState>({});
 
 	world.system<RunState>("RunClock")
@@ -47,6 +49,33 @@ void RegisterRun(const flecs::world& world) {
 			}
 		})
 		.add<ecs::Pausable>()
+		.add<scene::GameScene>();
+
+	// Not pausable: it runs while the countdown holds the scene paused. A click marks each number, a snap the "Go!".
+	// It adds Paused itself rather than StartRun: during the scene's Load the arena isn't active yet, so the pause
+	// would swap in the wrong scene's pipeline.
+	world.system<RunState>("RunCountdown")
+		.term_at(0)
+		.singleton()
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, size_t, RunState& run) {
+			if (run.countdown <= -constants::kGoTime) {
+				return;
+			}
+			if (run.phase == RunPhase::Countdown && !it.world().has<scene::Paused>()) {
+				it.world().add<scene::Paused>();
+			}
+			const float before = run.countdown;
+			run.countdown -= it.delta_time();
+			if (before >= constants::kCountdownTime || (run.countdown > 0.0F && std::ceil(run.countdown) < std::ceil(before))) {
+				PlaySfx(it.world(), Sfx::ClawClick);
+			}
+			if (run.phase == RunPhase::Countdown && run.countdown <= 0.0F) {
+				run.phase = run.clock >= constants::kBossAt ? RunPhase::Boss : RunPhase::Playing;
+				it.world().remove<scene::Paused>();
+				PlaySfx(it.world(), Sfx::ClawSnap);
+			}
+		})
 		.add<scene::GameScene>();
 
 	// Not pausable: Esc has to resume the menu it opened.
@@ -74,7 +103,9 @@ void StartRun(const flecs::world& world) {
 	auto& rng = world.get_mut<ecs::RngState>();
 	const uint64_t seed = rng.Next();
 	rng.seed = seed;
-	world.set<RunState>({.shells_needed = ShellsNeeded(1), .seed = seed});
+	world.set<RunState>(
+		{.phase = RunPhase::Countdown, .shells_needed = ShellsNeeded(1), .seed = seed, .countdown = constants::kCountdownTime}
+	);
 }
 
 void SetMenuPaused(const flecs::world& world, const bool paused) {
