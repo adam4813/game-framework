@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 
 #include "arena_scene.hpp"
+#include "bubbles.hpp"
 #include "claw_snap.hpp"
 #include "controls.hpp"
 #include "crabnado.hpp"
@@ -37,6 +38,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterCrabnado(world);
 	RegisterHorde(world);
 	RegisterClawSnap(world);
+	RegisterBubbles(world);
 	RegisterShells(world);
 	RegisterUpgrades(world, platform->AssetDirectory() + std::string{constants::kUpgradesPath});
 

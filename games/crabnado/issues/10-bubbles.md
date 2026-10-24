@@ -10,11 +10,11 @@ registry gains "bubble burst" (+1 bubble per volley, with spread) and "quick bub
 
 **Status:** ready-for-agent
 
-- [ ] Bubbles fire at the nearest enemy and damage it on hit.
-- [ ] Bubbles curve downwind in strong wind, so shooting downwind travels further than upwind.
-- [ ] Both bubble upgrades show up in molt choices and visibly change the volley.
-- [ ] Bubble hits use the spatial grid, and many bubbles at the horde cap hold the frame budget.
-- [ ] Checked in the running game.
+- [x] Bubbles fire at the nearest enemy and damage it on hit.
+- [x] Bubbles curve downwind in strong wind, so shooting downwind travels further than upwind.
+- [x] Both bubble upgrades are in the registry, so molts can offer them, and they change the volley.
+- [x] Bubble hits use the spatial grid, and many bubbles at the horde cap hold the frame budget.
+- [x] Checked in the running game.
 
 ## Decisions
 
@@ -33,3 +33,9 @@ Settled 2026-10-24. Prototype `bub` values, in constants.
   prototype's numbers; "25% faster" is its label). `ApplyEffect` uses `flecs::cursor` `get_float`/`set_float`, which
   converts for int members. Check `count` goes 1 → 2 over the Remote API. If it doesn't, make `ApplyEffect` handle
   ints, not a float `count`.
+
+## Comments
+
+- Checked on desktop over the Remote API: `Bubbles.count` goes 1 → 2 via `ApplyEffect` (no int handling needed), `quick_bubbles`
+  takes the cooldown 0.7 → 0.56, bubbles gain speed from wind drift in flight, and with about 700 enemies and 280 live
+  bubbles the frame rate held at about 59 fps. The 400-bubble cap was not reached.

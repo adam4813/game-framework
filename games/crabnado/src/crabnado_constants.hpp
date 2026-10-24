@@ -168,6 +168,20 @@ inline constexpr float kClawCooldown = 0.9F;
 inline constexpr float kClawRingTime = 0.2F;
 inline constexpr float kHitFlashTime = 0.08F;
 
+// ── Bubbles (prototype values) ──
+// Fired at the nearest landed enemy within kBubbleRange, kBubbleSpread radians apart. In flight a bubble gains
+// the wind push times kBubbleWindDrift plus the wave push times kBubbleWaveDrift, per second.
+inline constexpr float kBubbleDamage = 2.0F;
+inline constexpr float kBubbleCooldown = 0.7F;
+inline constexpr float kBubbleSpeed = 22.0F;
+inline constexpr float kBubbleRange = 30.0F;
+inline constexpr float kBubbleSpread = 0.18F;
+inline constexpr float kBubbleLife = 1.6F;
+inline constexpr float kBubbleRadius = 0.35F;
+inline constexpr int kBubbleCap = 400;
+inline constexpr float kBubbleWindDrift = 12.0F;
+inline constexpr float kBubbleWaveDrift = 1.5F;
+
 // ── Camera ──
 // North-up angled view that follows the player.
 inline constexpr float kCameraHeight = 38.0F;
