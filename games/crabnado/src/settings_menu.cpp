@@ -13,7 +13,7 @@ namespace crabnado {
 namespace {
 
 constexpr float kModalWidth = 570.0F;
-constexpr float kModalHeight = 300.0F;
+constexpr float kModalHeight = 360.0F;
 constexpr float kRowTop = 84.0F;
 constexpr float kRowHeight = 40.0F;
 constexpr float kRowGap = 20.0F;
@@ -103,6 +103,21 @@ flecs::entity BuildSettingsModal(const flecs::world& world, const flecs::entity 
 		x + kPadding,
 		y + kRowTop + kRowHeight + kRowGap
 	);
+
+	std::ignore = world.entity("FullscreenCheckbox")
+					  .child_of(modal)
+					  .set<ui::UIRect>({{.x = x + kPadding, .y = y + kRowTop + (kRowHeight + kRowGap) * 2.0F, .w = kNameWidth * 2.0F, .h = kRowHeight}})
+					  .set<ui::Checkbox>({
+						  .checked = world.get<DisplaySettings>().fullscreen,
+						  .label = "Fullscreen",
+						  .font_size = 28.0F,
+						  .box_size = 26.0F,
+						  .box_color = kWellColor,
+						  .check_color = kCoralColor,
+						  .border_color = kPanelTextColor,
+						  .text_color = kPanelTextColor,
+						  .on_change = [w = world](const bool checked) { SetDisplaySettings(w, {.fullscreen = checked}); },
+					  });
 
 	std::ignore = ui::CreateButton(
 					  world,
