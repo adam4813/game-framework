@@ -16,6 +16,7 @@ namespace {
 
 constexpr float kCrestSpacing = constants::kWaveSpeed * constants::kWavePeriod;
 constexpr core::Rgba kWaterColor{.r = 0x2f, .g = 0x8f, .b = 0xa8, .a = 255};
+constexpr core::Rgba kPoolColor{.r = 0x1d, .g = 0x66, .b = 0x80, .a = 255};
 constexpr core::Rgba kFoamColor{.r = 0xea, .g = 0xf7, .b = 0xfa, .a = 255};
 // How far past the primary swell's crest a crest still counts as "arriving" for the warning.
 constexpr int kBigCrestLookahead = 3;
@@ -156,6 +157,7 @@ void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 	const float reach = constants::kArenaRadius + constants::kWaterMargin;
 	const int half = static_cast<int>(std::ceil(reach / constants::kWaterCell));
 	const float size = constants::kWaterCell * constants::kWaterFill;
+	const auto& pools = world.get<TidePools>().pools;
 	for (int i = -half; i <= half; ++i) {
 		for (int j = -half; j <= half; ++j) {
 			const glm::vec2 center{static_cast<float>(i) * constants::kWaterCell,
@@ -163,12 +165,17 @@ void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 			if (glm::length(center) > reach) {
 				continue;
 			}
+			const core::Rgba base = std::ranges::any_of(pools, [&](const TidePool& pool) {
+									   return glm::length(center - pool.center) < pool.radius;
+								   })
+										? kPoolColor
+										: kWaterColor;
 			std::ignore = world.entity()
 							  .child_of(water)
-							  .set<WaterTile>({.base = kWaterColor})
+							  .set<WaterTile>({.base = base})
 							  .set<spatial::Transform>({.position = {center.x, 0.0F, center.y}})
 							  .set<render::CubePrimitive>({.size = {size, constants::kWaterTileThickness, size}})
-							  .set<render::Material>({.color = kWaterColor, .cast_shadow = false});
+							  .set<render::Material>({.color = base, .cast_shadow = false});
 		}
 	}
 }

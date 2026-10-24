@@ -66,7 +66,7 @@ void StartWaves(const flecs::world& world);
 // Seconds until the next big crest of the primary swell reaches `position`, if within `within` seconds.
 [[nodiscard]] std::optional<float> NextBigCrestIn(const WaveField& field, glm::vec2 position, float within);
 
-// Spawns the water tiles covering the arena as children of `parent`. The ArenaBuild system later tints the ones inside a pool.
+// Spawns the water tiles covering the arena as children of `parent`; tiles inside a TidePools pool are tinted darker.
 void SpawnWaterTiles(const flecs::world& world, flecs::entity parent);
 
 } // namespace crabnado

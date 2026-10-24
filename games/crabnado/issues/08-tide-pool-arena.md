@@ -54,8 +54,9 @@ Settled 2026-10-24.
   `PoolSite` entities; the player walking into rock 1 stopped at radius + 0.9 and slid around it; `rock_kills` reached
   4 within the first minute from crests alone; editing a rock's position in the copied JSON and pressing Title → Play
   moved it with no rebuild.
-- A scene `Load` runs in a deferred frame, so the level's entities don't exist yet when `BuildArena` returns. The
-  `ArenaBuild` system builds the `Rocks` and `TidePools` caches, dresses the rocks, places the driftwood and tints the
-  pool water tiles on the first frame instead. Rocks and pools are active from frame 1 of the run.
+- A scene `Load` runs in a deferred frame, so the level's entities don't exist yet when `BuildArena` returns.
+  `ArenaScene::BuildStage` suspends deferral around `BuildArena` (`defer_suspend`/`defer_resume`, only when deferred),
+  so the `Rocks` and `TidePools` caches are ready before the water tiles are spawned and tinted. Checked again after
+  a Title → Play reload.
 - Not observed in the running game: a player standing in a pool while a crest passes (the calm maths is the ticket 05
   `SampleWaves`, now fed the pools), and the pool tint by eye.

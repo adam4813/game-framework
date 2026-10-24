@@ -43,19 +43,12 @@ struct TidePools {
 	std::vector<TidePool> pools;
 };
 
-// Singleton: set by BuildArena to the scene root while the loaded level is waiting to be dressed and cached. The
-// ArenaBuild system does that on the next frame (a scene Load runs in a deferred frame, so the level's entities
-// don't exist yet) and clears it.
-struct ArenaPending {
-	flecs::entity parent;
-};
-
-// Registers the arena components, the level loaders (rock, tide_pool, arena_edge) and the ArenaBuild system.
-// Call once, before the arena scene loads.
+// Registers the arena components and the level loaders (rock, tide_pool, arena_edge). Call once, before the arena scene loads.
 void RegisterArena(const flecs::world& world);
 
-// Loads the arena level as children of `parent`. On the next frame the ArenaBuild system dresses it (rocks,
-// driftwood, pool tint on the water tiles) and fills the Rocks and TidePools caches.
+// Loads the arena level as children of `parent`, dresses it (rocks, driftwood) and fills the Rocks and TidePools
+// caches. The caller must not be deferring (see ArenaScene::BuildStage), or the level's entities won't exist yet.
+// Call before SpawnWaterTiles, which tints the pools.
 void BuildArena(const flecs::world& world, flecs::entity parent);
 
 // Empties the Rocks and TidePools caches (the level entities go with the scene root).
