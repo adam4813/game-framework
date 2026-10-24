@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include <flecs.h>
 
@@ -14,13 +15,15 @@ struct SfxBank {
 	std::array<int, static_cast<size_t>(Sfx::Count)> handles{-1, -1, -1, -1, -1, -1, -1, -1, -1};
 	// When each sound last played, in seconds of world time, for the crowded ones' minimum gap.
 	std::array<double, static_cast<size_t>(Sfx::Count)> last_played{};
+	// xorshift state for the pitch variation (not the run's RngState, so replays stay deterministic).
+	uint32_t pitch_rng{2463534242U};
 };
 
 // Loads every sound into the SfxBank singleton and makes ClawClick the default UI button click. The sounds stay
 // loaded for the life of the app.
 void LoadSfx(const flecs::world& world);
 
-// Plays `sfx` once. Does nothing if it didn't load, or if a crowded sound (a defeat or crush) played moments ago.
+// Plays `sfx` once. Does nothing if it didn't load, or if a crowded sound (a snap, defeat or crush) played moments ago.
 void PlaySfx(const flecs::world& world, Sfx sfx);
 
 } // namespace crabnado
