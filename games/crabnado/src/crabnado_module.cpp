@@ -48,6 +48,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 
 	{
 		const auto arenaScene = std::make_shared<ArenaScene>();
+		arenaScene->RegisterLoaders(world);
 		arenaScene->onTitlePressed = [w = &world]() { scene::ActivateScene<TitleSceneTag>(*w); };
 		scene::RegisterScene<ArenaSceneTag>(world, arenaScene);
 	}

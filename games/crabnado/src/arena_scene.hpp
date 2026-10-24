@@ -22,6 +22,7 @@ struct ArenaSceneTag {};
 class ArenaScene : public engine::scene::SceneBase {
 public:
 	void InitializePipeline(const flecs::world& world) override;
+	void RegisterLoaders(const flecs::world& world) override;
 	void Load(flecs::world& world) override;
 	void Unload(flecs::world& world) override;
 	void Tick(const flecs::world& world, float deltaTime) override;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "wind.hpp"
@@ -61,7 +62,7 @@ void RegisterWaves(const flecs::world& world) {
 		.member<int>("swell_count")
 		.member<Swell>("swells", kMaxSwells);
 	world.set<WaveField>({});
-	world.component<WaterTile>();
+	world.component<WaterTile>().member<core::Rgba>("base");
 
 	world.system<WaveField>("WaveUpdate")
 		.term_at(0)
@@ -83,13 +84,14 @@ void RegisterWaves(const flecs::world& world) {
 	// Height and tint of every water tile from the one wave field.
 	world.system<const WaterTile, spatial::Transform, render::Material>("WaterTiles")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, const WaterTile&, spatial::Transform& transform,
+		.each([](const flecs::iter& it, size_t, const WaterTile& tile, spatial::Transform& transform,
 				 render::Material& material) {
 			const auto& field = it.world().get<WaveField>();
-			const float height = SampleWaves(field, {}, {transform.position.x, transform.position.z}).height;
+			const auto& pools = it.world().get<TidePools>().pools;
+			const float height = SampleWaves(field, pools, {transform.position.x, transform.position.z}).height;
 			transform.position.y = height * constants::kWaterHeightScale - constants::kWaterTileThickness / 2.0F;
 			const float foam = std::clamp((height - constants::kFoamMinHeight) / constants::kFoamRamp, 0.0F, 1.0F);
-			material.color = Lerp(kWaterColor, kFoamColor, foam);
+			material.color = Lerp(tile.base, kFoamColor, foam);
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -163,7 +165,7 @@ void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 			}
 			std::ignore = world.entity()
 							  .child_of(water)
-							  .add<WaterTile>()
+							  .set<WaterTile>({.base = kWaterColor})
 							  .set<spatial::Transform>({.position = {center.x, 0.0F, center.y}})
 							  .set<render::CubePrimitive>({.size = {size, constants::kWaterTileThickness, size}})
 							  .set<render::Material>({.color = kWaterColor, .cast_shadow = false});

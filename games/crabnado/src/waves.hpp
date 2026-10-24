@@ -8,6 +8,8 @@
 
 #include <flecs.h>
 
+#include "engine/engine.hpp"
+
 // The waves: crests that travel downwind in sets, drawn as a grid of raised, tinted water tiles and tumbling
 // the enemies they pass. Every consumer of wave force samples SampleWaves; nothing else computes waves.
 namespace crabnado {
@@ -34,14 +36,16 @@ struct WaveField {
 	std::array<Swell, kMaxSwells> swells{};
 };
 
-// A calm patch: waves fade inside `radius` of `center`. Ticket 08 fills the arena's pools.
+// A calm patch: waves fade inside `radius` of `center`. The arena level's pools fill the TidePools singleton.
 struct TidePool {
 	glm::vec2 center{0.0F};
 	float radius{0.0F};
 };
 
-// A water tile; its height and tint come from the wave field.
-struct WaterTile {};
+// A water tile; its height and foam tint come from the wave field. `base` is its calm colour (pools are darker).
+struct WaterTile {
+	engine::core::Rgba base{};
+};
 
 // The water height and push (units per second) at one point.
 struct WaveSample {
@@ -62,7 +66,7 @@ void StartWaves(const flecs::world& world);
 // Seconds until the next big crest of the primary swell reaches `position`, if within `within` seconds.
 [[nodiscard]] std::optional<float> NextBigCrestIn(const WaveField& field, glm::vec2 position, float within);
 
-// Spawns the water tiles covering the arena as children of `parent`.
+// Spawns the water tiles covering the arena as children of `parent`. The ArenaBuild system later tints the ones inside a pool.
 void SpawnWaterTiles(const flecs::world& world, flecs::entity parent);
 
 } // namespace crabnado

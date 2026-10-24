@@ -10,13 +10,14 @@ namespace crabnado {
 
 enum class RunPhase { Playing, Molting, Lost };
 
-// Singleton: the current run. `clock` counts up in seconds while the run is playing. `shells` counts
+// Singleton: the current run. `clock` counts up in seconds while the run is playing; `rock_kills` counts the kills a rock slam helped. `shells` counts
 // toward the next molt, which needs `shells_needed`; `molt_level` starts at 1. `seed` is the RngState
 // seed the run started from, so a run can be replayed.
 struct RunState {
 	RunPhase phase{RunPhase::Playing};
 	float clock{0.0F};
 	int kills{0};
+	int rock_kills{0};
 	int molt_level{1};
 	int shells{0};
 	int shells_needed{0};

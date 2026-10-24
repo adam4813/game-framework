@@ -26,6 +26,8 @@ struct Enemy {
 	// carries it with, in units per second; the root spins on its local x axis meanwhile.
 	float tumble{0.0F};
 	glm::vec2 knock{0.0F};
+	// Set once a rock slam has hurt it, so its defeat counts as a rock kill.
+	bool slammed{false};
 };
 
 // An enemy in flight on its ballistic arc. Removed when it lands.

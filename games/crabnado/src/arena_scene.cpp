@@ -7,6 +7,7 @@
 
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "arena.hpp"
 #include "claw_snap.hpp"
 #include "crabnado.hpp"
 #include "horde.hpp"
@@ -66,6 +67,10 @@ void ArenaScene::InitializePipeline(const flecs::world& world) {
 	// clang-format on
 }
 
+void ArenaScene::RegisterLoaders(const flecs::world& world) {
+	RegisterArena(world);
+}
+
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
 	StartWind(world);
@@ -79,6 +84,7 @@ void ArenaScene::Load(flecs::world& world) {
 void ArenaScene::BuildStage(const flecs::world& world) {
 	world.set<render::AmbientLight>({.color = {.r = 120, .g = 130, .b = 150, .a = 255}, .intensity = 0.45F});
 
+	BuildArena(world, sceneRoot_);
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
@@ -251,7 +257,8 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	const auto& stats = player.get<PlayerStats>();
 	const int seconds = static_cast<int>(run.clock);
 	hud_.get_mut<ui::Label>().text = std::format(
-		"HP {:.0f}/{:.0f}   {}:{:02}   kills {}", std::ceil(stats.hp), stats.max_hp, seconds / 60, seconds % 60, run.kills
+		"HP {:.0f}/{:.0f}   {}:{:02}   kills {}   rock slams {}", std::ceil(stats.hp), stats.max_hp, seconds / 60,
+		seconds % 60, run.kills, run.rock_kills
 	);
 	readout_.get_mut<ui::Label>().text = readout;
 	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
@@ -331,6 +338,7 @@ void ArenaScene::ClearHorde(const flecs::world& world) {
 void ArenaScene::Unload(flecs::world& world) {
 	// A lost run paused the scene; the next scene starts unpaused.
 	world.remove<scene::Paused>();
+	ClearArena(world);
 	for (flecs::entity* root : {&sceneRoot_, &uiRoot_}) {
 		if (*root) {
 			root->destruct();
