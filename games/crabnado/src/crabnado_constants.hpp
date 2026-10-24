@@ -127,6 +127,28 @@ inline constexpr float kSlamDamage = 1.6F;
 inline constexpr float kSlamFlashTime = 0.2F;
 inline constexpr float kSlamBounce = -0.2F;
 
+// ── Boss (prototype values) ──
+// At kBossAt seconds the crabnado comes ashore and chases the player at kBossSpeed. A wave higher than
+// kBossKnockMinHeight carries it at kBossKnockPush of the wave push, else its knock decays by exp(-kKnockDecay * dt).
+// It is a circle of kBossRadius against rocks and stays kBossEdgeMargin inside the arena edge, and within
+// kBossContactRange of the player it drains kBossContactDps HP per second. Knocked into a rock faster than
+// kBossSlamMinSpeed it takes a slam (kBossSlamCooldown seconds apart; knock * kBossSlamBounce); kBossSlamsToWin win.
+// Spawns run at kBossSpawnFactor of the normal rate. Banners show for kBossBannerTime seconds.
+inline constexpr float kBossAt = 300.0F;
+inline constexpr float kBossSpeed = 5.0F;
+inline constexpr float kBossKnockMinHeight = 1.3F;
+inline constexpr float kBossKnockPush = 0.9F;
+inline constexpr float kBossRadius = 3.0F;
+inline constexpr float kBossEdgeMargin = 8.0F;
+inline constexpr float kBossContactRange = 4.0F;
+inline constexpr float kBossContactDps = 25.0F;
+inline constexpr float kBossSlamMinSpeed = 6.0F;
+inline constexpr float kBossSlamCooldown = 2.5F;
+inline constexpr float kBossSlamBounce = -0.3F;
+inline constexpr int kBossSlamsToWin = 3;
+inline constexpr float kBossSpawnFactor = 0.35F;
+inline constexpr float kBossBannerTime = 3.0F;
+
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;

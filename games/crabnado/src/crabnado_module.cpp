@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 
 #include "arena_scene.hpp"
+#include "boss.hpp"
 #include "bubbles.hpp"
 #include "claw_snap.hpp"
 #include "controls.hpp"
@@ -37,6 +38,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterWaves(world);
 	RegisterPlayer(world);
 	RegisterCrabnado(world);
+	RegisterBoss(world);
 	RegisterHorde(world);
 	RegisterClawSnap(world);
 	RegisterBubbles(world);

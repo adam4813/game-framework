@@ -39,6 +39,7 @@ private:
 	void UpdateResults(const flecs::world& world) const;
 	void UpdateMolt(const flecs::world& world) const;
 	void UpdateStamina(flecs::entity player) const;
+	void UpdateBoss(const flecs::world& world) const;
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
 	void UpdateHud(const flecs::world& world, const std::string& readout) const;
 	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
@@ -60,6 +61,8 @@ private:
 	flecs::entity staminaBar_;
 	flecs::entity stateLabel_;
 	flecs::entity telegraph_;
+	flecs::entity bossLabel_;
+	flecs::entity bannerLabel_;
 	flecs::entity moltModal_;
 	std::array<flecs::entity, kMoltChoices> choiceButtons_;
 	std::array<flecs::entity, kMoltChoices> choiceDescriptions_;

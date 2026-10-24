@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include "controls.hpp"
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "player.hpp"
 #include "run.hpp"
@@ -206,7 +207,7 @@ void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 		.singleton()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, RunState& run) {
-			if (run.phase == RunPhase::Playing && run.shells >= run.shells_needed) {
+			if (IsRunning(run.phase) && run.shells >= run.shells_needed) {
 				BeginMolt(it.world(), run);
 			}
 		})
@@ -245,7 +246,7 @@ void ChooseUpgrade(const flecs::world& world, const int choice) {
 		ApplyEffect(world, player, effect);
 	}
 	world.set<MoltOffer>({});
-	run.phase = RunPhase::Playing;
+	run.phase = run.clock >= constants::kBossAt ? RunPhase::Boss : RunPhase::Playing;
 	world.remove<scene::Paused>();
 	spdlog::info("[Run] Molt {}: chose {}", run.molt_level, upgrade->id);
 }

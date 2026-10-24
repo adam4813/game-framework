@@ -13,6 +13,7 @@ struct Crabnado {
 	glm::vec2 waypoint{0.0F};
 	float speed{0.0F};
 	float spawn_debt{0.0F};
+	glm::vec2 knock{0.0F}; // the boss phase's wave knock, in units per second
 };
 
 // Relationship: (ThrowsInto, horde root). Thrown enemies become children of the target, so the scene that
