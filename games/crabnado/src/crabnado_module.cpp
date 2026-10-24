@@ -6,6 +6,7 @@
 
 #include "arena_scene.hpp"
 #include "engine/engine.hpp"
+#include "horde.hpp"
 #include "title_scene.hpp"
 
 using namespace engine;
@@ -15,6 +16,8 @@ namespace crabnado {
 CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
 	ui::SetDefaultClickSound(world, platform->AssetDirectory() + "/audio/sfx/click.wav");
+
+	RegisterHorde(world);
 
 	{
 		const auto titleScene = std::make_shared<TitleScene>();
