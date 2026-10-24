@@ -31,16 +31,16 @@ struct Perch {
 	float radius;
 };
 constexpr std::array kPerches{
-	Perch{.letter = 0, .drop = 0.10F, .radius = 19.0F}, // C
 	Perch{.letter = 2, .drop = 0.33F, .radius = 15.0F}, // a
 	Perch{.letter = 6, .drop = 0.10F, .radius = 17.0F}, // d
 };
 
-// Snapping: claws hold open, then snap shut briefly. `kSnapPeriod` seconds per cycle; shut for `kSnapShut` of it.
-constexpr float kSnapPeriod = 1.8F;
-constexpr float kSnapShut = 0.12F;
-constexpr float kClawOpen = 1.1F;   // radians of gap between the crescent's fingertips
-constexpr float kClawClosed = 0.25F;
+// Snapping: the claw holds open as the title's C, then snaps shut briefly. `kSnapPeriod` seconds per cycle; shut for
+// `kSnapShut` of it.
+constexpr float kSnapPeriod = 3.2F;
+constexpr float kSnapShut = 0.16F;
+constexpr float kClawOpen = 1.5F; // radians of gap between the crescent's fingertips: the C's mouth
+constexpr float kClawClosed = 0.2F;
 constexpr float kBobRate = 2.2F;
 constexpr float kBobHeight = 3.0F;
 
@@ -72,19 +72,16 @@ glm::vec2 PushFinger(ui::UIDrawList& list, const glm::vec2 center, const float r
 	return previous;
 }
 
-// A crescent-moon crab claw on an arm from `shoulder`, opening along `angle`. Its two fingers curve around a circle
-// in front of the palm and stop `gap` radians short of meeting. The scale is the palm's radius in pixels. Drawn
-// twice: the navy outline pass, then the orange fill.
-void PushClaw(ui::UIDrawList& list, const glm::vec2 shoulder, const float angle, const float gap, const float scale) {
-	const glm::vec2 palm = shoulder + Heading(angle) * scale * 1.2F;
-	const float radius = scale * 1.5F;
-	const glm::vec2 center = palm + Heading(angle) * radius;
-	const float back = angle + std::numbers::pi_v<float>;
+// A crescent-moon crab claw shaped like a C: two fingers curve around the circle `center`/`radius` from the palm on its
+// left and stop `gap` radians short of meeting on its right. Drawn twice: the navy outline pass, then the orange fill.
+void PushClaw(ui::UIDrawList& list, const glm::vec2 center, const float radius, const float gap) {
+	const float scale = radius / 1.5F; // the palm's radius
+	const float back = std::numbers::pi_v<float>;
 	const float sweep = std::numbers::pi_v<float> - gap / 2.0F;
+	const glm::vec2 palm = center + Heading(back) * radius;
 	glm::vec2 upper{};
 	glm::vec2 lower{};
 	for (const bool outline : {true, false}) {
-		PushLimb(list, shoulder, palm, scale * 0.8F, kClaw, outline);
 		upper = PushFinger(list, center, radius, back, back + sweep, scale * 1.4F, outline);
 		lower = PushFinger(list, center, radius, back, back - sweep * 0.9F, scale * 1.15F, outline);
 		list.PushCircle(palm, outline ? scale * 1.1F + kOutlineWidth : scale * 1.1F, outline ? kOutline : kClaw);
@@ -134,14 +131,11 @@ void RegisterTitleLogo(const flecs::world& world) {
 			const float left = (static_cast<float>(platform.Width()) - width) / 2.0F;
 			const float middle = logo.top + size / 2.0F;
 
-			// The two claws snap half a cycle apart, so one is always open.
-			for (const float side : {-1.0F, 1.0F}) {
-				const float phase = std::fmod(logo.time + (side > 0.0F ? kSnapPeriod / 2.0F : 0.0F), kSnapPeriod);
-				const float open = phase < kSnapShut ? kClawClosed : kClawOpen;
-				const float x = side < 0.0F ? left - size * 0.2F : left + width + size * 0.2F;
-				const float angle = side < 0.0F ? 4.0F : -0.86F; // pointing up and outwards
-				PushClaw(list, {x, middle + size * 0.3F}, angle, open, size * 0.17F);
-			}
+			// The claw stands in for the C, so it fills that glyph's box; the label draws the rest of the title.
+			const float glyphC = platform.MeasureText(title.substr(0, 1), size);
+			const float phase = std::fmod(logo.time, kSnapPeriod);
+			const float gap = phase > kSnapPeriod - kSnapShut ? kClawClosed : kClawOpen;
+			PushClaw(list, {left + glyphC * 0.5F, middle + size * 0.04F}, size * 0.26F, gap);
 
 			for (std::size_t i = 0; i < kPerches.size(); ++i) {
 				const Perch& perch = kPerches[i];

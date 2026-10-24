@@ -67,10 +67,15 @@ void TitleScene::Load(flecs::world& world) {
 					  .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/title.ogg"), .loop = true})
 					  .set<MusicLevel>({constants::kTitleMusicVolume});
 
-	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h * kTitleTop, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
-					  .set<ui::Label>({.text = title,
+	// The TitleLogo claw draws the C, so the label carries the rest of the word, starting where the r would in the
+	// centred title.
+	const std::string rest = title.substr(1);
+	const float restLeft = (w - platform->MeasureText(title, kTitleFontSize)) / 2.0F + platform->MeasureText(title.substr(0, 1), kTitleFontSize);
+	std::ignore = ui::CreateLabel(world, {.x = restLeft, .y = h * kTitleTop, .w = w - restLeft, .h = kTitleFontSize + 8.0F}, rest, kTitleFontSize)
+					  .set<ui::Label>({.text = rest,
 									   .font_size = kTitleFontSize,
 									   .color = kTitleColor,
+									   .align = ui::TextAlign::Left,
 									   .outline = kTitleOutlineWidth,
 									   .outline_color = kTitleOutlineColor})
 					  .child_of(uiRoot_);
