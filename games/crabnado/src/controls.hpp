@@ -9,9 +9,10 @@
 namespace crabnado {
 
 // Singleton: what the player is asking for this frame. `move` is on the ground plane (x east, y south,
-// i.e. world +z), each axis in [-1, 1].
+// i.e. world +z), each axis in [-1, 1]. `pick` is the molt upgrade chosen this frame (1-3), or 0.
 struct PlayerIntent {
 	glm::vec2 move{0.0F};
+	int pick{0};
 };
 
 // Registers and reflects PlayerIntent and the ReadControls system (PreUpdate, not pausable).

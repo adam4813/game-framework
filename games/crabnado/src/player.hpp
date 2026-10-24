@@ -10,11 +10,13 @@ namespace crabnado {
 // Tag on the player's hermit crab.
 struct Player {};
 
-// The player's movement speed (units/s) and health. The run is lost when hp reaches 0.
+// The player's movement speed (units/s), health and shell pickup range. The run is lost when hp
+// reaches 0.
 struct PlayerStats {
 	float speed{0.0F};
 	float hp{0.0F};
 	float max_hp{0.0F};
+	float pickup_range{0.0F};
 };
 
 // A camera that keeps `offset` from the player (north-up: it never rotates).

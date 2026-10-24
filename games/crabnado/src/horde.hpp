@@ -12,12 +12,14 @@
 // only landed enemies crowd, deal damage or take it.
 namespace crabnado {
 
-// A landed or flying enemy. `flash` counts down the hit flash; `color` is its untinted look.
+// A landed or flying enemy. `xp` is the value of the shell it drops when defeated. `flash` counts down
+// the hit flash; `color` is its untinted look.
 struct Enemy {
 	float hp{0.0F};
 	float speed{0.0F};
 	float radius{0.0F};
 	float contact_dps{0.0F};
+	int xp{0};
 	float flash{0.0F};
 	engine::core::Rgba color{};
 };
@@ -43,7 +45,8 @@ void RegisterHorde(const flecs::world& world);
 // with the run clock.
 void ThrowCrab(const flecs::world& world, flecs::entity parent, glm::vec2 from, glm::vec2 target);
 
-// Damages a landed enemy and starts its hit flash. The EnemyDefeat system removes it at 0 HP.
+// Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
+// its shell.
 void DamageEnemy(flecs::entity enemy, float amount);
 
 } // namespace crabnado

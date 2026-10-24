@@ -31,7 +31,11 @@ void AddPart(const flecs::world& world, const flecs::entity crab, const glm::vec
 
 void RegisterPlayer(const flecs::world& world) {
 	world.component<Player>();
-	world.component<PlayerStats>().member<float>("speed").member<float>("hp").member<float>("max_hp");
+	world.component<PlayerStats>()
+		.member<float>("speed")
+		.member<float>("hp")
+		.member<float>("max_hp")
+		.member<float>("pickup_range");
 	world.component<FollowCamera>().member<glm::vec3>("offset");
 
 	world.system<const PlayerIntent, const PlayerStats, spatial::Transform>("PlayerMove")
@@ -90,7 +94,8 @@ flecs::entity SpawnPlayer(const flecs::world& world, const flecs::entity parent)
 								   .set<PlayerStats>(
 									   {.speed = constants::kPlayerSpeed,
 										.hp = constants::kPlayerMaxHp,
-										.max_hp = constants::kPlayerMaxHp}
+										.max_hp = constants::kPlayerMaxHp,
+										.pickup_range = constants::kPlayerPickupRange}
 								   )
 								   .set<spatial::Transform>({});
 	AddPart(world, crab, {0.0F, 0.4F, 0.2F}, {1.0F, 0.5F, 0.8F}, 0.8F, kBodyColor);

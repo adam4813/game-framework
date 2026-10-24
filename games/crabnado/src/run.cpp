@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 
 using namespace engine;
@@ -9,11 +10,17 @@ using namespace engine;
 namespace crabnado {
 
 void RegisterRun(const flecs::world& world) {
-	world.component<RunPhase>().constant("Playing", RunPhase::Playing).constant("Lost", RunPhase::Lost);
+	world.component<RunPhase>()
+		.constant("Playing", RunPhase::Playing)
+		.constant("Molting", RunPhase::Molting)
+		.constant("Lost", RunPhase::Lost);
 	world.component<RunState>()
 		.member<RunPhase>("phase")
 		.member<float>("clock")
 		.member<int>("kills")
+		.member<int>("molt_level")
+		.member<int>("shells")
+		.member<int>("shells_needed")
 		.member<uint64_t>("seed");
 	world.set<RunState>({});
 
@@ -30,11 +37,15 @@ void RegisterRun(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
+int ShellsNeeded(const int moltLevel) {
+	return constants::kShellsFirstMolt + (moltLevel - 1) * constants::kShellsPerMolt;
+}
+
 void StartRun(const flecs::world& world) {
 	auto& rng = world.get_mut<ecs::RngState>();
 	const uint64_t seed = rng.Next();
 	rng.seed = seed;
-	world.set<RunState>({.seed = seed});
+	world.set<RunState>({.shells_needed = ShellsNeeded(1), .seed = seed});
 }
 
 void LoseRun(const flecs::world& world) {

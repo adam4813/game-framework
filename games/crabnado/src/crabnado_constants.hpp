@@ -23,6 +23,7 @@ inline constexpr float kCrabHp = 3.0F;
 inline constexpr float kCrabSpeed = 4.2F;
 inline constexpr float kCrabRadius = 0.9F;
 inline constexpr float kCrabContactDps = 10.0F;
+inline constexpr int kCrabXp = 1;
 // Enemy HP grows over the run: hp * (1 + clock / kEnemyHpGrowthSeconds).
 inline constexpr float kEnemyHpGrowthSeconds = 240.0F;
 // Each frame a landed enemy moves out of this fraction of its overlap with its neighbours.
@@ -52,6 +53,19 @@ inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;
 // Enemies touch the player within their radius plus this.
 inline constexpr float kPlayerContactRadius = 0.9F;
+
+// Shells inside this range fly to the player.
+inline constexpr float kPlayerPickupRange = 5.0F;
+
+// ── Shells and molting ──
+inline constexpr float kShellFlySpeed = 25.0F;
+// A flying shell is collected within this distance of the player.
+inline constexpr float kShellCollectRadius = 1.0F;
+// Shells needed per molt: kShellsFirstMolt, then kShellsPerMolt more for each molt after it.
+inline constexpr int kShellsFirstMolt = 6;
+inline constexpr int kShellsPerMolt = 5;
+// Upgrade registry, relative to the asset directory.
+inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
 
 // ── Claw snap ──
 inline constexpr float kClawDamage = 2.0F;
