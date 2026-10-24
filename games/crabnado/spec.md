@@ -1,116 +1,70 @@
 # Crabnado: spec
 
-Game jam entry for the theme **crabs and breezes**. Solo, about 1.5 days, programmer art. Built as a Game Target
-(`games/crabnado/`, see ADR-0006) on the shared engine, shipped as a WASM build for browser play and as a desktop
-build.
+Status: ready-for-agent
 
-## Problem
+Game jam entry for the theme **crabs and breezes**. Solo, about 1.5 days, programmer art. Crabnado is its own Game
+Target on the shared engine (ADR-0006), shipped as a WASM build for browser play and as a desktop build.
 
-The jam theme has two halves. Earlier concepts used crabs as the subject and the breeze only as decoration. The game
-needs the breeze to be a mechanic the player works with or against, inside a scope one person can finish in 1.5 days.
+## Problem Statement
 
-Concept chosen by playing throwaway three.js prototypes (`prototypes/crab-jam-prototype.html`, the Crabnado mode).
-A sailing concept, Sail & Haul, was tried and rejected as less fun.
+Jam players spend a few minutes per entry and judge it on fun and on how well it uses the theme. Our earlier ideas
+used crabs as the subject and the breeze only as decoration. The player needs to *feel* the breeze as something to
+work with or against, in a game one developer can finish and polish in 1.5 days, on an engine whose horde-scale
+performance in the browser is unproven.
 
 ## Solution
 
-A survivors-like. You play a **hermit crab** on a tide-pool shore while a **crabnado** flings crustaceans at you. The
-**wind** is weather: it shifts direction and drives **waves** across the arena. Wave crests tumble the horde, and you
-either **dig in** to hold your ground or **surf** the crest. A run lasts 5 minutes and ends with a boss: slam the
-crabnado into the rocks with a big wave.
+A survivors-like. You play a **hermit crab** on a shore of tide pools and rocks while a **crabnado** flings crabs,
+shrimp and lobsters at you. Weapons fire on their own, and you collect **shells** (XP) to **molt** into upgrades.
+The **wind** is weather. It shifts direction with a warning and drives **waves** across the arena. A wave **crest**
+**tumbles** the horde, and you either **dig in** (spending stamina) to hold your ground or **surf** the crest for a
+burst of speed. Tumbled enemies that hit rocks take heavy damage. The waves start predictable and get chaotic. At
+5:00 the crabnado comes ashore as the boss, and you win by luring it in front of rocks so a big crest slams it into
+them three times.
 
-## Design
+The concept was chosen by playing two throwaway three.js prototypes (in the `prototypes/` folder next to this spec);
+the sailing concept lost. The Crabnado prototype is the reference for the feel of the horde and weapons. It has no
+waves, which are the new mechanic.
 
-### Run
+## Sections
 
-- 5:00 survival, then the boss. HP reaching 0 ends the run.
-- Weapons fire on their own. Enemies drop **shells**, which are XP. Each level-up pauses the game and offers 3
-  upgrades picked with 1/2/3.
-- The crabnado wanders the arena, drifts downwind and throws enemies in arcs that land around the player. The spawn
-  rate ramps up over the run, with a surge every ~45 s.
+| Section | Covers |
+|---|---|
+| [The run](spec/run.md) | Scenes, the 5-minute run, crabnado spawning, shells and molting, death, results |
+| [Wind and waves](spec/wind-and-waves.md) | Wind weather, crests, tumble, dig in and stamina, surf, the ramp to chaos |
+| [Arena and boss](spec/arena-and-boss.md) | Tide-pool and rock layout, rock slams, calm pools, the crabnado boss |
+| [Content](spec/content.md) | Weapons, enemy types, upgrades, and the data that defines them |
+| [Presentation](spec/presentation.md) | Camera, water visuals, feedback, HUD, audio |
+| [Technical](spec/technical.md) | Game modules, horde performance, spatial grid, determinism, pausing, build targets |
+| [Testing](spec/testing.md) | What gets a test and what is checked by playing |
 
-### Wind
+## Build order and cut list
 
-- Wind has a direction and a strength, with gusts.
-- The direction shifts every 20-30 s. A warning appears (HUD compass and banner) before the turn completes.
-- The wind pushes the player, enemies and projectiles a little. Its main job is to drive the waves.
+Build in this order, so a playable game exists as early as possible:
 
-### Waves
+1. Performance check: about 1,000 enemies in the WASM build (see [Technical](spec/technical.md)).
+2. Run loop: player movement, crabnado spawning, claw snap, shells, HP and death.
+3. Wind and waves: crests, tumble, dig in and surf. This is the core of the theme, so it comes before more content.
+4. Arena: rocks and pools from level JSON, and rock slams.
+5. Content: bubbles, the upgrade screen, shrimp and lobster.
+6. Boss, results screen, audio, then polish.
 
-- Crests travel in the wind's direction.
-- **Tumble:** a crest knocks enemies over. They are stunned and pushed downwind.
-- **Dig in:** hold a key to root in place, so crests don't move you. While dug in you can't move, weapons fire as
-  normal, and a **stamina** meter drains. Stamina refills while you aren't dug in.
-- **Surf:** if you aren't dug in, a crest carries you, giving a speed burst you can steer.
-- **Ramp from predictable to chaotic** (easy to learn, hard to master):
-  - 0:00-1:30: one swell with steady sets, every third crest big. A big crest also tumbles lobsters.
-  - 1:30-3:00: after each wind shift the old swell keeps running, so crests from two directions cross and stack.
-  - 3:00+: rogue waves arrive with a short warning.
+If behind, cut in this order: **Riptide** (ship with claw snap and bubbles), then the **raised tile water** (draw
+crests as moving foam bars on flat water).
 
-### Arena
+## Out of Scope
 
-- One hand-authored tide-pool and rock layout, built from level JSON.
-- **Rocks:** a tumbling enemy that hits a rock takes heavy damage. Lining up wave slams is a core skill.
-- **Tide pools:** calm water where waves break up, so you don't need to dig in. The horde gathers there too.
+- Procedural arenas, more than one arena, meta-progression between runs, saves.
+- Player control of the wind direction. The wind is weather only.
+- Sailing / Sail & Haul (the rejected concept).
+- Gamepad and touch input. Keyboard only, plus mouse for menus.
+- Online leaderboards.
+- Engine changes beyond what a ticket proves it needs (e.g. a particle burst API). Game code works around engine gaps
+  first.
 
-### Boss (5:00)
+## Further Notes
 
-- The crabnado comes ashore and chases the player.
-- Big crests are telegraphed. Lure the crabnado in front of rocks so a crest smashes it into them.
-- Three slams win the run.
-
-### Content
-
-| Kind     | Items                                                                                  |
-|----------|----------------------------------------------------------------------------------------|
-| Weapons  | Claw snap (aura around you), Bubbles (fire at the nearest enemy, drift with the wind), Riptide (makes the next crest bigger) |
-| Enemies  | Crab (baseline, walks sideways), Shrimp (fast, fragile), Lobster (slow, tanky; only big crests tumble it) |
-| Upgrades | About 8: claw damage and radius, bubble count and rate, Riptide strength, move speed, max HP, pickup range, stamina |
-
-### Audio
-
-Free SFX and one music loop, loaded through the assets module.
-
-## Implementation decisions
-
-- **Game Target:** `games/crabnado/` with its own `CMakeLists.txt`, `src/` and `tests/`, linking `engine_lib`
-  (ADR-0006). Crabnado-only modules (waves, horde, weapons, upgrades) live under `games/crabnado/src/`.
-- **Rendering:** instanced engine primitives. Per-instance tint does not split batches, so hit flashes and the water
-  tiles stay in one draw call each (`src/engine/platform/render_batch.hpp`).
-- **Wave field:** a single function returning height and push at (x, z, t). Every system that applies wave force
-  samples it, and so do the visuals. No physics engine. Jolt is not used.
-- **Wave visuals:** a grid of tinted, raised quads driven by the wave field. A `ShaderMap` vertex shader is optional
-  polish.
-- **Crowding and hit checks:** a game-side uniform spatial grid (one singleton, rebuilt each frame). Don't use the
-  engine's steering separation/cohesion for the horde: it compares every agent with every other one
-  (`src/engine/ai/steering/steering_module.cpp`).
-- **Level-up and HUD:** the retained UI module, with edge-triggered keys for picking upgrades.
-- **Timing:** weapon cooldowns and fades use the timer module.
-
-## Risks
-
-- **Entity count in WASM.** Each enemy is a Flecs entity going through transform propagation and the render queue.
-  In the first hour, spawn about 1,000 enemies in the WASM build and check FPS. If it falls short, cap the horde at
-  about 400 and give lobsters more HP.
-- **Hit feedback.** The engine has no one-shot particle burst. Use short-lived emitters, or skip bursts.
-- **Waves pushing everyone equally reads as noise.** Tumble, dig-in and surf exist so waves treat the player and the
-  horde differently. Tune these early.
-
-## Cut list (in order, if behind)
-
-1. Riptide (ship with claw snap and bubbles).
-2. Raised tile-wave visuals. Draw crests as moving foam bars on flat water instead.
-
-## Out of scope
-
-- Procedural arenas, multiple levels, meta-progression and saves.
-- Sailing / Sail & Haul (rejected concept).
-- Player-controlled wind direction.
-
-## Testing decisions
-
-- Unit-test the pure logic with gtest under `games/crabnado/tests/`: the wave field (height and push at a point and
-  time, and the ramp stages), the stamina drain and refill, the spatial grid query, and upgrade rolls.
-- Each playable milestone is checked at runtime through the Flecs Remote API before it counts as done (AGENTS.md).
-- Build the `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` before calling any ticket
-  done.
+- Jam scope beats engineering ceremony: see [Testing](spec/testing.md). Tickets don't require tests or a code-review
+  pass by default.
+- Domain terms used here (crest, tumble, dig in, surf, set, molt, crabnado) are not in a glossary yet.
+  `games/crabnado/GLOSSARY.md` can be added with `/domain-modeling` if they start to drift.
