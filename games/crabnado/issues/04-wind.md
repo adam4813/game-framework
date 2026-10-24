@@ -16,6 +16,7 @@ the crabnado drifts downwind.
 - [ ] The compass and streaks show the current wind, and a warning appears before each shift.
 - [ ] Shifts happen every 20–30 s, and gusts are noticeable in the streaks and the compass.
 - [ ] Walking upwind is slightly slower than walking downwind, and idle enemies drift downwind.
-- [ ] The crabnado drifts with the wind but stays inside the arena.
+- [ ] The wind biases the crabnado's next waypoint downwind, but it keeps roaming the interior and never drifts out
+      to the arena edge.
 - [ ] Wind shifts and gusts draw from `RngState`.
 - [ ] The wind singleton is reflected: setting its direction over the Remote API turns the compass and the streaks.
