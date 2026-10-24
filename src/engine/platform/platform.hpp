@@ -172,6 +172,10 @@ public:
 	virtual void DrawRoundedRectLines(Rect r, float roundness, float thickness, Rgba c) = 0;
 	virtual void DrawText(std::string_view text, float x, float y, float size, Rgba c) = 0;
 	[[nodiscard]] virtual float MeasureText(std::string_view text, float size) const = 0;
+	// Loads a TTF/OTF font file and makes it the font DrawText and MeasureText use from now on (the 2D UI
+	// and game overlays; not the debug UI). Text is UTF-8; the printable ASCII and Latin-1 glyphs are loaded. Returns false and keeps the current font when the file can't
+	// be loaded. Call after Init.
+	virtual bool SetTextFont(std::string_view path) = 0;
 	virtual void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) = 0;
 	virtual void DrawCircle(glm::vec2 center, float radius, Rgba c) = 0;
 	// Draws `texture` into `dest` (screen-space pixels), tiling it at native resolution (the source

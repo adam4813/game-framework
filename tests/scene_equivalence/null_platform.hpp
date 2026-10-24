@@ -45,6 +45,7 @@ public:
 	void DrawRoundedRectLines(Rect, float, float, Rgba) override {}
 	void DrawText(std::string_view, float, float, float, Rgba) override {}
 	[[nodiscard]] float MeasureText(std::string_view, float) const override { return 0.0F; }
+	bool SetTextFont(std::string_view) override { return false; }
 	void DrawLine(glm::vec2, glm::vec2, float, Rgba) override {}
 	void DrawCircle(glm::vec2, float, Rgba) override {}
 	void DrawTexturedRect(int, Rect, Rgba) override {}

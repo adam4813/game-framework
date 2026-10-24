@@ -31,7 +31,8 @@ flecs::entity CreatePanel(const flecs::world& world, const core::Rect rect, cons
 }
 
 flecs::entity CreateLabel(const flecs::world& world, const core::Rect rect, std::string text, const float font_size) {
-	return world.entity().set<UIRect>({rect}).set<Label>({.text = std::move(text), .font_size = font_size});
+	const core::Rgba color = world.has<UIConfig>() ? world.get<UIConfig>().label_color : Label{}.color;
+	return world.entity().set<UIRect>({rect}).set<Label>({.text = std::move(text), .font_size = font_size, .color = color});
 }
 
 flecs::entity CreateButton(
@@ -41,8 +42,11 @@ flecs::entity CreateButton(
 	std::function<void(flecs::entity)> on_click,
 	const int texture
 ) {
-	const flecs::entity entity =
-		world.entity().set<UIRect>({rect}).set<Button>({.label = std::move(label), .texture = texture});
+	Button button = world.has<UIConfig>() ? world.get<UIConfig>().button : Button{};
+	button.label = std::move(label);
+	button.texture = texture;
+	button.hovered = button.pressed = button.clicked = false;
+	const flecs::entity entity = world.entity().set<UIRect>({rect}).set<Button>(std::move(button));
 	if (on_click) {
 		entity.set<OnClick>({std::move(on_click)});
 	}
@@ -90,11 +94,14 @@ flecs::entity CreateScrollRect(const flecs::world& world, const core::Rect rect,
 }
 
 flecs::entity CreateModal(const flecs::world& world, const core::Rect rect, const Modal& modal) {
+	const UIConfig theme = world.has<UIConfig>() ? world.get<UIConfig>() : UIConfig{};
+	Modal themed = modal;
+	themed.backdrop_color = theme.modal_backdrop;
 	return world.entity()
 		.set<UIRect>({rect})
 		.set<UIElement>({.z_index = 1000})
-		.set<Modal>(modal)
-		.set<Panel>({.color = core::colors::Panel, .roundness = 0.1F});
+		.set<Modal>(themed)
+		.set<Panel>(theme.modal_panel);
 }
 
 flecs::entity CreateCheckbox(

@@ -35,7 +35,7 @@ composite on top rather than relying on registration order.
 | `UIRect`         | Screen-space position + size. **Every** UI entity carries one.                     |
 | `UIElement`      | Optional `z_index` (layer) + `visible`. Inherited by descendants as a floor.       |
 | `Panel`          | Filled box with optional border/rounding.                                          |
-| `Label`          | Text with alignment; vertically centred in its rect.                               |
+| `Label`          | Text with alignment and an optional outline; vertically centred in its rect.       |
 | `Button`         | Clickable; runtime `hovered`/`pressed`/`clicked` state; fires `OnClick` + sound.   |
 | `Slider`         | Interactive horizontal value slider; drag the thumb; fires `on_change`.            |
 | `ProgressBar`    | Determinate value bar (`value` in `[min, max]`).                                   |
@@ -88,6 +88,21 @@ auto list   = ui::CreateStack(world, {x, y, 260, 0},
 list.child_of(scroll);
 for (int i = 0; i < 10; ++i)
     ui::CreateButton(world, {0, 0, 0, 34}, "Item " + std::to_string(i)).child_of(list);
+```
+
+### Theming
+
+The `UIConfig` singleton is the theme the factories build from. `CreateButton` copies `UIConfig::button`'s style,
+`CreateModal` takes `modal_panel` and `modal_backdrop`, and `CreateLabel` takes `label_color`. Set it once at startup,
+before any UI is built (it doesn't restyle existing widgets). Pair it with `Platform::SetTextFont` to swap the font
+every UI label and button draws with.
+
+```cpp
+auto& theme = world.get_mut<ui::UIConfig>();
+theme.button = {.font_size = 26.0F, .normal = coral, .border_color = navy, .roundness = 0.4F, .border_thickness = 4.0F};
+theme.modal_panel = {.color = sand, .border_color = navy, .border_thickness = 5.0F, .roundness = 0.08F};
+theme.label_color = navy;
+platform->SetTextFont(assets::ResolveAsset(world, "fonts/my_game/Display.ttf"));
 ```
 
 > **Deferred context:** a scene's `Load()` runs inside the scene-activation observer, so component

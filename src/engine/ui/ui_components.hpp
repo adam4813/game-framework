@@ -53,7 +53,8 @@ struct Panel {
 enum class TextAlign : std::uint8_t { Left, Center, Right };
 
 // Static text drawn (vertically centred) within the element's UIRect. When `wrap` is set the text is
-// word-wrapped to the UIRect width and laid out top-aligned across multiple lines.
+// word-wrapped to the UIRect width and laid out top-aligned across multiple lines. An `outline` above zero
+// rings the text with `outline_color`, that many pixels wide, so it reads over a busy background.
 struct Label {
 	std::string text;
 	float font_size{20.0F};
@@ -61,6 +62,8 @@ struct Label {
 	TextAlign align{TextAlign::Center};
 	bool wrap{false};         // word-wrap to the UIRect width (multi-line, top-aligned)
 	float line_spacing{4.0F}; // extra pixels between wrapped lines
+	float outline{0.0F};
+	core::Rgba outline_color{.r = 0, .g = 0, .b = 0, .a = 255};
 };
 
 // Clickable button. The stylable fields describe its look; the trailing fields are runtime state
@@ -76,6 +79,7 @@ struct Button {
 	core::Rgba border_color{core::colors::Border};
 	core::Rgba text_color{core::colors::Text};
 	float roundness{0.25F};
+	float border_thickness{2.0F};
 	int texture{-1}; // optional background texture handle (from LoadTexture); -1 = solid color fill
 
 	// === Runtime interaction state (written by UIButtonInteraction) ===
@@ -85,9 +89,16 @@ struct Button {
 };
 
 // Global UI configuration singleton. Set once at game startup via ui::SetDefaultClickSound or by
-// setting this singleton directly. The CreateButton factory reads it to auto-attach a SoundEffect.
+// setting this singleton directly. It is the theme the Create* factories build from: CreateButton
+// auto-attaches the click sound and copies `button`'s style (its label, texture and runtime state are
+// ignored), CreateModal takes `modal_panel` and `modal_backdrop`, and CreateLabel takes `label_color`.
+// Changing it restyles widgets created afterwards, not existing ones.
 struct UIConfig {
 	std::string default_click_sound_path; // empty = no default sound
+	Button button{};
+	Panel modal_panel{.color = core::colors::Panel, .roundness = 0.1F};
+	core::Rgba modal_backdrop{.r = 6, .g = 8, .b = 6, .a = 200};
+	core::Rgba label_color{core::colors::Text};
 };
 
 // Cached per-frame UI input state singleton, recomputed at the very start of the interaction phase
