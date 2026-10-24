@@ -16,6 +16,8 @@ clock counts up, and the spawn rate rises with it. The camera follows the player
 
 - [ ] Clicking Play starts a run where the player moves, crabs land from the crabnado, chase the player, and die to
       claw snap.
+- [ ] The crabnado roams the inner part of the arena (waypoints within about 60% of the radius) and never parks at
+      the edge, even in steady wind.
 - [ ] Enemies in the air never deal or take damage until they land.
 - [ ] Crabs don't stack on top of each other, and crowding cost stays within the horde cap's frame budget.
 - [ ] HP drains on contact, and the run stops at 0 HP.

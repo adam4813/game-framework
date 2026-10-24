@@ -8,8 +8,8 @@ Back to the [spec](../spec.md).
 2. As a player, I want to move my hermit crab with WASD or the arrow keys, so that I can dodge the horde.
 3. As a player, I want my hermit crab to scuttle sideways when it moves, so that it reads as a crab.
 4. As a player, I want my weapons to fire on their own, so that I can focus on movement and the waves.
-5. As a player, I want to see the crabnado moving around the arena, so that I know where the next enemies are coming
-   from.
+5. As a player, I want to see the crabnado roaming through the middle of the arena, not parked at its edge, so that
+   enemies come from changing directions and I can use the rocks against them.
 6. As a player, I want enemies to fly out of the crabnado in an arc and land near me, so that spawns are visible and
    I can react before they reach me.
 7. As a player, I want enemies to stop being harmless only once they land, so that a crab in the air never hits me.
@@ -42,7 +42,10 @@ Back to the [spec](../spec.md).
   upgrade UI and input systems are not.
 - **Player** is an entity with a player tag, movement speed, HP and max HP, stamina, and pickup range components.
   Input goes through the engine's input layer as game actions (move, dig in, pause), never raw key codes.
-- **Crabnado (normal phase)** wanders the arena, drifts downwind and stays inside the arena bounds. It spawns enemies
+- **Crabnado (normal phase)** roams the interior. It travels between waypoints picked inside about 60% of the arena
+  radius, and the wind only biases which waypoint it picks next. Playtesting the wave prototype showed that free
+  downwind drift pins it against the arena edge, so the horde always arrives from one side and the rocks stop
+  mattering tactically. Roaming the interior makes enemies arrive from changing directions around the rocks. It spawns enemies
   by throwing them: each spawned enemy starts at the crabnado's position, aims at a landing point between the
   crabnado and the player (6–32 units from the crabnado, with ±10 units of jitter, clamped to the arena), and flies a
   ballistic arc. From the prototype, the launch speed for a flight time `T` from height `y0` under gravity `G` is:
