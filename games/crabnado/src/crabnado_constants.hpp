@@ -48,6 +48,29 @@ inline constexpr float kThrowMinTime = 1.1F;
 inline constexpr float kThrowMaxTime = 1.6F;
 inline constexpr float kGravity = 30.0F;
 
+// ── Wind (prototype values) ──
+// The direction shifts every kWindShiftMin–kWindShiftMax seconds by kWindTurnMin–kWindTurnMax radians
+// (45–90°), turning at kWindTurnRate radians per second. The HUD warns kWindWarningTime seconds ahead.
+inline constexpr float kWindShiftMin = 20.0F;
+inline constexpr float kWindShiftMax = 30.0F;
+inline constexpr float kWindTurnMin = 0.785F;
+inline constexpr float kWindTurnMax = 1.571F;
+inline constexpr float kWindTurnRate = 0.35F;
+inline constexpr float kWindWarningTime = 3.0F;
+// Strength is kWindBaseStrength ± kWindSwell (a slow sine) plus the gust, which jumps to kWindGust every
+// kWindGustMin–kWindGustMax seconds and fades at kWindGustFade per second.
+inline constexpr float kWindBaseStrength = 0.8F;
+inline constexpr float kWindSwell = 0.2F;
+inline constexpr float kWindGust = 0.45F;
+inline constexpr float kWindGustMin = 6.0F;
+inline constexpr float kWindGustMax = 14.0F;
+inline constexpr float kWindGustFade = 0.25F;
+// Wind push per unit of strength, in units per second. Waves, not wind, are the main force.
+inline constexpr float kPlayerWindPush = 1.5F;
+inline constexpr float kEnemyWindPush = 1.2F;
+// The crabnado's next waypoint shifts this far downwind per unit of strength.
+inline constexpr float kCrabnadoWindBias = 14.0F;
+
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;

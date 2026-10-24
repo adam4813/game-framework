@@ -9,6 +9,7 @@
 #include "player.hpp"
 #include "run.hpp"
 #include "shells.hpp"
+#include "wind.hpp"
 
 using namespace engine;
 
@@ -116,7 +117,7 @@ void RegisterHorde(const flecs::world& world) {
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	// Landed enemies walk sideways toward the player and push apart where they overlap.
+	// Landed enemies walk sideways toward the player, drift downwind and push apart where they overlap.
 	world.system<const Enemy, spatial::Transform>("HordeChase")
 		.without<Airborne>()
 		.kind(flecs::OnUpdate)
@@ -131,6 +132,7 @@ void RegisterHorde(const flecs::world& world) {
 			const glm::vec2 target{playerPosition.x, playerPosition.z};
 			const auto& grid = it.world().get<CrowdGrid>();
 			const float dt = it.delta_time();
+			const glm::vec2 drift = WindPush(it.world().get<Wind>(), constants::kEnemyWindPush) * dt;
 			while (it.next()) {
 				const auto enemies = it.field<const Enemy>(0);
 				auto transforms = it.field<spatial::Transform>(1);
@@ -158,7 +160,7 @@ void RegisterHorde(const flecs::world& world) {
 
 					const float step = blocked ? 0.0F : enemy.speed * dt;
 					const glm::vec2 moved = ClampToRadius(
-						position + heading * step + push * constants::kSeparationRelax,
+						position + heading * step + drift + push * constants::kSeparationRelax,
 						constants::kArenaRadius + kEdgeSlack
 					);
 					transform.position.x = moved.x;
