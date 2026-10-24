@@ -20,7 +20,7 @@ not logic changes. Tuning the "crabnado surges" burst (run.md story 9) is out of
 
 **Blocked by:** 03 (Shells and molting), 09 (Shrimp and lobsters), because enemy XP values change there.
 
-**Status:** ready-for-agent
+**Status:** needs-human-playtest
 
 - [ ] The first molt lands at about 0:20–0:30 of normal play, and later molts come no faster than one every 25–40 s.
 - [ ] A player who stands still with no upgrades survives at least 30 s.
@@ -46,3 +46,23 @@ Settled 2026-10-24.
   no input and no picks. Do at least 3 runs of each and note molt times and the time of death in `## Comments`. Then
   the user does one human playtest to sign off, so the agent's runs don't close the ticket on their own.
 - **Surges** stay out of scope (no ticket builds them; run.md story 9 is an open gap).
+
+## Comments
+
+2026-10-24, agent runs (desktop Release, Remote API; scripted bot: Choice1 on every molt, 8-direction circle with
+reversal every 20 s for "walk"). Final values: `kShellsFirstMolt` 18, `kShellsGrowth` 1.3, `kSpawnRateBase` 1.0,
+`kSpawnRateGrowth` 0.035 (was 0.09), `kFirstThrowDelay` 3 s, crab `contact_dps` 4 (was 10; shrimp, lobster and all XP
+values unchanged, so the registry's per-enemy comment lives here since JSON has none).
+
+- **Idle (no input, no picks), final values, 3 runs:** alive at the first molt every time: 31.6 s, 30.8 s, 30.8 s
+  (23-24 kills). Meets "survives 30 s".
+- **Walk bot, final values, 2 runs:** died at 111.9 s (molts 52.1, 68.6, 72.2, 88.8, 98.2) and 98.2 s (molts 46.4, 55.2,
+  73.9, 82.9). **Does not meet** "reaches 3:00 on most runs" or the 20-30 s first-molt target.
+- Earlier walk tunings (4 runs each pair): 40/1.35/0.09 died 81-101 s; 25/1.3/0.06 died 70-77 s; 25/1.3/0.035 died
+  104-107 s. Lowering spawn growth and contact damage moved death by only ~30 s.
+- Read: the bot circles at radius 30, so it collects far fewer shells than it has kills (43 kills for 18 shells) and
+  lets the horde pile up; molts land at ~50 s for it but ~31 s idle. The bot is a poor proxy for a human, who kites and
+  uses waves, so the walking numbers likely understate real play. **Needs the human playtest** (per Decisions) to
+  confirm the first molt lands at 20-30 s and 3:00 is reachable, and to retune `kShellsFirstMolt` / `kSpawnRateGrowth`
+  from there. Later molts are 15-30 s apart for the bot (the pile of uncollected shells makes some come back-to-back),
+  so the 25-40 s cadence is also unconfirmed.

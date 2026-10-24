@@ -1,6 +1,6 @@
 {
   "crab": {
-    "hp": 3, "speed": 4.2, "radius": 0.9, "contact_dps": 10, "xp": 1, "scale": 1.0,
+    "hp": 3, "speed": 4.2, "radius": 0.9, "contact_dps": 4, "xp": 1, "scale": 1.0,
     "color": [216, 69, 43, 255], "walks_sideways": true,
     "tumble_min": 0.55, "appears_at": 0, "weight": 65
   },
