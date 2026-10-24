@@ -5,6 +5,7 @@
 #include <format>
 #include <string>
 
+#include "bubbles.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "arena.hpp"
@@ -98,6 +99,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	}
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
+	AddBubbles(player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
 	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);

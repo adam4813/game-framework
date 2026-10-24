@@ -35,5 +35,15 @@
     "name": "Tide Pull",
     "description": "Shell pickup range +40%",
     "effects": [{ "stat": "PlayerStats.pickup_range", "op": "multiply", "value": 1.4 }]
+  },
+  "bubble_burst": {
+    "name": "Bubble Burst",
+    "description": "+1 bubble per volley",
+    "effects": [{ "stat": "Bubbles.count", "op": "add", "value": 1 }]
+  },
+  "quick_bubbles": {
+    "name": "Quick Bubbles",
+    "description": "Bubbles fire 25% faster",
+    "effects": [{ "stat": "Bubbles.cooldown", "op": "multiply", "value": 0.8 }]
   }
 }
