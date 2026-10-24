@@ -256,6 +256,8 @@ public:
 	virtual void PlaySound(int handle) = 0;
 	// Pitch (and speed) multiplier applied to the sound's next plays; 1 is unchanged.
 	virtual void SetSoundPitch(int handle, float pitch) = 0;
+	// Volume (0..1) applied to the sound's next plays; 1 is as recorded.
+	virtual void SetSoundVolume(int handle, float volume) = 0;
 
 	// Streamed music (one decoded chunk at a time, for long tracks). LoadMusic returns a handle or -1
 	// and deduplicates by path. PlayMusic restarts the track from the start; `loop` makes it wrap.
