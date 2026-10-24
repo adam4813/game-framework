@@ -133,7 +133,8 @@ jobs:
           cd "$STAGE_DIR"
           fail=0
           [ -f index.html ] || { echo "::error::index.html missing"; fail=1; }
-          grep -q "src=\"${{ matrix.game }}.js\"" index.html \
+          # Release builds minify the shell, which drops attribute quotes: src=game.js.
+          grep -qE "src=[\"']?${{ matrix.game }}\.js" index.html \
             || { echo "::error::index.html does not load ${{ matrix.game }}.js by relative path"; fail=1; }
           count=$(find . -type f | wc -l)
           [ "$count" -le 1000 ] || { echo "::error::$count files, itch allows 1000"; fail=1; }
