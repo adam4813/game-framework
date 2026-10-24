@@ -10,6 +10,9 @@ inline constexpr int kWindowWidth = 1280;
 inline constexpr int kWindowHeight = 720;
 inline constexpr std::string_view kWindowTitle = "Crabnado";
 
+// ── Audio ──
+inline constexpr float kMusicVolume = 0.5F;
+
 // ── Horde ──
 // Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).
 inline constexpr int kHordeCap = 1000;

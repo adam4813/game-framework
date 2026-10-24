@@ -11,6 +11,7 @@
 #include "engine/engine.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 
 using namespace engine;
 
@@ -190,6 +191,7 @@ void BeginMolt(const flecs::world& world, RunState& run) {
 	world.set<MoltOffer>(offer);
 	run.phase = RunPhase::Molting;
 	world.add<scene::Paused>();
+	PlaySfx(world, Sfx::Molt);
 	spdlog::info("[Run] Molt {}: offering {}, {}, {}", run.molt_level, offer.ids[0], offer.ids[1], offer.ids[2]);
 }
 

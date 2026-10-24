@@ -14,6 +14,7 @@
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 #include "enemy_types.hpp"
 #include "upgrades.hpp"
 #include "riptide.hpp"
@@ -92,6 +93,10 @@ void ArenaScene::Load(flecs::world& world) {
 	StartWind(world);
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
+	crestCued_ = false;
+	std::ignore = world.entity("Music").child_of(sceneRoot_).set<audio::Music>(
+		{.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true, .volume = constants::kMusicVolume}
+	);
 	horde_ = world.entity().child_of(sceneRoot_);
 	BuildStage(world);
 	BuildUI(world);
@@ -436,6 +441,11 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 	const glm::vec2 position{p.x, p.z};
 	auto& label = telegraph_.get_mut<ui::Label>();
 	label.color = kTelegraphColor;
+	const bool crestComing = NextBigCrestIn(field, position, constants::kBigCrestWarning).has_value();
+	if (crestComing && !crestCued_) {
+		PlaySfx(world, Sfx::Crest);
+	}
+	crestCued_ = crestComing;
 	if (const auto rogue = NextRogueIn(field, position, constants::kRogueWarning)) {
 		label.text = std::format("ROGUE WAVE in {:.1f} s", *rogue);
 		label.color = kRogueColor;

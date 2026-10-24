@@ -7,6 +7,7 @@
 #include "crowd_grid.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
+#include "sfx.hpp"
 
 using namespace engine;
 
@@ -46,6 +47,7 @@ void RegisterClawSnap(const flecs::world& world) {
 			claw.ring_timer = constants::kClawRingTime;
 
 			const flecs::world world = it.world();
+			PlaySfx(world, Sfx::ClawSnap);
 			const glm::vec2 position{transform.position.x, transform.position.z};
 			const auto& grid = world.get<CrowdGrid>();
 			grid.ForEachNear(position, claw.radius + grid.max_radius, [&](const CrowdEntry& e) {

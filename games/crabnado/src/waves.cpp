@@ -8,6 +8,7 @@
 #include "engine/engine.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -133,6 +134,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 				playerPosition = {p.x, p.z};
 			}
 			AddRogue(field, wind, playerPosition, rng);
+			PlaySfx(world, Sfx::RogueWarning);
 		}
 	}
 	const float gone = constants::kArenaRadius + constants::kRogueExitMargin;
