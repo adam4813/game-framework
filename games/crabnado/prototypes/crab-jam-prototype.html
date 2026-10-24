@@ -12,7 +12,8 @@
 <script>
 // PROTOTYPE, throw away. Answers: which jam concept is more fun with the breeze as a mechanic?
 //   1. Sail & Haul: wind + sail trim drive the boat; haul crab pots; crabnado + rock crabs are hazards.
-//   2. Crabnado: survivors-like horde flung from a tornado; wind pushes crabs, bubbles and you.
+//   2. Crabnado: survivors-like horde flung from a tornado; the wind drives waves that tumble the horde.
+//      Hold Space to dig in or let crests carry you; slam tumbling crabs (and the 5:00 boss) into rocks.
 'use strict';
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -57,12 +58,12 @@ function addLights(scene) {
 function makeWind(shiftMin, shiftMax) {
   const w = {
     angle: rnd(0, TAU), target: null, strength: 1, gust: 0, t: 0,
-    shiftTimer: rnd(shiftMin, shiftMax), gustTimer: rnd(6, 12), announce: 0,
+    shiftTimer: rnd(shiftMin, shiftMax), gustTimer: rnd(6, 12), announce: 0, shifts: 0,
     update(dt) {
       w.t += dt; w.shiftTimer -= dt; w.gustTimer -= dt;
       if (w.shiftTimer <= 0) {
         w.target = w.angle + (Math.random() < 0.5 ? -1 : 1) * rnd(0.8, 1.6);
-        w.shiftTimer = rnd(shiftMin, shiftMax); w.announce = 3;
+        w.shiftTimer = rnd(shiftMin, shiftMax); w.announce = 3; w.shifts++;
       }
       if (w.target !== null) {
         const d = wrapA(w.target - w.angle);
@@ -265,7 +266,7 @@ function MenuMode() {
       text(c, 'Jam prototypes. Pick a mechanic to play.', cx, VH * 0.2 + 44, 16, C.dim, 'center');
       const cards = [
         ['1', 'Sail & Haul', 'Read the wind, trim the sail, haul crab pots.', 'Dodge the crabnado and the rock crabs.', 'Tests: is sailing against the wind fun for 3 minutes?'],
-        ['2', 'Crabnado', 'Survive a horde flung from a tornado.', 'Wind pushes crabs, bubbles, and you.', 'Tests: does wind change horde play? How many crabs can we draw?'],
+        ['2', 'Crabnado', 'Survive a horde flung from a tornado.', 'Waves tumble crabs: dig in (Space) or surf.', 'Tests: are dig-in, surfing and rock slams fun and readable?'],
       ];
       const w = Math.min(340, (VW - 48) / 2), h = 150, gap = 16, x0 = cx - w - gap / 2, y = VH * 0.2 + 90;
       cards.forEach((k, i) => {
@@ -536,35 +537,107 @@ function SailMode() {
 }
 
 // =====================================================================
-// CRABNADO
+// CRABNADO (with waves)
 // =====================================================================
 const TYPES = [
-  { name: 'crab', hp: 3, spd: 4.2, r: 0.9, col: 0xd8452b, scale: 1, dps: 10, xp: 1, side: true },
-  { name: 'shrimp', hp: 1.5, spd: 7.5, r: 0.6, col: 0xff8fa3, scale: 0.7, dps: 6, xp: 1, side: false },
-  { name: 'lobster', hp: 14, spd: 2.8, r: 1.4, col: 0x8b1e1e, scale: 1.6, dps: 18, xp: 4, side: false },
+  { name: 'crab', hp: 3, spd: 4.2, r: 0.9, col: 0xd8452b, scale: 1, dps: 10, xp: 1, side: true, tumbleMin: 0.55, from: 0 },
+  { name: 'shrimp', hp: 1.5, spd: 7.5, r: 0.6, col: 0xff8fa3, scale: 0.7, dps: 6, xp: 1, side: false, tumbleMin: 0.55, from: 25 },
+  { name: 'lobster', hp: 14, spd: 2.8, r: 1.4, col: 0x8b1e1e, scale: 1.6, dps: 18, xp: 4, side: false, tumbleMin: 1.4, from: 60 },
 ];
+// Crests travel at `speed`, one every `period` seconds; every third crest is big. Push = height * pushK.
+const WAVE = { speed: 11, period: 6, width: 3.4, bigAmp: 2.2, pushK: 9, rogueAmp: 2.6, crossAt: 90, rogueAt: 180, bossAt: 300 };
+// Hand-authored arena (stands in for the level JSON).
+const ROCKS = [
+  { x: -28, z: -18, r: 4 }, { x: -21, z: -13, r: 3 }, { x: 18, z: -30, r: 4.5 }, { x: 34, z: 8, r: 3.5 }, { x: 31, z: 15, r: 4 },
+  { x: -8, z: 32, r: 5 }, { x: -42, z: 20, r: 3.5 }, { x: 4, z: -48, r: 4 }, { x: 48, z: -22, r: 3.5 }, { x: -50, z: -36, r: 4 },
+];
+const POOLS = [{ x: -10, z: -4, r: 8 }, { x: 24, z: 30, r: 9 }, { x: -38, z: -2, r: 7 }, { x: 40, z: -42, r: 8 }];
+
+const waveStage = t => (t < WAVE.crossAt ? 'Steady swell' : t < WAVE.rogueAt ? 'Crossing swells' : 'Rogue waves');
+const isBigCrest = n => ((n % 3) + 3) % 3 === 2;
+
+// The wave field: one function every system samples for height and push at a point.
+function makeWaveField() {
+  const L = WAVE.speed * WAVE.period;
+  const f = {
+    on: true, swells: [], rogues: [],
+    // Crest n of swell s reaches (x, z) when phase == n.
+    phase(s, x, z, t) { return (WAVE.speed * (t - s.t0) - (x * Math.sin(s.a) + z * Math.cos(s.a))) / L; },
+    sample(x, z, t, out) {
+      out.h = 0; out.px = 0; out.pz = 0;
+      if (!f.on) return out;
+      let h = 0, px = 0, pz = 0;
+      for (const s of f.swells) {
+        if (s.amp < 0.01) continue;
+        const q = f.phase(s, x, z, t), n = Math.round(q), dd = (q - n) * L;
+        let k = Math.exp(-(dd * dd) / (WAVE.width * WAVE.width)) * s.amp;
+        if (isBigCrest(n)) k *= WAVE.bigAmp;
+        if (s.boost && s.boost.n === n) k *= s.boost.mult;
+        h += k; px += Math.sin(s.a) * k; pz += Math.cos(s.a) * k;
+      }
+      for (const r of f.rogues) {
+        const dd = WAVE.speed * (t - r.t0) - (x * Math.sin(r.a) + z * Math.cos(r.a));
+        const k = Math.exp(-(dd * dd) / (WAVE.width * WAVE.width * 1.6)) * r.amp;
+        h += k; px += Math.sin(r.a) * k; pz += Math.cos(r.a) * k;
+      }
+      for (const p of POOLS) {
+        const d = Math.hypot(x - p.x, z - p.z);
+        if (d < p.r) { const c = 1 - 0.92 * clamp((p.r - d) / (p.r * 0.4), 0, 1); h *= c; px *= c; pz *= c; }
+      }
+      out.h = h; out.px = px * WAVE.pushK; out.pz = pz * WAVE.pushK;
+      return out;
+    },
+  };
+  return f;
+}
+
+// Pushes `o` out of any rock it overlaps; returns the rock hit, if any.
+function pushOutOfRocks(o, rad) {
+  for (const r of ROCKS) {
+    const dx = o.x - r.x, dz = o.z - r.z, d = Math.hypot(dx, dz) || 1, min = r.r + rad;
+    if (d < min) { o.x = r.x + dx / d * min; o.z = r.z + dz / d * min; return r; }
+  }
+  return null;
+}
 
 function CrabMode() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fd8e6); scene.fog = new THREE.Fog(0x9fd8e6, 90, 200);
   addLights(scene);
-  const ARENA = 70, MAXE = 1500, MAXB = 400, MAXS = 2000, G = 30, CS = 2.2;
+  const ARENA = 70, MAXE = 1500, MAXB = 400, MAXS = 2000, G = 30, CS = 2.2, CELL = 2.6, WY = 0.75;
   const ground = new THREE.Mesh(new THREE.CircleGeometry(ARENA + 40, 48), new THREE.MeshLambertMaterial({ color: 0xe8d29b }));
-  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.6; scene.add(ground);
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0x2a7f9e }));
-  sea.rotation.x = -Math.PI / 2; sea.position.y = -0.05; scene.add(sea);
-  const ringM = new THREE.MeshLambertMaterial({ color: 0x7a6650 });
+  sea.rotation.x = -Math.PI / 2; sea.position.y = -0.7; scene.add(sea);
+  const woodM = new THREE.MeshLambertMaterial({ color: 0x7a6650 });
   for (let i = 0; i < 60; i++) {
-    const a = (i / 60) * TAU, log = new THREE.Mesh(new THREE.BoxGeometry(rnd(2, 4), 0.8, 1), ringM);
-    log.position.set(Math.cos(a) * (ARENA + 2), 0.4, Math.sin(a) * (ARENA + 2)); log.rotation.y = -a + rnd(-0.3, 0.3); scene.add(log);
+    const a = (i / 60) * TAU, log = new THREE.Mesh(new THREE.BoxGeometry(rnd(2, 4), 0.8, 1), woodM);
+    log.position.set(Math.cos(a) * (ARENA + 3), 0.3, Math.sin(a) * (ARENA + 3)); log.rotation.y = -a + rnd(-0.3, 0.3); scene.add(log);
   }
+  const rockM = new THREE.MeshLambertMaterial({ color: 0x6f7c80 });
+  for (const r of ROCKS) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r.r), rockM); m.position.set(r.x, r.r * 0.35, r.z); scene.add(m); }
+
+  // Water: a grid of raised, tinted tiles driven by the wave field.
+  const tiles = [];
+  for (let x = -ARENA - 2; x <= ARENA + 2; x += CELL) for (let z = -ARENA - 2; z <= ARENA + 2; z += CELL) {
+    if (Math.hypot(x, z) <= ARENA + 2) tiles.push({ x, z, pool: POOLS.some(p => Math.hypot(x - p.x, z - p.z) < p.r) });
+  }
+  const water = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), tiles.length);
+  water.frustumCulled = false; scene.add(water);
+  const WATER_C = new THREE.Color(0x2f8fa8), POOL_C = new THREE.Color(0x1d6680), FOAM_C = new THREE.Color(0xeaf7fa), tc = new THREE.Color();
+  for (let i = 0; i < tiles.length; i++) water.setColorAt(i, WATER_C);
+
   const wind = makeWind(18, 28), streaks = makeStreaks(scene, 180, 60), msgs = makeMsgs(), nado = makeNado(scene, 26);
-  nado.x = 50; nado.z = -30; nado.wa = 0;
+  nado.x = 50; nado.z = -30; nado.wa = 0; nado.kx = 0; nado.kz = 0;
+  const waves = makeWaveField();
+  waves.swells.push({ a: wind.angle, t0: 0, amp: 1, follow: true });
+  let lastShifts = wind.shifts, rogueTimer = rnd(6, 10);
 
   const player = crabMesh(0x2bb3a3, 1.1); scene.add(player);
-  const P = { x: 0, z: 0, hp: 100, maxHp: 100, speed: 11, magnet: 5, xp: 0, level: 1, need: 6, f: 0 };
+  const P = { x: 0, z: 8, hp: 100, maxHp: 100, speed: 11, magnet: 5, xp: 0, level: 1, need: 6, f: 0,
+    stamina: 100, maxStamina: 100, regen: 18, kx: 0, kz: 0, dug: false, wh: 0 };
   const claw = { dmg: 2, radius: 4.5, cd: 0.9, t: 0.5 };
   const bub = { dmg: 2, cd: 0.7, count: 1, speed: 22, t: 0.3 };
-  const gust = { on: false, cd: 5, radius: 18, force: 22, t: 2 };
+  const rip = { on: false, cd: 8, mult: 2.2, t: 3 };
   const opts = { drift: true, sep: true };
 
   const unit = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -577,15 +650,15 @@ function CrabMode() {
   for (let i = 0; i < MAXE * 2; i++) claws.setColorAt(i, col);
   [body, claws, bubM, shellM].forEach(m => { m.frustumCulled = false; m.count = 0; scene.add(m); });
 
-  const fxMat = c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
-  const clawRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), fxMat(0xff6b4a)); clawRing.rotation.x = -Math.PI / 2; scene.add(clawRing);
-  const gustRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), fxMat(0x9be7ff)); gustRing.rotation.x = -Math.PI / 2; scene.add(gustRing);
-  let gustAnim = 0;
+  const clawRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40),
+    new THREE.MeshBasicMaterial({ color: 0xff6b4a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  clawRing.rotation.x = -Math.PI / 2; scene.add(clawRing);
 
   let E = [], B = [], S = [];
-  const grid = new Map();
-  const s = { t: 0, kills: 0, spawnAcc: 0, surge: 45, over: false, levelUp: null, fps: 60 };
-  camera.position.set(0, 42, 26);
+  const grid = new Map(), w = { h: 0, px: 0, pz: 0 };
+  const s = { t: 0, kills: 0, rockKills: 0, spawnAcc: 0, surge: 45, over: false, won: false, levelUp: null, fps: 60,
+    boss: false, slams: 0, slamCd: 0, warn: '' };
+  camera.position.set(0, 42, 34);
 
   const cellKey = (cx, cz) => (cx + 1000) * 4000 + (cz + 1000);
   function forNear(x, z, fn) {
@@ -598,7 +671,7 @@ function CrabMode() {
 
   function pickType() {
     const r = Math.random();
-    if (s.t > 60 && r < 0.08) return 2; if (s.t > 25 && r < 0.35) return 1; return 0;
+    if (s.t > TYPES[2].from && r < 0.08) return 2; if (s.t > TYPES[1].from && r < 0.35) return 1; return 0;
   }
   function spawnOne() {
     const dx = P.x - nado.x, dz = P.z - nado.z, d = Math.hypot(dx, dz) || 1, dist = rnd(6, 32);
@@ -606,16 +679,29 @@ function CrabMode() {
     const ld = Math.hypot(lx, lz); if (ld > ARENA - 2) { lx *= (ARENA - 2) / ld; lz *= (ARENA - 2) / ld; }
     const T = rnd(1.1, 1.6), y0 = 16, type = pickType();
     E.push({ x: nado.x, z: nado.z, y: y0, vx: (lx - nado.x) / T, vz: (lz - nado.z) / T, vy: (0.5 * G * T * T - y0) / T,
-      air: true, type, hp: TYPES[type].hp * (1 + s.t / 240), f: rnd(0, TAU), flash: 0, kx: 0, kz: 0, ph: rnd(0, TAU) });
+      air: true, type, hp: TYPES[type].hp * (1 + s.t / 240), f: rnd(0, TAU), flash: 0, kx: 0, kz: 0, ph: rnd(0, TAU),
+      tumble: 0, spin: 0, wh: 0, slammed: false });
+  }
+
+  // Newest swell that is still building or steady: the one players read and Riptide boosts.
+  const primarySwell = () => waves.swells.filter(sw => !sw.fade).pop() || waves.swells[waves.swells.length - 1];
+
+  function fireRiptide() {
+    const sw = primarySwell(); if (!sw) return;
+    const q = waves.phase(sw, P.x, P.z, s.t);
+    let n = Math.ceil(q); if ((n - q) * WAVE.period < 1) n++;
+    sw.boost = { n, mult: rip.mult };
+    msgs.add('Riptide! The next crest swells', C.wind);
   }
 
   const UPGRADES = [
+    { n: 'Riptide', d: 'Unlock: every few seconds, make the next crest much bigger', f: () => { rip.on = true; rip.t = 2; }, ok: () => !rip.on },
+    { n: 'Stronger Riptide', d: 'Riptide cooldown -25%, crests +50% bigger', f: () => { rip.cd *= 0.75; rip.mult += 0.5; }, ok: () => rip.on },
     { n: 'Sharper Claws', d: 'Claw snap damage +50%', f: () => { claw.dmg *= 1.5; } },
     { n: 'Long Reach', d: 'Claw snap radius +20%', f: () => { claw.radius *= 1.2; } },
     { n: 'Bubble Burst', d: '+1 bubble per volley', f: () => { bub.count++; } },
     { n: 'Quick Bubbles', d: 'Bubbles fire 25% faster', f: () => { bub.cd *= 0.8; } },
-    { n: 'Sea Breeze', d: 'Unlock a gust that blasts crabs downwind', f: () => { gust.on = true; }, ok: () => !gust.on },
-    { n: 'Stronger Gust', d: 'Gust cooldown -20%, force +25%', f: () => { gust.cd *= 0.8; gust.force *= 1.25; }, ok: () => gust.on },
+    { n: 'Deep Roots', d: 'Max stamina +40, refills 30% faster', f: () => { P.maxStamina += 40; P.stamina += 40; P.regen *= 1.3; } },
     { n: 'Scuttle', d: 'Move speed +12%', f: () => { P.speed *= 1.12; } },
     { n: 'Thick Shell', d: 'Max HP +25 and heal 25', f: () => { P.maxHp += 25; P.hp = Math.min(P.maxHp, P.hp + 25); } },
     { n: 'Tide Pull', d: 'Shell pickup range +40%', f: () => { P.magnet *= 1.4; } },
@@ -623,15 +709,55 @@ function CrabMode() {
   function rollUpgrades() {
     const pool = UPGRADES.filter(u => !u.ok || u.ok());
     const pick = [];
-    if (P.level === 1 && !gust.on) pick.push(UPGRADES[4]); // guarantee the breeze weapon gets tested
+    if (P.level === 1 && !rip.on) pick.push(UPGRADES[0]); // first molt always offers the wave weapon
     while (pick.length < 3) { const u = pool[Math.floor(Math.random() * pool.length)]; if (!pick.includes(u)) pick.push(u); }
     return pick;
+  }
+
+  function updateWaves(dt) {
+    if (wind.shifts !== lastShifts) {
+      lastShifts = wind.shifts;
+      if (s.t >= WAVE.crossAt) {
+        // Cross-swell: the old swell keeps its direction and fades; a new one builds along the new wind.
+        for (const sw of waves.swells) { sw.follow = false; sw.fade = true; }
+        waves.swells.push({ a: wind.target ?? wind.angle, t0: s.t + rnd(0, WAVE.period), amp: 0, grow: true, follow: true });
+        msgs.add('A cross-swell is building', C.wind);
+      }
+    }
+    for (const sw of waves.swells) {
+      if (sw.follow) sw.a = wind.angle;
+      if (sw.grow) { sw.amp = Math.min(1, sw.amp + dt / 4); if (sw.amp >= 1) sw.grow = false; }
+      if (sw.fade) sw.amp -= dt / 45;
+    }
+    waves.swells = waves.swells.filter(sw => sw.amp > 0.01 || sw.grow);
+    if (s.t >= WAVE.rogueAt) {
+      rogueTimer -= dt;
+      if (rogueTimer <= 0) {
+        rogueTimer = rnd(12, 20);
+        const a = wind.angle + rnd(-0.6, 0.6), dP = P.x * Math.sin(a) + P.z * Math.cos(a);
+        waves.rogues.push({ a, t0: s.t + 2.5 - dP / WAVE.speed, amp: WAVE.rogueAmp });
+      }
+    }
+    waves.rogues = waves.rogues.filter(r => WAVE.speed * (s.t - r.t0) < ARENA + 30);
+
+    // Telegraph: big crest or rogue reaching the player within ~2 s.
+    s.warn = '';
+    const sw = primarySwell();
+    if (sw && waves.on) {
+      const q = waves.phase(sw, P.x, P.z, s.t), n = Math.ceil(q), eta = (n - q) * WAVE.period;
+      const boosted = sw.boost && sw.boost.n === n;
+      if ((isBigCrest(n) || boosted) && eta < 2.2) s.warn = `${boosted ? 'RIPTIDE' : 'BIG'} CREST in ${eta.toFixed(1)}s`;
+    }
+    for (const r of waves.rogues) {
+      const eta = (P.x * Math.sin(r.a) + P.z * Math.cos(r.a)) / WAVE.speed + r.t0 - s.t;
+      if (eta > 0 && eta < 2.6 && waves.on) s.warn = `ROGUE WAVE in ${eta.toFixed(1)}s`;
+    }
   }
 
   function update(dt, rawDt) {
     s.fps = lerp(s.fps, 1 / Math.max(rawDt, 1e-3), 0.05);
     if (hit('KeyR')) { setMode(CrabMode); return; }
-    if (s.over) return;
+    if (s.over || s.won) return;
     if (s.levelUp) {
       ['Digit1', 'Digit2', 'Digit3'].forEach((k, i) => {
         if (hit(k) && s.levelUp) { const u = s.levelUp[i]; u.f(); s.levelUp = null; msgs.add(u.n, C.good); }
@@ -640,38 +766,66 @@ function CrabMode() {
     }
     if (hit('KeyB')) { opts.drift = !opts.drift; msgs.add(`Bubble wind drift ${opts.drift ? 'ON' : 'OFF'}`, C.wind); }
     if (hit('KeyG')) { opts.sep = !opts.sep; msgs.add(`Crab separation ${opts.sep ? 'ON' : 'OFF'}`, C.wind); }
+    if (hit('KeyV')) { waves.on = !waves.on; msgs.add(`Waves ${waves.on ? 'ON' : 'OFF'}`, C.wind); }
+    if (hit('KeyJ')) { s.t += 30; msgs.add(`Clock +30s (${fmtTime(s.t)})`, C.dim); }
 
     s.t += dt; wind.update(dt); msgs.update(dt);
-    const wd = wind.dir();
+    updateWaves(dt);
+    const wd = wind.dir(), kd = Math.exp(-3 * dt);
+    s.slamCd -= dt;
 
-    // player: you walk against the breeze too
-    let mx = (down('KeyD', 'ArrowRight') ? 1 : 0) - (down('KeyA', 'ArrowLeft') ? 1 : 0);
-    let mz = (down('KeyS', 'ArrowDown') ? 1 : 0) - (down('KeyW', 'ArrowUp') ? 1 : 0);
-    const ml = Math.hypot(mx, mz);
-    if (ml) { mx /= ml; mz /= ml; P.f = Math.atan2(mx, mz) + Math.PI / 2; }
-    P.x += (mx * P.speed + wd.x * wind.strength * 1.5) * dt; P.z += (mz * P.speed + wd.z * wind.strength * 1.5) * dt;
+    if (s.t >= WAVE.bossAt && !s.boss) { s.boss = true; msgs.add('The crabnado comes ashore! Slam it into the rocks', C.coral); }
+
+    // player: dig in to hold against crests, or let them carry you (surf)
+    waves.sample(P.x, P.z, s.t, w); P.wh = w.h;
+    const wantDig = down('Space') && waves.on;
+    P.dug = wantDig && P.stamina > 0;
+    if (P.dug) { P.stamina = Math.max(0, P.stamina - 30 * dt); P.kx = 0; P.kz = 0; }
+    else {
+      P.stamina = Math.min(P.maxStamina, P.stamina + P.regen * dt);
+      if (w.h > 0.3) { P.kx = w.px; P.kz = w.pz; } else { P.kx *= kd; P.kz *= kd; }
+      let mx = (down('KeyD', 'ArrowRight') ? 1 : 0) - (down('KeyA', 'ArrowLeft') ? 1 : 0);
+      let mz = (down('KeyS', 'ArrowDown') ? 1 : 0) - (down('KeyW', 'ArrowUp') ? 1 : 0);
+      const ml = Math.hypot(mx, mz);
+      if (ml) { mx /= ml; mz /= ml; P.f = Math.atan2(mx, mz) + Math.PI / 2; }
+      P.x += (mx * P.speed + wd.x * wind.strength * 1.5 + P.kx) * dt;
+      P.z += (mz * P.speed + wd.z * wind.strength * 1.5 + P.kz) * dt;
+    }
+    pushOutOfRocks(P, 0.9);
     const pd = Math.hypot(P.x, P.z); if (pd > ARENA) { P.x *= ARENA / pd; P.z *= ARENA / pd; }
 
-    // crabnado wanders and drifts downwind, and pushes you if you get close
-    nado.wa += rnd(-1, 1) * dt;
-    nado.x += (wd.x * wind.strength * 3 + Math.sin(nado.wa) * 4) * dt;
-    nado.z += (wd.z * wind.strength * 3 + Math.cos(nado.wa) * 4) * dt;
+    // crabnado: wanders downwind; as the boss it chases you and big crests can slam it into rocks
+    if (!s.boss) {
+      nado.wa += rnd(-1, 1) * dt;
+      nado.x += (wd.x * wind.strength * 3 + Math.sin(nado.wa) * 4) * dt;
+      nado.z += (wd.z * wind.strength * 3 + Math.cos(nado.wa) * 4) * dt;
+    } else {
+      const dx = P.x - nado.x, dz = P.z - nado.z, d = Math.hypot(dx, dz) || 1;
+      nado.x += dx / d * 5 * dt; nado.z += dz / d * 5 * dt;
+      waves.sample(nado.x, nado.z, s.t, w);
+      if (w.h > 1.3) { nado.kx = w.px * 0.9; nado.kz = w.pz * 0.9; } else { nado.kx *= kd; nado.kz *= kd; }
+      nado.x += nado.kx * dt; nado.z += nado.kz * dt;
+      const rock = pushOutOfRocks(nado, 3);
+      if (rock && Math.hypot(nado.kx, nado.kz) > 6 && s.slamCd <= 0) {
+        s.slams++; s.slamCd = 2.5; nado.kx *= -0.3; nado.kz *= -0.3; streaks.boost = 3;
+        msgs.add(`SLAM! ${s.slams}/3`, C.good);
+        if (s.slams >= 3) { s.won = true; msgs.add('The crabnado breaks apart!', C.good); }
+      }
+      if (d < 4) P.hp -= 25 * dt;
+    }
     const nd = Math.hypot(nado.x, nado.z); if (nd > ARENA - 8) { nado.x *= (ARENA - 8) / nd; nado.z *= (ARENA - 8) / nd; }
     nado.g.position.set(nado.x, 0, nado.z); nado.update(s.t);
-    { const dx = P.x - nado.x, dz = P.z - nado.z, d = Math.hypot(dx, dz) || 1;
-      if (d < 10) { const k = (1 - d / 10) * 14; P.x += (-dz / d + dx / d) * k * dt; P.z += (dx / d + dz / d) * k * dt; } }
 
     // spawning
-    s.spawnAcc += (1.6 + s.t * 0.09) * dt;
+    s.spawnAcc += (1.6 + s.t * 0.09) * (s.boss ? 0.35 : 1) * dt;
     while (s.spawnAcc >= 1) { s.spawnAcc--; if (E.length < MAXE) spawnOne(); }
     s.surge -= dt;
-    if (s.surge <= 0) {
+    if (s.surge <= 0 && !s.boss) {
       s.surge = 45; const n = Math.floor(30 + s.t * 0.3);
       for (let i = 0; i < n && E.length < MAXE; i++) spawnOne();
       msgs.add('The crabnado surges!', C.coral);
     }
 
-    // spatial grid of grounded enemies
     grid.clear();
     for (let i = 0; i < E.length; i++) {
       const e = E[i]; if (e.air) continue;
@@ -679,7 +833,6 @@ function CrabMode() {
       let a = grid.get(k); if (!a) { a = []; grid.set(k, a); } a.push(i);
     }
 
-    const kd = Math.exp(-3 * dt);
     for (let i = 0; i < E.length; i++) {
       const e = E[i], T = TYPES[e.type];
       e.flash -= dt;
@@ -688,9 +841,17 @@ function CrabMode() {
         if (e.y <= 0) { e.y = 0; e.air = false; }
         continue;
       }
+      waves.sample(e.x, e.z, s.t, w); e.wh = w.h;
+      if (w.h > T.tumbleMin) { e.tumble = 0.9; e.kx = w.px; e.kz = w.pz; }
       const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;
-      let vx = dx / d * T.spd + wd.x * wind.strength * 1.2 + e.kx, vz = dz / d * T.spd + wd.z * wind.strength * 1.2 + e.kz;
-      e.kx *= kd; e.kz *= kd;
+      let vx = e.kx, vz = e.kz;
+      if (e.tumble > 0) { e.tumble -= dt; e.spin += dt * 9; }
+      else {
+        e.spin = 0;
+        vx += dx / d * T.spd + wd.x * wind.strength * 1.2; vz += dz / d * T.spd + wd.z * wind.strength * 1.2;
+        e.f = Math.atan2(dx, dz) + (T.side ? Math.PI / 2 : 0);
+      }
+      if (w.h <= T.tumbleMin) { e.kx *= kd; e.kz *= kd; }
       if (opts.sep) {
         let sx = 0, sz = 0;
         forNear(e.x, e.z, j => {
@@ -701,9 +862,14 @@ function CrabMode() {
         vx += sx * 6; vz += sz * 6;
       }
       e.x += vx * dt; e.z += vz * dt;
+      const rock = pushOutOfRocks(e, T.r);
+      if (rock && e.tumble > 0) {
+        const sp = Math.hypot(e.kx, e.kz);
+        if (sp > 5) { damage(e, (sp - 4) * 1.6); e.flash = 0.2; e.slammed = true; }
+        e.kx *= -0.2; e.kz *= -0.2;
+      }
       const ed = Math.hypot(e.x, e.z); if (ed > ARENA + 1) { e.x *= (ARENA + 1) / ed; e.z *= (ARENA + 1) / ed; }
-      e.f = Math.atan2(dx, dz) + (T.side ? Math.PI / 2 : 0);
-      if (d < T.r + 0.9) P.hp -= T.dps * dt;
+      if (e.tumble <= 0 && d < T.r + 0.9) P.hp -= T.dps * dt;
     }
     if (P.hp <= 0) { P.hp = 0; s.over = true; }
 
@@ -726,22 +892,13 @@ function CrabMode() {
         }
       }
     }
-    if (gust.on) {
-      gust.t -= dt;
-      if (gust.t <= 0) {
-        gust.t = gust.cd; gustAnim = 1; streaks.boost = 2.5;
-        for (const e of E) {
-          if (e.air) continue;
-          const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz) || 1;
-          if (d < gust.radius) {
-            const k = gust.force * (1 - d / gust.radius * 0.5);
-            e.kx += (wd.x * 0.7 + dx / d * 0.5) * k; e.kz += (wd.z * 0.7 + dz / d * 0.5) * k; damage(e, 1);
-          }
-        }
-      }
-    }
+    if (rip.on) { rip.t -= dt; if (rip.t <= 0) { rip.t = rip.cd; fireRiptide(); } }
+
     for (const b of B) {
-      if (opts.drift) { b.vx += wd.x * wind.strength * 12 * dt; b.vz += wd.z * wind.strength * 12 * dt; }
+      if (opts.drift) {
+        waves.sample(b.x, b.z, s.t, w);
+        b.vx += (wd.x * wind.strength * 12 + w.px * 1.5) * dt; b.vz += (wd.z * wind.strength * 12 + w.pz * 1.5) * dt;
+      }
       b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt;
       forNear(b.x, b.z, j => {
         const e = E[j]; if (b.life <= 0 || e.hp <= 0) return;
@@ -750,17 +907,18 @@ function CrabMode() {
     }
     B = B.filter(b => b.life > 0);
 
-    // deaths drop shells
-    let w = 0;
+    let wi = 0;
     for (const e of E) {
-      if (e.hp > 0) { E[w++] = e; continue; }
-      s.kills++; if (S.length < MAXS) S.push({ x: e.x, z: e.z, v: TYPES[e.type].xp, pull: false });
+      if (e.hp > 0) { E[wi++] = e; continue; }
+      s.kills++; if (e.slammed) s.rockKills++;
+      if (S.length < MAXS) S.push({ x: e.x, z: e.z, v: TYPES[e.type].xp, pull: false });
     }
-    E.length = w;
+    E.length = wi;
     for (const sh of S) {
       const dx = P.x - sh.x, dz = P.z - sh.z, d = Math.hypot(dx, dz) || 1;
       if (d < P.magnet) sh.pull = true;
       if (sh.pull) { sh.x += dx / d * 25 * dt; sh.z += dz / d * 25 * dt; }
+      else { waves.sample(sh.x, sh.z, s.t, w); sh.x += w.px * 0.4 * dt; sh.z += w.pz * 0.4 * dt; }
       if (d < 1) { P.xp += sh.v; sh.v = 0; }
     }
     S = S.filter(sh => sh.v > 0);
@@ -771,24 +929,30 @@ function CrabMode() {
 
   const d3 = new THREE.Object3D();
   function render() {
-    const wd = wind.dir();
-    player.position.set(P.x, 0, P.z); player.rotation.y = P.f;
-    clawRing.position.set(P.x, 0.1, P.z); clawRing.scale.setScalar(claw.radius);
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      waves.sample(t.x, t.z, s.t, w);
+      d3.position.set(t.x, w.h * WY - 0.5, t.z); d3.rotation.set(0, 0, 0); d3.scale.set(CELL * 0.97, 1, CELL * 0.97);
+      d3.updateMatrix(); water.setMatrixAt(i, d3.matrix);
+      tc.copy(t.pool ? POOL_C : WATER_C).lerp(FOAM_C, clamp((w.h - 0.35) / 1.3, 0, 1)); water.setColorAt(i, tc);
+    }
+    water.instanceMatrix.needsUpdate = true; water.instanceColor.needsUpdate = true;
+
+    player.position.set(P.x, P.wh * WY + (P.dug ? -0.35 : 0), P.z); player.rotation.y = P.f;
+    player.scale.set(1.1, P.dug ? 0.7 : 1.1, 1.1);
+    clawRing.position.set(P.x, P.wh * WY + 0.1, P.z); clawRing.scale.setScalar(claw.radius);
     clawRing.material.opacity = Math.max(0, clawRing.material.opacity - 0.05);
-    gustAnim = Math.max(0, gustAnim - 0.04);
-    gustRing.position.set(P.x + wd.x * 2, 0.15, P.z + wd.z * 2); gustRing.scale.setScalar(gust.radius * (1.1 - gustAnim * 0.8));
-    gustRing.material.opacity = gustAnim * 0.7;
 
     let n = 0;
     for (const e of E) {
-      const T = TYPES[e.type], sc = T.scale, f = e.f;
-      d3.position.set(e.x, e.y + 0.45 * sc, e.z); d3.rotation.set(0, f, 0); d3.scale.set(sc, sc * 0.5, sc * 0.75);
+      const T = TYPES[e.type], sc = T.scale, f = e.f, y = e.air ? e.y : e.wh * WY;
+      d3.position.set(e.x, y + 0.45 * sc, e.z); d3.rotation.set(e.spin, f, 0); d3.scale.set(sc, sc * 0.5, sc * 0.75);
       d3.updateMatrix(); body.setMatrixAt(n, d3.matrix);
       col.set(e.flash > 0 ? 0xffffff : T.col); body.setColorAt(n, col);
       const cs = Math.cos(f), sn = Math.sin(f), snap = Math.sin(s.t * 10 + e.ph) * 0.12 * sc;
       for (let k = 0; k < 2; k++) {
         const lx = (k ? 0.85 : -0.85) * sc, lz = 0.7 * sc + snap;
-        d3.position.set(e.x + cs * lx + sn * lz, e.y + 0.5 * sc, e.z - sn * lx + cs * lz);
+        d3.position.set(e.x + cs * lx + sn * lz, y + 0.5 * sc, e.z - sn * lx + cs * lz);
         d3.rotation.set(0, 0, 0); d3.scale.setScalar(sc); d3.updateMatrix();
         claws.setMatrixAt(n * 2 + k, d3.matrix); claws.setColorAt(n * 2 + k, col);
       }
@@ -798,9 +962,9 @@ function CrabMode() {
     body.instanceMatrix.needsUpdate = true; claws.instanceMatrix.needsUpdate = true;
     body.instanceColor.needsUpdate = true; claws.instanceColor.needsUpdate = true;
 
-    B.forEach((b, i) => { d3.position.set(b.x, 0.8, b.z); d3.rotation.set(0, 0, 0); d3.scale.setScalar(1); d3.updateMatrix(); bubM.setMatrixAt(i, d3.matrix); });
+    B.forEach((b, i) => { d3.position.set(b.x, 1, b.z); d3.rotation.set(0, 0, 0); d3.scale.setScalar(1); d3.updateMatrix(); bubM.setMatrixAt(i, d3.matrix); });
     bubM.count = B.length; bubM.instanceMatrix.needsUpdate = true;
-    S.forEach((sh, i) => { d3.position.set(sh.x, 0.4, sh.z); d3.rotation.set(0, s.t * 2, 0); d3.scale.setScalar(1); d3.updateMatrix(); shellM.setMatrixAt(i, d3.matrix); });
+    S.forEach((sh, i) => { d3.position.set(sh.x, 0.6, sh.z); d3.rotation.set(0, s.t * 2, 0); d3.scale.setScalar(1); d3.updateMatrix(); shellM.setMatrixAt(i, d3.matrix); });
     shellM.count = S.length; shellM.instanceMatrix.needsUpdate = true;
 
     streaks.update(1 / 60, P.x, P.z, wind);
@@ -808,28 +972,39 @@ function CrabMode() {
 
   function frame(dt, rawDt) {
     update(dt, rawDt);
-    followCam(dt, P.x, P.z, 0, 42, 26);
+    followCam(dt, P.x, P.z, 0, 42, 34);
   }
 
   function hud(c) {
     bar(c, 16, 10, VW - 32, 8, P.xp / P.need, C.wind);
     text(c, `LV ${P.level}`, 20, 30, 13, C.wind, 'left', true);
-    panel(c, 16, 44, 220, 96);
+    panel(c, 16, 44, 240, 150);
     text(c, 'CRABNADO', 30, 64, 15, C.coral, 'left', true);
-    text(c, `Survived ${fmtTime(s.t)}`, 30, 88, 14); text(c, `Kills ${s.kills}`, 150, 88, 14);
-    text(c, 'HP', 30, 116, 12, C.dim); bar(c, 56, 110, 166, 12, P.hp / P.maxHp, P.hp / P.maxHp > 0.35 ? C.good : C.bad);
+    text(c, `${fmtTime(s.t)}  ·  ${waves.on ? waveStage(s.t) : 'Waves off'}`, 30, 88, 14);
+    text(c, `Kills ${s.kills}  ·  Rock slams ${s.rockKills}`, 30, 110, 13, C.dim);
+    text(c, 'HP', 30, 136, 12, C.dim); bar(c, 70, 130, 172, 12, P.hp / P.maxHp, P.hp / P.maxHp > 0.35 ? C.good : C.bad);
+    text(c, 'Stamina', 30, 162, 12, C.dim);
+    bar(c, 90, 156, 152, 12 * 1, P.stamina / P.maxStamina, P.dug ? C.warn : '#d9d3c3');
+    text(c, P.dug ? 'DUG IN' : Math.abs(P.kx) + Math.abs(P.kz) > 4 ? 'SURFING' : '', 30, 184, 12, P.dug ? C.warn : C.wind, 'left', true);
     drawCompass(c, VW - 86, 106, 60, wind);
 
-    const py = VH - 150;
-    panel(c, 16, py, 300, 134);
+    if (s.warn) text(c, s.warn, VW / 2, 120, 24, s.warn.startsWith('ROGUE') ? C.bad : C.warn, 'center', true);
+    if (s.boss && !s.won) {
+      panel(c, VW / 2 - 120, 150, 240, 40);
+      text(c, `CRABNADO  ·  slams ${s.slams}/3`, VW / 2, 170, 16, C.coral, 'center', true);
+    }
+
+    const py = VH - 158;
+    panel(c, 16, py, 320, 142);
     text(c, `Crabs on screen ${E.length}`, 30, py + 22, 14, C.ink, 'left', true);
-    text(c, `${s.fps.toFixed(0)} fps`, 230, py + 22, 14, s.fps > 50 ? C.good : s.fps > 30 ? C.warn : C.bad, 'left', true);
-    text(c, `Claw ${claw.dmg.toFixed(1)} dmg · r ${claw.radius.toFixed(1)}`, 30, py + 48, 13);
-    text(c, `Bubbles x${bub.count} every ${bub.cd.toFixed(2)}s`, 30, py + 70, 13);
-    text(c, gust.on ? `Gust every ${gust.cd.toFixed(1)}s` : 'Gust locked', 30, py + 92, 13, gust.on ? C.wind : C.dim);
-    text(c, `[B] bubble drift ${opts.drift ? 'ON' : 'OFF'}  ·  [G] separation ${opts.sep ? 'ON' : 'OFF'}`, 30, py + 116, 12, C.dim);
+    text(c, `${s.fps.toFixed(0)} fps`, 250, py + 22, 14, s.fps > 50 ? C.good : s.fps > 30 ? C.warn : C.bad, 'left', true);
+    text(c, `Claw ${claw.dmg.toFixed(1)} dmg · r ${claw.radius.toFixed(1)}`, 30, py + 46, 13);
+    text(c, `Bubbles x${bub.count} every ${bub.cd.toFixed(2)}s`, 30, py + 66, 13);
+    text(c, rip.on ? `Riptide every ${rip.cd.toFixed(1)}s (x${rip.mult.toFixed(1)})` : 'Riptide locked', 30, py + 86, 13, rip.on ? C.wind : C.dim);
+    text(c, `[V] waves ${waves.on ? 'ON' : 'OFF'} · [B] drift ${opts.drift ? 'ON' : 'OFF'} · [G] sep ${opts.sep ? 'ON' : 'OFF'}`, 30, py + 110, 12, C.dim);
+    text(c, '[J] clock +30s (boss at 5:00)', 30, py + 128, 12, C.dim);
     msgs.draw(c);
-    text(c, 'WASD move · weapons fire on their own · stand upwind of the horde · R restart · Esc menu', VW / 2, VH - 16, 12, C.dim, 'center');
+    text(c, 'WASD move · hold Space to dig in (or let crests carry you) · tumble crabs into rocks · R restart · Esc menu', VW / 2, VH - 16, 12, C.dim, 'center');
 
     if (s.levelUp) {
       c.fillStyle = 'rgba(8,28,40,.6)'; c.fillRect(0, 0, VW, VH);
@@ -840,13 +1015,13 @@ function CrabMode() {
         panel(c, x, y, w, h);
         text(c, `[${i + 1}]`, x + 16, y + 24, 18, C.coral, 'left', true);
         text(c, u.n, x + 16, y + 56, 17, C.ink, 'left', true);
-        text(c, u.d, x + 16, y + 88, 12, C.dim);
+        text(c, u.d, x + 16, y + 88, 11, C.dim);
       });
     }
-    if (s.over) {
+    if (s.over || s.won) {
       c.fillStyle = 'rgba(8,28,40,.7)'; c.fillRect(0, 0, VW, VH);
-      text(c, 'Swept away', VW / 2, VH / 2 - 30, 40, C.ink, 'center', true);
-      text(c, `Survived ${fmtTime(s.t)} · ${s.kills} kills · level ${P.level}`, VW / 2, VH / 2 + 14, 20, C.coral, 'center', true);
+      text(c, s.won ? 'You beat the crabnado!' : 'Swept away', VW / 2, VH / 2 - 30, 40, C.ink, 'center', true);
+      text(c, `${fmtTime(s.t)} · ${s.kills} kills · ${s.rockKills} rock slams · level ${P.level}`, VW / 2, VH / 2 + 14, 20, C.coral, 'center', true);
       text(c, 'R to try again · Esc for menu', VW / 2, VH / 2 + 50, 14, C.dim, 'center');
     }
   }
