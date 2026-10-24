@@ -36,10 +36,11 @@ constexpr float kSmallButtonHeight = 40.0F;
 constexpr float kSmallButtonGap = 14.0F;
 constexpr float kSmallButtonFontSize = 22.0F;
 constexpr float kSmallButtonBorder = 3.0F;
-// The intro: the UI slides off over kSlideLength seconds, then the arena loads kIntroLength seconds after Play.
+// The intro: the UI slides off over kSlideLength seconds, and the story comic starts kStoryAt seconds after Play, as
+// the crab reaches the water.
 constexpr float kSlideLength = 0.7F;
 constexpr float kSlideDistance = 0.6F; // fraction of the screen height
-constexpr float kIntroLength = 5.0F;
+constexpr float kStoryAt = 1.8F;
 
 } // namespace
 
@@ -141,6 +142,7 @@ void TitleScene::Load(flecs::world& world) {
 							.set_name("SettingsButton")
 							.child_of(uiRoot_), settingsTop, 1.0F);
 	settingsModal_ = BuildSettingsModal(world, uiRoot_, w, h);
+	story_.Build(world, uiRoot_, w, h);
 }
 
 void TitleScene::BuildCreditsModal(const flecs::world& world, const float width, const float height) {
@@ -206,10 +208,21 @@ void TitleScene::Tick(const flecs::world& world, const float deltaTime) {
 		logo_.get_mut<TitleLogo>().top = logoRest_ - offset;
 	}
 
-	const auto& input = world.get<input::InputState>();
-	const bool skip = input.WasKeyPressed(input::KeyCode::Space) || input.WasKeyPressed(input::KeyCode::Return) ||
-		input.WasKeyPressed(input::KeyCode::Escape);
-	if (introTime_ >= kIntroLength || skip) {
+	if (!story_.Started()) {
+		const auto& input = world.get<input::InputState>();
+		if (input.WasKeyPressed(input::KeyCode::Escape)) {
+			introFinished_ = true;
+			if (onIntroFinished) {
+				onIntroFinished();
+			}
+			return;
+		}
+		if (introTime_ >= kStoryAt || input.WasKeyPressed(input::KeyCode::Space) || input.WasKeyPressed(input::KeyCode::Return)) {
+			story_.Start();
+		}
+	}
+	story_.Tick(world, deltaTime);
+	if (story_.Finished()) {
 		introFinished_ = true;
 		if (onIntroFinished) {
 			onIntroFinished();
@@ -217,7 +230,8 @@ void TitleScene::Tick(const flecs::world& world, const float deltaTime) {
 	}
 }
 
-void TitleScene::Unload(flecs::world&) {
+void TitleScene::Unload(flecs::world& world) {
+	story_.Release(world);
 	if (backdrop_) {
 		backdrop_.destruct();
 		backdrop_ = {};

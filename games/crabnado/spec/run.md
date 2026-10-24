@@ -5,6 +5,9 @@ Back to the [spec](../spec.md).
 ## User stories
 
 1. As a player, I want a title screen with a Play button, so that I can start a run when I'm ready.
+1a. As a player, I want a short comic telling the story (Warlord Snapjaw's challenge, the Hermit King's vow, the
+    barrier going up) between the title and the arena, a panel at a time with Next, and a Skip button, so that I know
+    why I'm fighting but can get straight to it.
 2. As a player, I want to move my hermit crab with WASD or the arrow keys, so that I can dodge the horde.
 3. As a player, I want my hermit crab to scuttle sideways when it moves, so that it reads as a crab.
 4. As a player, I want my weapons to fire on their own, so that I can focus on movement and the waves.

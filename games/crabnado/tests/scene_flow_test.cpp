@@ -37,13 +37,28 @@ struct CrabnadoWorld {
 		World().defer_end();
 	}
 
-	// Clicks Play, then runs frames until the intro it starts hands over to the arena (or a time limit passes).
-	void Play() const {
-		Click("TitleUI::PlayButton");
-		for (int frame = 0; frame < 600 && !IsActive<crabnado::ArenaSceneTag>(); ++frame) {
+	// Runs frames until `done` holds (or a time limit passes).
+	template<typename Done>
+	void RunUntil(Done done) const {
+		for (int frame = 0; frame < 600 && !done(); ++frame) {
 			World().progress(1.0F / 60.0F);
 		}
 	}
+
+	// Clicks Play and runs the intro until the story comic's buttons show.
+	void StartStory() const {
+		Click("TitleUI::PlayButton");
+		RunUntil([this] { return World().lookup(kSkipButton).get<ui::UIElement>().visible; });
+	}
+
+	// Clicks Play, skips the story comic, then runs frames until the arena loads.
+	void Play() const {
+		StartStory();
+		Click(kSkipButton);
+		RunUntil([this] { return IsActive<crabnado::ArenaSceneTag>(); });
+	}
+
+	static constexpr const char* kSkipButton = "TitleUI::StoryComic::SkipButton";
 };
 
 TEST(CrabnadoSceneFlow, StartsOnTheTitleScene) {
@@ -64,7 +79,7 @@ TEST(CrabnadoSceneFlow, PlayButtonStartsTheIntroOnTheTitleScene) {
 	EXPECT_TRUE(game.World().lookup("TitleBackdrop::TitleCrab").has<crabnado::TitleScurry>());
 }
 
-TEST(CrabnadoSceneFlow, PlayButtonOpensTheGameSceneAfterTheIntro) {
+TEST(CrabnadoSceneFlow, SkippingTheStoryOpensTheGameScene) {
 	const CrabnadoWorld game;
 
 	game.Play();
@@ -73,6 +88,23 @@ TEST(CrabnadoSceneFlow, PlayButtonOpensTheGameSceneAfterTheIntro) {
 	EXPECT_FALSE(game.IsActive<crabnado::TitleSceneTag>());
 	EXPECT_FALSE(game.World().lookup("TitleUI").is_valid());
 	EXPECT_TRUE(game.World().lookup("ArenaUI::PauseModal::QuitButton").is_valid());
+}
+
+TEST(CrabnadoSceneFlow, NextThroughEveryStoryPanelOpensTheGameScene) {
+	const CrabnadoWorld game;
+	game.StartStory();
+
+	// One Next per panel still to show, then Fight! on the last.
+	for (int click = 1; click < crabnado::StoryComic::kPanelCount; ++click) {
+		game.Click("TitleUI::StoryComic::NextButton");
+		game.World().progress(1.0F / 60.0F);
+		EXPECT_TRUE(game.IsActive<crabnado::TitleSceneTag>());
+	}
+	EXPECT_EQ(game.World().lookup("TitleUI::StoryComic::NextButton").get<ui::Button>().label, "Fight!");
+	game.Click("TitleUI::StoryComic::NextButton");
+	game.RunUntil([&game] { return game.IsActive<crabnado::ArenaSceneTag>(); });
+
+	EXPECT_TRUE(game.IsActive<crabnado::ArenaSceneTag>());
 }
 
 TEST(CrabnadoSceneFlow, PauseMenuQuitReturnsToTheTitleScene) {
