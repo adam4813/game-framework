@@ -88,6 +88,57 @@ cmake --build --preset desktop-test-release
 ctest --preset desktop-test-release
 ```
 
+#### macOS Intel (x86_64) Toolchain
+
+Apple's Command Line Tools compiler (Apple clang 14) and the macOS 13.2 system libc++ are too old for the C++23 features
+the engine uses (`std::format`, `std::source_location`, `std::views::values`). The working setup is:
+
+- **Compiler:** LLVM 20 from MacPorts. The official LLVM GitHub releases we checked (16 to 18) didn't include Intel macOS builds.
+  ```bash
+  sudo port install clang-20
+  ```
+- **C++ wrapper:** MacPorts' clang-20 needs its own libc++, because the system libc++ lacks the float `std::to_chars`
+  that `<format>` uses. Save this as `~/.local/bin/clang++-llvm20` and make it executable (`chmod +x`):
+  ```bash
+  #!/bin/sh
+  L=/opt/local/libexec/llvm-20/lib
+  exec /opt/local/bin/clang++-mp-20 -D_LIBCPP_DISABLE_AVAILABILITY -nostdlib++ "$@" -L$L/libc++ -lc++ \
+    -Wl,-rpath,$L/libc++ -Wl,-rpath,$L/libunwind -Wl,-rpath,$L/libc++abi
+  ```
+- **Other tools:** `pkg-config` (glfw3 needs it; build it from source or install it), plus CMake and Ninja (`pip install --user cmake ninja`).
+- **Archiver:** link `ar` and `ranlib` in `~/.local/bin` to `llvm-ar-mp-20` and `llvm-ranlib-mp-20`, so CMake finds
+  LLVM 20's archive tools.
+
+Then use the `macos-intel` presets, which set the toolchain for you, so no `export`s are needed:
+
+```bash
+cmake --preset macos-intel                   # configures build/desktop
+cmake --build --preset macos-intel-release   # or macos-intel-debug
+
+cmake --preset macos-intel-test              # configures build/desktop-test
+cmake --build --preset macos-intel-test-release
+ctest --preset macos-intel-test-release
+```
+
+The presets (only listed on macOS) set this environment and cache variable:
+
+| Setting | Value | Why |
+|---|---|---|
+| `VCPKG_ROOT` | `$HOME/vcpkg` | Where vcpkg is cloned. |
+| `CC` / `CXX` | `/opt/local/bin/clang-mp-20` / `$HOME/.local/bin/clang++-llvm20` | LLVM 20 and the libc++ wrapper above. vcpkg builds the dependencies with the same compilers. |
+| `CXXFLAGS` | `-DAS_MAX_PORTABILITY` | AngelScript skips the x64 inline-asm call path that clang 20 rejects. It must be an environment variable so vcpkg's angelscript port sees it. Script-to-C++ calls get slower, and the AngelScript API is unchanged. |
+| `CMAKE_CXX_SCAN_FOR_MODULES` | `OFF` | CMake's module scan doesn't use the wrapper's libc++ headers. |
+
+- Plain `desktop` presets in a shell without these variables pick up whatever `CC`/`CXX` the shell has, and the engine
+  fails to compile with errors like `no type named 'sort' in namespace 'std::ranges'`. Use the `macos-intel` presets.
+- Changing compilers means a clean `build/desktop` (and `build/desktop-test`).
+- Tracy is excluded on macOS in `vcpkg.json` (`"platform": "!emscripten & !osx"`), because its GUI profiler does not
+  build with this toolchain. The `desktop-profile` preset therefore doesn't configure on macOS. Windows and Linux keep
+  Tracy.
+
+`setup-cpp` can install LLVM for CI, but its LLVM download on Intel macOS fetches an ARM64 archive that won't run here.
+Use the MacPorts route above on Intel Macs.
+
 #### WebAssembly Build
 
 ```bash
