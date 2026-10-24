@@ -11,7 +11,7 @@ inline constexpr int kWindowHeight = 720;
 inline constexpr std::string_view kWindowTitle = "Crabnado";
 
 // ── Horde ──
-// Most enemies alive at once. Ticket 01's performance check picks this value (see its Comments).
+// Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).
 inline constexpr int kHordeCap = 1000;
 // The debug spawn control adds this many crabs per press, up to kHordeDebugMax.
 inline constexpr int kHordeDebugBatch = 100;

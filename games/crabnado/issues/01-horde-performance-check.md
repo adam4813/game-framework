@@ -11,12 +11,13 @@ That number becomes the horde cap in the game's tuning data.
 **Blocked by:** None (can start immediately). The WASM preset needs Emscripten (`EMSDK`) installed. It isn't on the
 current Mac yet, so set that up first.
 
-**Status:** ready-for-human (browser measurement outstanding; see Comments)
+**Status:** resolved
 
-- [ ] The `wasm` preset builds Crabnado, and its page loads and reaches the title scene in a browser.
+- [ ] ~~The `wasm` preset builds Crabnado, and its page loads and reaches the title scene in a browser.~~ Waived: WASM
+      is out for this game (see Comments).
 - [x] In the game scene, the debug control spawns crabs in batches up to about 1,000, and they walk toward the centre.
 - [x] FPS and enemy count are visible on screen (and in the debug UI on desktop).
-- [ ] The measured browser result (enemy count vs. FPS) is recorded under `## Comments` below, along with the chosen
+- [x] ~~The measured browser result~~ The measured desktop result (enemy count vs. FPS) is recorded under `## Comments` below, along with the chosen
       horde cap.
 - [x] The horde cap is stored as tuning data the later tickets read.
 - [x] Desktop: the enemy components can be queried over the Remote API on port 27751.
@@ -39,8 +40,5 @@ macOS Intel, Release desktop build, driven over the Remote API:
 Desktop holds the vsync limit at 1,000 crabs (4,000 entities: the crab root plus a body and two claw spheres). Because
 of vsync, the headroom isn't measured.
 
-**Still open: the browser number.** Emscripten isn't installed on this Mac, so the `wasm` preset hasn't been built here
-and nothing has been measured in a browser. `kHordeCap` in `src/crabnado_constants.hpp` is set to **1,000** from the
-desktop result, as a provisional value. Before the content tickets depend on it, build `wasm`, open the page, press `=`
-until the readout drops below about 60 fps, record the enemy count here, and lower the cap if needed (target about 400,
-per the spec).
+**2026-10-23, WASM waived.** The user decided to skip WASM for Crabnado, so the desktop result decides the horde cap:
+**`kHordeCap` = 1,000** (in `src/crabnado_constants.hpp`). Desktop holds about 60 fps there.
