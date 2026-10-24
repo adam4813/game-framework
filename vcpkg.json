@@ -19,7 +19,7 @@
 		"spdlog",
 		{
 			"name": "tracy",
-			"platform": "!emscripten",
+			"platform": "!emscripten & !osx",
 			"features": [
 				"gui-tools"
 			]
