@@ -17,3 +17,22 @@ HP scales with the run clock.
 - [ ] Lobsters drop more shells.
 - [ ] Changing a value in the enemy JSON (e.g. shrimp speed) changes the game with no rebuild.
 - [ ] Checked in the running game (e.g. set the run clock to 1:05 over the Remote API and query enemy types).
+
+## Decisions
+
+Settled 2026-10-24.
+
+- **File.** `assets/data/crabnado/enemies.json`, an object keyed by id (`crab`, `shrimp`, `lobster`), using the
+  prototype `TYPES` values. Fields: `hp`, `speed`, `radius`, `contact_dps`, `xp`, `scale`, `color` ([r,g,b,a]),
+  `walks_sideways`, `tumble_min` (0.55 / 0.55 / 1.4), `appears_at` (0 / 25 / 60), `weight` (65 / 27 / 8).
+- **Load on scene Load,** not in the module constructor, so a JSON edit shows on the next Play or Retry (same "no
+  recompile" meaning as ticket 08). Remove the `kCrab*` constants that move into the JSON.
+- **Pick.** A weighted roll from `RngState` over the types with `appears_at <= RunState.clock`. That's about 29%
+  shrimp from 0:25 to 1:00, then 65/27/8.
+- **Enemy component.** Copy the type's stats onto `Enemy` at spawn (what it does now), plus `int type` (registry
+  index), `tumble_min` and `walks_sideways`. To check types over the Remote API, read `type` together with
+  `speed`/`radius`. `ThrowCrab` becomes `ThrowEnemy(world, parent, typeIndex, from, target)`.
+- **Look.** The same body + 2 claws model for all three, scaled by `scale` and tinted by `color` (shrimp pink
+  `#ff8fa3`, lobster dark red `#8b1e1e`). `walks_sideways: false` faces the direction of travel. Don't build new
+  meshes.
+- **HP growth** stays `hp * (1 + clock / 240)` and applies to every type.

@@ -18,3 +18,22 @@ always offers the Riptide unlock, so players discover the wave synergy early.
 - [ ] The strengthening upgrade only appears once Riptide is unlocked.
 - [ ] Riptide raises crests through the wave field, not by pushing enemies directly.
 - [ ] Checked in the running game.
+
+## Decisions
+
+Settled 2026-10-24.
+
+- **Component.** A reflected `Riptide` on the player, always present: `level` (float, 0 = locked), `cooldown 8`,
+  `multiplier 2.2`, `timer`. The system does nothing while `level == 0`. Unlocking sets the timer to 2 s, so it
+  fires soon after the pick.
+- **Firing (prototype `fireRiptide`).** On the primary swell, find the next crest index `n` that reaches the player
+  at least 1 s from now, and store `boost = {n, multiplier}` on that swell in `WaveField`. `SampleWaves` multiplies
+  that crest's height (on top of `bigAmp` if it's big). Nothing pushes enemies directly. Telegraph: "RIPTIDE CREST
+  in 1.6 s".
+- **Upgrade conditions.** Extend the registry format with an optional `"requires"` object:
+  `{ "stat": "Riptide.level", "min": 1 }` or `{ "stat": "Riptide.level", "max": 0 }`. It's read by reflection like
+  the effects. Entries: `riptide` (Riptide.level add 1, requires max 0) and `stronger_riptide` (cooldown multiply
+  0.75, multiplier add 0.5, requires min 1).
+- **First molt.** Add an optional `"first_molt": true` flag. On the first molt (molt level 1 → 2), one eligible flagged
+  entry fills slot 1, and the other 2 slots roll as usual from the rest. Flag `riptide`. **If Riptide is cut,**
+  delete both entries and move `"first_molt": true` to `deep_roots`.
