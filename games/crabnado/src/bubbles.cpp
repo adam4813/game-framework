@@ -9,6 +9,7 @@
 #include "engine/engine.hpp"
 #include "horde.hpp"
 #include "player.hpp"
+#include "sfx.hpp"
 #include "waves.hpp"
 #include "wind.hpp"
 
@@ -116,6 +117,7 @@ void RegisterBubbles(const flecs::world& world) {
 				}
 			});
 			if (popped) {
+				PlaySfx(world, Sfx::BubblePop);
 				it.entity(i).destruct();
 			}
 		})

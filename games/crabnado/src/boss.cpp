@@ -11,6 +11,7 @@
 #include "engine/engine.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 #include "waves.hpp"
 
 using namespace engine;
@@ -71,6 +72,7 @@ void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& c
 			run.slam_cooldown = constants::kBossSlamCooldown;
 			run.banner_timer = constants::kBossBannerTime;
 			crabnado.knock *= constants::kBossSlamBounce;
+			PlaySfx(world, Sfx::BossSlam);
 			spdlog::info("[Run] Slam {}/{}", run.slams, constants::kBossSlamsToWin);
 			if (run.slams >= constants::kBossSlamsToWin) {
 				BreakApart(world, entity);

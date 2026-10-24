@@ -41,6 +41,8 @@ private:
 	void UpdateStamina(flecs::entity player) const;
 	void UpdateBoss(const flecs::world& world) const;
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
+	// Whether the cue for the current big crest has played, so it plays once per crest.
+	mutable bool crestCued_{false};
 	void UpdateHud(const flecs::world& world, const std::string& readout) const;
 	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
 	void SpawnBatch(int enemyCount) const;

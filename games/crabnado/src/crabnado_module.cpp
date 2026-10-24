@@ -16,6 +16,7 @@
 #include "player.hpp"
 #include "riptide.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 #include "shells.hpp"
 #include "title_scene.hpp"
 #include "upgrades.hpp"
@@ -28,7 +29,7 @@ namespace crabnado {
 
 CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
-	ui::SetDefaultClickSound(world, platform->AssetDirectory() + "/audio/sfx/click.wav");
+	LoadSfx(world);
 
 	// Systems in one phase run in registration order: input, run clock, wind, waves, player, crabnado, then the horde
 	// (whose grid the claw snap reads), then shells and molting.

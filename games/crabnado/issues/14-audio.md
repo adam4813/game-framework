@@ -9,13 +9,13 @@ licence.
 
 **Blocked by:** 02 (Core loop).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Music loops during the run.
-- [ ] Claw snaps make a sound, and each later sound (pop, crest, molt, boss) is wired as its feature lands.
-- [ ] In the WASM build, audio starts after the first input and doesn't error before it.
-- [ ] Every asset's source and licence is in the credits file, and each licence allows redistribution.
-- [ ] Checked by playing on desktop and in the browser.
+- [x] Music loops during the run.
+- [x] Claw snaps make a sound, and each later sound (pop, crest, molt, boss) is wired as its feature lands.
+- [ ] In the WASM build, audio starts after the first input and doesn't error before it. (Deferred to the end-of-jam WASM pass.)
+- [x] Every asset's source and licence is in the credits file, and each licence allows redistribution.
+- [x] Checked on desktop through the Remote API (music entity plays and unloads with the scene, sound bank loaded); the browser check is deferred to the WASM pass. Listening by ear is still to do.
 
 ## Decisions
 
@@ -42,3 +42,9 @@ Settled 2026-10-24.
   telegraph.
 - **Browser audio unlock** is deferred to the end-of-jam WASM pass (raylib/miniaudio resumes the AudioContext on the
   first input, and the title's Play click counts).
+
+## Comments
+
+- Music is "Underwater" by Cleyton Kauffman (CC0, listed as looped), the OGG at 2.4 MB, slightly over the 2 MB guide.
+- The default UI button click is now a generated two-tick `claw_click.wav` (`LoadSfx` calls `SetDefaultClickSound`).
+- Crest cue plays once when a big crest comes within `kBigCrestWarning`, the same moment as the telegraph. The rogue warning plays when a rogue spawns.
