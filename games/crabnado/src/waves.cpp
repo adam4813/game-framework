@@ -6,6 +6,8 @@
 #include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "player.hpp"
+#include "run.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -41,6 +43,108 @@ const Swell* PrimarySwell(const WaveField& field) {
 	return nullptr;
 }
 
+void RemoveSwell(WaveField& field, const int index) {
+	for (int i = index; i + 1 < field.swell_count; ++i) {
+		field.swells[static_cast<size_t>(i)] = field.swells[static_cast<size_t>(i + 1)];
+	}
+	--field.swell_count;
+}
+
+// A wind shift past kCrossSwellAt: every swell stops following and fades, and a new one builds along the
+// shift's target bearing. Before then the one swell just follows the turning wind.
+void AddCrossSwell(WaveField& field, const Wind& wind, ecs::RngState& rng) {
+	for (int i = 0; i < field.swell_count; ++i) {
+		field.swells[static_cast<size_t>(i)].follow = false;
+		field.swells[static_cast<size_t>(i)].fade = true;
+	}
+	if (field.swell_count == kMaxSwells) {
+		int oldest = 0;
+		for (int i = 0; i < field.swell_count; ++i) {
+			if (field.swells[static_cast<size_t>(i)].fade) {
+				oldest = i;
+				break;
+			}
+		}
+		RemoveSwell(field, oldest);
+	}
+	field.swells[static_cast<size_t>(field.swell_count++)] = {
+		.direction = wind.direction + wind.turn,
+		.t0 = field.time + rng.NextFloatRange(0.0F, constants::kWavePeriod),
+		.amp = 0.0F,
+		.follow = true,
+		.grow = true};
+	field.notice_timer = constants::kCrossSwellNotice;
+}
+
+// One rogue, timed to reach the player kRogueLead seconds from now.
+void AddRogue(WaveField& field, const Wind& wind, const glm::vec2 playerPosition, ecs::RngState& rng) {
+	if (field.rogue_count == kMaxRogues) {
+		return;
+	}
+	const float direction = wind.direction + rng.NextFloatRange(-constants::kRogueSpread, constants::kRogueSpread);
+	const float along = glm::dot(playerPosition, BearingDirection(direction));
+	field.rogues[static_cast<size_t>(field.rogue_count++)] = {
+		.direction = direction,
+		.t0 = field.time + constants::kRogueLead - along / constants::kWaveSpeed,
+		.amp = constants::kRogueAmp};
+}
+
+void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
+	const float clock = world.get<RunState>().clock;
+	const auto& wind = world.get<Wind>();
+	auto& rng = world.get_mut<ecs::RngState>();
+	field.time += dt;
+	field.notice_timer = std::max(0.0F, field.notice_timer - dt);
+
+	if (wind.shifts != field.last_shifts) {
+		field.last_shifts = wind.shifts;
+		if (clock >= constants::kCrossSwellAt) {
+			AddCrossSwell(field, wind, rng);
+		}
+	}
+	for (int i = 0; i < field.swell_count; ++i) {
+		Swell& swell = field.swells[static_cast<size_t>(i)];
+		if (swell.follow) {
+			swell.direction = wind.direction;
+		}
+		if (swell.grow) {
+			swell.amp = std::min(1.0F, swell.amp + dt / constants::kSwellGrowTime);
+			swell.grow = swell.amp < 1.0F;
+		}
+		if (swell.fade) {
+			swell.amp -= dt / constants::kSwellFadeTime;
+		}
+	}
+	for (int i = field.swell_count - 1; i >= 0; --i) {
+		const Swell& swell = field.swells[static_cast<size_t>(i)];
+		if (swell.amp < 0.01F && !swell.grow) {
+			RemoveSwell(field, i);
+		}
+	}
+
+	if (clock >= constants::kRogueAt) {
+		field.rogue_timer -= dt;
+		if (field.rogue_timer <= 0.0F) {
+			field.rogue_timer = rng.NextFloatRange(constants::kRogueGapMin, constants::kRogueGapMax);
+			glm::vec2 playerPosition{0.0F};
+			if (const flecs::entity player = FindPlayer(world)) {
+				const glm::vec3 p = player.get<spatial::Transform>().position;
+				playerPosition = {p.x, p.z};
+			}
+			AddRogue(field, wind, playerPosition, rng);
+		}
+	}
+	const float gone = constants::kArenaRadius + constants::kRogueExitMargin;
+	int kept = 0;
+	for (int i = 0; i < field.rogue_count; ++i) {
+		const Rogue rogue = field.rogues[static_cast<size_t>(i)];
+		if (constants::kWaveSpeed * (field.time - rogue.t0) < gone) {
+			field.rogues[static_cast<size_t>(kept++)] = rogue;
+		}
+	}
+	field.rogue_count = kept;
+}
+
 core::Rgba Lerp(const core::Rgba a, const core::Rgba b, const float t) {
 	const auto channel = [t](const uint8_t from, const uint8_t to) {
 		return static_cast<uint8_t>(std::lround(static_cast<float>(from) + (static_cast<float>(to) - from) * t));
@@ -58,10 +162,16 @@ void RegisterWaves(const flecs::world& world) {
 		.member<bool>("follow")
 		.member<bool>("grow")
 		.member<bool>("fade");
+	world.component<Rogue>().member<float>("direction").member<float>("t0").member<float>("amp");
 	world.component<WaveField>()
 		.member<float>("time")
 		.member<int>("swell_count")
-		.member<Swell>("swells", kMaxSwells);
+		.member<Swell>("swells", kMaxSwells)
+		.member<int>("rogue_count")
+		.member<Rogue>("rogues", kMaxRogues)
+		.member<int>("last_shifts")
+		.member<float>("rogue_timer")
+		.member<float>("notice_timer");
 	world.set<WaveField>({});
 	world.component<WaterTile>().member<core::Rgba>("base");
 
@@ -69,16 +179,7 @@ void RegisterWaves(const flecs::world& world) {
 		.term_at(0)
 		.singleton()
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, WaveField& field) {
-			field.time += it.delta_time();
-			const float windDirection = it.world().get<Wind>().direction;
-			for (int i = 0; i < field.swell_count; ++i) {
-				Swell& swell = field.swells[static_cast<size_t>(i)];
-				if (swell.follow) {
-					swell.direction = windDirection;
-				}
-			}
-		})
+		.each([](const flecs::iter& it, size_t, WaveField& field) { StepWaves(it.world(), field, it.delta_time()); })
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
@@ -102,6 +203,9 @@ void StartWaves(const flecs::world& world) {
 	WaveField field;
 	field.swell_count = 1;
 	field.swells[0] = {.direction = world.get<Wind>().direction, .t0 = 0.0F, .amp = 1.0F, .follow = true};
+	field.last_shifts = world.get<Wind>().shifts;
+	field.rogue_timer =
+		world.get_mut<ecs::RngState>().NextFloatRange(constants::kRogueFirstMin, constants::kRogueFirstMax);
 	world.set<WaveField>(field);
 }
 
@@ -122,6 +226,16 @@ WaveSample SampleWaves(const WaveField& field, const std::span<const TidePool> p
 		}
 		height += k;
 		push += BearingDirection(swell.direction) * k;
+	}
+	for (int i = 0; i < field.rogue_count; ++i) {
+		const Rogue& rogue = field.rogues[static_cast<size_t>(i)];
+		const float distance = constants::kWaveSpeed * (field.time - rogue.t0) -
+							   glm::dot(position, BearingDirection(rogue.direction));
+		const float k = std::exp(-(distance * distance) / (constants::kWaveWidth * constants::kWaveWidth *
+															 constants::kRogueWidthK)) *
+						rogue.amp;
+		height += k;
+		push += BearingDirection(rogue.direction) * k;
 	}
 	for (const TidePool& pool : pools) {
 		const float distance = glm::length(position - pool.center);
@@ -150,6 +264,26 @@ std::optional<float> NextBigCrestIn(const WaveField& field, const glm::vec2 posi
 		}
 	}
 	return std::nullopt;
+}
+
+std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 position, const float within) {
+	std::optional<float> soonest;
+	for (int i = 0; i < field.rogue_count; ++i) {
+		const Rogue& rogue = field.rogues[static_cast<size_t>(i)];
+		const float eta = glm::dot(position, BearingDirection(rogue.direction)) / constants::kWaveSpeed + rogue.t0 -
+						  field.time;
+		if (eta > 0.0F && eta < within && (!soonest || eta < *soonest)) {
+			soonest = eta;
+		}
+	}
+	return soonest;
+}
+
+const char* WaveStageName(const float clock) {
+	if (clock < constants::kCrossSwellAt) {
+		return "Steady swell";
+	}
+	return clock < constants::kRogueAt ? "Crossing swells" : "Rogue waves";
 }
 
 void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
