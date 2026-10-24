@@ -14,7 +14,7 @@ namespace crabnado {
 namespace {
 
 constexpr float kCreditsWidth = 900.0F;
-constexpr float kCreditsHeight = 460.0F;
+constexpr float kCreditsHeight = 520.0F;
 constexpr float kCreditsLineHeight = 52.0F;
 
 } // namespace
@@ -80,12 +80,13 @@ void TitleScene::BuildCreditsModal(const flecs::world& world, const float width,
 	std::ignore = ui::CreateLabel(world, {.x = x, .y = y + 16.0F, .w = kCreditsWidth, .h = 44.0F}, "Credits", 40.0F)
 					  .child_of(creditsModal_);
 
-	constexpr std::array<std::string_view, 5> kLines{
+	constexpr std::array<std::string_view, 6> kLines{
 		"Title music: \"Menu music\" by mrpoly (CC0), opengameart.org/content/menu-music",
 		"Run music: \"Underwater\" by Cleyton Kauffman (CC0), opengameart.org/content/underwater-theme",
 		"Game-over music: \"Emotional piano loop\" by extenz (CC0), opengameart.org/content/emotional-piano-loop",
 		"Sound effects: generated for this game (CC0)",
-		"Built with raylib and Flecs",
+		"Built with raylib, Flecs, Dear ImGui, nlohmann/json, spdlog, GLM, GLFW, stb, Jolt Physics and AngelScript",
+		"Made with the help of Claude Opus and Claude Sonnet by Anthropic",
 	};
 	float top = y + 76.0F;
 	for (const std::string_view line : kLines) {
