@@ -146,6 +146,18 @@ def player_death(rng):
     return out
 
 
+def victory(rng):
+    # A rising major arpeggio that ends on a held chord.
+    out = [0.0] * n(1.6)
+    notes = ((0.0, 523.3), (0.14, 659.3), (0.28, 784.0), (0.42, 1046.5))
+    for start, freq in notes:
+        for i in range(n(1.1)):
+            t = i / RATE
+            env = min(1.0, t * 150) * math.exp(-3.0 * t)
+            out[n(start) + i] += (math.sin(2 * math.pi * freq * t) + 0.3 * math.sin(2 * math.pi * 2 * freq * t)) * env
+    return out
+
+
 def main():
     rng = random.Random(7)
     write("claw_click.wav", click_pair(rng, 0.045))
@@ -158,6 +170,7 @@ def main():
     write("enemy_defeat.wav", enemy_defeat(rng), 0.35)
     write("rock_crush.wav", rock_crush(rng), 0.6)
     write("player_death.wav", player_death(rng), 0.7)
+    write("victory.wav", victory(rng), 0.7)
 
 
 if __name__ == "__main__":

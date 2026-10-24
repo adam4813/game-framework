@@ -54,6 +54,7 @@ private:
 	flecs::entity uiRoot_;
 	flecs::entity hud_;
 	flecs::entity readout_;
+	flecs::entity music_;
 	flecs::entity resultsModal_;
 	flecs::entity resultsHeading_;
 	flecs::entity resultsStats_;

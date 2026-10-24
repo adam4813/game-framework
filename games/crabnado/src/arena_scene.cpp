@@ -94,7 +94,7 @@ void ArenaScene::Load(flecs::world& world) {
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
 	crestCued_ = false;
-	std::ignore = world.entity("Music").child_of(sceneRoot_).set<audio::Music>(
+	music_ = world.entity("Music").child_of(sceneRoot_).set<audio::Music>(
 		{.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true, .volume = constants::kMusicVolume}
 	);
 	horde_ = world.entity().child_of(sceneRoot_);
@@ -342,6 +342,9 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 	const bool ended = won || run.phase == RunPhase::Lost;
 	resultsModal_.get_mut<ui::Modal>().open = ended;
 	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused;
+	if (music_.has<audio::Music>()) {
+		music_.get_mut<audio::Music>().volume = ended ? constants::kEndedMusicVolume : constants::kMusicVolume;
+	}
 	if (!ended) {
 		return;
 	}
@@ -518,6 +521,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	}
 	horde_ = {};
 	crabnado_ = {};
+	music_ = {};
 	hud_ = {};
 	readout_ = {};
 	resultsModal_ = {};
