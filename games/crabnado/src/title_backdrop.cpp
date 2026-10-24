@@ -1,5 +1,6 @@
 #include "title_backdrop.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -43,9 +44,42 @@ constexpr glm::vec3 kCrabnadoSweep{40.0F, 0.0F, 10.0F};
 constexpr float kCrabnadoRate = 0.35F;
 constexpr float kCrabnadoSpin = 2.0F;
 
+// The intro. The crab turns to face the crabnado, runs at kScurrySpeed (reached after kScurryRamp seconds) over the
+// island, and drops to kSwimDepth once past the shore. The camera rises and tilts from its rest pose to the pan's end
+// pose over kPanLength seconds.
+constexpr float kScurrySpeed = 9.0F;
+constexpr float kScurryRamp = 0.6F;
+constexpr float kScurryTurnRate = 7.0F; // radians per second
+constexpr float kScurryStepRate = 22.0F; // radians per second of the waddle
+constexpr float kScurryHop = 0.15F;
+constexpr float kScurryRoll = 0.14F;
+constexpr float kSwimDepth = -1.1F;
+constexpr float kShoreBlend = 3.0F; // units past the shore over which the crab sinks to kSwimDepth
+constexpr float kPanLength = 3.2F;
+constexpr glm::vec3 kCameraRest{0.0F, 10.0F, 24.0F};
+constexpr glm::vec3 kFocusRest{0.0F, 4.0F, 0.0F};
+constexpr glm::vec3 kCameraPanned{0.0F, 15.0F, 20.0F};
+constexpr glm::vec3 kFocusPanned{0.0F, 3.0F, -45.0F};
+
 constexpr int kBreezeCount = 60;
 constexpr float kBreezeLength = 4.0F;
 constexpr float kBreezeThickness = 0.1F;
+
+// The crab's height at `distance` from the island's centre: on the sand dome, then sinking into the water past the shore.
+float CrabGround(const float distance) {
+	constexpr float lift = kCrabPosition.y - kIslandTop;
+	if (distance < kIslandRadius) {
+		const float r = distance / kIslandRadius;
+		return kIslandTop * std::sqrt(1.0F - r * r) + lift;
+	}
+	const float sink = std::min((distance - kIslandRadius) / kShoreBlend, 1.0F);
+	return lift + (kSwimDepth - lift) * sink;
+}
+
+float SmoothStep(const float t) {
+	const float c = std::clamp(t, 0.0F, 1.0F);
+	return c * c * (3.0F - 2.0F * c);
+}
 
 glm::vec3 Scaled(const float x, const float y, const float z) {
 	return {x, y, z};
@@ -136,6 +170,12 @@ void BuildBreeze(const flecs::world& world, const flecs::entity parent) {
 	}
 }
 
+// Turns `yaw` toward `target` by at most `step` radians, the short way round.
+float TurnToward(const float yaw, const float target, const float step) {
+	const float delta = std::remainder(target - yaw, 2.0F * kPi);
+	return yaw + std::clamp(delta, -step, step);
+}
+
 } // namespace
 
 void RegisterTitleBackdrop(const flecs::world& world) {
@@ -147,6 +187,8 @@ void RegisterTitleBackdrop(const flecs::world& world) {
 		.member<float>("time");
 	world.component<TitleBob>().member<float>("phase").member<float>("rest");
 	world.component<TitleBreeze>().member<float>("speed");
+	world.component<TitleScurry>().member<float>("time");
+	world.component<TitlePan>().member<float>("time");
 
 	world.system<TitleSway, spatial::Transform>("TitleSway")
 		.kind(flecs::OnUpdate)
@@ -175,16 +217,52 @@ void RegisterTitleBackdrop(const flecs::world& world) {
 			}
 		})
 		.add<scene::GameScene>();
+
+	// The crab faces +z at yaw 0, so it heads along (sin yaw, cos yaw), steering for the crabnado as that sways.
+	world.system<TitleScurry, spatial::Transform>("TitleScurry")
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, const size_t i, TitleScurry& scurry, spatial::Transform& transform) {
+			const float dt = it.delta_time();
+			scurry.time += dt;
+			const flecs::entity crabnado = it.entity(i).parent().lookup("TitleCrabnado");
+			if (crabnado) {
+				const glm::vec3 target = crabnado.get<spatial::Transform>().position;
+				const float heading = std::atan2(target.x - transform.position.x, target.z - transform.position.z);
+				transform.rotation.y = TurnToward(transform.rotation.y, heading, kScurryTurnRate * dt);
+			}
+			const float speed = kScurrySpeed * std::min(scurry.time / kScurryRamp, 1.0F);
+			transform.position.x += std::sin(transform.rotation.y) * speed * dt;
+			transform.position.z += std::cos(transform.rotation.y) * speed * dt;
+
+			const float distance = glm::length(glm::vec2{transform.position.x, transform.position.z});
+			const float step = scurry.time * kScurryStepRate;
+			const float onLand = distance < kIslandRadius ? 1.0F : 0.0F;
+			transform.position.y = CrabGround(distance) + onLand * kScurryHop * std::abs(std::sin(step));
+			transform.rotation.z = kScurryRoll * std::sin(step) * std::min(speed / kScurrySpeed, 1.0F);
+		})
+		.add<scene::GameScene>();
+
+	world.system<TitlePan, spatial::Transform>("TitlePan")
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, const size_t i, TitlePan& pan, spatial::Transform& transform) {
+			pan.time += it.delta_time();
+			const float t = SmoothStep(pan.time / kPanLength);
+			transform.position = kCameraRest + (kCameraPanned - kCameraRest) * t;
+			if (const flecs::entity focus = it.entity(i).target<render::LookAt>(); focus && focus.has<spatial::Transform>()) {
+				focus.get_mut<spatial::Transform>().position = kFocusRest + (kFocusPanned - kFocusRest) * t;
+			}
+		})
+		.add<scene::GameScene>();
 }
 
 void BuildTitleBackdrop(const flecs::world& world, const flecs::entity parent) {
 	world.set<render::AmbientLight>({.color = {.r = 160, .g = 170, .b = 190, .a = 255}, .intensity = 0.55F});
 	std::ignore = world.entity("Sun").child_of(parent).set<render::DirectionalLight>({});
 
-	const flecs::entity focus = world.entity("Focus").child_of(parent).set<spatial::Transform>({.position = {0.0F, 4.0F, 0.0F}});
+	const flecs::entity focus = world.entity("Focus").child_of(parent).set<spatial::Transform>({.position = kFocusRest});
 	std::ignore = world.entity("Camera")
 					  .child_of(parent)
-					  .set<spatial::Transform>({.position = {0.0F, 10.0F, 24.0F}})
+					  .set<spatial::Transform>({.position = kCameraRest})
 					  .set<render::Camera>({.fov = 55.0F, .far_plane = 250.0F})
 					  .add<render::LookAt>(focus);
 
@@ -208,6 +286,15 @@ void BuildTitleBackdrop(const flecs::world& world, const flecs::entity parent) {
 													   .spin = kCrabnadoSpin})
 									  .set<spatial::Transform>({.position = kCrabnadoOrigin});
 	AddFunnel(world, crabnado);
+}
+
+void StartTitleIntro(const flecs::entity parent) {
+	if (const flecs::entity crab = parent.lookup("TitleCrab")) {
+		crab.remove<TitleSway>().set<TitleScurry>({});
+	}
+	if (const flecs::entity camera = parent.lookup("Camera")) {
+		camera.set<TitlePan>({});
+	}
 }
 
 } // namespace crabnado
