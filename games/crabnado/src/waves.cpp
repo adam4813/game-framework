@@ -1,14 +1,13 @@
 #include "waves.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
-#include "player.hpp"
 #include "run.hpp"
-#include "sfx.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -19,8 +18,11 @@ namespace {
 
 constexpr float kCrestSpacing = constants::kWaveSpeed * constants::kWavePeriod;
 constexpr core::Rgba kWaterColor{.r = 0x2f, .g = 0x8f, .b = 0xa8, .a = 255};
+constexpr core::Rgba kOceanColor{.r = 0x22, .g = 0x6e, .b = 0x8e, .a = 255}; // past the barrier
 constexpr core::Rgba kPoolColor{.r = 0x1d, .g = 0x66, .b = 0x80, .a = 255};
 constexpr core::Rgba kFoamColor{.r = 0xea, .g = 0xf7, .b = 0xfa, .a = 255};
+// Water tile sizes: the fine arena grid, then the near and far open ocean (see kOceanNearReach).
+constexpr int kOceanLevels = 3;
 // How far past the primary swell's crest a crest still counts as "arriving" for the warning.
 constexpr int kBigCrestLookahead = 3;
 
@@ -77,16 +79,14 @@ void AddCrossSwell(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 	field.notice_timer = constants::kCrossSwellNotice;
 }
 
-// One rogue, timed to reach the player kRogueLead seconds from now.
-void AddRogue(WaveField& field, const Wind& wind, const glm::vec2 playerPosition, ecs::RngState& rng) {
+// One rogue, rising at the upwind edge of the open ocean so it rolls in across the arena.
+void AddRogue(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 	if (field.rogue_count == kMaxRogues) {
 		return;
 	}
-	const float direction = wind.direction + rng.NextFloatRange(-constants::kRogueSpread, constants::kRogueSpread);
-	const float along = glm::dot(playerPosition, BearingDirection(direction));
 	field.rogues[static_cast<size_t>(field.rogue_count++)] = {
-		.direction = direction,
-		.t0 = field.time + constants::kRogueLead - along / constants::kWaveSpeed,
+		.direction = wind.direction + rng.NextFloatRange(-constants::kRogueSpread, constants::kRogueSpread),
+		.t0 = field.time + constants::kOceanFarReach / constants::kWaveSpeed,
 		.amp = constants::kRogueAmp};
 }
 
@@ -128,20 +128,13 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 		field.rogue_timer -= dt;
 		if (field.rogue_timer <= 0.0F) {
 			field.rogue_timer = rng.NextFloatRange(constants::kRogueGapMin, constants::kRogueGapMax);
-			glm::vec2 playerPosition{0.0F};
-			if (const flecs::entity player = FindPlayer(world)) {
-				const glm::vec3 p = player.get<spatial::Transform>().position;
-				playerPosition = {p.x, p.z};
-			}
-			AddRogue(field, wind, playerPosition, rng);
-			PlaySfx(world, Sfx::RogueWarning);
+			AddRogue(field, wind, rng);
 		}
 	}
-	const float gone = constants::kArenaRadius + constants::kRogueExitMargin;
 	int kept = 0;
 	for (int i = 0; i < field.rogue_count; ++i) {
 		const Rogue rogue = field.rogues[static_cast<size_t>(i)];
-		if (constants::kWaveSpeed * (field.time - rogue.t0) < gone) {
+		if (constants::kWaveSpeed * (field.time - rogue.t0) < constants::kOceanFarReach) {
 			field.rogues[static_cast<size_t>(kept++)] = rogue;
 		}
 	}
@@ -153,6 +146,33 @@ core::Rgba Lerp(const core::Rgba a, const core::Rgba b, const float t) {
 		return static_cast<uint8_t>(std::lround(static_cast<float>(from) + (static_cast<float>(to) - from) * t));
 	};
 	return {.r = channel(a.r, b.r), .g = channel(a.g, b.g), .b = channel(a.b, b.b), .a = 255};
+}
+
+// Places the water tile of size `level` whose first fine cell is (i, j). The tile sizes form a quadtree over the
+// fine grid, each twice the last; a tile that reaches into the next finer size's disc splits into four, so the
+// sizes meet without gaps or overlaps. `spawn` takes the tile's centre and cell size.
+void PlaceWaterTile(const int level, const int i, const int j, const auto& spawn) {
+	constexpr std::array<float, kOceanLevels> kReach{
+		constants::kArenaRadius + constants::kWaterMargin, constants::kOceanNearReach, constants::kOceanFarReach};
+	const int span = 1 << level; // fine cells along one side
+	const float cell = constants::kWaterCell * static_cast<float>(span);
+	// Fine cell i is centred on i * kWaterCell, so the tile's centre is half its span on from cell i's.
+	const glm::vec2 center =
+		(glm::vec2{static_cast<float>(i), static_cast<float>(j)} + (static_cast<float>(span) - 1.0F) * 0.5F) * constants::kWaterCell;
+	if (level > 0) {
+		const glm::vec2 nearest = glm::clamp(glm::vec2{0.0F}, center - cell * 0.5F, center + cell * 0.5F);
+		if (glm::length(nearest) < kReach[static_cast<size_t>(level - 1)]) {
+			const int half = span / 2;
+			PlaceWaterTile(level - 1, i, j, spawn);
+			PlaceWaterTile(level - 1, i + half, j, spawn);
+			PlaceWaterTile(level - 1, i, j + half, spawn);
+			PlaceWaterTile(level - 1, i + half, j + half, spawn);
+			return;
+		}
+	}
+	if (glm::length(center) <= kReach[static_cast<size_t>(kOceanLevels - 1)]) {
+		spawn(center, cell);
+	}
 }
 
 } // namespace
@@ -323,28 +343,28 @@ const char* WaveStageName(const float clock) {
 
 void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 	const flecs::entity water = world.entity("Water").child_of(parent);
-	const float reach = constants::kArenaRadius + constants::kWaterMargin;
-	const int half = static_cast<int>(std::ceil(reach / constants::kWaterCell));
-	const float size = constants::kWaterCell * constants::kWaterFill;
 	const auto& pools = world.get<TidePools>().pools;
-	for (int i = -half; i <= half; ++i) {
-		for (int j = -half; j <= half; ++j) {
-			const glm::vec2 center{static_cast<float>(i) * constants::kWaterCell,
-								   static_cast<float>(j) * constants::kWaterCell};
-			if (glm::length(center) > reach) {
-				continue;
-			}
-			const core::Rgba base = std::ranges::any_of(pools, [&](const TidePool& pool) {
-									   return glm::length(center - pool.center) < pool.radius;
-								   })
-										? kPoolColor
-										: kWaterColor;
-			std::ignore = world.entity()
-							  .child_of(water)
-							  .set<WaterTile>({.base = base})
-							  .set<spatial::Transform>({.position = {center.x, 0.0F, center.y}})
-							  .set<render::CubePrimitive>({.size = {size, constants::kWaterTileThickness, size}})
-							  .set<render::Material>({.color = base, .cast_shadow = false});
+	const auto spawnTile = [&](const glm::vec2 center, const float cell) {
+		core::Rgba base = kWaterColor;
+		if (glm::length(center) > constants::kArenaRadius) {
+			base = kOceanColor;
+		} else if (std::ranges::any_of(pools, [&](const TidePool& pool) { return glm::length(center - pool.center) < pool.radius; })) {
+			base = kPoolColor;
+		}
+		const float size = cell * constants::kWaterFill;
+		std::ignore = world.entity()
+						  .child_of(water)
+						  .set<WaterTile>({.base = base})
+						  .set<spatial::Transform>({.position = {center.x, 0.0F, center.y}})
+						  .set<render::CubePrimitive>({.size = {size, constants::kWaterTileThickness, size}})
+						  .set<render::Material>({.color = base, .cast_shadow = false});
+	};
+
+	const int top = 1 << (kOceanLevels - 1);
+	const int blocks = static_cast<int>(std::ceil(constants::kOceanFarReach / (constants::kWaterCell * static_cast<float>(top))));
+	for (int a = -blocks; a < blocks; ++a) {
+		for (int b = -blocks; b < blocks; ++b) {
+			PlaceWaterTile(kOceanLevels - 1, a * top, b * top, spawnTile);
 		}
 	}
 }

@@ -96,8 +96,8 @@ inline constexpr float kWavePushK = 9.0F;
 // fade (amp falls by dt / kSwellFadeTime; a new swell grows over kSwellGrowTime and shows its notice for
 // kCrossSwellNotice seconds). From kRogueAt rogue waves arrive: the first after kRogueFirstMin..Max seconds, then
 // every kRogueGapMin..Max. A rogue's bearing is the wind's +/- kRogueSpread, its amp kRogueAmp and its width
-// kWaveWidth * sqrt(kRogueWidthK). It reaches the player kRogueLead seconds after it spawns, is warned of
-// kRogueWarning seconds ahead, and is removed once past the arena by kRogueExitMargin.
+// kWaveWidth * sqrt(kRogueWidthK). It rises at the upwind edge of the open ocean (kOceanFarReach), rolls in across the
+// arena, is warned of kRogueWarning seconds before it reaches the player, and is removed at the downwind edge.
 inline constexpr float kCrossSwellAt = 90.0F;
 inline constexpr float kRogueAt = 180.0F;
 inline constexpr float kSwellFadeTime = 45.0F;
@@ -110,21 +110,24 @@ inline constexpr float kRogueGapMax = 20.0F;
 inline constexpr float kRogueSpread = 0.6F;
 inline constexpr float kRogueAmp = 2.6F;
 inline constexpr float kRogueWidthK = 1.6F;
-inline constexpr float kRogueLead = 2.5F;
 inline constexpr float kRogueWarning = 2.6F;
-inline constexpr float kRogueExitMargin = 30.0F;
 // A tide pool calms waves by up to this fraction at its centre, over the outer kTidePoolCalmEdge of its radius.
 inline constexpr float kTidePoolCalm = 0.92F;
 inline constexpr float kTidePoolCalmEdge = 0.4F;
-// The water grid: tiles of kWaterCell, filled to kWaterFill, covering the arena plus kWaterMargin. A tile's top
-// sits at the wave height times kWaterHeightScale; the foam tint ramps up between kFoamMinHeight and
-// kFoamMinHeight + kFoamRamp.
+// The water grid: tiles of kWaterCell, filled to kWaterFill, covering the arena plus kWaterMargin. Past that the
+// ocean runs on to the horizon in coarser tiles: kWaterCell * 2 out to kOceanNearReach, kWaterCell * 4 out to
+// kOceanFarReach. A tile's top sits at the wave height times kWaterHeightScale; the foam tint ramps up between
+// kFoamMinHeight and kFoamMinHeight + kFoamRamp. The seabed, a quad kSeabedReach from the centre at kSeabedY,
+// fills the gaps and everything past the farthest tiles.
 inline constexpr float kWaterCell = 2.6F;
 inline constexpr float kWaterFill = 0.97F;
 inline constexpr float kWaterMargin = 2.0F;
+inline constexpr float kOceanNearReach = 100.0F;
+inline constexpr float kOceanFarReach = 150.0F;
 inline constexpr float kWaterHeightScale = 0.75F;
 inline constexpr float kWaterTileThickness = 1.0F;
-inline constexpr float kSandY = -0.6F;
+inline constexpr float kSeabedY = -0.6F;
+inline constexpr float kSeabedReach = 400.0F;
 inline constexpr float kFoamMinHeight = 0.35F;
 inline constexpr float kFoamRamp = 1.3F;
 // The HUD warns of a big crest this many seconds before it reaches the player.

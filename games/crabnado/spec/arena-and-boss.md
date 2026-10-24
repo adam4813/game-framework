@@ -22,7 +22,10 @@ Back to the [spec](../spec.md).
 ## Implementation decisions
 
 - **The arena is a level JSON file** loaded by the arena scene. Rocks and pools are entities with a position and a
-  radius. The arena edge is a circle of about 70 units (the prototype's size), marked with a ring of driftwood.
+  radius. Pools are placed by hand; rocks are scattered each run from the run's seed by the level's `rock_scatter`
+  (a denser inner band and a sparser band near the edge, clear of pools, the start points and each other). The
+  arena edge is a circle of about 70 units (the prototype's size), marked by a glowing magic barrier: a hovering ward
+  line with rune pillars. Open ocean surrounds it to the horizon, so swells and rogue waves roll in from outside.
 - **Game-registered level loaders** add the rock and pool components (the sandbox's tilemap scene shows the
   `RegisterLoaders` pattern).
 - **Rock slam:** a tumbling enemy whose knockback carries it into a rock takes damage scaled by impact speed, enough to
