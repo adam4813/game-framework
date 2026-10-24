@@ -1,0 +1,874 @@
+<title>Crabs &amp; Breezes Prototypes</title>
+<style>
+  /* Single dark arcade look: full-bleed WebGL canvas with a 2D HUD canvas on top. */
+  :root { --bg: #0b2230; color-scheme: dark; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #hud { pointer-events: none; }
+</style>
+<canvas id="gl" tabindex="0"></canvas>
+<canvas id="hud"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// PROTOTYPE, throw away. Answers: which jam concept is more fun with the breeze as a mechanic?
+//   1. Sail & Haul: wind + sail trim drive the boat; haul crab pots; crabnado + rock crabs are hazards.
+//   2. Crabnado: survivors-like horde flung from a tornado; wind pushes crabs, bubbles and you.
+'use strict';
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const wrapA = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
+const C = { ink: '#f4efe3', dim: '#a9c3cc', coral: '#ff6b4a', wind: '#9be7ff', good: '#7ee08a', warn: '#ffd166', bad: '#ff5d5d' };
+
+// ---------- renderer / input ----------
+const glc = document.getElementById('gl'), hudc = document.getElementById('hud');
+const ctx = hudc.getContext('2d');
+const renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: true });
+const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 900);
+let VW = 0, VH = 0;
+function resize() {
+  VW = innerWidth; VH = innerHeight;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  renderer.setPixelRatio(dpr); renderer.setSize(VW, VH, false);
+  camera.aspect = VW / VH; camera.updateProjectionMatrix();
+  hudc.width = VW * dpr; hudc.height = VH * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize); resize();
+
+const keys = {}, pressed = new Set();
+addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true; if (!e.repeat) pressed.add(e.code);
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('pointerdown', () => { glc.focus(); window.focus(); });
+const down = (...c) => c.some(k => keys[k]);
+const hit = c => pressed.has(c);
+
+// ---------- shared world helpers ----------
+function addLights(scene) {
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x557766, 0.85));
+  const d = new THREE.DirectionalLight(0xfff2dd, 0.7); d.position.set(30, 60, 20); scene.add(d);
+}
+
+function makeWind(shiftMin, shiftMax) {
+  const w = {
+    angle: rnd(0, TAU), target: null, strength: 1, gust: 0, t: 0,
+    shiftTimer: rnd(shiftMin, shiftMax), gustTimer: rnd(6, 12), announce: 0,
+    update(dt) {
+      w.t += dt; w.shiftTimer -= dt; w.gustTimer -= dt;
+      if (w.shiftTimer <= 0) {
+        w.target = w.angle + (Math.random() < 0.5 ? -1 : 1) * rnd(0.8, 1.6);
+        w.shiftTimer = rnd(shiftMin, shiftMax); w.announce = 3;
+      }
+      if (w.target !== null) {
+        const d = wrapA(w.target - w.angle);
+        w.angle += Math.sign(d) * Math.min(Math.abs(d), dt * 0.35);
+        if (Math.abs(d) < 0.01) w.target = null;
+      }
+      w.angle += Math.sin(w.t * 0.37) * 0.04 * dt;
+      if (w.gustTimer <= 0) { w.gust = 0.45; w.gustTimer = rnd(6, 14); }
+      w.gust = Math.max(0, w.gust - dt * 0.25);
+      w.strength = 0.8 + 0.2 * Math.sin(w.t * 0.31) + w.gust;
+      w.announce = Math.max(0, w.announce - dt);
+    },
+    dir() { return { x: Math.sin(w.angle), z: Math.cos(w.angle) }; },
+    beaufort() { return Math.round(2 + w.strength * 3); },
+  };
+  return w;
+}
+
+function makeStreaks(scene, n, spread, color = 0xffffff) {
+  const pos = new Float32Array(n * 6);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
+  lines.frustumCulled = false; scene.add(lines);
+  const P = []; for (let i = 0; i < n; i++) P.push({ x: rnd(-spread, spread), y: rnd(0.6, 5), z: rnd(-spread, spread), k: rnd(0.7, 1.3) });
+  const s = {
+    boost: 0,
+    update(dt, cx, cz, wind) {
+      const d = wind.dir(), str = wind.strength * (1 + s.boost);
+      s.boost = Math.max(0, s.boost - dt * 1.5);
+      for (let i = 0; i < n; i++) {
+        const p = P[i];
+        p.x += d.x * str * 18 * p.k * dt; p.z += d.z * str * 18 * p.k * dt;
+        while (p.x - cx > spread) p.x -= 2 * spread; while (p.x - cx < -spread) p.x += 2 * spread;
+        while (p.z - cz > spread) p.z -= 2 * spread; while (p.z - cz < -spread) p.z += 2 * spread;
+        const L = 1.5 + str * 3 * p.k, o = i * 6;
+        pos[o] = p.x; pos[o + 1] = p.y; pos[o + 2] = p.z;
+        pos[o + 3] = p.x + d.x * L; pos[o + 4] = p.y; pos[o + 5] = p.z + d.z * L;
+      }
+      geo.attributes.position.needsUpdate = true;
+    },
+  };
+  return s;
+}
+
+// Static foam flecks that tile around the boat so speed reads against the water.
+function makeFlecks(scene, n = 420, spread = 90) {
+  const m = new THREE.InstancedMesh(new THREE.CircleGeometry(0.5, 6),
+    new THREE.MeshBasicMaterial({ color: 0xcfeef5, transparent: true, opacity: 0.45 }), n);
+  m.frustumCulled = false; scene.add(m);
+  const P = []; for (let i = 0; i < n; i++) P.push({ x: rnd(-spread, spread), z: rnd(-spread, spread), s: rnd(0.6, 1.6), ph: rnd(0, TAU) });
+  const d = new THREE.Object3D();
+  return {
+    update(cx, cz, t) {
+      for (let i = 0; i < n; i++) {
+        const p = P[i];
+        while (p.x - cx > spread) p.x -= 2 * spread; while (p.x - cx < -spread) p.x += 2 * spread;
+        while (p.z - cz > spread) p.z -= 2 * spread; while (p.z - cz < -spread) p.z += 2 * spread;
+        const s = p.s * (0.6 + 0.4 * Math.sin(t * 1.5 + p.ph));
+        d.position.set(p.x, 0.05, p.z); d.rotation.set(-Math.PI / 2, 0, 0); d.scale.set(s * 2.2, s, 1);
+        d.updateMatrix(); m.setMatrixAt(i, d.matrix);
+      }
+      m.instanceMatrix.needsUpdate = true;
+    },
+  };
+}
+
+function makeNado(scene, H = 22) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xd8e4e8, transparent: true, opacity: 0.26, side: THREE.DoubleSide, depthWrite: false });
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.42, 1.5, H, 20, 1, true), mat);
+  cone.position.y = H / 2; g.add(cone);
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.25, 0.8, H, 14, 1, true), mat);
+  inner.position.y = H / 2; g.add(inner);
+  const N = 70;
+  const specks = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 6, 4), new THREE.MeshLambertMaterial({ color: 0xd8452b }), N);
+  specks.frustumCulled = false; g.add(specks);
+  const seeds = []; for (let i = 0; i < N; i++) seeds.push({ h: Math.random(), a: rnd(0, TAU), sp: rnd(2, 4) });
+  const d = new THREE.Object3D();
+  scene.add(g);
+  return {
+    g, x: 0, z: 0,
+    update(t) {
+      cone.rotation.y = t * 2; inner.rotation.y = -t * 3;
+      for (let i = 0; i < N; i++) {
+        const s = seeds[i], h = (s.h + t * 0.08 * s.sp) % 1, r = 1.5 + (H * 0.42 - 1.5) * h * 0.9, a = s.a + t * s.sp;
+        d.position.set(Math.cos(a) * r, h * H, Math.sin(a) * r); d.rotation.set(t * s.sp, a, 0); d.updateMatrix();
+        specks.setMatrixAt(i, d.matrix);
+      }
+      specks.instanceMatrix.needsUpdate = true;
+    },
+  };
+}
+
+function crabMesh(color, s = 1) {
+  const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), m);
+  body.scale.set(1.1, 0.5, 0.8); body.position.y = 0.5; g.add(body);
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x111111 });
+  for (const side of [-1, 1]) {
+    const claw = new THREE.Mesh(new THREE.SphereGeometry(0.38, 8, 6), m); claw.position.set(side * 0.9, 0.55, 0.9); g.add(claw);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), eyeM); eye.position.set(side * 0.3, 0.95, 0.6); g.add(eye);
+    for (let k = 0; k < 3; k++) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.12), m);
+      leg.position.set(side * 1.1, 0.3, -0.45 + k * 0.4); leg.rotation.z = side * 0.4; g.add(leg);
+    }
+  }
+  g.scale.setScalar(s); return g;
+}
+
+function disposeScene(scene) {
+  scene.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+  });
+}
+
+function followCam(dt, tx, tz, ox, oy, oz) {
+  const k = 1 - Math.exp(-dt * 5);
+  camera.position.x = lerp(camera.position.x, tx + ox, k);
+  camera.position.y = lerp(camera.position.y, oy, k);
+  camera.position.z = lerp(camera.position.z, tz + oz, k);
+  camera.lookAt(camera.position.x - ox, 0, camera.position.z - oz);
+}
+
+function makeMsgs() {
+  const list = [];
+  return {
+    add(text, c = C.ink) {
+      const last = list[list.length - 1];
+      if (last && last.text === text) { last.t = 2.2; return; }
+      list.push({ text, t: 2.2, c }); if (list.length > 4) list.shift();
+    },
+    update(dt) { for (const m of list) m.t -= dt; while (list.length && list[0].t <= 0) list.shift(); },
+    draw(c) {
+      list.forEach((m, i) => { c.globalAlpha = Math.min(1, m.t * 2); text(c, m.text, VW / 2, 70 + i * 28, 18, m.c, 'center', true); });
+      c.globalAlpha = 1;
+    },
+  };
+}
+
+// ---------- HUD helpers ----------
+function text(c, s, x, y, size = 14, col = C.ink, align = 'left', bold = false) {
+  c.font = `${bold ? '700 ' : ''}${size}px ${FONT}`; c.textAlign = align; c.textBaseline = 'middle';
+  c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText(s, x + 1, y + 1.5);
+  c.fillStyle = col; c.fillText(s, x, y);
+}
+function panel(c, x, y, w, h) {
+  c.fillStyle = 'rgba(8,28,40,.74)'; c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, 8); else c.rect(x, y, w, h);
+  c.fill();
+}
+function bar(c, x, y, w, h, f, col) {
+  c.fillStyle = 'rgba(255,255,255,.15)'; c.fillRect(x, y, w, h);
+  c.fillStyle = col; c.fillRect(x, y, w * clamp(f, 0, 1), h);
+}
+function arrow(c, x, y, dx, dy, len, col, width = 3) {
+  const ex = x + dx * len, ey = y + dy * len;
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = width;
+  c.beginPath(); c.moveTo(x - dx * len * 0.6, y - dy * len * 0.6); c.lineTo(ex, ey); c.stroke();
+  const a = Math.atan2(dy, dx);
+  c.beginPath(); c.moveTo(ex + Math.cos(a) * 6, ey + Math.sin(a) * 6);
+  c.lineTo(ex + Math.cos(a + 2.5) * 10, ey + Math.sin(a + 2.5) * 10);
+  c.lineTo(ex + Math.cos(a - 2.5) * 10, ey + Math.sin(a - 2.5) * 10); c.fill();
+}
+// North-up compass: the camera never rotates, so screen-down is world +Z.
+function drawCompass(c, x, y, R, wind, heading) {
+  c.fillStyle = 'rgba(8,28,40,.74)'; c.beginPath(); c.arc(x, y, R, 0, TAU); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 1; c.beginPath(); c.arc(x, y, R - 8, 0, TAU); c.stroke();
+  text(c, 'N', x, y - R + 15, 11, C.dim, 'center', true);
+  const d = wind.dir();
+  arrow(c, x, y, d.x, d.z, R * (0.35 + 0.25 * wind.strength), C.wind, 4);
+  if (heading !== undefined) arrow(c, x, y, Math.sin(heading), Math.cos(heading), R * 0.45, C.coral, 2);
+  text(c, `WIND F${wind.beaufort()}`, x, y + R + 14, 12, wind.announce > 0 ? C.warn : C.wind, 'center', true);
+  if (wind.announce > 0) text(c, 'Wind shifting!', x, y + R + 32, 13, C.warn, 'center', true);
+}
+const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// =====================================================================
+// MENU
+// =====================================================================
+function MenuMode() {
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x8fd3df); scene.fog = new THREE.Fog(0x8fd3df, 60, 200);
+  addLights(scene);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshLambertMaterial({ color: 0x2a7f9e }));
+  sea.rotation.x = -Math.PI / 2; scene.add(sea);
+  const wind = makeWind(8, 12), streaks = makeStreaks(scene, 140, 60), flecks = makeFlecks(scene, 300, 60), nado = makeNado(scene);
+  let t = 0;
+  return {
+    scene,
+    update(dt) {
+      t += dt; wind.update(dt); streaks.update(dt, 0, 0, wind); flecks.update(0, 0, t); nado.update(t);
+      camera.position.set(Math.sin(t * 0.1) * 45, 22, Math.cos(t * 0.1) * 45); camera.lookAt(0, 8, 0);
+      if (hit('Digit1')) setMode(SailMode);
+      if (hit('Digit2')) setMode(CrabMode);
+    },
+    hud(c) {
+      c.fillStyle = 'rgba(8,28,40,.55)'; c.fillRect(0, 0, VW, VH);
+      const cx = VW / 2;
+      text(c, 'CRABS & BREEZES', cx, VH * 0.2, Math.min(56, VW / 11), C.ink, 'center', true);
+      text(c, 'Jam prototypes. Pick a mechanic to play.', cx, VH * 0.2 + 44, 16, C.dim, 'center');
+      const cards = [
+        ['1', 'Sail & Haul', 'Read the wind, trim the sail, haul crab pots.', 'Dodge the crabnado and the rock crabs.', 'Tests: is sailing against the wind fun for 3 minutes?'],
+        ['2', 'Crabnado', 'Survive a horde flung from a tornado.', 'Wind pushes crabs, bubbles, and you.', 'Tests: does wind change horde play? How many crabs can we draw?'],
+      ];
+      const w = Math.min(340, (VW - 48) / 2), h = 150, gap = 16, x0 = cx - w - gap / 2, y = VH * 0.2 + 90;
+      cards.forEach((k, i) => {
+        const x = x0 + i * (w + gap);
+        panel(c, x, y, w, h);
+        text(c, `[${k[0]}]  ${k[1]}`, x + 18, y + 26, 22, C.coral, 'left', true);
+        text(c, k[2], x + 18, y + 62, 14); text(c, k[3], x + 18, y + 84, 14);
+        text(c, k[4], x + 18, y + 120, 12, C.wind);
+      });
+      text(c, 'Click the game first so it gets keyboard focus. Esc returns here. R restarts.', cx, y + h + 34, 13, C.dim, 'center');
+      text(c, 'PROTOTYPE · throwaway', cx, VH - 24, 11, C.dim, 'center');
+    },
+  };
+}
+
+// =====================================================================
+// SAIL & HAUL
+// =====================================================================
+const POLAR_A = [0, 0.8, 1.57, 2.0, 2.3, 2.45, Math.PI];
+const POLAR_E = [0.55, 0.8, 1.0, 0.85, 0.45, 0, 0];
+function polar(aa) {
+  for (let i = 1; i < POLAR_A.length; i++) if (aa <= POLAR_A[i]) {
+    const t = (aa - POLAR_A[i - 1]) / (POLAR_A[i] - POLAR_A[i - 1]); return lerp(POLAR_E[i - 1], POLAR_E[i], t);
+  }
+  return 0;
+}
+function pointOfSail(aa) {
+  if (aa < 0.5) return 'Running'; if (aa < 1.3) return 'Broad reach'; if (aa < 1.9) return 'Beam reach';
+  if (aa < 2.45) return 'Close-hauled'; return 'In irons';
+}
+
+function SailMode() {
+  const scene = new THREE.Scene(); const SKY = 0x8fd3df;
+  scene.background = new THREE.Color(SKY); scene.fog = new THREE.Fog(SKY, 110, 260);
+  addLights(scene);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0x2a7f9e }));
+  sea.rotation.x = -Math.PI / 2; scene.add(sea);
+  const WORLD = 210, MAX_HOLD = 6, ROUND = 180;
+  const wind = makeWind(30, 45), streaks = makeStreaks(scene, 160, 80), flecks = makeFlecks(scene), msgs = makeMsgs();
+
+  // dock
+  const wood = new THREE.MeshLambertMaterial({ color: 0x8a5a35 });
+  const dock = new THREE.Mesh(new THREE.BoxGeometry(14, 1, 6), wood); dock.position.set(0, 0.5, -8); scene.add(dock);
+  for (const px of [-6, 0, 6]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3), wood); post.position.set(px, 1.2, -5); scene.add(post); }
+
+  // obstacles: islands (plain) and rocks (crabs snatch pots)
+  const obstacles = [];
+  const free = (x, z, r) => Math.hypot(x, z) > 30 && obstacles.every(o => Math.hypot(o.x - x, o.z - z) > o.r + r + 6);
+  const sand = new THREE.MeshLambertMaterial({ color: 0xe8d29b }), leaf = new THREE.MeshLambertMaterial({ color: 0x3d9a5b });
+  for (let k = 0, tries = 0; k < 5 && tries < 200; tries++) {
+    const a = rnd(0, TAU), d = rnd(60, WORLD), x = Math.sin(a) * d, z = Math.cos(a) * d, r = rnd(8, 16);
+    if (!free(x, z, r)) continue;
+    const isl = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 2, 1.2, 20), sand); isl.position.set(x, 0.3, z); scene.add(isl);
+    for (let p = 0; p < 3; p++) {
+      const tx = x + rnd(-r / 2, r / 2), tz = z + rnd(-r / 2, r / 2);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 5), wood); trunk.position.set(tx, 3, tz); scene.add(trunk);
+      const top = new THREE.Mesh(new THREE.ConeGeometry(2.2, 2, 6), leaf); top.position.set(tx, 6, tz); scene.add(top);
+    }
+    obstacles.push({ x, z, r, crabs: null }); k++;
+  }
+  const rockM = new THREE.MeshLambertMaterial({ color: 0x6f7c80 });
+  for (let k = 0, tries = 0; k < 14 && tries < 400; tries++) {
+    const a = rnd(0, TAU), d = rnd(40, WORLD), x = Math.sin(a) * d, z = Math.cos(a) * d, r = rnd(2.5, 4.5);
+    if (!free(x, z, r)) continue;
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r), rockM); rock.position.set(x, r * 0.3, z); scene.add(rock);
+    const crabs = [];
+    for (let i = 0; i < 3; i++) {
+      const cm = crabMesh(0xd8452b, 0.6), ca = (i / 3) * TAU;
+      cm.position.set(x + Math.cos(ca) * r * 0.6, r * 0.9, z + Math.sin(ca) * r * 0.6); cm.rotation.y = ca;
+      scene.add(cm); crabs.push(cm);
+    }
+    obstacles.push({ x, z, r, crabs }); k++;
+  }
+
+  // pots
+  const buoyM = new THREE.MeshLambertMaterial({ color: 0xff8a1f }), flagM = new THREE.MeshLambertMaterial({ color: 0xfff1d6 });
+  const pots = [];
+  function placePot(p) {
+    for (let tries = 0; tries < 100; tries++) {
+      const a = rnd(0, TAU), d = rnd(35, WORLD), x = Math.sin(a) * d, z = Math.cos(a) * d;
+      if (obstacles.every(o => Math.hypot(o.x - x, o.z - z) > o.r + 8)) { p.x = x; p.z = z; break; }
+    }
+    p.mesh.position.set(p.x, 0, p.z); p.mesh.visible = true; p.active = true; p.crabs = 1 + Math.floor(Math.random() * 4);
+  }
+  for (let i = 0; i < 22; i++) {
+    const g = new THREE.Group();
+    const b = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), buoyM); b.position.y = 0.6; g.add(b);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3), flagM); pole.position.y = 2.4; g.add(pole);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.7, 1.1), buoyM); flag.position.set(0, 3.5, 0.55); g.add(flag);
+    scene.add(g);
+    const p = { x: 0, z: 0, mesh: g, active: true, respawn: 0, crabs: 1, ph: rnd(0, TAU) }; placePot(p); pots.push(p);
+  }
+
+  // boat (+Z is forward; heading h rotates +Z toward +X)
+  const boat = new THREE.Group();
+  const hullM = new THREE.MeshLambertMaterial({ color: 0xf3efe6 }), stripeM = new THREE.MeshLambertMaterial({ color: 0xff6b4a });
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.1, 5.5), hullM); hull.position.y = 0.5; boat.add(hull);
+  const bow = new THREE.Mesh(new THREE.BoxGeometry(1.85, 1.1, 1.85), hullM); bow.position.set(0, 0.5, 2.75); bow.rotation.y = Math.PI / 4; boat.add(bow);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.66, 0.22, 5.56), stripeM); stripe.position.y = 0.9; boat.add(stripe);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 8), wood); mast.position.set(0, 4.6, 0.8); boat.add(mast);
+  const sailPivot = new THREE.Group(); sailPivot.position.set(0, 0, 0.8); boat.add(sailPivot);
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 1.4, 0, 0, 8.3, 0, 0, 1.4, 4.6]), 3));
+  sg.computeVertexNormals();
+  const sail = new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ color: 0xfffaf0, side: THREE.DoubleSide })); sailPivot.add(sail);
+  const boom = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 4.6), wood); boom.position.set(0, 1.4, 2.3); sailPivot.add(boom);
+  const stowMeshes = [];
+  [[-0.7, -1.8], [0.7, -1.8], [-0.7, -0.6], [0.7, -0.6], [-0.6, 2], [0.6, 2]].forEach(([x, z]) => {
+    const m = crabMesh(0xd8452b, 0.35); m.position.set(x, 1.05, z); m.visible = false; boat.add(m); stowMeshes.push(m);
+  });
+  scene.add(boat);
+
+  const nados = [makeNado(scene), makeNado(scene)];
+  nados.forEach((n, i) => { const a = i * Math.PI + 1; n.x = Math.sin(a) * 120; n.z = Math.cos(a) * 120; n.wa = rnd(0, TAU); });
+
+  const b = { x: 0, z: 4, h: Math.PI, v: 0, trim: 0.8, side: 1, drive: 0, ideal: 0.8, aa: 0 };
+  // `stowCd` starts at 0, so the first pass through a crabnado always drops a crab.
+  const s = { time: ROUND, score: 0, cargo: 0, holdCrabs: 0, stow: 0, kickCd: 0, stowCd: 0, hitCd: 0, haul: 0, haulPot: null,
+    hint: '', autoTrim: false, over: false, t: 0, sold: 0 };
+  camera.position.set(b.x, 55, b.z + 38);
+
+  function update(dt) {
+    s.t += dt;
+    if (s.over) { if (hit('KeyR')) setMode(SailMode); return; }
+    s.time -= dt; if (s.time <= 0) { s.time = 0; s.over = true; }
+    wind.update(dt); msgs.update(dt);
+    const wd = wind.dir();
+
+    // steering + trim
+    const rudder = (down('KeyA', 'ArrowLeft') ? 1 : 0) - (down('KeyD', 'ArrowRight') ? 1 : 0);
+    if (hit('KeyT')) { s.autoTrim = !s.autoTrim; msgs.add(`Auto-trim ${s.autoTrim ? 'ON' : 'OFF'}`, C.wind); }
+    const a = wrapA(wind.angle - b.h), aa = Math.abs(a);
+    b.aa = aa; b.side = a >= 0 ? 1 : -1;
+    b.ideal = clamp(0.15 + 1.25 * (1 - aa / 2.4), 0.15, 1.4);
+    if (s.autoTrim) b.trim = lerp(b.trim, b.ideal, 1 - Math.exp(-dt * 4));
+    else {
+      if (down('KeyW', 'ArrowUp')) b.trim -= dt * 0.9;
+      if (down('KeyS', 'ArrowDown')) b.trim += dt * 0.9;
+    }
+    b.trim = clamp(b.trim, 0.05, 1.45);
+    const trimEff = aa > 2.45 ? 0 : Math.max(0, Math.cos(clamp((b.trim - b.ideal) * 1.8, -Math.PI / 2, Math.PI / 2)));
+    b.drive = polar(aa) * trimEff;
+    b.trimErr = b.trim - b.ideal;
+    const target = 16 * wind.strength * b.drive * (1 - 0.09 * s.stow) * (1 - 0.03 * s.cargo);
+    b.v += (target - b.v) * (1 - Math.exp(-dt * 0.7));
+    b.h += rudder * 1.4 * (0.35 + 0.65 * clamp(b.v / 6, 0, 1)) * dt;
+    let vx = Math.sin(b.h) * b.v + wd.x * wind.strength * 0.9, vz = Math.cos(b.h) * b.v + wd.z * wind.strength * 0.9;
+
+    // crabnados: drift downwind, wander, pull the boat in, drop crabs on deck
+    for (const n of nados) {
+      n.wa += rnd(-1, 1) * dt;
+      n.x += (wd.x * wind.strength * 4 + Math.sin(n.wa) * 3) * dt;
+      n.z += (wd.z * wind.strength * 4 + Math.cos(n.wa) * 3) * dt;
+      const nd = Math.hypot(n.x, n.z);
+      if (nd > WORLD) { n.x -= n.x / nd * 10 * dt; n.z -= n.z / nd * 10 * dt; }
+      n.g.position.set(n.x, 0, n.z); n.update(s.t);
+      const dx = b.x - n.x, dz = b.z - n.z, d = Math.hypot(dx, dz) || 1;
+      if (d < 32) {
+        const pull = 1 - d / 32;
+        vx += (-dz / d * 10 - dx / d * 4) * pull; vz += (dx / d * 10 - dz / d * 4) * pull;
+      }
+      if (d < 13 && s.stowCd <= 0 && s.stow < 6) {
+        s.stow++; s.stowCd = 0.7; msgs.add('A crab landed on deck! Space to kick it off', C.coral);
+      }
+    }
+    s.stowCd -= dt; s.kickCd -= dt; s.hitCd -= dt;
+    if (hit('Space') && s.stow > 0 && s.kickCd <= 0) { s.stow--; s.kickCd = 0.35; msgs.add('Kicked a crab overboard', C.good); }
+
+    b.x += vx * dt; b.z += vz * dt;
+    const bd = Math.hypot(b.x, b.z);
+    if (bd > WORLD + 40) { b.x *= (WORLD + 40) / bd; b.z *= (WORLD + 40) / bd; }
+
+    for (const o of obstacles) {
+      const dx = b.x - o.x, dz = b.z - o.z, d = Math.hypot(dx, dz) || 1, min = o.r + 2;
+      if (d < min) {
+        b.x = o.x + dx / d * min; b.z = o.z + dz / d * min; b.v *= 0.2;
+        if (s.hitCd <= 0) {
+          s.hitCd = 1.5;
+          if (o.crabs && s.cargo > 0) {
+            s.cargo--; s.holdCrabs = Math.max(0, s.holdCrabs - 2); msgs.add('Rock crabs snatched a pot!', C.bad);
+          } else msgs.add('Bonk!', C.warn);
+        }
+      }
+      if (o.crabs) o.crabs.forEach((cm, i) => { cm.position.y = o.r * 0.9 + Math.abs(Math.sin(s.t * 4 + i)) * 0.3; });
+    }
+
+    // hauling: slow down next to a buoy
+    s.hint = '';
+    let near = null, nd = 7;
+    for (const p of pots) {
+      if (!p.active) { p.respawn -= dt; if (p.respawn <= 0) placePot(p); continue; }
+      p.mesh.position.y = Math.sin(s.t * 2 + p.ph) * 0.2;
+      const d = Math.hypot(p.x - b.x, p.z - b.z); if (d < nd) { nd = d; near = p; }
+    }
+    if (near !== s.haulPot) { s.haul = 0; s.haulPot = near; }
+    if (near) {
+      if (s.cargo >= MAX_HOLD) s.hint = 'Hold full. Return to the dock.';
+      else if (b.v > 3.5) { s.hint = 'Slow down to haul (ease the sheet or turn into the wind)'; s.haul = Math.max(0, s.haul - dt * 2); }
+      else {
+        s.haul += dt;
+        if (s.haul >= 1.2) {
+          s.cargo++; s.holdCrabs += near.crabs; near.active = false; near.mesh.visible = false; near.respawn = 10;
+          msgs.add(`Hauled a pot: ${near.crabs} crab${near.crabs > 1 ? 's' : ''}`, C.good); s.haul = 0;
+        }
+      }
+    }
+    if (Math.hypot(b.x, b.z + 8) < 13 && s.cargo > 0) {
+      s.score += s.holdCrabs * 10; s.sold += s.holdCrabs;
+      msgs.add(`Sold ${s.holdCrabs} crabs at the dock: +${s.holdCrabs * 10}`, C.good); s.cargo = 0; s.holdCrabs = 0;
+    }
+
+    // visuals
+    boat.position.set(b.x, Math.sin(s.t * 1.7) * 0.15, b.z);
+    boat.rotation.set(0, b.h, -b.side * b.drive * 0.22);
+    sailPivot.rotation.y = Math.PI - b.side * b.trim;
+    sail.rotation.z = b.trimErr > 0.3 ? Math.sin(s.t * 30) * 0.06 : 0; // luffing flutter
+    stowMeshes.forEach((m, i) => { m.visible = i < s.stow; m.rotation.y = s.t * 3 + i; });
+    streaks.update(dt, b.x, b.z, wind); flecks.update(b.x, b.z, s.t);
+    followCam(dt, b.x, b.z, 0, 55, 38);
+    if (hit('KeyR')) setMode(SailMode);
+  }
+
+  function hud(c) {
+    panel(c, 16, 16, 240, 128);
+    text(c, 'SAIL & HAUL', 30, 36, 15, C.coral, 'left', true);
+    text(c, `Time ${fmtTime(s.time)}`, 30, 60, 15); text(c, `Score ${s.score}`, 150, 60, 15, C.ink, 'left', true);
+    text(c, `Hold ${s.cargo}/${MAX_HOLD} pots · ${s.holdCrabs} crabs`, 30, 84, 14);
+    text(c, `Crabs on deck ${s.stow}${s.stow ? '  (Space)' : ''}`, 30, 108, 14, s.stow ? C.coral : C.dim);
+    text(c, `Sold ${s.sold}`, 30, 130, 12, C.dim);
+
+    drawCompass(c, VW - 86, 86, 60, wind, b.h);
+
+    const py = VH - 168;
+    panel(c, 16, py, 290, 152);
+    text(c, `${(b.v * 1.2).toFixed(1)} kn`, 30, py + 24, 22, C.ink, 'left', true);
+    text(c, pointOfSail(b.aa), 150, py + 24, 15, b.aa > 2.45 ? C.bad : C.wind, 'left', true);
+    text(c, 'Drive', 30, py + 54, 12, C.dim); bar(c, 80, py + 48, 200, 10, b.drive, b.drive > 0.7 ? C.good : b.drive > 0.35 ? C.warn : C.bad);
+    text(c, 'Sheet', 30, py + 80, 12, C.dim); bar(c, 80, py + 74, 200, 10, b.trim / 1.45, '#d9d3c3');
+    const status = b.aa > 2.45 ? 'Sail flapping: head off the wind' : b.trimErr > 0.25 ? 'Luffing: sheet in (W)' : b.trimErr < -0.25 ? 'Stalled: ease out (S)' : 'Trimmed';
+    text(c, status, 30, py + 104, 13, status === 'Trimmed' ? C.good : C.warn, 'left', true);
+    text(c, `Auto-trim [T] ${s.autoTrim ? 'ON' : 'OFF'}`, 30, py + 130, 12, s.autoTrim ? C.wind : C.dim);
+
+    // minimap: north up, +Z is down
+    const mx = VW - 104, my = VH - 104, MR = 88, sc = MR / (WORLD + 40);
+    c.fillStyle = 'rgba(8,28,40,.74)'; c.beginPath(); c.arc(mx, my, MR, 0, TAU); c.fill();
+    for (const o of obstacles) { c.fillStyle = o.crabs ? '#c7695a' : '#e8d29b'; c.beginPath(); c.arc(mx + o.x * sc, my + o.z * sc, Math.max(2, o.r * sc), 0, TAU); c.fill(); }
+    c.fillStyle = '#ff8a1f'; for (const p of pots) if (p.active) c.fillRect(mx + p.x * sc - 2, my + p.z * sc - 2, 4, 4);
+    c.fillStyle = '#c99566'; c.fillRect(mx - 5, my - 8 * sc - 2, 10, 4);
+    c.strokeStyle = '#e6f2f5'; c.lineWidth = 2;
+    for (const n of nados) { c.beginPath(); c.arc(mx + n.x * sc, my + n.z * sc, 32 * sc, 0, TAU); c.stroke(); }
+    arrow(c, mx + b.x * sc, my + b.z * sc, Math.sin(b.h), Math.cos(b.h), 5, C.ink, 2);
+
+    if (s.haulPot && s.haul > 0) {
+      panel(c, VW / 2 - 110, VH - 92, 220, 44);
+      text(c, 'Hauling pot...', VW / 2, VH - 80, 13, C.ink, 'center', true); bar(c, VW / 2 - 95, VH - 66, 190, 8, s.haul / 1.2, C.good);
+    }
+    if (s.hint) text(c, s.hint, VW / 2, VH - 116, 15, C.warn, 'center', true);
+    msgs.draw(c);
+    text(c, 'A/D steer · W/S sheet in/out · T auto-trim · Space kick crab · R restart · Esc menu', VW / 2, 22, 12, C.dim, 'center');
+    if (s.over) {
+      c.fillStyle = 'rgba(8,28,40,.7)'; c.fillRect(0, 0, VW, VH);
+      text(c, 'Season over', VW / 2, VH / 2 - 30, 40, C.ink, 'center', true);
+      text(c, `Score ${s.score} · ${s.sold} crabs sold`, VW / 2, VH / 2 + 14, 20, C.coral, 'center', true);
+      text(c, 'R to sail again · Esc for menu', VW / 2, VH / 2 + 50, 14, C.dim, 'center');
+    }
+  }
+  return { scene, update, hud };
+}
+
+// =====================================================================
+// CRABNADO
+// =====================================================================
+const TYPES = [
+  { name: 'crab', hp: 3, spd: 4.2, r: 0.9, col: 0xd8452b, scale: 1, dps: 10, xp: 1, side: true },
+  { name: 'shrimp', hp: 1.5, spd: 7.5, r: 0.6, col: 0xff8fa3, scale: 0.7, dps: 6, xp: 1, side: false },
+  { name: 'lobster', hp: 14, spd: 2.8, r: 1.4, col: 0x8b1e1e, scale: 1.6, dps: 18, xp: 4, side: false },
+];
+
+function CrabMode() {
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fd8e6); scene.fog = new THREE.Fog(0x9fd8e6, 90, 200);
+  addLights(scene);
+  const ARENA = 70, MAXE = 1500, MAXB = 400, MAXS = 2000, G = 30, CS = 2.2;
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(ARENA + 40, 48), new THREE.MeshLambertMaterial({ color: 0xe8d29b }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0x2a7f9e }));
+  sea.rotation.x = -Math.PI / 2; sea.position.y = -0.05; scene.add(sea);
+  const ringM = new THREE.MeshLambertMaterial({ color: 0x7a6650 });
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * TAU, log = new THREE.Mesh(new THREE.BoxGeometry(rnd(2, 4), 0.8, 1), ringM);
+    log.position.set(Math.cos(a) * (ARENA + 2), 0.4, Math.sin(a) * (ARENA + 2)); log.rotation.y = -a + rnd(-0.3, 0.3); scene.add(log);
+  }
+  const wind = makeWind(18, 28), streaks = makeStreaks(scene, 180, 60), msgs = makeMsgs(), nado = makeNado(scene, 26);
+  nado.x = 50; nado.z = -30; nado.wa = 0;
+
+  const player = crabMesh(0x2bb3a3, 1.1); scene.add(player);
+  const P = { x: 0, z: 0, hp: 100, maxHp: 100, speed: 11, magnet: 5, xp: 0, level: 1, need: 6, f: 0 };
+  const claw = { dmg: 2, radius: 4.5, cd: 0.9, t: 0.5 };
+  const bub = { dmg: 2, cd: 0.7, count: 1, speed: 22, t: 0.3 };
+  const gust = { on: false, cd: 5, radius: 18, force: 22, t: 2 };
+  const opts = { drift: true, sep: true };
+
+  const unit = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const body = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), unit, MAXE);
+  const claws = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 6, 4), unit, MAXE * 2);
+  const bubM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xbff3ff, transparent: true, opacity: 0.85 }), MAXB);
+  const shellM = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0xfff4dc }), MAXS);
+  const col = new THREE.Color(0xffffff);
+  for (let i = 0; i < MAXE; i++) body.setColorAt(i, col);
+  for (let i = 0; i < MAXE * 2; i++) claws.setColorAt(i, col);
+  [body, claws, bubM, shellM].forEach(m => { m.frustumCulled = false; m.count = 0; scene.add(m); });
+
+  const fxMat = c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const clawRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), fxMat(0xff6b4a)); clawRing.rotation.x = -Math.PI / 2; scene.add(clawRing);
+  const gustRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), fxMat(0x9be7ff)); gustRing.rotation.x = -Math.PI / 2; scene.add(gustRing);
+  let gustAnim = 0;
+
+  let E = [], B = [], S = [];
+  const grid = new Map();
+  const s = { t: 0, kills: 0, spawnAcc: 0, surge: 45, over: false, levelUp: null, fps: 60 };
+  camera.position.set(0, 42, 26);
+
+  const cellKey = (cx, cz) => (cx + 1000) * 4000 + (cz + 1000);
+  function forNear(x, z, fn) {
+    const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const a = grid.get(cellKey(cx + dx, cz + dz)); if (a) for (const j of a) fn(j);
+    }
+  }
+  function damage(e, d) { e.hp -= d; e.flash = 0.08; }
+
+  function pickType() {
+    const r = Math.random();
+    if (s.t > 60 && r < 0.08) return 2; if (s.t > 25 && r < 0.35) return 1; return 0;
+  }
+  function spawnOne() {
+    const dx = P.x - nado.x, dz = P.z - nado.z, d = Math.hypot(dx, dz) || 1, dist = rnd(6, 32);
+    let lx = nado.x + dx / d * dist + rnd(-10, 10), lz = nado.z + dz / d * dist + rnd(-10, 10);
+    const ld = Math.hypot(lx, lz); if (ld > ARENA - 2) { lx *= (ARENA - 2) / ld; lz *= (ARENA - 2) / ld; }
+    const T = rnd(1.1, 1.6), y0 = 16, type = pickType();
+    E.push({ x: nado.x, z: nado.z, y: y0, vx: (lx - nado.x) / T, vz: (lz - nado.z) / T, vy: (0.5 * G * T * T - y0) / T,
+      air: true, type, hp: TYPES[type].hp * (1 + s.t / 240), f: rnd(0, TAU), flash: 0, kx: 0, kz: 0, ph: rnd(0, TAU) });
+  }
+
+  const UPGRADES = [
+    { n: 'Sharper Claws', d: 'Claw snap damage +50%', f: () => { claw.dmg *= 1.5; } },
+    { n: 'Long Reach', d: 'Claw snap radius +20%', f: () => { claw.radius *= 1.2; } },
+    { n: 'Bubble Burst', d: '+1 bubble per volley', f: () => { bub.count++; } },
+    { n: 'Quick Bubbles', d: 'Bubbles fire 25% faster', f: () => { bub.cd *= 0.8; } },
+    { n: 'Sea Breeze', d: 'Unlock a gust that blasts crabs downwind', f: () => { gust.on = true; }, ok: () => !gust.on },
+    { n: 'Stronger Gust', d: 'Gust cooldown -20%, force +25%', f: () => { gust.cd *= 0.8; gust.force *= 1.25; }, ok: () => gust.on },
+    { n: 'Scuttle', d: 'Move speed +12%', f: () => { P.speed *= 1.12; } },
+    { n: 'Thick Shell', d: 'Max HP +25 and heal 25', f: () => { P.maxHp += 25; P.hp = Math.min(P.maxHp, P.hp + 25); } },
+    { n: 'Tide Pull', d: 'Shell pickup range +40%', f: () => { P.magnet *= 1.4; } },
+  ];
+  function rollUpgrades() {
+    const pool = UPGRADES.filter(u => !u.ok || u.ok());
+    const pick = [];
+    if (P.level === 1 && !gust.on) pick.push(UPGRADES[4]); // guarantee the breeze weapon gets tested
+    while (pick.length < 3) { const u = pool[Math.floor(Math.random() * pool.length)]; if (!pick.includes(u)) pick.push(u); }
+    return pick;
+  }
+
+  function update(dt, rawDt) {
+    s.fps = lerp(s.fps, 1 / Math.max(rawDt, 1e-3), 0.05);
+    if (hit('KeyR')) { setMode(CrabMode); return; }
+    if (s.over) return;
+    if (s.levelUp) {
+      ['Digit1', 'Digit2', 'Digit3'].forEach((k, i) => {
+        if (hit(k) && s.levelUp) { const u = s.levelUp[i]; u.f(); s.levelUp = null; msgs.add(u.n, C.good); }
+      });
+      return;
+    }
+    if (hit('KeyB')) { opts.drift = !opts.drift; msgs.add(`Bubble wind drift ${opts.drift ? 'ON' : 'OFF'}`, C.wind); }
+    if (hit('KeyG')) { opts.sep = !opts.sep; msgs.add(`Crab separation ${opts.sep ? 'ON' : 'OFF'}`, C.wind); }
+
+    s.t += dt; wind.update(dt); msgs.update(dt);
+    const wd = wind.dir();
+
+    // player: you walk against the breeze too
+    let mx = (down('KeyD', 'ArrowRight') ? 1 : 0) - (down('KeyA', 'ArrowLeft') ? 1 : 0);
+    let mz = (down('KeyS', 'ArrowDown') ? 1 : 0) - (down('KeyW', 'ArrowUp') ? 1 : 0);
+    const ml = Math.hypot(mx, mz);
+    if (ml) { mx /= ml; mz /= ml; P.f = Math.atan2(mx, mz) + Math.PI / 2; }
+    P.x += (mx * P.speed + wd.x * wind.strength * 1.5) * dt; P.z += (mz * P.speed + wd.z * wind.strength * 1.5) * dt;
+    const pd = Math.hypot(P.x, P.z); if (pd > ARENA) { P.x *= ARENA / pd; P.z *= ARENA / pd; }
+
+    // crabnado wanders and drifts downwind, and pushes you if you get close
+    nado.wa += rnd(-1, 1) * dt;
+    nado.x += (wd.x * wind.strength * 3 + Math.sin(nado.wa) * 4) * dt;
+    nado.z += (wd.z * wind.strength * 3 + Math.cos(nado.wa) * 4) * dt;
+    const nd = Math.hypot(nado.x, nado.z); if (nd > ARENA - 8) { nado.x *= (ARENA - 8) / nd; nado.z *= (ARENA - 8) / nd; }
+    nado.g.position.set(nado.x, 0, nado.z); nado.update(s.t);
+    { const dx = P.x - nado.x, dz = P.z - nado.z, d = Math.hypot(dx, dz) || 1;
+      if (d < 10) { const k = (1 - d / 10) * 14; P.x += (-dz / d + dx / d) * k * dt; P.z += (dx / d + dz / d) * k * dt; } }
+
+    // spawning
+    s.spawnAcc += (1.6 + s.t * 0.09) * dt;
+    while (s.spawnAcc >= 1) { s.spawnAcc--; if (E.length < MAXE) spawnOne(); }
+    s.surge -= dt;
+    if (s.surge <= 0) {
+      s.surge = 45; const n = Math.floor(30 + s.t * 0.3);
+      for (let i = 0; i < n && E.length < MAXE; i++) spawnOne();
+      msgs.add('The crabnado surges!', C.coral);
+    }
+
+    // spatial grid of grounded enemies
+    grid.clear();
+    for (let i = 0; i < E.length; i++) {
+      const e = E[i]; if (e.air) continue;
+      const k = cellKey(Math.floor(e.x / CS), Math.floor(e.z / CS));
+      let a = grid.get(k); if (!a) { a = []; grid.set(k, a); } a.push(i);
+    }
+
+    const kd = Math.exp(-3 * dt);
+    for (let i = 0; i < E.length; i++) {
+      const e = E[i], T = TYPES[e.type];
+      e.flash -= dt;
+      if (e.air) {
+        e.x += e.vx * dt; e.z += e.vz * dt; e.vy -= G * dt; e.y += e.vy * dt; e.f += dt * 8;
+        if (e.y <= 0) { e.y = 0; e.air = false; }
+        continue;
+      }
+      const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;
+      let vx = dx / d * T.spd + wd.x * wind.strength * 1.2 + e.kx, vz = dz / d * T.spd + wd.z * wind.strength * 1.2 + e.kz;
+      e.kx *= kd; e.kz *= kd;
+      if (opts.sep) {
+        let sx = 0, sz = 0;
+        forNear(e.x, e.z, j => {
+          if (j === i) return;
+          const o = E[j], ox = e.x - o.x, oz = e.z - o.z, od = Math.hypot(ox, oz), min = (T.r + TYPES[o.type].r) * 0.9;
+          if (od > 0.0001 && od < min) { const k = (min - od) / od; sx += ox * k; sz += oz * k; }
+        });
+        vx += sx * 6; vz += sz * 6;
+      }
+      e.x += vx * dt; e.z += vz * dt;
+      const ed = Math.hypot(e.x, e.z); if (ed > ARENA + 1) { e.x *= (ARENA + 1) / ed; e.z *= (ARENA + 1) / ed; }
+      e.f = Math.atan2(dx, dz) + (T.side ? Math.PI / 2 : 0);
+      if (d < T.r + 0.9) P.hp -= T.dps * dt;
+    }
+    if (P.hp <= 0) { P.hp = 0; s.over = true; }
+
+    // weapons
+    claw.t -= dt;
+    if (claw.t <= 0) {
+      claw.t = claw.cd; clawRing.material.opacity = 0.8;
+      for (const e of E) if (!e.air && Math.hypot(e.x - P.x, e.z - P.z) < claw.radius + TYPES[e.type].r) damage(e, claw.dmg);
+    }
+    bub.t -= dt;
+    if (bub.t <= 0) {
+      let best = null, bd = 30;
+      for (const e of E) { if (e.air) continue; const d = Math.hypot(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; best = e; } }
+      if (best) {
+        bub.t = bub.cd;
+        const base = Math.atan2(best.x - P.x, best.z - P.z);
+        for (let k = 0; k < bub.count && B.length < MAXB; k++) {
+          const a = base + (k - (bub.count - 1) / 2) * 0.18;
+          B.push({ x: P.x, z: P.z, vx: Math.sin(a) * bub.speed, vz: Math.cos(a) * bub.speed, life: 1.6 });
+        }
+      }
+    }
+    if (gust.on) {
+      gust.t -= dt;
+      if (gust.t <= 0) {
+        gust.t = gust.cd; gustAnim = 1; streaks.boost = 2.5;
+        for (const e of E) {
+          if (e.air) continue;
+          const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz) || 1;
+          if (d < gust.radius) {
+            const k = gust.force * (1 - d / gust.radius * 0.5);
+            e.kx += (wd.x * 0.7 + dx / d * 0.5) * k; e.kz += (wd.z * 0.7 + dz / d * 0.5) * k; damage(e, 1);
+          }
+        }
+      }
+    }
+    for (const b of B) {
+      if (opts.drift) { b.vx += wd.x * wind.strength * 12 * dt; b.vz += wd.z * wind.strength * 12 * dt; }
+      b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt;
+      forNear(b.x, b.z, j => {
+        const e = E[j]; if (b.life <= 0 || e.hp <= 0) return;
+        if (Math.hypot(e.x - b.x, e.z - b.z) < TYPES[e.type].r + 0.35) { damage(e, bub.dmg); b.life = 0; }
+      });
+    }
+    B = B.filter(b => b.life > 0);
+
+    // deaths drop shells
+    let w = 0;
+    for (const e of E) {
+      if (e.hp > 0) { E[w++] = e; continue; }
+      s.kills++; if (S.length < MAXS) S.push({ x: e.x, z: e.z, v: TYPES[e.type].xp, pull: false });
+    }
+    E.length = w;
+    for (const sh of S) {
+      const dx = P.x - sh.x, dz = P.z - sh.z, d = Math.hypot(dx, dz) || 1;
+      if (d < P.magnet) sh.pull = true;
+      if (sh.pull) { sh.x += dx / d * 25 * dt; sh.z += dz / d * 25 * dt; }
+      if (d < 1) { P.xp += sh.v; sh.v = 0; }
+    }
+    S = S.filter(sh => sh.v > 0);
+    if (P.xp >= P.need) { P.xp -= P.need; P.level++; P.need = 6 + P.level * 5; s.levelUp = rollUpgrades(); }
+
+    render();
+  }
+
+  const d3 = new THREE.Object3D();
+  function render() {
+    const wd = wind.dir();
+    player.position.set(P.x, 0, P.z); player.rotation.y = P.f;
+    clawRing.position.set(P.x, 0.1, P.z); clawRing.scale.setScalar(claw.radius);
+    clawRing.material.opacity = Math.max(0, clawRing.material.opacity - 0.05);
+    gustAnim = Math.max(0, gustAnim - 0.04);
+    gustRing.position.set(P.x + wd.x * 2, 0.15, P.z + wd.z * 2); gustRing.scale.setScalar(gust.radius * (1.1 - gustAnim * 0.8));
+    gustRing.material.opacity = gustAnim * 0.7;
+
+    let n = 0;
+    for (const e of E) {
+      const T = TYPES[e.type], sc = T.scale, f = e.f;
+      d3.position.set(e.x, e.y + 0.45 * sc, e.z); d3.rotation.set(0, f, 0); d3.scale.set(sc, sc * 0.5, sc * 0.75);
+      d3.updateMatrix(); body.setMatrixAt(n, d3.matrix);
+      col.set(e.flash > 0 ? 0xffffff : T.col); body.setColorAt(n, col);
+      const cs = Math.cos(f), sn = Math.sin(f), snap = Math.sin(s.t * 10 + e.ph) * 0.12 * sc;
+      for (let k = 0; k < 2; k++) {
+        const lx = (k ? 0.85 : -0.85) * sc, lz = 0.7 * sc + snap;
+        d3.position.set(e.x + cs * lx + sn * lz, e.y + 0.5 * sc, e.z - sn * lx + cs * lz);
+        d3.rotation.set(0, 0, 0); d3.scale.setScalar(sc); d3.updateMatrix();
+        claws.setMatrixAt(n * 2 + k, d3.matrix); claws.setColorAt(n * 2 + k, col);
+      }
+      n++;
+    }
+    body.count = n; claws.count = n * 2;
+    body.instanceMatrix.needsUpdate = true; claws.instanceMatrix.needsUpdate = true;
+    body.instanceColor.needsUpdate = true; claws.instanceColor.needsUpdate = true;
+
+    B.forEach((b, i) => { d3.position.set(b.x, 0.8, b.z); d3.rotation.set(0, 0, 0); d3.scale.setScalar(1); d3.updateMatrix(); bubM.setMatrixAt(i, d3.matrix); });
+    bubM.count = B.length; bubM.instanceMatrix.needsUpdate = true;
+    S.forEach((sh, i) => { d3.position.set(sh.x, 0.4, sh.z); d3.rotation.set(0, s.t * 2, 0); d3.scale.setScalar(1); d3.updateMatrix(); shellM.setMatrixAt(i, d3.matrix); });
+    shellM.count = S.length; shellM.instanceMatrix.needsUpdate = true;
+
+    streaks.update(1 / 60, P.x, P.z, wind);
+  }
+
+  function frame(dt, rawDt) {
+    update(dt, rawDt);
+    followCam(dt, P.x, P.z, 0, 42, 26);
+  }
+
+  function hud(c) {
+    bar(c, 16, 10, VW - 32, 8, P.xp / P.need, C.wind);
+    text(c, `LV ${P.level}`, 20, 30, 13, C.wind, 'left', true);
+    panel(c, 16, 44, 220, 96);
+    text(c, 'CRABNADO', 30, 64, 15, C.coral, 'left', true);
+    text(c, `Survived ${fmtTime(s.t)}`, 30, 88, 14); text(c, `Kills ${s.kills}`, 150, 88, 14);
+    text(c, 'HP', 30, 116, 12, C.dim); bar(c, 56, 110, 166, 12, P.hp / P.maxHp, P.hp / P.maxHp > 0.35 ? C.good : C.bad);
+    drawCompass(c, VW - 86, 106, 60, wind);
+
+    const py = VH - 150;
+    panel(c, 16, py, 300, 134);
+    text(c, `Crabs on screen ${E.length}`, 30, py + 22, 14, C.ink, 'left', true);
+    text(c, `${s.fps.toFixed(0)} fps`, 230, py + 22, 14, s.fps > 50 ? C.good : s.fps > 30 ? C.warn : C.bad, 'left', true);
+    text(c, `Claw ${claw.dmg.toFixed(1)} dmg · r ${claw.radius.toFixed(1)}`, 30, py + 48, 13);
+    text(c, `Bubbles x${bub.count} every ${bub.cd.toFixed(2)}s`, 30, py + 70, 13);
+    text(c, gust.on ? `Gust every ${gust.cd.toFixed(1)}s` : 'Gust locked', 30, py + 92, 13, gust.on ? C.wind : C.dim);
+    text(c, `[B] bubble drift ${opts.drift ? 'ON' : 'OFF'}  ·  [G] separation ${opts.sep ? 'ON' : 'OFF'}`, 30, py + 116, 12, C.dim);
+    msgs.draw(c);
+    text(c, 'WASD move · weapons fire on their own · stand upwind of the horde · R restart · Esc menu', VW / 2, VH - 16, 12, C.dim, 'center');
+
+    if (s.levelUp) {
+      c.fillStyle = 'rgba(8,28,40,.6)'; c.fillRect(0, 0, VW, VH);
+      text(c, 'Molted! Pick an upgrade', VW / 2, VH / 2 - 120, 28, C.ink, 'center', true);
+      const w = Math.min(230, (VW - 64) / 3), h = 130, gap = 16, x0 = VW / 2 - (w * 3 + gap * 2) / 2;
+      s.levelUp.forEach((u, i) => {
+        const x = x0 + i * (w + gap), y = VH / 2 - 70;
+        panel(c, x, y, w, h);
+        text(c, `[${i + 1}]`, x + 16, y + 24, 18, C.coral, 'left', true);
+        text(c, u.n, x + 16, y + 56, 17, C.ink, 'left', true);
+        text(c, u.d, x + 16, y + 88, 12, C.dim);
+      });
+    }
+    if (s.over) {
+      c.fillStyle = 'rgba(8,28,40,.7)'; c.fillRect(0, 0, VW, VH);
+      text(c, 'Swept away', VW / 2, VH / 2 - 30, 40, C.ink, 'center', true);
+      text(c, `Survived ${fmtTime(s.t)} · ${s.kills} kills · level ${P.level}`, VW / 2, VH / 2 + 14, 20, C.coral, 'center', true);
+      text(c, 'R to try again · Esc for menu', VW / 2, VH / 2 + 50, 14, C.dim, 'center');
+    }
+  }
+  return { scene, update: frame, hud };
+}
+
+// ---------- main loop ----------
+let mode = null;
+function setMode(fn) { if (mode) disposeScene(mode.scene); mode = fn(); }
+setMode(MenuMode);
+let last = performance.now();
+function loop(now) {
+  const rawDt = (now - last) / 1000; last = now;
+  const dt = Math.min(0.05, rawDt);
+  if (hit('Escape') && mode.scene) setMode(MenuMode);
+  mode.update(dt, rawDt);
+  renderer.render(mode.scene, camera);
+  ctx.clearRect(0, 0, VW, VH);
+  mode.hud(ctx);
+  pressed.clear();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+glc.focus();
+</script>
