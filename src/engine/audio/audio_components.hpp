@@ -22,13 +22,16 @@ struct SoundEffect {
 	void Fire() { playing = true; }
 };
 
-// Looping background music track attached to an entity. `path` is loaded to a platform handle by
-// the ResolveMusicObserver. POD-compatible via ref handle in scripts (same reasoning as
-// SoundEffect). Playback wiring beyond one-shot sounds is future work.
+// Streamed music track attached to an entity. `path` is loaded to a platform handle by the
+// ResolveMusic observer; the MusicPlayback system starts it once, keeps its stream fed every frame
+// and applies `volume`. `playing` is runtime state: it is set once playback has started. Removing the
+// component (or destroying the entity) releases the track, which stops it.
 struct Music {
 	std::string path;
 	int handle{-1};
 	bool loop{true};
+	float volume{1.0F};
+	bool playing{false};
 };
 
 } // namespace engine::audio

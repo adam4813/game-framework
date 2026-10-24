@@ -251,6 +251,17 @@ public:
 	virtual void UnloadSound(int handle) = 0;
 	virtual void PlaySound(int handle) = 0;
 
+	// Streamed music (one decoded chunk at a time, for long tracks). LoadMusic returns a handle or -1
+	// and deduplicates by path. PlayMusic restarts the track from the start; `loop` makes it wrap.
+	// UpdateMusic refills the stream's buffers and must be called every frame while it plays.
+	// StopMusic and UnloadMusic with a bad handle are no-ops.
+	virtual int LoadMusic(std::string_view path) = 0;
+	virtual void UnloadMusic(int handle) = 0;
+	virtual void PlayMusic(int handle, bool loop) = 0;
+	virtual void StopMusic(int handle) = 0;
+	virtual void UpdateMusic(int handle) = 0;
+	virtual void SetMusicVolume(int handle, float volume) = 0; // 0..1
+
 	// ── Procedural audio ──
 	// Starts the single procedural output stream (mono f32 at audio::kSynthSampleRate), pulled by
 	// the audio device straight from `source`->Render() on the audio thread. Replaces any running
