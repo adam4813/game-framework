@@ -8,6 +8,7 @@
 #include "crabnado_constants.hpp"
 #include "controls.hpp"
 #include "engine/engine.hpp"
+#include "sfx.hpp"
 
 using namespace engine;
 
@@ -106,6 +107,7 @@ void LoseRun(const flecs::world& world) {
 	}
 	run.phase = RunPhase::Lost;
 	world.add<scene::Paused>();
+	PlaySfx(world, Sfx::PlayerDeath);
 	spdlog::info("[Run] Swept away at {:.1f}s with {} kills", run.clock, run.kills);
 }
 

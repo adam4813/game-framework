@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::array<const char*, static_cast<size_t>(Sfx::Count)> kFiles{
 	"claw_click.wav", "claw_snap.wav", "bubble_pop.wav", "crest.wav", "molt.wav", "boss_slam.wav", "rogue_warning.wav",
-	"enemy_defeat.wav", "rock_crush.wav",
+	"enemy_defeat.wav", "rock_crush.wav", "player_death.wav",
 };
 
 // Defeats come in crowds, so they get a minimum gap between plays (seconds).
