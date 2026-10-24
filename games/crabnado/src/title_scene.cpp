@@ -29,6 +29,9 @@ void TitleScene::Load(flecs::world& world) {
 
 	uiRoot_ = world.entity("TitleUI");
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
+	std::ignore = world.entity("Music").child_of(uiRoot_).set<audio::Music>(
+		{.path = assets::ResolveAsset(world, "audio/crabnado/title.ogg"), .loop = true, .volume = constants::kTitleMusicVolume}
+	);
 
 	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h / 2.0F - 140.0F, .w = w, .h = 64.0F}, title, 64.0F)
 					  .set<ui::Label>({.text = title, .font_size = 64.0F, .color = core::colors::Title})

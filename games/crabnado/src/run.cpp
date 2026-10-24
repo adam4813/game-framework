@@ -97,6 +97,7 @@ void WinRun(const flecs::world& world) {
 	}
 	run.phase = RunPhase::Won;
 	world.add<scene::Paused>();
+	PlaySfx(world, Sfx::Victory);
 	spdlog::info("[Run] Crabnado broken apart at {:.1f}s with {} kills", run.clock, run.kills);
 }
 

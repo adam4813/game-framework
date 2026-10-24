@@ -12,6 +12,9 @@ inline constexpr std::string_view kWindowTitle = "Crabnado";
 
 // ── Audio ──
 inline constexpr float kMusicVolume = 0.5F;
+// The title music is a little quieter, and the arena music ducks to this when the run ends so the sting is heard.
+inline constexpr float kTitleMusicVolume = 0.4F;
+inline constexpr float kEndedMusicVolume = 0.15F;
 
 // ── Horde ──
 // Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).

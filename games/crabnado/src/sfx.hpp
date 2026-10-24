@@ -8,11 +8,11 @@
 // Crabnado's sound effects: a bank of platform sound handles, loaded once and played by name.
 namespace crabnado {
 
-enum class Sfx { ClawClick, ClawSnap, BubblePop, Crest, Molt, BossSlam, RogueWarning, EnemyDefeat, RockCrush, PlayerDeath, Count };
+enum class Sfx { ClawClick, ClawSnap, BubblePop, Crest, Molt, BossSlam, RogueWarning, EnemyDefeat, RockCrush, PlayerDeath, Victory, Count };
 
 // Singleton: the platform handle of each Sfx (-1 when it failed to load or there is no audio device).
 struct SfxBank {
-	std::array<int, static_cast<size_t>(Sfx::Count)> handles{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+	std::array<int, static_cast<size_t>(Sfx::Count)> handles{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 	// When each sound last played, in seconds of world time, for the crowded ones' minimum gap.
 	std::array<double, static_cast<size_t>(Sfx::Count)> last_played{};
 	// xorshift state for the pitch variation (not the run's RngState, so replays stay deterministic).
