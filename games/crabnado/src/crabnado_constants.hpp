@@ -10,6 +10,10 @@ inline constexpr int kWindowWidth = 1280;
 inline constexpr int kWindowHeight = 720;
 inline constexpr std::string_view kWindowTitle = "Crabnado";
 
+// ── UI ──
+// Lilita One (SIL Open Font License, assets/fonts/crabnado/OFL.txt).
+inline constexpr std::string_view kUiFontPath = "fonts/crabnado/LilitaOne-Regular.ttf";
+
 // ── Audio ──
 inline constexpr float kMusicVolume = 0.5F;
 // The title music is a little quieter. When a run is won the arena music ducks to kEndedMusicVolume so the sting is
