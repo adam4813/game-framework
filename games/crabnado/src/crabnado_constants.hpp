@@ -108,6 +108,19 @@ inline constexpr float kKnockDecay = 3.0F;
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;
+// Surfing: a crest higher than kSurfMinHeight carries the player at its push; the knock decays by
+// exp(-kKnockDecay * dt) afterwards and counts as surfing above kSurfingSpeed units per second.
+inline constexpr float kSurfMinHeight = 0.3F;
+inline constexpr float kSurfingSpeed = 4.0F;
+// Digging in squashes the crab's y scale to kDigInSquash and sinks it by kDigInSink.
+inline constexpr float kDigInSquash = 0.7F;
+inline constexpr float kDigInSink = 0.35F;
+// Stamina (units, units per second). Once it runs out, dig in stays off until stamina refills to
+// kStaminaRecoverFraction of the maximum.
+inline constexpr float kStaminaMax = 100.0F;
+inline constexpr float kStaminaRegen = 18.0F;
+inline constexpr float kStaminaDrain = 30.0F;
+inline constexpr float kStaminaRecoverFraction = 0.25F;
 // Enemies touch the player within their radius plus this.
 inline constexpr float kPlayerContactRadius = 0.9F;
 

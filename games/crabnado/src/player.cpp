@@ -1,5 +1,6 @@
 #include "player.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -7,6 +8,7 @@
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "run.hpp"
+#include "waves.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -37,31 +39,82 @@ void RegisterPlayer(const flecs::world& world) {
 		.member<float>("hp")
 		.member<float>("max_hp")
 		.member<float>("pickup_range");
+	world.component<Stamina>()
+		.member<float>("value")
+		.member<float>("max")
+		.member<float>("regen")
+		.member<float>("drain")
+		.member<bool>("exhausted")
+		.member<bool>("dug_in");
+	world.component<SurfKnock>().member<glm::vec2>("velocity");
 	world.component<FollowCamera>().member<glm::vec3>("offset");
 
-	world.system<const PlayerIntent, const PlayerStats, spatial::Transform>("PlayerMove")
+	world.system<const PlayerIntent, Stamina>("PlayerStamina")
+		.term_at(0)
+		.singleton()
+		.with<Player>()
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, Stamina& stamina) {
+			const float dt = it.delta_time();
+			if (stamina.exhausted && stamina.value >= stamina.max * constants::kStaminaRecoverFraction) {
+				stamina.exhausted = false;
+			}
+			stamina.dug_in = intent.dig_in && !stamina.exhausted && stamina.value > 0.0F;
+			if (stamina.dug_in) {
+				stamina.value -= stamina.drain * dt;
+				if (stamina.value <= 0.0F) {
+					stamina.value = 0.0F;
+					stamina.exhausted = true;
+					stamina.dug_in = false;
+				}
+				return;
+			}
+			stamina.value = std::min(stamina.max, stamina.value + stamina.regen * dt);
+		})
+		.add<ecs::Pausable>()
+		.add<scene::GameScene>();
+
+	world.system<const PlayerIntent, const PlayerStats, const Stamina, SurfKnock, spatial::Transform>("PlayerMove")
 		.term_at(0)
 		.singleton()
 		.with<Player>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, const PlayerStats& stats,
-				  spatial::Transform& transform) {
-			// The wind pushes the crab whether it walks or not, so walking upwind is slower.
-			glm::vec2 velocity = WindPush(it.world().get<Wind>(), constants::kPlayerWindPush);
-			const float length = glm::length(intent.move);
+				  const Stamina& stamina, SurfKnock& surf, spatial::Transform& transform) {
+			const float dt = it.delta_time();
+			const glm::vec2 current{transform.position.x, transform.position.z};
+			const WaveSample wave = SampleWaves(it.world().get<WaveField>(), {}, current);
+			// Dug in: the crab is rooted, so wind, waves and steering are all ignored.
+			if (stamina.dug_in) {
+				surf.velocity = glm::vec2{0.0F};
+			} else if (wave.height > constants::kSurfMinHeight) {
+				surf.velocity = wave.push;
+			} else {
+				surf.velocity *= std::exp(-constants::kKnockDecay * dt);
+			}
+			glm::vec2 velocity{0.0F};
+			const float length = stamina.dug_in ? 0.0F : glm::length(intent.move);
+			if (!stamina.dug_in) {
+				// The wind pushes the crab whether it walks or not, so walking upwind is slower.
+				velocity = WindPush(it.world().get<Wind>(), constants::kPlayerWindPush) + surf.velocity;
+			}
 			if (length > 0.0F) {
 				const glm::vec2 direction = intent.move / length;
 				velocity += direction * stats.speed;
 				// Scuttle sideways: the crab faces 90° off its direction of travel.
 				transform.rotation.y = std::atan2(direction.x, direction.y) + std::numbers::pi_v<float> / 2.0F;
 			}
-			glm::vec2 position = glm::vec2{transform.position.x, transform.position.z} + velocity * it.delta_time();
+			glm::vec2 position = current + velocity * dt;
 			const float distance = glm::length(position);
 			if (distance > constants::kArenaRadius) {
 				position *= constants::kArenaRadius / distance;
 			}
 			transform.position.x = position.x;
 			transform.position.z = position.y;
+			// The crab rides the water; digging in squashes and sinks it.
+			const float sink = stamina.dug_in ? constants::kDigInSink : 0.0F;
+			transform.position.y = wave.height * constants::kWaterHeightScale - sink;
+			transform.scale.y = stamina.dug_in ? constants::kDigInSquash : 1.0F;
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -99,6 +152,13 @@ flecs::entity SpawnPlayer(const flecs::world& world, const flecs::entity parent)
 										.max_hp = constants::kPlayerMaxHp,
 										.pickup_range = constants::kPlayerPickupRange}
 								   )
+								   .set<Stamina>(
+									   {.value = constants::kStaminaMax,
+										.max = constants::kStaminaMax,
+										.regen = constants::kStaminaRegen,
+										.drain = constants::kStaminaDrain}
+								   )
+								   .set<SurfKnock>({})
 								   .set<spatial::Transform>({});
 	AddPart(world, crab, {0.0F, 0.4F, 0.2F}, {1.0F, 0.5F, 0.8F}, 0.8F, kBodyColor);
 	AddPart(world, crab, {0.0F, 0.9F, -0.4F}, {1.0F, 0.9F, 1.1F}, 0.9F, kShellColor);

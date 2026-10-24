@@ -28,13 +28,16 @@ constexpr std::array kMoveBindings{
 	MoveBinding{.key = input::KeyCode::Right, .direction = {1.0F, 0.0F}},
 };
 
+// The key held to dig in.
+constexpr int kDigInKey = input::KeyCode::Space;
+
 // Keys that pick molt upgrade 1, 2 and 3.
 constexpr std::array kPickKeys{input::KeyCode::Key1, input::KeyCode::Key2, input::KeyCode::Key3};
 
 } // namespace
 
 void RegisterControls(const flecs::world& world) {
-	world.component<PlayerIntent>().member<glm::vec2>("move").member<int>("pick");
+	world.component<PlayerIntent>().member<glm::vec2>("move").member<int>("pick").member<bool>("dig_in");
 	world.set<PlayerIntent>({});
 
 	world.system<const input::InputState, PlayerIntent>("ReadControls")
@@ -52,6 +55,8 @@ void RegisterControls(const flecs::world& world) {
 			}
 			// W and Up together still move at full speed, not double.
 			intent.move = glm::clamp(move, glm::vec2{-1.0F}, glm::vec2{1.0F});
+
+			intent.dig_in = input.IsKeyDown(kDigInKey);
 
 			intent.pick = 0;
 			for (size_t i = 0; i < kPickKeys.size(); ++i) {

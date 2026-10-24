@@ -16,7 +16,7 @@ struct ArenaSceneTag {};
 
 // The gameplay scene: the arena a run plays out in (see the spec). Load() starts a run: the player's
 // hermit crab, the crabnado and a camera that follows the player, plus a HUD (HP, clock, kills, the shell
-// bar toward the next molt, the wind compass), wind streaks, the molt modal that offers upgrades, and the horde performance check's debug
+// bar toward the next molt, the stamina bar, the wind compass), wind streaks, the molt modal that offers upgrades, and the horde performance check's debug
 // control (ticket 01). Everything lives under one root entity that Unload() destroys. Losing the run
 // pauses the scene.
 class ArenaScene : public engine::scene::SceneBase {
@@ -34,6 +34,7 @@ private:
 	void BuildUI(const flecs::world& world);
 	void BuildMoltModal(const flecs::world& world, float width, float height);
 	void UpdateMolt(const flecs::world& world) const;
+	void UpdateStamina(flecs::entity player) const;
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
 	void UpdateHud(const flecs::world& world, const std::string& readout) const;
 	// The debug control: throws a batch of crabs (up to kHordeDebugMax) or clears them all.
@@ -49,6 +50,8 @@ private:
 	flecs::entity sweptAway_;
 	flecs::entity moltBar_;
 	flecs::entity moltLabel_;
+	flecs::entity staminaBar_;
+	flecs::entity stateLabel_;
 	flecs::entity telegraph_;
 	flecs::entity moltModal_;
 	std::array<flecs::entity, kMoltChoices> choiceButtons_;

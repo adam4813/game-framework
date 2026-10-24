@@ -28,6 +28,10 @@ constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
 constexpr core::Rgba kSweptAwayColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
+constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
+constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
+constexpr float kStaminaBarWidth = 200.0F;
+constexpr float kStaminaBarTop = 94.0F;
 constexpr float kMoltBarWidth = 400.0F;
 constexpr float kMoltModalWidth = 780.0F;
 constexpr float kMoltModalHeight = 300.0F;
@@ -151,6 +155,17 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set<ui::Label>({.font_size = 26.0F, .color = kTelegraphColor})
 					 .set_name("Telegraph")
 					 .child_of(uiRoot_);
+	staminaBar_ = ui::CreateProgressBar(
+					  world,
+					  {.x = 16.0F, .y = kStaminaBarTop, .w = kStaminaBarWidth, .h = 16.0F},
+					  {.fill_color = kStaminaBarColor}
+	)
+					  .set_name("StaminaBar")
+					  .child_of(uiRoot_);
+	stateLabel_ = ui::CreateLabel(world, {.x = 224.0F, .y = kStaminaBarTop - 4.0F, .w = 160.0F, .h = 24.0F}, "", 20.0F)
+					  .set<ui::Label>({.font_size = 20.0F, .color = kHudColor, .align = ui::TextAlign::Left})
+					  .set_name("StateLabel")
+					  .child_of(uiRoot_);
 	BuildMoltModal(world, w, h);
 
 	// Under the Title button. The WindCompassDraw system draws it into the UI draw list.
@@ -242,6 +257,20 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
 	UpdateMolt(world);
 	UpdateTelegraph(world, player);
+	UpdateStamina(player);
+}
+
+void ArenaScene::UpdateStamina(const flecs::entity player) const {
+	if (!staminaBar_.has<ui::ProgressBar>() || !stateLabel_.has<ui::Label>()) {
+		return;
+	}
+	const auto& stamina = player.get<Stamina>();
+	auto& bar = staminaBar_.get_mut<ui::ProgressBar>();
+	bar.max = stamina.max;
+	bar.value = stamina.value;
+	bar.fill_color = stamina.exhausted ? kExhaustedBarColor : kStaminaBarColor;
+	const bool surfing = glm::length(player.get<SurfKnock>().velocity) > constants::kSurfingSpeed;
+	stateLabel_.get_mut<ui::Label>().text = stamina.dug_in ? "DUG IN" : (surfing ? "SURFING" : "");
 }
 
 void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity player) const {

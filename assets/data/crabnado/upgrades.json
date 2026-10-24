@@ -4,6 +4,15 @@
     "description": "Claw snap radius +20%",
     "effects": [{ "stat": "ClawSnap.radius", "op": "multiply", "value": 1.2 }]
   },
+  "deep_roots": {
+    "name": "Deep Roots",
+    "description": "Max stamina +40, refills 30% faster",
+    "effects": [
+      { "stat": "Stamina.max", "op": "add", "value": 40 },
+      { "stat": "Stamina.value", "op": "add", "value": 40 },
+      { "stat": "Stamina.regen", "op": "multiply", "value": 1.3 }
+    ]
+  },
   "scuttle": {
     "name": "Scuttle",
     "description": "Move speed +12%",
