@@ -70,4 +70,4 @@ Judgement calls settled before implementation (2026-10-24). Prototype values com
 
 ## Comments
 
-Checked on desktop over the Remote API (port 27751): swell direction follows `Wind.direction` when set; enemies tumble as crests pass; 1,000 enemies with about 2,400 water tiles held 59 fps. The wave-field behaviour tests were skipped (optional). The `.mcp.json` flecs server points at port 27750, so use `FLECS_REST_PORT=27751 node tools/flecs-api.js` for Crabnado.
+Checked on desktop over the Remote API (port 27751): swell direction follows `Wind.direction` when set; enemies tumble as crests pass; 1,000 enemies with about 2,400 water tiles held 59 fps. The wave-field behaviour tests were skipped (optional).

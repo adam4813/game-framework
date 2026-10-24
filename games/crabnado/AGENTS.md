@@ -7,6 +7,8 @@ repo-wide `AGENTS.md` and `CODING_STANDARDS.md`. Everything they don't cover sti
   `issues/`. A ticket's `Spec:` line names the sections to read.
 - **Verify by playing.** A ticket is done when the `desktop` preset builds and its acceptance criteria are checked in
   the running game through the Flecs Remote API (Crabnado serves it on port 27751).
+  The `.mcp.json` flecs MCP tools target port 27750 and won't reach it, so use
+  `FLECS_REST_PORT=27751 node tools/flecs-api.js …` instead.
 - **WASM is validated once, at the end of the jam**, in one pass that builds the `wasm` preset and plays it in a
   browser. Tickets don't need a `wasm` build, Emscripten or a browser check: mark a WASM-only acceptance item as
   deferred to that pass and finish the rest on desktop.
