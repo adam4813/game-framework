@@ -30,7 +30,8 @@ namespace crabnado {
 
 namespace {
 
-constexpr core::Rgba kSandColor{.r = 232, .g = 210, .b = 155, .a = 255};
+// The deep sea under the water tiles, showing through the gaps between them and past the farthest tiles.
+constexpr core::Rgba kSeabedColor{.r = 0x0f, .g = 0x3a, .b = 0x55, .a = 255};
 constexpr core::Rgba kReadoutColor{.r = 245, .g = 245, .b = 235, .a = 255};
 constexpr core::Rgba kResultsHeadingColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
@@ -125,6 +126,8 @@ constexpr float kCompassMargin = 30.0F;
 constexpr float kCompassTop = 20.0F;
 // Where the crabnado starts, away from the player at the centre.
 constexpr glm::vec2 kCrabnadoStart{30.0F, -25.0F};
+// Scattered rocks keep this clear of the player's start (the centre) and the crabnado's.
+constexpr float kStartClearance = 5.0F;
 
 // A stat value with at most two decimals and no trailing zeros: "100", "3.6", "0.96".
 std::string FormatStat(const float value) {
@@ -170,6 +173,7 @@ void ArenaScene::Load(flecs::world& world) {
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
 	crestCued_ = false;
+	rogueCued_ = false;
 	music_ = world.entity("Music")
 				 .child_of(sceneRoot_)
 				 .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true})
@@ -187,7 +191,9 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	if (deferred) {
 		world.defer_suspend();
 	}
-	BuildArena(world, sceneRoot_);
+	const std::array<RockCircle, 2> keepClear{
+		{{.center = glm::vec2{0.0F}, .radius = kStartClearance}, {.center = kCrabnadoStart, .radius = kStartClearance}}};
+	BuildArena(world, sceneRoot_, keepClear);
 	if (deferred) {
 		world.defer_resume();
 	}
@@ -209,11 +215,11 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 
 	std::ignore = world.entity("Sun").child_of(sceneRoot_).set<render::DirectionalLight>({});
 
-	std::ignore = world.entity("Sand")
+	std::ignore = world.entity("Seabed")
 					  .child_of(sceneRoot_)
-					  .set<spatial::Transform>({.position = {0.0F, constants::kSandY, 0.0F}})
-					  .set<render::QuadPrimitive>({.size = glm::vec2{2.0F * (constants::kArenaRadius + 30.0F)}})
-					  .set<render::Material>({.color = kSandColor, .cast_shadow = false});
+					  .set<spatial::Transform>({.position = {0.0F, constants::kSeabedY, 0.0F}})
+					  .set<render::QuadPrimitive>({.size = glm::vec2{2.0F * constants::kSeabedReach}})
+					  .set<render::Material>({.color = kSeabedColor, .cast_shadow = false, .unlit = true});
 }
 
 void ArenaScene::BuildUI(const flecs::world& world) {
@@ -225,7 +231,7 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});
 
 	const float barX = (w - kMoltBarWidth) / 2.0F;
-	// White with a dark outline so it reads over sand and water.
+	// White with a dark outline so it reads over the water.
 	hud_ = ui::CreateLabel(world, {.x = 16.0F, .y = 12.0F, .w = barX - 32.0F, .h = 28.0F}, "", 24.0F)
 			   .set<ui::Label>(
 				   {.font_size = 24.0F,
@@ -738,7 +744,12 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 		PlaySfx(world, Sfx::Crest);
 	}
 	crestCued_ = crestComing;
-	if (const auto rogue = NextRogueIn(field, position, constants::kRogueWarning)) {
+	const auto rogue = NextRogueIn(field, position, constants::kRogueWarning);
+	if (rogue && !rogueCued_) {
+		PlaySfx(world, Sfx::RogueWarning);
+	}
+	rogueCued_ = rogue.has_value();
+	if (rogue) {
 		label.text = std::format("ROGUE WAVE in {:.1f} s", *rogue);
 		label.color = kRogueColor;
 	} else if (const auto riptide = BoostedCrestIn(field, position, constants::kBigCrestWarning)) {

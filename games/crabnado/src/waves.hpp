@@ -96,7 +96,8 @@ std::optional<float> BoostNextCrest(WaveField& field, glm::vec2 position, float 
 // The HUD name of the wave stage at run clock `clock`: "Steady swell", "Crossing swells" or "Rogue waves".
 [[nodiscard]] const char* WaveStageName(float clock);
 
-// Spawns the water tiles covering the arena as children of `parent`; tiles inside a TidePools pool are tinted darker.
+// Spawns the water tiles as children of `parent`: a fine grid over the arena, then coarser tiles out across the open
+// ocean to kOceanFarReach. Tiles inside a TidePools pool are tinted darker, and those past the barrier deeper blue.
 void SpawnWaterTiles(const flecs::world& world, flecs::entity parent);
 
 } // namespace crabnado
