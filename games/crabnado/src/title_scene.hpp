@@ -6,6 +6,7 @@
 #include <flecs.h>
 
 #include "engine/engine.hpp"
+#include "story_comic.hpp"
 
 namespace crabnado {
 
@@ -14,7 +15,8 @@ struct TitleSceneTag {};
 
 // Title screen: a backdrop of the crab's island, the ocean and a swaying crabnado, the game's name, Play and Credits buttons, a smaller Settings button under them, and the Credits and Settings modals. Its UI is built in Load() and destroyed in Unload().
 // Play starts the intro: the title and buttons slide off, the camera tilts up, and the crab scurries off the island and
-// swims toward the crabnado. Space, Enter or Esc skips it.
+// swims toward the crabnado. As it reaches the water the story comic fades in; finishing or skipping the comic ends the
+// intro. Space or Enter jumps straight to the comic, and Esc skips the comic too.
 class TitleScene : public engine::scene::SceneBase {
 public:
 	void InitializePipeline(const flecs::world& world) override;
@@ -22,7 +24,7 @@ public:
 	void Unload(flecs::world& world) override;
 	void Tick(const flecs::world& world, float deltaTime) override;
 
-	// Called when the intro that Play starts has finished.
+	// Called when the intro that Play starts, and the story comic after it, has finished.
 	std::function<void()> onIntroFinished;
 
 private:
@@ -48,6 +50,7 @@ private:
 	std::vector<Slide> slides_;
 	flecs::entity logo_;
 	float logoRest_{0.0F};
+	StoryComic story_;
 };
 
 } // namespace crabnado
