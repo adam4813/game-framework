@@ -4,6 +4,7 @@
 #include "engine/engine.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "waves.hpp"
 
 using namespace engine;
 
@@ -35,6 +36,7 @@ void RegisterShells(const flecs::world& world) {
 			const glm::vec2 target{p.x, p.z};
 			const float range = player.get<PlayerStats>().pickup_range;
 			const float dt = it.delta_time();
+			const auto& waves = world.get<WaveField>();
 			int collected = 0;
 			while (it.next()) {
 				auto shells = it.field<Shell>(0);
@@ -47,6 +49,10 @@ void RegisterShells(const flecs::world& world) {
 					const float distance = glm::length(toPlayer);
 					shell.flying = shell.flying || distance < range;
 					if (!shell.flying) {
+						// Unclaimed shells ride the water and drift with the waves.
+						const WaveSample wave = SampleWaves(waves, {}, position);
+						const glm::vec2 drifted = position + wave.push * constants::kShellWavePush * dt;
+						transform.position = {drifted.x, wave.height * constants::kWaterHeightScale + kShellHeight, drifted.y};
 						continue;
 					}
 					if (distance < constants::kShellCollectRadius) {

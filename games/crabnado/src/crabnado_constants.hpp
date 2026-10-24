@@ -71,6 +71,40 @@ inline constexpr float kEnemyWindPush = 1.2F;
 // The crabnado's next waypoint shifts this far downwind per unit of strength.
 inline constexpr float kCrabnadoWindBias = 14.0F;
 
+// ── Waves (prototype values) ──
+// Crests travel at kWaveSpeed units per second, kWavePeriod seconds apart, and are Gaussian bands of
+// half-width kWaveWidth. Every third crest is kWaveBigAmp times higher. Push is the crest's height times
+// kWavePushK, along its travel.
+inline constexpr float kWaveSpeed = 11.0F;
+inline constexpr float kWavePeriod = 6.0F;
+inline constexpr float kWaveWidth = 3.4F;
+inline constexpr float kWaveBigAmp = 2.2F;
+inline constexpr float kWavePushK = 9.0F;
+// A tide pool calms waves by up to this fraction at its centre, over the outer kTidePoolCalmEdge of its radius.
+inline constexpr float kTidePoolCalm = 0.92F;
+inline constexpr float kTidePoolCalmEdge = 0.4F;
+// The water grid: tiles of kWaterCell, filled to kWaterFill, covering the arena plus kWaterMargin. A tile's top
+// sits at the wave height times kWaterHeightScale; the foam tint ramps up between kFoamMinHeight and
+// kFoamMinHeight + kFoamRamp.
+inline constexpr float kWaterCell = 2.6F;
+inline constexpr float kWaterFill = 0.97F;
+inline constexpr float kWaterMargin = 2.0F;
+inline constexpr float kWaterHeightScale = 0.75F;
+inline constexpr float kWaterTileThickness = 1.0F;
+inline constexpr float kSandY = -0.6F;
+inline constexpr float kFoamMinHeight = 0.35F;
+inline constexpr float kFoamRamp = 1.3F;
+// The HUD warns of a big crest this many seconds before it reaches the player.
+inline constexpr float kBigCrestWarning = 2.2F;
+// Shells drift with this fraction of the wave push until they fly to the player.
+inline constexpr float kShellWavePush = 0.4F;
+// Enemies above this wave height are tumbled for kTumbleTime seconds, spinning at kTumbleSpin radians per
+// second. Their knock decays by exp(-kKnockDecay * dt) once the crest has passed.
+inline constexpr float kCrabTumbleMin = 0.55F;
+inline constexpr float kTumbleTime = 0.9F;
+inline constexpr float kTumbleSpin = 9.0F;
+inline constexpr float kKnockDecay = 3.0F;
+
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
 inline constexpr float kPlayerMaxHp = 100.0F;

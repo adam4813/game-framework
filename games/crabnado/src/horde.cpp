@@ -9,6 +9,7 @@
 #include "player.hpp"
 #include "run.hpp"
 #include "shells.hpp"
+#include "waves.hpp"
 #include "wind.hpp"
 
 using namespace engine;
@@ -68,7 +69,9 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("contact_dps")
 		.member<int>("xp")
 		.member<float>("flash")
-		.member<core::Rgba>("color");
+		.member<core::Rgba>("color")
+		.member<float>("tumble")
+		.member<glm::vec2>("knock");
 	world.component<Airborne>().member<glm::vec3>("velocity");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
 	world.set<HordeReadout>({});
@@ -117,8 +120,10 @@ void RegisterHorde(const flecs::world& world) {
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	// Landed enemies walk sideways toward the player, drift downwind and push apart where they overlap.
-	world.system<const Enemy, spatial::Transform>("HordeChase")
+	// Landed enemies walk sideways toward the player, drift downwind and push apart where they overlap. A crest
+	// above an enemy's tumble threshold tumbles it: it stops chasing and queueing and rides the push instead.
+	// They all ride the water surface.
+	world.system<Enemy, spatial::Transform>("HordeChase")
 		.without<Airborne>()
 		.kind(flecs::OnUpdate)
 		.run([](flecs::iter& it) {
@@ -133,13 +138,26 @@ void RegisterHorde(const flecs::world& world) {
 			const auto& grid = it.world().get<CrowdGrid>();
 			const float dt = it.delta_time();
 			const glm::vec2 drift = WindPush(it.world().get<Wind>(), constants::kEnemyWindPush) * dt;
+			const auto& waves = it.world().get<WaveField>();
 			while (it.next()) {
-				const auto enemies = it.field<const Enemy>(0);
+				auto enemies = it.field<Enemy>(0);
 				auto transforms = it.field<spatial::Transform>(1);
 				for (const auto i : it) {
-					const Enemy& enemy = enemies[i];
+					Enemy& enemy = enemies[i];
 					spatial::Transform& transform = transforms[i];
 					const glm::vec2 position{transform.position.x, transform.position.z};
+
+					const WaveSample wave = SampleWaves(waves, {}, position);
+					if (wave.height > constants::kCrabTumbleMin) {
+						enemy.tumble = constants::kTumbleTime;
+						enemy.knock = wave.push;
+					} else {
+						enemy.knock *= std::exp(-constants::kKnockDecay * dt);
+						enemy.tumble = std::max(0.0F, enemy.tumble - dt);
+					}
+					const bool tumbling = enemy.tumble > 0.0F;
+					transform.position.y = wave.height * constants::kWaterHeightScale;
+					transform.rotation.x = tumbling ? transform.rotation.x + constants::kTumbleSpin * dt : 0.0F;
 					const glm::vec2 toTarget = target - position;
 					const float distance = glm::length(toTarget);
 					const glm::vec2 heading = distance > 0.0001F ? toTarget / distance : glm::vec2{0.0F};
@@ -154,18 +172,18 @@ void RegisterHorde(const flecs::world& world) {
 						if (other.entity != self && gap > 0.0001F && gap < touching) {
 							push += apart * ((touching - gap) / gap);
 							// A neighbour in the cone ahead blocks the way: queue behind it instead of pushing in.
-							blocked = blocked || glm::dot(-apart, heading) > kBlockedCone * gap;
+							blocked = blocked || (!tumbling && glm::dot(-apart, heading) > kBlockedCone * gap);
 						}
 					});
 
-					const float step = blocked ? 0.0F : enemy.speed * dt;
+					const float step = blocked || tumbling ? 0.0F : enemy.speed * dt;
 					const glm::vec2 moved = ClampToRadius(
-						position + heading * step + drift + push * constants::kSeparationRelax,
+						position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax,
 						constants::kArenaRadius + kEdgeSlack
 					);
 					transform.position.x = moved.x;
 					transform.position.z = moved.y;
-					if (distance > 0.0001F) {
+					if (distance > 0.0001F && !tumbling) {
 						// Crabs walk sideways: face 90° off the direction of travel.
 						transform.rotation.y = std::atan2(heading.x, heading.y) + std::numbers::pi_v<float> / 2.0F;
 					}
@@ -189,8 +207,9 @@ void RegisterHorde(const flecs::world& world) {
 			const auto& grid = world.get<CrowdGrid>();
 			float damage = 0.0F;
 			grid.ForEachNear(position, grid.max_radius + constants::kPlayerContactRadius, [&](const CrowdEntry& e) {
-				if (glm::length(e.position - position) < e.radius + constants::kPlayerContactRadius) {
-					damage += world.entity(e.entity).get<Enemy>().contact_dps;
+				const Enemy& enemy = world.entity(e.entity).get<Enemy>();
+				if (enemy.tumble <= 0.0F && glm::length(e.position - position) < e.radius + constants::kPlayerContactRadius) {
+					damage += enemy.contact_dps;
 				}
 			});
 			if (damage > 0.0F) {
