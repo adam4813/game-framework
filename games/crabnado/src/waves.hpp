@@ -17,7 +17,7 @@ namespace crabnado {
 // One swell: crests moving along `direction` (a compass bearing, as Wind::direction). Crest n reaches a point
 // when its phase equals n; every third crest is big. `t0` is the swell's start on WaveField::time and `amp`
 // its strength. `follow` makes it track the wind's direction each frame; `grow` and `fade` mark a swell
-// building up or dying away (used from ticket 07).
+// building up or dying away (used from ticket 07). `boost_mult` > 0 multiplies crest `boost_n` (Riptide).
 struct Swell {
 	float direction{0.0F};
 	float t0{0.0F};
@@ -25,6 +25,8 @@ struct Swell {
 	bool follow{false};
 	bool grow{false};
 	bool fade{false};
+	int boost_n{0};
+	float boost_mult{0.0F};
 };
 
 // A rogue wave: one large crest travelling along `direction`. It reaches (x, z) when
@@ -80,6 +82,13 @@ void StartWaves(const flecs::world& world);
 
 // Seconds until the next big crest of the primary swell reaches `position`, if within `within` seconds.
 [[nodiscard]] std::optional<float> NextBigCrestIn(const WaveField& field, glm::vec2 position, float within);
+
+// Boosts the next crest of the primary swell that reaches `position` at least `lead` seconds from now, by
+// `multiplier` on top of its normal height. Returns the seconds until that crest, or nullopt with no swell.
+std::optional<float> BoostNextCrest(WaveField& field, glm::vec2 position, float lead, float multiplier);
+
+// Seconds until the boosted crest of the primary swell reaches `position`, if it is still ahead and within `within`.
+[[nodiscard]] std::optional<float> BoostedCrestIn(const WaveField& field, glm::vec2 position, float within);
 
 // Seconds until the next rogue wave reaches `position`, if it is within `within` seconds.
 [[nodiscard]] std::optional<float> NextRogueIn(const WaveField& field, glm::vec2 position, float within);

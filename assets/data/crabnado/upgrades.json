@@ -45,5 +45,21 @@
     "name": "Quick Bubbles",
     "description": "Bubbles fire 25% faster",
     "effects": [{ "stat": "Bubbles.cooldown", "op": "multiply", "value": 0.8 }]
+  },
+  "riptide": {
+    "name": "Riptide",
+    "description": "Unlock: every few seconds, make the next crest much bigger",
+    "first_molt": true,
+    "requires": { "stat": "Riptide.level", "max": 0 },
+    "effects": [{ "stat": "Riptide.level", "op": "add", "value": 1 }]
+  },
+  "stronger_riptide": {
+    "name": "Stronger Riptide",
+    "description": "Riptide cooldown -25%, crests +50% bigger",
+    "requires": { "stat": "Riptide.level", "min": 1 },
+    "effects": [
+      { "stat": "Riptide.cooldown", "op": "multiply", "value": 0.75 },
+      { "stat": "Riptide.multiplier", "op": "add", "value": 0.5 }
+    ]
   }
 }

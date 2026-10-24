@@ -27,6 +27,27 @@ bool ParseUpgrade(const std::string_view path, const std::string& id, const nloh
 		spdlog::error("[{}] '{}' entry '{}': 'effects' must be a non-empty array", kLogTag, path, id);
 		return false;
 	}
+	upgrade.first_molt = entry.value("first_molt", false);
+	if (const auto req = entry.find("requires"); req != entry.end()) {
+		const std::string stat = req->value("stat", "");
+		const size_t dot = stat.find('.');
+		const bool hasBound = req->contains("min") || req->contains("max");
+		if (dot == std::string::npos || dot == 0 || dot + 1 == stat.size() || !hasBound) {
+			spdlog::error(
+				"[{}] '{}' entry '{}': 'requires' needs \"stat\": \"Component.member\" and a \"min\" or \"max\", got {}",
+				kLogTag, path, id, req->dump()
+			);
+			return false;
+		}
+		UpgradeRequirement requirement{.component = stat.substr(0, dot), .member = stat.substr(dot + 1)};
+		if (req->contains("min")) {
+			requirement.min = req->at("min").get<float>();
+		}
+		if (req->contains("max")) {
+			requirement.max = req->at("max").get<float>();
+		}
+		upgrade.requires_ = std::move(requirement);
+	}
 	for (const auto& effect : *effects) {
 		const std::string stat = effect.value("stat", "");
 		const std::string op = effect.value("op", "");
@@ -70,15 +91,21 @@ UpgradeRegistry LoadUpgrades(const std::string_view path) {
 	return registry;
 }
 
-// Applies one effect to the player's component by reflection. Logs and skips an effect whose component
-// or member the player doesn't have.
-void ApplyEffect(const flecs::world& world, const flecs::entity player, const UpgradeEffect& effect) {
+// The player's component named `name`, or an invalid entity.
+flecs::entity FindPlayerComponent(const flecs::entity player, const std::string_view name) {
 	flecs::entity component;
 	player.each([&](const flecs::id id) {
-		if (!id.is_pair() && std::string_view{id.entity().name().c_str()} == effect.component) {
+		if (!id.is_pair() && std::string_view{id.entity().name().c_str()} == name) {
 			component = id.entity();
 		}
 	});
+	return component;
+}
+
+// Applies one effect to the player's component by reflection. Logs and skips an effect whose component
+// or member the player doesn't have.
+void ApplyEffect(const flecs::world& world, const flecs::entity player, const UpgradeEffect& effect) {
+	const flecs::entity component = FindPlayerComponent(player, effect.component);
 	void* data = component ? ecs_get_mut_id(world, player, component) : nullptr;
 	if (data == nullptr) {
 		spdlog::error("[{}] The player has no component '{}'", kLogTag, effect.component);
@@ -94,17 +121,57 @@ void ApplyEffect(const flecs::world& world, const flecs::entity player, const Up
 	ecs_modified_id(world, player, component);
 }
 
-// Rolls up to kMoltChoices distinct upgrades from RngState.
-MoltOffer RollOffer(const flecs::world& world) {
+// Whether the player meets `upgrade`'s requirement. An unreadable stat counts as not eligible.
+bool IsEligible(const flecs::world& world, const flecs::entity player, const Upgrade& upgrade) {
+	if (!upgrade.requires_) {
+		return true;
+	}
+	const UpgradeRequirement& req = *upgrade.requires_;
+	const flecs::entity component = FindPlayerComponent(player, req.component);
+	void* data = component ? ecs_get_mut_id(world, player, component) : nullptr;
+	if (data == nullptr) {
+		return false;
+	}
+	flecs::cursor cursor{world.c_ptr(), component, data};
+	if (cursor.push() != 0 || cursor.member(req.member.c_str()) != 0) {
+		return false;
+	}
+	const double value = cursor.get_float();
+	return (!req.min || value >= *req.min) && (!req.max || value <= *req.max);
+}
+
+// Rolls up to kMoltChoices distinct eligible upgrades from RngState. On the first molt one eligible
+// "first_molt" upgrade takes slot 1.
+MoltOffer RollOffer(const flecs::world& world, const int moltLevel) {
 	const auto& upgrades = world.get<UpgradeRegistry>().upgrades;
 	auto& rng = world.get_mut<ecs::RngState>();
-	std::vector<int> pool(upgrades.size());
-	std::iota(pool.begin(), pool.end(), 0);
+	const flecs::entity player = FindPlayer(world);
+	std::vector<int> pool;
+	for (int i = 0; i < static_cast<int>(upgrades.size()); ++i) {
+		if (player && IsEligible(world, player, upgrades[static_cast<size_t>(i)])) {
+			pool.push_back(i);
+		}
+	}
 	MoltOffer offer;
+	int filled = 0;
+	if (moltLevel == 2) {
+		std::vector<size_t> flagged;
+		for (size_t i = 0; i < pool.size(); ++i) {
+			if (upgrades[static_cast<size_t>(pool[i])].first_molt) {
+				flagged.push_back(i);
+			}
+		}
+		if (!flagged.empty()) {
+			const size_t at = flagged[static_cast<size_t>(rng.NextRange(0, static_cast<int>(flagged.size())))];
+			std::swap(pool[0], pool[at]);
+			offer.ids[0] = upgrades[static_cast<size_t>(pool[0])].id;
+			filled = 1;
+		}
+	}
 	const int count = std::min(kMoltChoices, static_cast<int>(pool.size()));
-	for (int i = 0; i < count; ++i) {
-		std::swap(pool[i], pool[rng.NextRange(i, static_cast<int>(pool.size()))]);
-		offer.ids[i] = upgrades[pool[i]].id;
+	for (int i = filled; i < count; ++i) {
+		std::swap(pool[static_cast<size_t>(i)], pool[static_cast<size_t>(rng.NextRange(i, static_cast<int>(pool.size())))]);
+		offer.ids[static_cast<size_t>(i)] = upgrades[static_cast<size_t>(pool[static_cast<size_t>(i)])].id;
 	}
 	return offer;
 }
@@ -115,7 +182,7 @@ void BeginMolt(const flecs::world& world, RunState& run) {
 	run.shells -= run.shells_needed;
 	++run.molt_level;
 	run.shells_needed = ShellsNeeded(run.molt_level);
-	const MoltOffer offer = RollOffer(world);
+	const MoltOffer offer = RollOffer(world, run.molt_level);
 	if (offer.ids[0].empty()) {
 		return;
 	}

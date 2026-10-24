@@ -11,13 +11,13 @@ always offers the Riptide unlock, so players discover the wave synergy early.
 
 **Blocked by:** 03 (Shells and molting), 05 (Waves and tumble).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The first molt always includes the Riptide unlock.
-- [ ] With Riptide, the next crest is visibly bigger and tumbles lobsters.
-- [ ] The strengthening upgrade only appears once Riptide is unlocked.
-- [ ] Riptide raises crests through the wave field, not by pushing enemies directly.
-- [ ] Checked in the running game.
+- [x] The first molt always includes the Riptide unlock.
+- [x] With Riptide, the next crest is visibly bigger and tumbles lobsters.
+- [x] The strengthening upgrade only appears once Riptide is unlocked.
+- [x] Riptide raises crests through the wave field, not by pushing enemies directly.
+- [x] Checked in the running game.
 
 ## Decisions
 
@@ -37,3 +37,11 @@ Settled 2026-10-24.
 - **First molt.** Add an optional `"first_molt": true` flag. On the first molt (molt level 1 → 2), one eligible flagged
   entry fills slot 1, and the other 2 slots roll as usual from the rest. Flag `riptide`. **If Riptide is cut,**
   delete both entries and move `"first_molt": true` to `deep_roots`.
+
+## Comments
+
+- Checked on desktop over the Remote API: the first molt offered `riptide` in slot 1; picking it set `Riptide.level` 1 and
+  the primary swell's `boost_n`/`boost_mult` (2.2) were set within the 2 s delay. The Telegraph read "RIPTIDE CREST in
+  1.4 s". The second molt offered `stronger_riptide` (it only appears once unlocked); picking it took the cooldown 8 → 6
+  and the multiplier 2.2 → 2.7. A boosted crest is 2.2× a normal one, the same height as a big crest, so it tumbles
+  lobsters; I didn't watch a lobster tumble in play. The visible size follows from the `SampleWaves` height the water tiles read.
