@@ -13,6 +13,7 @@
 #include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
+#include "enemy_types.hpp"
 #include "upgrades.hpp"
 #include "waves.hpp"
 #include "wind.hpp"
@@ -73,6 +74,7 @@ void ArenaScene::RegisterLoaders(const flecs::world& world) {
 
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
+	LoadEnemyTypes(world, world.get<platform::PlatformRef>().ptr->AssetDirectory() + std::string{constants::kEnemiesPath});
 	StartWind(world);
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");

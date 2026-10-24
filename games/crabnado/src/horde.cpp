@@ -7,6 +7,7 @@
 #include "arena.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
+#include "enemy_types.hpp"
 #include "player.hpp"
 #include "run.hpp"
 #include "shells.hpp"
@@ -21,7 +22,6 @@ namespace {
 
 // Crab look, from the prototype: a flattened body sphere with two claw spheres ahead of it (local +z
 // is forward).
-constexpr core::Rgba kCrabColor{.r = 216, .g = 69, .b = 43, .a = 255};
 constexpr core::Rgba kFlashColor{.r = 255, .g = 255, .b = 255, .a = 255};
 constexpr glm::vec3 kBodyOffset{0.0F, 0.45F, 0.0F};
 constexpr glm::vec3 kBodyScale{1.0F, 0.5F, 0.75F};
@@ -38,13 +38,13 @@ constexpr float kSeparationSlack = 0.9F;
 // A touching neighbour within acos(kBlockedCone) of an enemy's heading blocks its step (about ±60°).
 constexpr float kBlockedCone = 0.5F;
 
-void AddPart(const flecs::world& world, const flecs::entity crab, const glm::vec3 position, const glm::vec3 scale,
-	const float radius) {
+void AddPart(const flecs::world& world, const flecs::entity enemy, const glm::vec3 position, const glm::vec3 scale,
+	const float radius, const core::Rgba color) {
 	std::ignore = world.entity()
-					  .child_of(crab)
+					  .child_of(enemy)
 					  .set<spatial::Transform>({.position = position, .scale = scale})
 					  .set<render::SpherePrimitive>({.radius = radius})
-					  .set<render::Material>({.color = kCrabColor});
+					  .set<render::Material>({.color = color});
 }
 
 void SetTint(const flecs::entity enemy, const core::Rgba color) {
@@ -69,6 +69,9 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("radius")
 		.member<float>("contact_dps")
 		.member<int>("xp")
+		.member<int>("type")
+		.member<float>("tumble_min")
+		.member<bool>("walks_sideways")
 		.member<float>("flash")
 		.member<core::Rgba>("color")
 		.member<float>("tumble")
@@ -152,7 +155,7 @@ void RegisterHorde(const flecs::world& world) {
 					const glm::vec2 position{transform.position.x, transform.position.z};
 
 					const WaveSample wave = SampleWaves(waves, pools, position);
-					if (wave.height > constants::kCrabTumbleMin) {
+					if (wave.height > enemy.tumble_min) {
 						enemy.tumble = constants::kTumbleTime;
 						enemy.knock = wave.push;
 					} else {
@@ -200,8 +203,9 @@ void RegisterHorde(const flecs::world& world) {
 					transform.position.x = settled.x;
 					transform.position.z = settled.y;
 					if (distance > 0.0001F && !tumbling) {
-						// Crabs walk sideways: face 90° off the direction of travel.
-						transform.rotation.y = std::atan2(heading.x, heading.y) + std::numbers::pi_v<float> / 2.0F;
+						// Sideways walkers face 90° off the direction of travel, the rest face it.
+						const float facing = std::atan2(heading.x, heading.y);
+						transform.rotation.y = enemy.walks_sideways ? facing + std::numbers::pi_v<float> / 2.0F : facing;
 					}
 				}
 			}
@@ -268,7 +272,10 @@ void RegisterHorde(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
-void ThrowCrab(const flecs::world& world, const flecs::entity parent, const glm::vec2 from, const glm::vec2 target) {
+void ThrowEnemy(
+	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 target
+) {
+	const EnemyType& type = world.get<EnemyRegistry>().types.at(static_cast<size_t>(typeIndex));
 	auto& rng = world.get_mut<ecs::RngState>();
 	const glm::vec2 toTarget = target - from;
 	const float distance = glm::length(toTarget);
@@ -288,23 +295,28 @@ void ThrowCrab(const flecs::world& world, const flecs::entity parent, const glm:
 	const float vy = (0.5F * constants::kGravity * flightTime * flightTime - y0) / flightTime;
 
 	const float clock = world.get<RunState>().clock;
-	const flecs::entity crab =
+	const flecs::entity enemy =
 		world.entity()
 			.child_of(parent)
 			// First, so the world transform the engine seeds when it is added starts at the throw point, not the origin.
 			.set<spatial::Transform>({.position = {from.x, y0, from.y}})
 			.set<Enemy>(
-				{.hp = constants::kCrabHp * (1.0F + clock / constants::kEnemyHpGrowthSeconds),
-				 .speed = constants::kCrabSpeed,
-				 .radius = constants::kCrabRadius,
-				 .contact_dps = constants::kCrabContactDps,
-				 .xp = constants::kCrabXp,
-				 .color = kCrabColor}
+				{.hp = type.hp * (1.0F + clock / constants::kEnemyHpGrowthSeconds),
+				 .speed = type.speed,
+				 .radius = type.radius,
+				 .contact_dps = type.contact_dps,
+				 .xp = type.xp,
+				 .type = typeIndex,
+				 .tumble_min = type.tumble_min,
+				 .walks_sideways = type.walks_sideways,
+				 .color = type.color}
 			)
 			.set<Airborne>({.velocity = {ground.x, vy, ground.y}});
-	AddPart(world, crab, kBodyOffset, kBodyScale, 1.0F);
-	AddPart(world, crab, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F}, glm::vec3{1.0F}, kClawRadius);
-	AddPart(world, crab, kClawOffset, glm::vec3{1.0F}, kClawRadius);
+	// The same body and claws for every type, scaled by the type.
+	const float scale = type.scale;
+	AddPart(world, enemy, kBodyOffset * scale, kBodyScale * scale, scale, type.color);
+	AddPart(world, enemy, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F} * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
+	AddPart(world, enemy, kClawOffset * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
 }
 
 void DamageEnemy(const flecs::entity enemy, const float amount) {

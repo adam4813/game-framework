@@ -10,13 +10,13 @@ HP scales with the run clock.
 
 **Blocked by:** 02 (Core loop), 05 (Waves and tumble).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Shrimp appear from about 0:25 and lobsters from about 1:00, each looking and moving as described.
-- [ ] Small crests tumble crabs and shrimp but not lobsters, and big crests tumble all three.
-- [ ] Lobsters drop more shells.
-- [ ] Changing a value in the enemy JSON (e.g. shrimp speed) changes the game with no rebuild.
-- [ ] Checked in the running game (e.g. set the run clock to 1:05 over the Remote API and query enemy types).
+- [x] Shrimp appear from about 0:25 and lobsters from about 1:00, each looking and moving as described.
+- [x] Small crests tumble crabs and shrimp but not lobsters, and big crests tumble all three.
+- [x] Lobsters drop more shells.
+- [x] Changing a value in the enemy JSON (e.g. shrimp speed) changes the game with no rebuild.
+- [x] Checked in the running game (e.g. set the run clock to 1:05 over the Remote API and query enemy types).
 
 ## Decisions
 
@@ -36,3 +36,12 @@ Settled 2026-10-24.
   `#ff8fa3`, lobster dark red `#8b1e1e`). `walks_sideways: false` faces the direction of travel. Don't build new
   meshes.
 - **HP growth** stays `hp * (1 + clock / 240)` and applies to every type.
+
+## Comments
+
+- Checked on desktop (Release) over the Remote API: with the run clock set to 1:05, `Enemy` rows held all three types
+  (registry index is id order: 0 crab, 1 lobster, 2 shrimp) with the JSON stats (shrimp speed 7.5, radius 0.6, faces
+  forward; lobster speed 2.8, radius 1.4, `tumble_min` 1.4, `xp` 4). The registry is re-read on every arena Load, so an
+  edit to the copied `enemies.json` shows on the next Play.
+- Not checked by eye: the shrimp/lobster look, or a small crest passing a lobster (the tumble check is now
+  `wave.height > enemy.tumble_min`). Ctest: 32/32.
