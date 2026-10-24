@@ -291,6 +291,8 @@ void ThrowCrab(const flecs::world& world, const flecs::entity parent, const glm:
 	const flecs::entity crab =
 		world.entity()
 			.child_of(parent)
+			// First, so the world transform the engine seeds when it is added starts at the throw point, not the origin.
+			.set<spatial::Transform>({.position = {from.x, y0, from.y}})
 			.set<Enemy>(
 				{.hp = constants::kCrabHp * (1.0F + clock / constants::kEnemyHpGrowthSeconds),
 				 .speed = constants::kCrabSpeed,
@@ -299,8 +301,7 @@ void ThrowCrab(const flecs::world& world, const flecs::entity parent, const glm:
 				 .xp = constants::kCrabXp,
 				 .color = kCrabColor}
 			)
-			.set<Airborne>({.velocity = {ground.x, vy, ground.y}})
-			.set<spatial::Transform>({.position = {from.x, y0, from.y}});
+			.set<Airborne>({.velocity = {ground.x, vy, ground.y}});
 	AddPart(world, crab, kBodyOffset, kBodyScale, 1.0F);
 	AddPart(world, crab, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F}, glm::vec3{1.0F}, kClawRadius);
 	AddPart(world, crab, kClawOffset, glm::vec3{1.0F}, kClawRadius);
