@@ -18,7 +18,7 @@ struct ArenaSceneTag {};
 // hermit crab, the crabnado and a camera that follows the player, plus a HUD (HP, clock, kills, the shell
 // bar toward the next molt, the stamina bar, the wind compass), wind streaks, the molt modal that offers upgrades, and the horde performance check's debug
 // control (ticket 01). Everything lives under one root entity that Unload() destroys. Losing the run
-// pauses the scene.
+// pauses the scene and opens the results modal; Esc opens the pause menu.
 class ArenaScene : public engine::scene::SceneBase {
 public:
 	void InitializePipeline(const flecs::world& world) override;
@@ -34,6 +34,9 @@ private:
 	void BuildStage(const flecs::world& world);
 	void BuildUI(const flecs::world& world);
 	void BuildMoltModal(const flecs::world& world, float width, float height);
+	void BuildResultsModal(const flecs::world& world, float width, float height);
+	void BuildPauseModal(const flecs::world& world, float width, float height);
+	void UpdateResults(const flecs::world& world) const;
 	void UpdateMolt(const flecs::world& world) const;
 	void UpdateStamina(flecs::entity player) const;
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
@@ -48,7 +51,10 @@ private:
 	flecs::entity uiRoot_;
 	flecs::entity hud_;
 	flecs::entity readout_;
-	flecs::entity sweptAway_;
+	flecs::entity resultsModal_;
+	flecs::entity resultsHeading_;
+	flecs::entity resultsStats_;
+	flecs::entity pauseModal_;
 	flecs::entity moltBar_;
 	flecs::entity moltLabel_;
 	flecs::entity staminaBar_;

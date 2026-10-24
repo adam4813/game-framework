@@ -29,7 +29,7 @@ namespace {
 constexpr core::Rgba kSandColor{.r = 232, .g = 210, .b = 155, .a = 255};
 constexpr core::Rgba kReadoutColor{.r = 245, .g = 245, .b = 235, .a = 255};
 constexpr core::Rgba kHudColor{.r = 40, .g = 30, .b = 25, .a = 255};
-constexpr core::Rgba kSweptAwayColor{.r = 200, .g = 50, .b = 35, .a = 255};
+constexpr core::Rgba kResultsHeadingColor{.r = 200, .g = 50, .b = 35, .a = 255};
 constexpr core::Rgba kShellBarColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTelegraphColor{.r = 255, .g = 209, .b = 102, .a = 255};
 constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
@@ -40,6 +40,12 @@ constexpr float kStaminaBarTop = 94.0F;
 constexpr float kMoltBarWidth = 400.0F;
 constexpr float kMoltModalWidth = 780.0F;
 constexpr float kMoltModalHeight = 300.0F;
+constexpr float kResultsModalWidth = 520.0F;
+constexpr float kResultsModalHeight = 380.0F;
+constexpr float kPauseModalWidth = 360.0F;
+constexpr float kPauseModalHeight = 240.0F;
+constexpr float kModalButtonWidth = 200.0F;
+constexpr float kModalButtonHeight = 56.0F;
 constexpr float kChoiceWidth = 236.0F;
 constexpr float kChoiceGap = 16.0F;
 constexpr float kCompassRadius = 56.0F;
@@ -195,13 +201,8 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					  .set<WindCompass>({.center = {w - kCompassMargin - kCompassRadius, kCompassTop + kCompassRadius},
 										 .radius = kCompassRadius});
 
-	// Placeholder run end until the results screen (ticket 13).
-	const std::string sweptAway = "Swept away";
-	sweptAway_ = ui::CreateLabel(world, {.x = 0.0F, .y = h / 2.0F - 40.0F, .w = w, .h = 80.0F}, sweptAway, 64.0F)
-					 .set<ui::Label>({.text = sweptAway, .font_size = 64.0F, .color = kSweptAwayColor})
-					 .set<ui::UIElement>({.visible = false})
-					 .set_name("SweptAway")
-					 .child_of(uiRoot_);
+	BuildResultsModal(world, w, h);
+	BuildPauseModal(world, w, h);
 }
 
 void ArenaScene::BuildMoltModal(const flecs::world& world, const float width, const float height) {
@@ -235,6 +236,104 @@ void ArenaScene::BuildMoltModal(const flecs::world& world, const float width, co
 	}
 }
 
+void ArenaScene::BuildResultsModal(const flecs::world& world, const float width, const float height) {
+	const float x = (width - kResultsModalWidth) / 2.0F;
+	const float y = (height - kResultsModalHeight) / 2.0F;
+	resultsModal_ =
+		ui::CreateModal(world, {.x = x, .y = y, .w = kResultsModalWidth, .h = kResultsModalHeight}, {.open = false})
+			.set_name("ResultsModal")
+			.child_of(uiRoot_);
+	resultsHeading_ = ui::CreateLabel(world, {.x = x, .y = y + 24.0F, .w = kResultsModalWidth, .h = 56.0F}, "", 48.0F)
+						  .set<ui::Label>({.font_size = 48.0F, .color = kResultsHeadingColor})
+						  .child_of(resultsModal_);
+	resultsStats_ =
+		ui::CreateLabel(world, {.x = x, .y = y + 96.0F, .w = kResultsModalWidth, .h = 120.0F}, "", 26.0F)
+			.set<ui::Label>({.font_size = 26.0F})
+			.child_of(resultsModal_);
+
+	const float rowWidth = 2.0F * kModalButtonWidth + kChoiceGap;
+	const float bx = x + (kResultsModalWidth - rowWidth) / 2.0F;
+	const float by = y + kResultsModalHeight - kModalButtonHeight - 28.0F;
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = bx, .y = by, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  "Retry",
+					  [](const flecs::entity button) {
+						  // Outside the click's deferred frame: there the reload's remove and re-add of Active
+						  // collapse into nothing and the scene is never unloaded.
+						  button.world().get<EngineContextRef>().ptr->GetDeferredTaskQueue().Enqueue(
+							  [world = flecs::world(button.world())] { scene::ReloadScene<ArenaSceneTag>(world); }
+						  );
+					  }
+	)
+					  .set_name("RetryButton")
+					  .child_of(resultsModal_);
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = bx + kModalButtonWidth + kChoiceGap, .y = by, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  "Title",
+					  [onTitle = onTitlePressed](flecs::entity) {
+						  if (onTitle) {
+							  onTitle();
+						  }
+					  }
+	)
+					  .set_name("ResultsTitleButton")
+					  .child_of(resultsModal_);
+}
+
+void ArenaScene::BuildPauseModal(const flecs::world& world, const float width, const float height) {
+	const float x = (width - kPauseModalWidth) / 2.0F;
+	const float y = (height - kPauseModalHeight) / 2.0F;
+	pauseModal_ = ui::CreateModal(world, {.x = x, .y = y, .w = kPauseModalWidth, .h = kPauseModalHeight}, {.open = false})
+					  .set_name("PauseModal")
+					  .child_of(uiRoot_);
+	std::ignore =
+		ui::CreateLabel(world, {.x = x, .y = y + 20.0F, .w = kPauseModalWidth, .h = 44.0F}, "Paused", 40.0F)
+			.child_of(pauseModal_);
+	const float bx = x + (kPauseModalWidth - kModalButtonWidth) / 2.0F;
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = bx, .y = y + 88.0F, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  "Resume",
+					  [](const flecs::entity button) { SetMenuPaused(button.world(), false); }
+	)
+					  .set_name("ResumeButton")
+					  .child_of(pauseModal_);
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = bx, .y = y + 160.0F, .w = kModalButtonWidth, .h = kModalButtonHeight},
+					  "Quit to title",
+					  [onTitle = onTitlePressed](flecs::entity) {
+						  if (onTitle) {
+							  onTitle();
+						  }
+					  }
+	)
+					  .set_name("QuitButton")
+					  .child_of(pauseModal_);
+}
+
+void ArenaScene::UpdateResults(const flecs::world& world) const {
+	if (!resultsModal_.has<ui::Modal>() || !pauseModal_.has<ui::Modal>() || !resultsHeading_.has<ui::Label>() ||
+		!resultsStats_.has<ui::Label>()) {
+		return;
+	}
+	const auto& run = world.get<RunState>();
+	const bool lost = run.phase == RunPhase::Lost;
+	resultsModal_.get_mut<ui::Modal>().open = lost;
+	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused;
+	if (!lost) {
+		return;
+	}
+	const int seconds = static_cast<int>(run.clock);
+	resultsHeading_.get_mut<ui::Label>().text = "Swept away";
+	resultsStats_.get_mut<ui::Label>().text = std::format(
+		"Time survived  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}", seconds / 60, seconds % 60, run.kills,
+		run.rock_kills, run.molt_level
+	);
+}
+
 void ArenaScene::Tick(const flecs::world& world, float) {
 	auto* platform = world.get<platform::PlatformRef>().ptr;
 	const int enemyCount = world.count<Enemy>();
@@ -266,7 +365,7 @@ void ArenaScene::Tick(const flecs::world& world, float) {
 void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout) const {
 	const auto& run = world.get<RunState>();
 	const flecs::entity player = FindPlayer(world);
-	if (!player || !hud_.has<ui::Label>() || !readout_.has<ui::Label>() || !sweptAway_.has<ui::UIElement>()) {
+	if (!player || !hud_.has<ui::Label>() || !readout_.has<ui::Label>()) {
 		return;
 	}
 	const auto& stats = player.get<PlayerStats>();
@@ -276,7 +375,7 @@ void ArenaScene::UpdateHud(const flecs::world& world, const std::string& readout
 		seconds % 60, WaveStageName(run.clock), run.kills, run.rock_kills
 	);
 	readout_.get_mut<ui::Label>().text = readout;
-	sweptAway_.get_mut<ui::UIElement>().visible = run.phase == RunPhase::Lost;
+	UpdateResults(world);
 	UpdateMolt(world);
 	UpdateTelegraph(world, player);
 	UpdateStamina(player);
@@ -376,7 +475,10 @@ void ArenaScene::Unload(flecs::world& world) {
 	crabnado_ = {};
 	hud_ = {};
 	readout_ = {};
-	sweptAway_ = {};
+	resultsModal_ = {};
+	resultsHeading_ = {};
+	resultsStats_ = {};
+	pauseModal_ = {};
 	moltBar_ = {};
 	moltLabel_ = {};
 	telegraph_ = {};

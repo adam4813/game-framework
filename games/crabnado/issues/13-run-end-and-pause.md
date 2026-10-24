@@ -8,15 +8,15 @@ Resume and Quit to title. When the boss ticket lands, victory uses the same resu
 
 **Blocked by:** 02 (Core loop).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Dying shows the results modal with time, kills and molt level.
-- [ ] Retry starts a fresh run (clock, HP, horde and upgrades reset) without going through the title.
-- [ ] Title returns to the title scene.
-- [ ] Esc pauses enemies, the crabnado, waves and the clock, and Resume continues exactly where it left off.
-- [ ] If ticket 12 has landed, winning shows the results modal with a victory heading.
-- [ ] The scene-flow test still passes.
-- [ ] Checked in the running game (e.g. set HP to 0 over the Remote API, then click Retry).
+- [x] Dying shows the results modal with time, kills and molt level.
+- [x] Retry starts a fresh run (clock, HP, horde and upgrades reset) without going through the title.
+- [x] Title returns to the title scene.
+- [x] Esc pauses enemies, the crabnado, waves and the clock, and Resume continues exactly where it left off.
+- [ ] (deferred: ticket 12 has not landed) If ticket 12 has landed, winning shows the results modal with a victory heading.
+- [x] The scene-flow test still passes.
+- [x] Checked in the running game (e.g. set HP to 0 over the Remote API, then click Retry).
 
 ## Decisions
 
@@ -36,3 +36,10 @@ Settled 2026-10-24.
   resumes. It uses `scene::Paused` like molting.
 - **The HUD's top-right Title button stays.** The scene-flow test uses it, and keeping it is cheaper than moving the
   test.
+
+## Comments
+
+- Retry enqueues `ReloadScene` on the deferred task queue (as `meta_save_example.cpp` does). Called inside the click's
+  deferred frame, the remove and re-add of `Active` collapse and Unload never runs, so Load clashed on level entity names.
+- Victory heading is not wired: there is no `Won` phase until ticket 12. `UpdateResults` in `arena_scene.cpp` needs a
+  heading switch then.

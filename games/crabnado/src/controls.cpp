@@ -31,13 +31,16 @@ constexpr std::array kMoveBindings{
 // The key held to dig in.
 constexpr int kDigInKey = input::KeyCode::Space;
 
+// The key pressed to pause or resume.
+constexpr int kPauseKey = input::KeyCode::Escape;
+
 // Keys that pick molt upgrade 1, 2 and 3.
 constexpr std::array kPickKeys{input::KeyCode::Key1, input::KeyCode::Key2, input::KeyCode::Key3};
 
 } // namespace
 
 void RegisterControls(const flecs::world& world) {
-	world.component<PlayerIntent>().member<glm::vec2>("move").member<int>("pick").member<bool>("dig_in");
+	world.component<PlayerIntent>().member<glm::vec2>("move").member<int>("pick").member<bool>("dig_in").member<bool>("pause");
 	world.set<PlayerIntent>({});
 
 	world.system<const input::InputState, PlayerIntent>("ReadControls")
@@ -57,6 +60,7 @@ void RegisterControls(const flecs::world& world) {
 			intent.move = glm::clamp(move, glm::vec2{-1.0F}, glm::vec2{1.0F});
 
 			intent.dig_in = input.IsKeyDown(kDigInKey);
+			intent.pause = input.WasKeyPressed(kPauseKey);
 
 			intent.pick = 0;
 			for (size_t i = 0; i < kPickKeys.size(); ++i) {

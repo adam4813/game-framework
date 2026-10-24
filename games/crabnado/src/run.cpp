@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include "crabnado_constants.hpp"
+#include "controls.hpp"
 #include "engine/engine.hpp"
 
 using namespace engine;
@@ -22,6 +23,7 @@ void RegisterRun(const flecs::world& world) {
 		.member<int>("molt_level")
 		.member<int>("shells")
 		.member<int>("shells_needed")
+		.member<bool>("menu_paused")
 		.member<uint64_t>("seed");
 	world.set<RunState>({});
 
@@ -36,6 +38,20 @@ void RegisterRun(const flecs::world& world) {
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
+
+	// Not pausable: Esc has to resume the menu it opened.
+	world.system<const PlayerIntent, const RunState>("PauseToggle")
+		.term_at(0)
+		.singleton()
+		.term_at(1)
+		.singleton()
+		.kind(flecs::PreUpdate)
+		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, const RunState& run) {
+			if (intent.pause) {
+				SetMenuPaused(it.world(), !run.menu_paused);
+			}
+		})
+		.add<scene::GameScene>();
 }
 
 int ShellsNeeded(const int moltLevel) {
@@ -47,6 +63,19 @@ void StartRun(const flecs::world& world) {
 	const uint64_t seed = rng.Next();
 	rng.seed = seed;
 	world.set<RunState>({.shells_needed = ShellsNeeded(1), .seed = seed});
+}
+
+void SetMenuPaused(const flecs::world& world, const bool paused) {
+	auto& run = world.get_mut<RunState>();
+	if (run.phase != RunPhase::Playing || run.menu_paused == paused) {
+		return;
+	}
+	run.menu_paused = paused;
+	if (paused) {
+		world.add<scene::Paused>();
+	} else {
+		world.remove<scene::Paused>();
+	}
 }
 
 void LoseRun(const flecs::world& world) {

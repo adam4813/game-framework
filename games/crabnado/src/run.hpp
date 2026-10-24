@@ -10,7 +10,8 @@ namespace crabnado {
 
 enum class RunPhase { Playing, Molting, Lost };
 
-// Singleton: the current run. `clock` counts up in seconds while the run is playing; `rock_kills` counts the kills a rock slam helped. `shells` counts
+// Singleton: the current run. `menu_paused` is the Esc pause menu, separate from `phase` so pausing mid-run
+// resumes the same phase. `clock` counts up in seconds while the run is playing; `rock_kills` counts the kills a rock slam helped. `shells` counts
 // toward the next molt, which needs `shells_needed`; `molt_level` starts at 1. `seed` is the RngState
 // seed the run started from, so a run can be replayed.
 struct RunState {
@@ -21,6 +22,7 @@ struct RunState {
 	int molt_level{1};
 	int shells{0};
 	int shells_needed{0};
+	bool menu_paused{false};
 	uint64_t seed{0};
 };
 
@@ -32,6 +34,9 @@ void RegisterRun(const flecs::world& world);
 
 // Starts a fresh run: resets RunState and reseeds RngState with a seed drawn from it.
 void StartRun(const flecs::world& world);
+
+// Opens or closes the pause menu (pausing the scene). Does nothing unless the run is playing.
+void SetMenuPaused(const flecs::world& world, bool paused);
 
 // Ends the run as lost and pauses the scene. Does nothing unless the run is playing.
 void LoseRun(const flecs::world& world);
