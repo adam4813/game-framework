@@ -11,7 +11,7 @@ namespace crabnado {
 // Identity tag for the title scene (used to find and switch to it).
 struct TitleSceneTag {};
 
-// Title screen: the game's name and a Play button. Its UI is built in Load() and destroyed in Unload().
+// Title screen: the game's name, a Play button and a Credits modal with the music attribution. Its UI is built in Load() and destroyed in Unload().
 class TitleScene : public engine::scene::SceneBase {
 public:
 	void InitializePipeline(const flecs::world& world) override;
@@ -22,7 +22,10 @@ public:
 	std::function<void()> onPlayPressed;
 
 private:
+	void BuildCreditsModal(const flecs::world& world, float width, float height);
+
 	flecs::entity uiRoot_;
+	flecs::entity creditsModal_;
 };
 
 } // namespace crabnado

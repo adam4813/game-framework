@@ -342,8 +342,17 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 	const bool ended = won || run.phase == RunPhase::Lost;
 	resultsModal_.get_mut<ui::Modal>().open = ended;
 	pauseModal_.get_mut<ui::Modal>().open = run.menu_paused;
+	const bool lost = run.phase == RunPhase::Lost;
 	if (music_.has<audio::Music>()) {
-		music_.get_mut<audio::Music>().volume = ended ? constants::kEndedMusicVolume : constants::kMusicVolume;
+		music_.get_mut<audio::Music>().volume =
+			lost ? 0.0F : (ended ? constants::kEndedMusicVolume : constants::kMusicVolume);
+	}
+	if (lost && !sceneRoot_.lookup("GameOverMusic")) {
+		std::ignore = world.entity("GameOverMusic").child_of(sceneRoot_).set<audio::Music>(
+			{.path = assets::ResolveAsset(world, "audio/crabnado/gameover.ogg"),
+			 .loop = true,
+			 .volume = constants::kGameOverMusicVolume}
+		);
 	}
 	if (!ended) {
 		return;
