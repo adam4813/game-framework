@@ -1,5 +1,6 @@
 #include "title_scene.hpp"
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <string_view>
@@ -35,6 +36,10 @@ constexpr float kSmallButtonHeight = 40.0F;
 constexpr float kSmallButtonGap = 14.0F;
 constexpr float kSmallButtonFontSize = 22.0F;
 constexpr float kSmallButtonBorder = 3.0F;
+// The intro: the UI slides off over kSlideLength seconds, then the arena loads kIntroLength seconds after Play.
+constexpr float kSlideLength = 0.7F;
+constexpr float kSlideDistance = 0.6F; // fraction of the screen height
+constexpr float kIntroLength = 5.0F;
 
 } // namespace
 
@@ -71,40 +76,49 @@ void TitleScene::Load(flecs::world& world) {
 	// centred title.
 	const std::string rest = title.substr(1);
 	const float restLeft = (w - platform->MeasureText(title, kTitleFontSize)) / 2.0F + platform->MeasureText(title.substr(0, 1), kTitleFontSize);
-	std::ignore = ui::CreateLabel(world, {.x = restLeft, .y = h * kTitleTop, .w = w - restLeft, .h = kTitleFontSize + 8.0F}, rest, kTitleFontSize)
+	introTime_ = -1.0F;
+	introFinished_ = false;
+	slides_.clear();
+	const auto slide = [this](const flecs::entity entity, const float rest, const float direction) {
+		slides_.push_back({.entity = entity, .rest = rest, .direction = direction});
+		return entity;
+	};
+
+	std::ignore = slide(ui::CreateLabel(world, {.x = restLeft, .y = h * kTitleTop, .w = w - restLeft, .h = kTitleFontSize + 8.0F}, rest, kTitleFontSize)
 					  .set<ui::Label>({.text = rest,
 									   .font_size = kTitleFontSize,
 									   .color = kTitleColor,
 									   .align = ui::TextAlign::Left,
 									   .outline = kTitleOutlineWidth,
 									   .outline_color = kTitleOutlineColor})
-					  .child_of(uiRoot_);
+					  .child_of(uiRoot_), h * kTitleTop, -1.0F);
 	// The label centres its text vertically, so the glyphs start half the slack below the rect's top.
-	std::ignore = world.entity("TitleLogo").child_of(uiRoot_).set<TitleLogo>({.top = h * kTitleTop + 4.0F, .font_size = kTitleFontSize});
+	logoRest_ = h * kTitleTop + 4.0F;
+	logo_ = world.entity("TitleLogo").child_of(uiRoot_).set<TitleLogo>({.top = logoRest_, .font_size = kTitleFontSize});
 
 	// Side by side on the island's beach, below the crab.
 	const float buttonsTop = h * 0.78F;
-	std::ignore = ui::CreateButton(
-					  world,
-					  {.x = w / 2.0F - kButtonWidth - kButtonGap / 2.0F, .y = buttonsTop, .w = kButtonWidth, .h = kButtonHeight},
-					  "Play",
-					  [onPlay = onPlayPressed](flecs::entity) {
-						  if (onPlay) {
-							  onPlay();
-						  }
-					  }
+	std::ignore = slide(ui::CreateButton(
+							world,
+							{.x = w / 2.0F - kButtonWidth - kButtonGap / 2.0F, .y = buttonsTop, .w = kButtonWidth, .h = kButtonHeight},
+							"Play",
+							[this](flecs::entity) { StartIntro(); }
 	)
-					  .set_name("PlayButton")
-					  .child_of(uiRoot_);
+							.set_name("PlayButton")
+							.child_of(uiRoot_), buttonsTop, 1.0F);
 
-	std::ignore = ui::CreateButton(
-					  world,
-					  {.x = w / 2.0F + kButtonGap / 2.0F, .y = buttonsTop, .w = kButtonWidth, .h = kButtonHeight},
-					  "Credits",
-					  [this](flecs::entity) { creditsModal_.get_mut<ui::Modal>().open = true; }
+	std::ignore = slide(ui::CreateButton(
+							world,
+							{.x = w / 2.0F + kButtonGap / 2.0F, .y = buttonsTop, .w = kButtonWidth, .h = kButtonHeight},
+							"Credits",
+							[this](flecs::entity) {
+								if (!IntroPlaying()) {
+									creditsModal_.get_mut<ui::Modal>().open = true;
+								}
+							}
 	)
-					  .set_name("CreditsButton")
-					  .child_of(uiRoot_);
+							.set_name("CreditsButton")
+							.child_of(uiRoot_), buttonsTop, 1.0F);
 	BuildCreditsModal(world, w, h);
 
 	// A whole set, not get_mut, for the smaller style: Load() runs deferred, so CreateButton's Button isn't readable yet.
@@ -112,15 +126,20 @@ void TitleScene::Load(flecs::world& world) {
 	smallStyle.label = "Settings";
 	smallStyle.font_size = kSmallButtonFontSize;
 	smallStyle.border_thickness = kSmallButtonBorder;
-	std::ignore = ui::CreateButton(
-					  world,
-					  {.x = (w - kSmallButtonWidth) / 2.0F, .y = buttonsTop + kButtonHeight + kSmallButtonGap, .w = kSmallButtonWidth, .h = kSmallButtonHeight},
-					  "Settings",
-					  [this](flecs::entity) { settingsModal_.get_mut<ui::Modal>().open = true; }
+	const float settingsTop = buttonsTop + kButtonHeight + kSmallButtonGap;
+	std::ignore = slide(ui::CreateButton(
+							world,
+							{.x = (w - kSmallButtonWidth) / 2.0F, .y = settingsTop, .w = kSmallButtonWidth, .h = kSmallButtonHeight},
+							"Settings",
+							[this](flecs::entity) {
+								if (!IntroPlaying()) {
+									settingsModal_.get_mut<ui::Modal>().open = true;
+								}
+							}
 	)
-					  .set<ui::Button>(smallStyle)
-					  .set_name("SettingsButton")
-					  .child_of(uiRoot_);
+							.set<ui::Button>(smallStyle)
+							.set_name("SettingsButton")
+							.child_of(uiRoot_), settingsTop, 1.0F);
 	settingsModal_ = BuildSettingsModal(world, uiRoot_, w, h);
 }
 
@@ -161,6 +180,43 @@ void TitleScene::BuildCreditsModal(const flecs::world& world, const float width,
 					  .child_of(creditsModal_);
 }
 
+void TitleScene::StartIntro() {
+	if (IntroPlaying()) {
+		return;
+	}
+	introTime_ = 0.0F;
+	StartTitleIntro(backdrop_);
+}
+
+void TitleScene::Tick(const flecs::world& world, const float deltaTime) {
+	if (!IntroPlaying() || introFinished_) {
+		return;
+	}
+	introTime_ += deltaTime;
+
+	// Eased in, so the UI lifts off gently and then whips away.
+	const float t = std::min(introTime_ / kSlideLength, 1.0F);
+	const float offset = t * t * kSlideDistance * static_cast<float>(world.get<platform::PlatformRef>().ptr->Height());
+	for (const Slide& slide : slides_) {
+		if (slide.entity.has<ui::UIRect>()) {
+			slide.entity.get_mut<ui::UIRect>().rect.y = slide.rest + slide.direction * offset;
+		}
+	}
+	if (logo_.has<TitleLogo>()) {
+		logo_.get_mut<TitleLogo>().top = logoRest_ - offset;
+	}
+
+	const auto& input = world.get<input::InputState>();
+	const bool skip = input.WasKeyPressed(input::KeyCode::Space) || input.WasKeyPressed(input::KeyCode::Return) ||
+		input.WasKeyPressed(input::KeyCode::Escape);
+	if (introTime_ >= kIntroLength || skip) {
+		introFinished_ = true;
+		if (onIntroFinished) {
+			onIntroFinished();
+		}
+	}
+}
+
 void TitleScene::Unload(flecs::world&) {
 	if (backdrop_) {
 		backdrop_.destruct();
@@ -171,6 +227,8 @@ void TitleScene::Unload(flecs::world&) {
 		uiRoot_ = {};
 		creditsModal_ = {};
 		settingsModal_ = {};
+		logo_ = {};
+		slides_.clear();
 	}
 }
 

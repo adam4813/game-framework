@@ -29,11 +29,27 @@ struct TitleBreeze {
 	float speed{0.0F};
 };
 
-// Registers and reflects the title components and the TitleSway, TitleBob and TitleBreezeMove systems.
+// The intro's scurry, on the title crab once Play is pressed: it turns, runs over the island and swims off toward the
+// crabnado. `time` is the seconds since it set off.
+struct TitleScurry {
+	float time{0.0F};
+};
+
+// The intro's pan, on the backdrop's camera once Play is pressed: it rises and tilts up from the island toward the
+// crabnado. `time` is the seconds since it started.
+struct TitlePan {
+	float time{0.0F};
+};
+
+// Registers and reflects the title components and the TitleSway, TitleBob, TitleBreezeMove, TitleScurry and TitlePan
+// systems.
 // They are tagged GameScene so the title's pipeline, which runs the render systems, runs them. Call from the module constructor.
 void RegisterTitleBackdrop(const flecs::world& world);
 
 // Builds the backdrop (camera, lights, ocean, island, crab, crabnado, breeze) as children of `parent`.
 void BuildTitleBackdrop(const flecs::world& world, flecs::entity parent);
+
+// Starts the intro in the backdrop built under `parent`: the crab sets off and the camera starts its pan.
+void StartTitleIntro(flecs::entity parent);
 
 } // namespace crabnado
