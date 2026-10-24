@@ -52,7 +52,8 @@ void RegisterBubbles(const flecs::world& world) {
 		.member<float>("cooldown")
 		.member<int>("count")
 		.member<float>("speed")
-		.member<float>("timer");
+		.member<float>("timer")
+		.member<float>("level");
 	world.component<Bubble>().member<glm::vec2>("velocity").member<float>("life");
 
 	world.system<Bubbles, const spatial::Transform>("BubbleFire")

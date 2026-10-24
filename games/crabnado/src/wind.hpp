@@ -53,9 +53,6 @@ void StartWind(const flecs::world& world);
 // The wind's push on the ground plane: WindDirection * strength * `scale`, in units per second.
 [[nodiscard]] glm::vec2 WindPush(const Wind& wind, float scale);
 
-// The wind's strength as a Beaufort-style force number for the HUD.
-[[nodiscard]] int WindForce(const Wind& wind);
-
 // Spawns the wind streaks around the arena centre as children of `parent`.
 void SpawnWindStreaks(const flecs::world& world, flecs::entity parent);
 

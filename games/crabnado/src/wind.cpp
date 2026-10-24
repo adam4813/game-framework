@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <format>
 #include <numbers>
 #include <string>
 
@@ -40,6 +39,12 @@ constexpr core::Rgba kWindColor{.r = 155, .g = 231, .b = 255, .a = 255};
 constexpr core::Rgba kWarnColor{.r = 255, .g = 209, .b = 102, .a = 255};
 constexpr float kArrowHead = 10.0F;
 constexpr float kArrowHeadAngle = 2.5F; // radians off the arrow's direction
+// The arrow's length shows the strength: from kArrowMinLength (the calmest wind) to kArrowMaxLength (a full gust
+// on the strongest swell), as fractions of the compass radius, centred on the compass.
+constexpr float kArrowMinLength = 0.5F;
+constexpr float kArrowMaxLength = 1.7F;
+constexpr float kCalmestWind = constants::kWindBaseStrength - constants::kWindSwell;
+constexpr float kStrongestWind = constants::kWindBaseStrength + constants::kWindSwell + constants::kWindGust;
 
 float WrapAround(const float value, const float center) {
 	return center + std::remainder(value - center, 2.0F * kStreakSpread);
@@ -154,19 +159,19 @@ void RegisterWind(const flecs::world& world) {
 			PushCenteredText(list, platform, "N", {c.x, c.y - r + 13.0F}, 14.0F, kCompassNorth);
 
 			const glm::vec2 direction = WindDirection(wind);
-			const glm::vec2 tip = c + direction * r * (0.35F + 0.25F * wind.strength);
+			const float t = std::clamp((wind.strength - kCalmestWind) / (kStrongestWind - kCalmestWind), 0.0F, 1.0F);
+			const float half = r * (kArrowMinLength + (kArrowMaxLength - kArrowMinLength) * t) / 2.0F;
+			const glm::vec2 tip = c + direction * half;
 			const float angle = std::atan2(direction.y, direction.x);
-			list.PushLine(c, tip, 4.0F, kWindColor);
+			list.PushLine(c - direction * half, tip, 4.0F, kWindColor);
 			for (const float side : {kArrowHeadAngle, -kArrowHeadAngle}) {
 				list.PushLine(tip, tip + glm::vec2{std::cos(angle + side), std::sin(angle + side)} * kArrowHead, 4.0F,
 					kWindColor);
 			}
 
-			const core::Rgba labelColor = wind.warning ? kWarnColor : kWindColor;
-			PushCenteredText(list, platform, std::format("WIND F{}", WindForce(wind)), {c.x, c.y + r + 14.0F}, 18.0F,
-				labelColor);
+			// Below the arena's sea-state label.
 			if (wind.warning) {
-				PushCenteredText(list, platform, "Wind shifting!", {c.x, c.y + r + 36.0F}, 20.0F, kWarnColor);
+				PushCenteredText(list, platform, "Wind shifting!", {c.x, c.y + r + 48.0F}, 20.0F, kWarnColor);
 			}
 		})
 		.add<scene::GameScene>();
@@ -192,10 +197,6 @@ glm::vec2 WindDirection(const Wind& wind) {
 
 glm::vec2 WindPush(const Wind& wind, const float scale) {
 	return WindDirection(wind) * wind.strength * scale;
-}
-
-int WindForce(const Wind& wind) {
-	return static_cast<int>(std::lround(2.0F + wind.strength * 3.0F));
 }
 
 void SpawnWindStreaks(const flecs::world& world, const flecs::entity parent) {

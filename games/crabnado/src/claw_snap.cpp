@@ -31,7 +31,8 @@ void RegisterClawSnap(const flecs::world& world) {
 		.member<float>("radius")
 		.member<float>("cooldown")
 		.member<float>("timer")
-		.member<float>("ring_timer");
+		.member<float>("ring_timer")
+		.member<float>("level");
 	world.component<ClawRing>();
 
 	world.system<ClawSnap, const spatial::Transform>("ClawSnapFire")

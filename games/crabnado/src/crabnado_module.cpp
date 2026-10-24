@@ -21,6 +21,7 @@
 #include "title_backdrop.hpp"
 #include "title_logo.hpp"
 #include "title_scene.hpp"
+#include "ui_theme.hpp"
 #include "upgrades.hpp"
 #include "waves.hpp"
 #include "wind.hpp"
@@ -32,6 +33,7 @@ namespace crabnado {
 CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	const auto* platform = world.get<platform::PlatformRef>().ptr;
 	LoadSfx(world);
+	ApplyUiTheme(world);
 
 	// Systems in one phase run in registration order: input, run clock, wind, waves, player, crabnado, then the horde
 	// (whose grid the claw snap reads), then shells and molting.

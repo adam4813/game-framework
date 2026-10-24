@@ -1,14 +1,13 @@
 #include "title_scene.hpp"
 
 #include <array>
-#include <cmath>
-#include <numbers>
 #include <string>
 #include <string_view>
 
 #include "crabnado_constants.hpp"
 #include "title_backdrop.hpp"
 #include "title_logo.hpp"
+#include "ui_theme.hpp"
 #include "engine/engine.hpp"
 
 using namespace engine;
@@ -18,14 +17,13 @@ namespace crabnado {
 namespace {
 
 constexpr float kCreditsWidth = 900.0F;
-constexpr float kCreditsHeight = 520.0F;
+constexpr float kCreditsHeight = 580.0F;
 constexpr float kCreditsLineHeight = 52.0F;
 constexpr float kTitleFontSize = 96.0F;
 constexpr float kTitleTop = 0.07F; // fraction of the screen height, leaving room for the shells perched on top
 constexpr core::Rgba kTitleColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr core::Rgba kTitleOutlineColor{.r = 18, .g = 40, .b = 70, .a = 255};
 constexpr float kTitleOutlineWidth = 5.0F;
-constexpr int kTitleOutlineSteps = 16;
 constexpr float kButtonWidth = 200.0F;
 constexpr float kButtonHeight = 56.0F;
 constexpr float kButtonGap = 24.0F;
@@ -60,17 +58,13 @@ void TitleScene::Load(flecs::world& world) {
 		{.path = assets::ResolveAsset(world, "audio/crabnado/title.ogg"), .loop = true, .volume = constants::kTitleMusicVolume}
 	);
 
-	// Labels have no outline, so the title is drawn as a ring of dark copies under the light one.
-	const auto addTitle = [&](const float dx, const float dy, const core::Rgba color) {
-		std::ignore = ui::CreateLabel(world, {.x = dx, .y = h * kTitleTop + dy, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
-						  .set<ui::Label>({.text = title, .font_size = kTitleFontSize, .color = color})
-						  .child_of(uiRoot_);
-	};
-	for (int i = 0; i < kTitleOutlineSteps; ++i) {
-		const float angle = 2.0F * std::numbers::pi_v<float> * static_cast<float>(i) / kTitleOutlineSteps;
-		addTitle(std::cos(angle) * kTitleOutlineWidth, std::sin(angle) * kTitleOutlineWidth, kTitleOutlineColor);
-	}
-	addTitle(0.0F, 0.0F, kTitleColor);
+	std::ignore = ui::CreateLabel(world, {.x = 0.0F, .y = h * kTitleTop, .w = w, .h = kTitleFontSize + 8.0F}, title, kTitleFontSize)
+					  .set<ui::Label>({.text = title,
+									   .font_size = kTitleFontSize,
+									   .color = kTitleColor,
+									   .outline = kTitleOutlineWidth,
+									   .outline_color = kTitleOutlineColor})
+					  .child_of(uiRoot_);
 	// The label centres its text vertically, so the glyphs start half the slack below the rect's top.
 	std::ignore = world.entity("TitleLogo").child_of(uiRoot_).set<TitleLogo>({.top = h * kTitleTop + 4.0F, .font_size = kTitleFontSize});
 
@@ -109,11 +103,12 @@ void TitleScene::BuildCreditsModal(const flecs::world& world, const float width,
 	std::ignore = ui::CreateLabel(world, {.x = x, .y = y + 16.0F, .w = kCreditsWidth, .h = 44.0F}, "Credits", 40.0F)
 					  .child_of(creditsModal_);
 
-	constexpr std::array<std::string_view, 6> kLines{
+	constexpr std::array<std::string_view, 7> kLines{
 		"Title music: \"Menu music\" by mrpoly (CC0), opengameart.org/content/menu-music",
 		"Run music: \"Underwater\" by Cleyton Kauffman (CC0), opengameart.org/content/underwater-theme",
 		"Game-over music: \"Emotional piano loop\" by extenz (CC0), opengameart.org/content/emotional-piano-loop",
 		"Sound effects: generated for this game (CC0)",
+		"Font: Lilita One by Juan Montoreano (SIL Open Font License)",
 		"Built with raylib, Flecs, Dear ImGui, nlohmann/json, spdlog, GLM, GLFW, stb, Jolt Physics and AngelScript",
 		"Made with the help of Claude Opus and Claude Sonnet by Anthropic",
 	};
@@ -121,7 +116,7 @@ void TitleScene::BuildCreditsModal(const flecs::world& world, const float width,
 	for (const std::string_view line : kLines) {
 		const std::string text{line};
 		std::ignore = ui::CreateLabel(world, {.x = x + 24.0F, .y = top, .w = kCreditsWidth - 48.0F, .h = kCreditsLineHeight}, text, 20.0F)
-						  .set<ui::Label>({.text = text, .font_size = 20.0F, .wrap = true})
+						  .set<ui::Label>({.text = text, .font_size = 20.0F, .color = kPanelTextColor, .wrap = true})
 						  .child_of(creditsModal_);
 		top += kCreditsLineHeight + 8.0F;
 	}

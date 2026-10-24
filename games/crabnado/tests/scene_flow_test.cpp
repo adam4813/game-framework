@@ -53,14 +53,14 @@ TEST(CrabnadoSceneFlow, PlayButtonOpensTheGameScene) {
 	EXPECT_TRUE(game.IsActive<crabnado::ArenaSceneTag>());
 	EXPECT_FALSE(game.IsActive<crabnado::TitleSceneTag>());
 	EXPECT_FALSE(game.World().lookup("TitleUI").is_valid());
-	EXPECT_TRUE(game.World().lookup("ArenaUI::TitleButton").is_valid());
+	EXPECT_TRUE(game.World().lookup("ArenaUI::PauseModal::QuitButton").is_valid());
 }
 
-TEST(CrabnadoSceneFlow, TitleButtonReturnsToTheTitleScene) {
+TEST(CrabnadoSceneFlow, PauseMenuQuitReturnsToTheTitleScene) {
 	const CrabnadoWorld game;
 	game.Click("TitleUI::PlayButton");
 
-	game.Click("ArenaUI::TitleButton");
+	game.Click("ArenaUI::PauseModal::QuitButton");
 
 	EXPECT_TRUE(game.IsActive<crabnado::TitleSceneTag>());
 	EXPECT_FALSE(game.World().lookup("ArenaUI").is_valid());

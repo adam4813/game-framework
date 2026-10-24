@@ -19,8 +19,8 @@ Back to the [spec](../spec.md).
 10. As a player, I want defeated enemies to drop shells, so that I have a reason to go into danger.
 11. As a player, I want shells within a short range to fly to me, so that collecting them isn't fiddly.
 12. As a player, I want to molt (level up) when I've collected enough shells, so that I get stronger over the run.
-13. As a player, I want the game to pause when I molt and show 3 upgrade choices I pick with 1/2/3 (or a click), so
-    that I can choose without being hit.
+13. As a player, I want the game to pause when I molt and show 3 upgrade cards I select with 1/2/3 (or a
+    click) and confirm with Enter (or the Confirm button), so that I can choose without being hit or misclicking.
 14. As a player, I want each molt to need more shells than the last, so that upgrades stay meaningful.
 15. As a player, I want to see my HP, so that I know how close I am to losing.
 16. As a player, I want touching an enemy to drain my HP over time, so that being surrounded is dangerous.

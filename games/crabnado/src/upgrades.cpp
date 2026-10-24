@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -30,6 +31,7 @@ bool ParseUpgrade(const std::string_view path, const std::string& id, const nloh
 		return false;
 	}
 	upgrade.first_molt = entry.value("first_molt", false);
+	upgrade.icon = entry.value("icon", "");
 	if (const auto req = entry.find("requires"); req != entry.end()) {
 		const std::string stat = req->value("stat", "");
 		const size_t dot = stat.find('.');
@@ -67,7 +69,10 @@ bool ParseUpgrade(const std::string_view path, const std::string& id, const nloh
 			{.component = stat.substr(0, dot),
 			 .member = stat.substr(dot + 1),
 			 .op = op == "add" ? UpgradeOp::Add : UpgradeOp::Multiply,
-			 .value = effect.at("value").get<float>()}
+			 .value = effect.at("value").get<float>(),
+			 .label = effect.value("label", ""),
+			 .unit = effect.value("unit", ""),
+			 .lower_is_better = effect.value("lower_is_better", false)}
 		);
 	}
 	return true;
@@ -123,23 +128,33 @@ void ApplyEffect(const flecs::world& world, const flecs::entity player, const Up
 	ecs_modified_id(world, player, component);
 }
 
+// The player's reflected stat `componentName.member`, or nothing when the player doesn't have it.
+std::optional<double> ReadStat(
+	const flecs::world& world,
+	const flecs::entity player,
+	const std::string_view componentName,
+	const std::string& member
+) {
+	const flecs::entity component = FindPlayerComponent(player, componentName);
+	void* data = component ? ecs_get_mut_id(world, player, component) : nullptr;
+	if (data == nullptr) {
+		return std::nullopt;
+	}
+	flecs::cursor cursor{world.c_ptr(), component, data};
+	if (cursor.push() != 0 || cursor.member(member.c_str()) != 0) {
+		return std::nullopt;
+	}
+	return cursor.get_float();
+}
+
 // Whether the player meets `upgrade`'s requirement. An unreadable stat counts as not eligible.
 bool IsEligible(const flecs::world& world, const flecs::entity player, const Upgrade& upgrade) {
 	if (!upgrade.requires_) {
 		return true;
 	}
 	const UpgradeRequirement& req = *upgrade.requires_;
-	const flecs::entity component = FindPlayerComponent(player, req.component);
-	void* data = component ? ecs_get_mut_id(world, player, component) : nullptr;
-	if (data == nullptr) {
-		return false;
-	}
-	flecs::cursor cursor{world.c_ptr(), component, data};
-	if (cursor.push() != 0 || cursor.member(req.member.c_str()) != 0) {
-		return false;
-	}
-	const double value = cursor.get_float();
-	return (!req.min || value >= *req.min) && (!req.max || value <= *req.max);
+	const std::optional<double> value = ReadStat(world, player, req.component, req.member);
+	return value && (!req.min || *value >= *req.min) && (!req.max || *value <= *req.max);
 }
 
 // Rolls up to kMoltChoices distinct eligible upgrades from RngState. On the first molt one eligible
@@ -199,10 +214,17 @@ void BeginMolt(const flecs::world& world, RunState& run) {
 
 void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 	world.component<UpgradeOp>().constant("Add", UpgradeOp::Add).constant("Multiply", UpgradeOp::Multiply);
-	world.component<MoltOffer>().member<std::string>("ids", kMoltChoices);
+	world.component<MoltOffer>().member<std::string>("ids", kMoltChoices).member<int>("selected");
 	world.set<MoltOffer>({});
 	world.component<UpgradeRegistry>();
-	world.set<UpgradeRegistry>(LoadUpgrades(path));
+	UpgradeRegistry registry = LoadUpgrades(path);
+	// Loaded once for the life of the app, like the sound effects.
+	for (Upgrade& upgrade : registry.upgrades) {
+		if (!upgrade.icon.empty()) {
+			upgrade.icon_texture = assets::LoadTexture(world, assets::ResolveAsset(world, upgrade.icon));
+		}
+	}
+	world.set<UpgradeRegistry>(std::move(registry));
 
 	world.system<RunState>("MoltCheck")
 		.term_at(0)
@@ -222,7 +244,10 @@ void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent) {
 			if (intent.pick > 0) {
-				ChooseUpgrade(it.world(), intent.pick - 1);
+				SelectUpgrade(it.world(), intent.pick - 1);
+			}
+			if (intent.confirm) {
+				ConfirmUpgrade(it.world());
 			}
 		})
 		.add<scene::GameScene>();
@@ -232,6 +257,48 @@ const Upgrade* FindUpgrade(const flecs::world& world, const std::string_view id)
 	const auto& upgrades = world.get<UpgradeRegistry>().upgrades;
 	const auto found = std::ranges::find(upgrades, id, &Upgrade::id);
 	return found == upgrades.end() ? nullptr : &*found;
+}
+
+std::vector<StatPreview> PreviewUpgrade(const flecs::world& world, const Upgrade& upgrade) {
+	std::vector<StatPreview> previews;
+	const flecs::entity player = FindPlayer(world);
+	if (!player) {
+		return previews;
+	}
+	for (const auto& effect : upgrade.effects) {
+		if (effect.label.empty()) {
+			continue;
+		}
+		const std::optional<double> before = ReadStat(world, player, effect.component, effect.member);
+		if (!before) {
+			continue;
+		}
+		const double after = effect.op == UpgradeOp::Add ? *before + effect.value : *before * effect.value;
+		previews.push_back(
+			{.label = effect.label,
+			 .unit = effect.unit,
+			 .before = static_cast<float>(*before),
+			 .after = static_cast<float>(after),
+			 .lower_is_better = effect.lower_is_better}
+		);
+	}
+	return previews;
+}
+
+void SelectUpgrade(const flecs::world& world, const int choice) {
+	if (world.get<RunState>().phase != RunPhase::Molting || choice < 0 || choice >= kMoltChoices) {
+		return;
+	}
+	auto& offer = world.get_mut<MoltOffer>();
+	if (!offer.ids[choice].empty()) {
+		offer.selected = choice;
+	}
+}
+
+void ConfirmUpgrade(const flecs::world& world) {
+	if (const int selected = world.get<MoltOffer>().selected; selected >= 0) {
+		ChooseUpgrade(world, selected);
+	}
 }
 
 void ChooseUpgrade(const flecs::world& world, const int choice) {
