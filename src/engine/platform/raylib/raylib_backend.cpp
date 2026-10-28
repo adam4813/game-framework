@@ -170,6 +170,22 @@ float CanvasPerWindowPixel() {
 	return w > 0.0F ? static_cast<float>(g_canvas.texture.width) / w : 1.0F;
 }
 
+// Window pixels per unit of raylib's raw mouse position. 1 on desktop. On the web, GLFW keeps scaling the mouse to
+// the window size it was created with (the canvas size), so once the page resizes the window the raw position
+// shrinks by canvas / window. Undo that, or clicks and hover land off target everywhere except at the canvas size.
+Vector2 RawMousePerWindowPixel() {
+#if defined(__EMSCRIPTEN__)
+	const auto canvas_w = static_cast<float>(g_canvas.texture.width);
+	const auto canvas_h = static_cast<float>(g_canvas.texture.height);
+	const auto window_w = static_cast<float>(GetScreenWidth());
+	const auto window_h = static_cast<float>(GetScreenHeight());
+	if (canvas_w > 0.0F && canvas_h > 0.0F && window_w > 0.0F && window_h > 0.0F) {
+		return {window_w / canvas_w, window_h / canvas_h};
+	}
+#endif
+	return {1.0F, 1.0F};
+}
+
 // The debug UI: the ImGui overlay when compiled in (created in Init), else the no-op base.
 DebugUi g_null_debug_ui;
 #ifdef ENGINE_DEBUG_UI
@@ -963,11 +979,13 @@ std::string RaylibBackend::AssetDirectory() const {
 
 void RaylibBackend::BeginFrame(const Rgba clear) {
 	profiling::Zone _zone{"Platform::BeginFrame"};
-	// Map the mouse from window pixels to canvas pixels, for the game and the debug UI alike.
+	// Map the mouse from window pixels to canvas pixels, for the game and the debug UI alike. raylib computes
+	// (raw + offset) * scale, so the web correction folds into both terms.
 	const Rectangle dest = CanvasDest();
 	const float to_canvas = CanvasPerWindowPixel();
-	SetMouseOffset(static_cast<int>(-dest.x), static_cast<int>(-dest.y));
-	SetMouseScale(to_canvas, to_canvas);
+	const Vector2 raw = RawMousePerWindowPixel();
+	SetMouseOffset(static_cast<int>(-dest.x / raw.x), static_cast<int>(-dest.y / raw.y));
+	SetMouseScale(to_canvas * raw.x, to_canvas * raw.y);
 
 	BeginDrawing();
 	BeginTextureMode(g_canvas);
@@ -1042,7 +1060,8 @@ glm::vec2 RaylibBackend::MousePosition() const {
 glm::vec2 RaylibBackend::MouseDelta() const {
 	// raylib's mouse scale doesn't reach the delta, so convert it to canvas pixels here.
 	const auto [x, y] = GetMouseDelta();
-	return glm::vec2{x, y} * CanvasPerWindowPixel();
+	const Vector2 raw = RawMousePerWindowPixel();
+	return glm::vec2{x * raw.x, y * raw.y} * CanvasPerWindowPixel();
 }
 
 glm::vec2 RaylibBackend::MouseWheel() const {
