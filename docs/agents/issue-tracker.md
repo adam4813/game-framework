@@ -2,6 +2,13 @@
 
 Issues and specs for this repo live as markdown files in `.scratch/`.
 
+## Game Target specs and tickets
+
+Work for a single Game Target lives in that game's folder, not `.scratch/`: the spec at `games/<name>/spec.md` (or a
+spec index plus `games/<name>/spec/<topic>.md`), tickets at `games/<name>/issues/<NN>-<slug>.md`, and game-specific
+ADRs at `games/<name>/docs/adr/`. All other conventions below apply unchanged, with `games/<name>/` in place of
+`.scratch/<feature-slug>/`. Engine and cross-game work stays in `.scratch/`.
+
 ## Conventions
 
 - One feature per directory: `.scratch/<feature-slug>/`

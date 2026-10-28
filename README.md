@@ -76,7 +76,17 @@ cmake --build --preset desktop-release
 cmake --build --preset desktop-debug
 ```
 
-The executable is at `build/desktop/Release/sandbox` (or `Debug/sandbox`).
+The executables are at `build/desktop/Release/sandbox` and, for each Game Target under `games/`,
+`build/desktop/games/<name>/Release/<name>`. Swap `Release` for
+`Debug` in debug builds.
+
+Unit tests (engine and every Game Target) use the `desktop-test` preset:
+
+```bash
+cmake --preset desktop-test
+cmake --build --preset desktop-test-release
+ctest --preset desktop-test-release
+```
 
 #### macOS Intel (x86_64) Toolchain
 
@@ -157,6 +167,8 @@ For Debug builds:
 ./build/desktop/Debug/sandbox
 ```
 
+A Game Target runs the same way, e.g. `./build/desktop/games/<name>/Release/<name>`.
+
 #### WebAssembly
 
 Use `emrun` to serve the WASM build locally. The `--hostname` and `--serve_after_close` flags are important for proper
@@ -176,6 +188,8 @@ For Debug builds:
 ```bash
 emrun ./build/wasm/Debug/sandbox.html --hostname localhost --serve_after_close
 ```
+
+A Game Target's page is at `build/wasm/games/<name>/Release/<name>.html`.
 
 ## Documentation
 
@@ -203,7 +217,8 @@ Quick reference:
 
 - `src/engine/engine_context.cpp` — bootstraps all modules in dependency order
 - `src/engine/app/` — frame loop and startup
-- `src/game/` — game-specific scenes and entities
+- `src/game/` — the Sandbox: engine demonstration scenes
+- `games/<name>/` — one Game Target per game (its own `CMakeLists.txt`, `src/`, `tests/`, spec and ADRs)
 - `assets/` — game content (JSON configs, models, textures, sounds)
 - `build/` — build output (generated, git-ignored)
 - `tools/` — build and debugging utilities (e.g., Flecs scripting, CI helpers)
@@ -302,7 +317,9 @@ If you're starting a new game:
 
 1. **Read the framework docs** — start with `docs/README.md` and `docs/architecture.md`
 2. **Familiarize with the ECS** — study `docs/ecs-components.md` and existing module READMEs
-3. **Add your game module** — create `src/game/your_scene.{hpp,cpp}`, register scenes, define components
+3. **Add your Game Target** — create `games/<name>/` (`CMakeLists.txt` calling
+   `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper) and add
+   `add_subdirectory(games/<name>)` to the root `CMakeLists.txt`
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
 5. **Define your data** — game content goes in JSON configs under `assets/`
 
