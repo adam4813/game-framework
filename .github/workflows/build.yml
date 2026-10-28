@@ -23,17 +23,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Desktop builds use the -test presets: same tree as `desktop` plus BUILD_TESTING, so one
+          # compile covers the sandbox, the unit tests and the scene equivalence test.
           # Windows Release build
           - os: windows-latest
             target: Desktop
-            preset_configure: desktop
-            preset_build: desktop-release
+            preset_configure: desktop-test
+            preset_build: desktop-test-release
+            preset_test: desktop-test-release
 
           # Linux Release build
           - os: ubuntu-latest
             target: Desktop
-            preset_configure: desktop
-            preset_build: desktop-release
+            preset_configure: desktop-test
+            preset_build: desktop-test-release
+            preset_test: desktop-test-release
 
           # WebAssembly Release build
           - os: ubuntu-latest
@@ -65,22 +69,14 @@ jobs:
         with:
           vcpkgGitCommitId: ${{ env.VCPKG-COMMIT }}
 
+      # Configure, build and (desktop only) run the GoogleTest unit suite. WASM has no preset_test.
       - name: Run CMake with Presets
         uses: lukka/run-cmake@v10
         with:
           configurePreset: ${{ matrix.preset_configure }}
           buildPreset: ${{ matrix.preset_build }}
-
-      # Build and run GoogleTest unit suite (desktop only)
-      - name: Build unit tests
-        if: matrix.target != 'WebAssembly'
-        run: |
-          cmake --preset desktop-test
-          cmake --build --preset desktop-test-release
-
-      - name: Run unit tests
-        if: matrix.target != 'WebAssembly'
-        run: ctest --preset desktop-test-release --output-on-failure
+          testPreset: ${{ matrix.preset_test }}
+          testPresetAdditionalArgs: "['--output-on-failure']"
 
       # Build and run scene equivalence test (desktop only)
       - name: Build Scene Equivalence Test
