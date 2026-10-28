@@ -52,10 +52,10 @@ jobs:
       - name: Prepare deployment directory
         run: |
           mkdir -p deploy
-          cp build/wasm/Release/sandbox.html deploy/index.html
-          cp build/wasm/Release/sandbox.wasm deploy/
-          cp build/wasm/Release/sandbox.data deploy/
-          cp build/wasm/Release/sandbox.js deploy/
+          cp build/wasm/games/sandbox/Release/sandbox.html deploy/index.html
+          cp build/wasm/games/sandbox/Release/sandbox.wasm deploy/
+          cp build/wasm/games/sandbox/Release/sandbox.data deploy/
+          cp build/wasm/games/sandbox/Release/sandbox.js deploy/
           echo "Sandbox built and deployed" > deploy/README.txt
 
       # Upload artifact to Pages

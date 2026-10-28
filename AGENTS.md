@@ -5,7 +5,7 @@
 Prototype for a game using: C++23 / Raylib / imgui (debug/in-game editor) / nlohmann_json / Flecs 4.x ECS / CMake +
 VCPKG.
 
-Working examples of engine features (scenes, level JSON, particles, nav graphs, overlays, panels): `src/game/README.md`.
+Working examples of engine features (scenes, level JSON, particles, nav graphs, overlays, panels): `games/sandbox/src/game/README.md`.
 
 ## Coding standards
 

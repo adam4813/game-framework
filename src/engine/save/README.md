@@ -80,7 +80,7 @@ None. Saving/loading is invoked explicitly by game code via `SaveToJson` / `Load
 
 ## Worked example
 
-`src/game/meta_save_example.{hpp,cpp}` wires this module into game state end-to-end:
+`games/sandbox/src/game/meta_save_example.{hpp,cpp}` wires this module into game state end-to-end:
 
 * Singleton member binding for `MetaProgress` (tokens / score / runs).
 * Tag-based ephemeral entities for permanent unlocks (`PersistTag` + `UnlockedUpgrade`).
@@ -89,7 +89,7 @@ None. Saving/loading is invoked explicitly by game code via `SaveToJson` / `Load
 * Script-facing verbs (`SaveGame(name)`, `LoadGame(name)`, `DeleteSave(name)`, `AddParlorTokens`,
   `UnlockUpgrade`, …) exposed via `RegisterGlobalFunctionForScripts`, driven by
   `assets/scripts/save_demo.as`.
-* A demonstrative save-management UI (`src/game/save_ui.{hpp,cpp}`): a **New Save** button plus a scrollable list of
+* A demonstrative save-management UI (`games/sandbox/src/game/save_ui.{hpp,cpp}`): a **New Save** button plus a scrollable list of
   slots, each with **Load** and **Delete**, rebuilt live as slots change.
 
 Run the Game scene: use the save panel (top-left) to create / load / delete named slots, or press

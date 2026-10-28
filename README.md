@@ -76,8 +76,8 @@ cmake --build --preset desktop-release
 cmake --build --preset desktop-debug
 ```
 
-The executables are at `build/desktop/Release/sandbox` and, for each Game Target under `games/`,
-`build/desktop/games/<name>/Release/<name>`. Swap `Release` for
+Each Game Target under `games/` (the Sandbox is `games/sandbox`) builds to
+`build/desktop/games/<name>/Release/<name>`, e.g. `build/desktop/games/sandbox/Release/sandbox`. Swap `Release` for
 `Debug` in debug builds.
 
 Unit tests (engine and every Game Target) use the `desktop-test` preset:
@@ -158,13 +158,13 @@ cmake --build --preset wasm-debug
 Simply run the built executable:
 
 ```bash
-./build/desktop/Release/sandbox
+./build/desktop/games/sandbox/Release/sandbox
 ```
 
 For Debug builds:
 
 ```bash
-./build/desktop/Debug/sandbox
+./build/desktop/games/sandbox/Debug/sandbox
 ```
 
 A Game Target runs the same way, e.g. `./build/desktop/games/<name>/Release/<name>`.
@@ -176,7 +176,7 @@ isolation and server cleanup:
 
 ```bash
 # From the project root:
-emrun ./build/wasm/Release/sandbox.html --hostname localhost --serve_after_close
+emrun ./build/wasm/games/sandbox/Release/sandbox.html --hostname localhost --serve_after_close
 ```
 
 This launches a local HTTP server at `http://localhost:8080`, and serves the game. The `--serve_after_close` flag
@@ -186,7 +186,7 @@ server, press `Ctrl+C` in the terminal.
 For Debug builds:
 
 ```bash
-emrun ./build/wasm/Debug/sandbox.html --hostname localhost --serve_after_close
+emrun ./build/wasm/games/sandbox/Debug/sandbox.html --hostname localhost --serve_after_close
 ```
 
 A Game Target's page is at `build/wasm/games/<name>/Release/<name>.html`.
@@ -217,7 +217,7 @@ Quick reference:
 
 - `src/engine/engine_context.cpp` — bootstraps all modules in dependency order
 - `src/engine/app/` — frame loop and startup
-- `src/game/` — the Sandbox: engine demonstration scenes
+- `games/sandbox/` — the Sandbox: engine demonstration scenes
 - `games/<name>/` — one Game Target per game (its own `CMakeLists.txt`, `src/`, `tests/`, spec and ADRs)
 - `assets/` — game content (JSON configs, models, textures, sounds)
 - `build/` — build output (generated, git-ignored)

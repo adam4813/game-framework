@@ -29,7 +29,7 @@ For the complete module order, see `src/engine/engine_context.cpp`.
 `ecs::InitializeRemoteAPI(world)` is called last on desktop (the Flecs REST API needs TCP sockets, which browsers lack,
 so it is compiled out under `__EMSCRIPTEN__`).
 
-The **game** layer is a separate Flecs module (`game::GameModule`, `src/game/game.cpp`) imported on top of the engine.
+The **game** layer is a separate Flecs module (`game::GameModule`, `games/sandbox/src/game/game.cpp`) imported on top of the engine.
 It reads `EngineContextRef`, registers the save schema, registers scenes, and activates the title scene.
 
 ## The frame loop
@@ -216,5 +216,5 @@ from a seed. Systems that need randomness (e.g. particle emission) pull from
 ## Related
 
 - Bootstrapping & DI: `src/engine/engine_context.{hpp,cpp}`
-- Frame loop: `src/engine/app/app.cpp`, `src/main.cpp`
+- Frame loop: `src/engine/app/app.cpp`, `games/sandbox/src/main.cpp`
 - Tuning constants: `constants.hpp` (all `constexpr`, per the data-driven convention)

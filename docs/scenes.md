@@ -65,7 +65,7 @@ removal of `Active` on the old scene and the add on the new are applied in order
 (old) then `Load` (new). `ActivateScene` collects the currently-active scenes into a vector *before* mutating, so it
 never removes from a query while iterating it during non-deferred startup.
 
-Example wiring (`src/game/game.cpp`):
+Example wiring (`games/sandbox/src/game/game.cpp`):
 
 ```cpp
 auto title = std::make_shared<TitleScene>(context);
@@ -106,4 +106,4 @@ both build their UI in `Load()` and tear it down in
 - Interface: `src/engine/scene/scene.hpp`
 - Tags/ids: `src/engine/scene/scene_components.hpp`
 - Driver: `src/engine/scene/scene_management_module.{hpp,cpp}`
-- Example scenes: `src/game/title_scene.{hpp,cpp}`, `src/game/game_scene.{hpp,cpp}`
+- Example scenes: `games/sandbox/src/game/title_scene.{hpp,cpp}`, `games/sandbox/src/game/game_scene.{hpp,cpp}`

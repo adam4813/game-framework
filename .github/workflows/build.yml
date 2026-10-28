@@ -150,5 +150,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: sandbox-${{ matrix.os }}-release
-          path: build/${{ matrix.preset_configure }}/Release/sandbox*
+          path: build/${{ matrix.preset_configure }}/games/sandbox/Release/sandbox*
           if-no-files-found: warn
