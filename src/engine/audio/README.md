@@ -79,4 +79,4 @@ Browsers start Web Audio suspended. miniaudio resumes it on `click`/`touchend`, 
 The stream uses the ScriptProcessorNode path, with about 43 ms blocks and playback that can
 drop out on long frames. AudioWorklets are deferred: they need cross-origin isolation (which
 GitHub Pages can't provide) and either a patched raylib port or our own miniaudio device. See
-`.scratch/signal-room/research/procedural-audio.md` on branch `research/procedural-audio`.
+`docs/research/procedural-audio.md`.
