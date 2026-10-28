@@ -70,6 +70,8 @@ target_compile_definitions(engine_lib PUBLIC ${GAME_COMPILE_DEFS})
 target_compile_options(engine_lib PRIVATE ${GAME_COMPILE_OPTS})
 target_link_libraries(engine_lib PUBLIC ${GAME_LINK_LIBS})
 setup_tracy(engine_lib)
+# Game Targets link this name, so the same game CMake builds in-tree and against an installed framework.
+add_library(game_framework::engine_lib ALIAS engine_lib)
 
 # ── sandbox: engine demonstration scenes ─────────────────────────────────────
 file(GLOB_RECURSE SANDBOX_SOURCES CONFIGURE_DEPENDS "src/game/*.cpp")
@@ -93,3 +95,11 @@ endif ()
 if (BUILD_TESTING AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_subdirectory(tests/unit)
 endif ()
+
+# ── Game Targets (ADR-0006) ──────────────────────────────────────────────────
+# Every games/<name>/CMakeLists.txt is a Game Target; adding one needs no edit here.
+file(GLOB GAME_CMAKE_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/games/*/CMakeLists.txt")
+foreach (game_cmake IN LISTS GAME_CMAKE_FILES)
+    get_filename_component(game_dir "${game_cmake}" DIRECTORY)
+    add_subdirectory("${game_dir}")
+endforeach ()
