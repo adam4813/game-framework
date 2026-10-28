@@ -629,4 +629,4 @@ VCPKG downloads and builds dependencies on first configure. If a build stalls or
 
 ---
 
-**Last updated**: October 2026 **Framework version**: 0.6.0
+**Last updated**: October 2026 **Framework version**: 0.7.0

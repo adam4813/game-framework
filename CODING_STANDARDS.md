@@ -81,6 +81,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **Per-frame systems stay cheap**: no needless allocation, no redundant queries, no `O(n²)` scans in the hot path.
 - **`modified<T>()` on an engine component fires its module's `OnSet` observer**, which may rebuild meshes or reset
   streaming state. Mutate engine data in place without `modified<>()` unless the rebuild is the point.
+- **`it.world()` is a stage inside a system.** The C++ wrappers resolve it, but raw C APIs that read world storage
+  (`ecs_get_entities`, ...) read garbage from a stage and abort on a Flecs assert. Pass them the real world:
+  `ecs_get_world(it.world().c_ptr())`.
 
 ### Scenes
 
