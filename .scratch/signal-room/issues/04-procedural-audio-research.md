@@ -12,8 +12,8 @@ How can Signal Room synthesize audio at runtime through the `Platform` abstracti
 
 ## Answer
 
-Findings: `.scratch/signal-room/research/procedural-audio.md` on branch `research/procedural-audio` (pushed, never
-merged).
+Findings: `docs/research/procedural-audio.md` (folded into main with 0.7.0;
+the research branch is gone).
 
 - raylib 5.5 + miniaudio 0.11.22 (vcpkg). The engine has no streaming yet (`Platform` only does LoadSound/PlaySound).
 - Use **`SetAudioStreamCallback`** (direct pull), not `UpdateAudioStream`. The double buffer adds ≥ 33 ms and

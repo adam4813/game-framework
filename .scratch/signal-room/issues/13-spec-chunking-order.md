@@ -117,11 +117,11 @@ of scope.
   clunk and static sweep, relay chatter, Jam grind, Seize squeal, stamp thud, Fault alarm and ticket buzzer. Voice
   params in JSON. Events and state drive the voices, not per-frame polling.
 - **Out:** the synth stream itself (framework ticket), AudioWorklet (deferred unless playtests show dropouts).
-- **Read:** `map.md`; issues 04 (and its research branch), 01, 06, 12.
+- **Read:** `map.md`; issues 04 (and docs/research/procedural-audio.md), 01, 06, 12.
 - **Settles:** the audio palette and the voice param schema.
 - **Depends on:** spec 2 and the synth stream. Sounds for Faults land once spec 4 exists.
 - **Exit:** every palette sound is synthesised in play, on both desktop and web.
-- **Prompt:** `Signal Room spec 6 (Procedural audio). Read .scratch/signal-room/map.md and issues 01, 04, 06, 12, 13 (and research/procedural-audio branch). Boundary as in issue 13's Spec 6 packet.`
+- **Prompt:** `Signal Room spec 6 (Procedural audio). Read .scratch/signal-room/map.md and issues 01, 04, 06, 12, 13 (and docs/research/procedural-audio.md). Boundary as in issue 13's Spec 6 packet.`
 
 ## Comments
 

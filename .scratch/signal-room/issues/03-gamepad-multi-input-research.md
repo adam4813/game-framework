@@ -12,8 +12,8 @@ What does Raylib (the vcpkg version this repo pins) offer for gamepads: count, h
 
 ## Answer
 
-Findings: `.scratch/signal-room/research/gamepad-multi-input.md` on branch `research/gamepad-multi-input` (pushed,
-never merged).
+Findings: `docs/research/gamepad-multi-input.md` (folded into main with 0.7.0;
+the research branch is gone).
 
 - raylib 5.5 (vcpkg baseline): max 4 gamepads, so keyboard + 3 pads at most. Buttons are positional (W3C standard
   layout). No hot-plug events: poll `IsGamepadAvailable` each frame and diff.

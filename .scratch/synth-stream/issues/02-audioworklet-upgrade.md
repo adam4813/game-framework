@@ -3,7 +3,7 @@
 Status: needs-triage
 Blocked by: 01
 Source: deferred by [Synth stream behind Platform](01-synth-stream-platform.md), 2026-10-17. Findings:
-`.scratch/signal-room/research/procedural-audio.md` §4.2 on branch `research/procedural-audio`.
+`docs/research/procedural-audio.md` §4.2.
 
 ## Context
 
