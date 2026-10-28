@@ -3,9 +3,23 @@
 Two kinds of audio, both behind `Platform`:
 
 - **File-based**: `SoundEffect` / `Music` components, loaded through the assets module and played
-  by the `SoundEffectPlayback` system.
+  by the `SoundEffectPlayback` and `MusicPlayback` systems.
 - **Procedural**: one synthesised stream that the platform pulls from a `SynthSource` on the
   audio thread.
+
+## Music
+
+`Music` is a streamed track (`path`, `loop`, `volume`). Setting it loads the file through the assets
+module (`AssetType::Music`, backed by `Platform::LoadMusic`); `MusicPlayback` then starts it once and
+refills its stream every frame, so it keeps playing while a scene is paused. Removing the component or
+destroying the entity releases the track and stops it, so a scene owns its music by parenting the entity
+to its root. The level JSON loader is `"music"` (`path`, `loop`, `volume`). A missing file or no audio
+device leaves `handle` at -1 and the system does nothing.
+
+```cpp
+world.entity("Music").child_of(sceneRoot).set<engine::audio::Music>(
+	{.path = engine::assets::ResolveAsset(world, "audio/mygame/music.ogg"), .loop = true, .volume = 0.5F});
+```
 
 ## Procedural audio
 
@@ -65,4 +79,4 @@ Browsers start Web Audio suspended. miniaudio resumes it on `click`/`touchend`, 
 The stream uses the ScriptProcessorNode path, with about 43 ms blocks and playback that can
 drop out on long frames. AudioWorklets are deferred: they need cross-origin isolation (which
 GitHub Pages can't provide) and either a patched raylib port or our own miniaudio device. See
-`.scratch/signal-room/research/procedural-audio.md` on branch `research/procedural-audio`.
+`docs/research/procedural-audio.md`.

@@ -76,7 +76,68 @@ cmake --build --preset desktop-release
 cmake --build --preset desktop-debug
 ```
 
-The executable is at `build/desktop/Release/sandbox` (or `Debug/sandbox`).
+The executables are at `build/desktop/Release/sandbox` and, for each Game Target under `games/`,
+`build/desktop/games/<name>/Release/<name>`. Swap `Release` for
+`Debug` in debug builds.
+
+Unit tests (engine and every Game Target) use the `desktop-test` preset:
+
+```bash
+cmake --preset desktop-test
+cmake --build --preset desktop-test-release
+ctest --preset desktop-test-release
+```
+
+#### macOS Intel (x86_64) Toolchain
+
+Apple's Command Line Tools compiler (Apple clang 14) and the macOS 13.2 system libc++ are too old for the C++23 features
+the engine uses (`std::format`, `std::source_location`, `std::views::values`). The working setup is:
+
+- **Compiler:** LLVM 20 from MacPorts. The official LLVM GitHub releases we checked (16 to 18) didn't include Intel macOS builds.
+  ```bash
+  sudo port install clang-20
+  ```
+- **C++ wrapper:** MacPorts' clang-20 needs its own libc++, because the system libc++ lacks the float `std::to_chars`
+  that `<format>` uses. Save this as `~/.local/bin/clang++-llvm20` and make it executable (`chmod +x`):
+  ```bash
+  #!/bin/sh
+  L=/opt/local/libexec/llvm-20/lib
+  exec /opt/local/bin/clang++-mp-20 -D_LIBCPP_DISABLE_AVAILABILITY -nostdlib++ "$@" -L$L/libc++ -lc++ \
+    -Wl,-rpath,$L/libc++ -Wl,-rpath,$L/libunwind -Wl,-rpath,$L/libc++abi
+  ```
+- **Other tools:** `pkg-config` (glfw3 needs it; build it from source or install it), plus CMake and Ninja (`pip install --user cmake ninja`).
+- **Archiver:** link `ar` and `ranlib` in `~/.local/bin` to `llvm-ar-mp-20` and `llvm-ranlib-mp-20`, so CMake finds
+  LLVM 20's archive tools.
+
+Then use the `macos-intel` presets, which set the toolchain for you, so no `export`s are needed:
+
+```bash
+cmake --preset macos-intel                   # configures build/desktop
+cmake --build --preset macos-intel-release   # or macos-intel-debug
+
+cmake --preset macos-intel-test              # configures build/desktop-test
+cmake --build --preset macos-intel-test-release
+ctest --preset macos-intel-test-release
+```
+
+The presets (only listed on macOS) set this environment and cache variable:
+
+| Setting | Value | Why |
+|---|---|---|
+| `VCPKG_ROOT` | `$HOME/vcpkg` | Where vcpkg is cloned. |
+| `CC` / `CXX` | `/opt/local/bin/clang-mp-20` / `$HOME/.local/bin/clang++-llvm20` | LLVM 20 and the libc++ wrapper above. vcpkg builds the dependencies with the same compilers. |
+| `CXXFLAGS` | `-DAS_MAX_PORTABILITY` | AngelScript skips the x64 inline-asm call path that clang 20 rejects. It must be an environment variable so vcpkg's angelscript port sees it. Script-to-C++ calls get slower, and the AngelScript API is unchanged. |
+| `CMAKE_CXX_SCAN_FOR_MODULES` | `OFF` | CMake's module scan doesn't use the wrapper's libc++ headers. |
+
+- Plain `desktop` presets in a shell without these variables pick up whatever `CC`/`CXX` the shell has, and the engine
+  fails to compile with errors like `no type named 'sort' in namespace 'std::ranges'`. Use the `macos-intel` presets.
+- Changing compilers means a clean `build/desktop` (and `build/desktop-test`).
+- Tracy is excluded on macOS in `vcpkg.json` (`"platform": "!emscripten & !osx"`), because its GUI profiler does not
+  build with this toolchain. The `desktop-profile` preset therefore doesn't configure on macOS. Windows and Linux keep
+  Tracy.
+
+`setup-cpp` can install LLVM for CI, but its LLVM download on Intel macOS fetches an ARM64 archive that won't run here.
+Use the MacPorts route above on Intel Macs.
 
 #### WebAssembly Build
 
@@ -106,6 +167,8 @@ For Debug builds:
 ./build/desktop/Debug/sandbox
 ```
 
+A Game Target runs the same way, e.g. `./build/desktop/games/<name>/Release/<name>`.
+
 #### WebAssembly
 
 Use `emrun` to serve the WASM build locally. The `--hostname` and `--serve_after_close` flags are important for proper
@@ -125,6 +188,8 @@ For Debug builds:
 ```bash
 emrun ./build/wasm/Debug/sandbox.html --hostname localhost --serve_after_close
 ```
+
+A Game Target's page is at `build/wasm/games/<name>/Release/<name>.html`.
 
 ## Documentation
 
@@ -152,7 +217,8 @@ Quick reference:
 
 - `src/engine/engine_context.cpp` — bootstraps all modules in dependency order
 - `src/engine/app/` — frame loop and startup
-- `src/game/` — game-specific scenes and entities
+- `src/game/` — the Sandbox: engine demonstration scenes
+- `games/<name>/` — one Game Target per game (its own `CMakeLists.txt`, `src/`, `tests/`, spec and ADRs)
 - `assets/` — game content (JSON configs, models, textures, sounds)
 - `build/` — build output (generated, git-ignored)
 - `tools/` — build and debugging utilities (e.g., Flecs scripting, CI helpers)
@@ -251,7 +317,9 @@ If you're starting a new game:
 
 1. **Read the framework docs** — start with `docs/README.md` and `docs/architecture.md`
 2. **Familiarize with the ECS** — study `docs/ecs-components.md` and existing module READMEs
-3. **Add your game module** — create `src/game/your_scene.{hpp,cpp}`, register scenes, define components
+3. **Add your Game Target** — create `games/<name>/` (`CMakeLists.txt` calling
+   `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper) and add
+   `add_subdirectory(games/<name>)` to the root `CMakeLists.txt`
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
 5. **Define your data** — game content goes in JSON configs under `assets/`
 
@@ -561,4 +629,4 @@ VCPKG downloads and builds dependencies on first configure. If a build stalls or
 
 ---
 
-**Last updated**: October 2026 **Framework version**: 0.6.0
+**Last updated**: October 2026 **Framework version**: 0.7.0

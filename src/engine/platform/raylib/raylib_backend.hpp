@@ -13,6 +13,8 @@ public:
 	void Shutdown() override;
 	[[nodiscard]] int Width() const override;
 	[[nodiscard]] int Height() const override;
+	void SetFullscreen(bool fullscreen) override;
+	[[nodiscard]] bool IsFullscreen() const override;
 	[[nodiscard]] float DeltaTime() const override;
 	[[nodiscard]] double Time() const override;
 	[[nodiscard]] std::string AssetDirectory() const override;
@@ -42,6 +44,7 @@ public:
 	void DrawRoundedRectLines(Rect r, float roundness, float thickness, Rgba c) override;
 	void DrawText(std::string_view text, float x, float y, float size, Rgba c) override;
 	[[nodiscard]] float MeasureText(std::string_view text, float size) const override;
+	bool SetTextFont(std::string_view path) override;
 	void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) override;
 	void DrawCircle(glm::vec2 center, float radius, Rgba c) override;
 	void DrawTexturedRect(int texture, Rect dest, Rgba tint) override;
@@ -88,6 +91,14 @@ public:
 	int LoadSound(std::string_view path) override;
 	void UnloadSound(int handle) override;
 	void PlaySound(int handle) override;
+	void SetSoundPitch(int handle, float pitch) override;
+	void SetSoundVolume(int handle, float volume) override;
+	int LoadMusic(std::string_view path) override;
+	void UnloadMusic(int handle) override;
+	void PlayMusic(int handle, bool loop) override;
+	void StopMusic(int handle) override;
+	void UpdateMusic(int handle) override;
+	void SetMusicVolume(int handle, float volume) override;
 
 	void StartSynth(audio::SynthSource* source) override;
 	void StopSynth() override;

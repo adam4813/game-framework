@@ -74,8 +74,9 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
 - **Components are plain data** — no logic, no virtual methods; tags are zero-size structs.
 - **Systems are stateless** — query components, use `it.delta_time()` for timing.
 - **Singletons** via `world.get<T>()` / `world.get_mut<T>()` for global state.
-- **Phase vs. scene filter are separate** — order with a single `.kind(phase)`, then
-  `.add<scene::YourSceneTag>()` for pipeline filtering. Untagged systems run in **every** scene.
+- **Phase vs. scene filter are separate** — order with a single `.kind(phase)`, then a mode tag
+  (`.add<scene::GameScene>()` / `.add<scene::MenuScene>()`) for pipeline filtering, or `.child_of(sceneRoot)` from a
+  scene's `Load()` for one scene only. Untagged systems run in **every** scene.
 - **Pausing is data** — add `.add<engine::ecs::Pausable>()` to a system to make it stop while the game is paused; omit
   it to keep running (input, rendering, audio, UI).
 - **Entity linkage** — use relationships (e.g., `RenderWith`, `LookAt`) in JSON with `"link"` and `"refs"` fields to

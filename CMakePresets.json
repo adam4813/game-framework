@@ -52,6 +52,35 @@
 				"EMSCRIPTEN_ROOT_PATH": "$env{EMSDK}/upstream/emscripten",
 				"raylib_USE_STATIC_LIBS": "ON"
 			}
+		},
+		{
+			"name": "macos-intel",
+			"displayName": "Desktop Build (Intel macOS, MacPorts LLVM 20)",
+			"inherits": "desktop",
+			"binaryDir": "${sourceDir}/build/desktop",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			},
+			"environment": {
+				"VCPKG_ROOT": "$penv{HOME}/vcpkg",
+				"CC": "/opt/local/bin/clang-mp-20",
+				"CXX": "$penv{HOME}/.local/bin/clang++-llvm20",
+				"CXXFLAGS": "-DAS_MAX_PORTABILITY"
+			},
+			"cacheVariables": {
+				"CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
+			}
+		},
+		{
+			"name": "macos-intel-test",
+			"displayName": "Desktop Test (Intel macOS, MacPorts LLVM 20)",
+			"inherits": "macos-intel",
+			"binaryDir": "${sourceDir}/build/desktop-test",
+			"cacheVariables": {
+				"BUILD_TESTING": "ON"
+			}
 		}
 	],
 	"buildPresets": [
@@ -101,6 +130,39 @@
 			"displayName": "WebAssembly Release",
 			"configurePreset": "wasm",
 			"configuration": "Release"
+		},
+		{
+			"name": "macos-intel-debug",
+			"displayName": "Intel macOS Debug",
+			"configurePreset": "macos-intel",
+			"configuration": "Debug",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			}
+		},
+		{
+			"name": "macos-intel-release",
+			"displayName": "Intel macOS Release",
+			"configurePreset": "macos-intel",
+			"configuration": "Release",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			}
+		},
+		{
+			"name": "macos-intel-test-release",
+			"displayName": "Intel macOS Test Release",
+			"configurePreset": "macos-intel-test",
+			"configuration": "Release",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			}
 		}
 	],
 	"testPresets": [
@@ -123,6 +185,24 @@
 			"displayName": "Desktop Tests (Release)",
 			"configurePreset": "desktop-test",
 			"configuration": "Release",
+			"output": {
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error",
+				"stopOnFailure": false
+			}
+		},
+		{
+			"name": "macos-intel-test-release",
+			"displayName": "Intel macOS Tests (Release)",
+			"configurePreset": "macos-intel-test",
+			"configuration": "Release",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			},
 			"output": {
 				"outputOnFailure": true
 			},

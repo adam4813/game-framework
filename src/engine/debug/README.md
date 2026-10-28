@@ -33,7 +33,7 @@ world.system("FaultDebugPanel").kind(flecs::OnUpdate).run([](const flecs::iter& 
 		if (ui.Button("Force jam")) { /* ... */ }
 	}
 	ui.EndPanel(); // always, even when BeginPanel returned false
-}).add<scene::YourSceneTag>(); // optional: scope to a scene
+}).add<scene::GameScene>(); // optional: gameplay scenes only (or create it under a scene root in Load())
 ```
 
 While hidden or compiled out, `BeginPanel` returns false and every widget is a no-op, so panels need

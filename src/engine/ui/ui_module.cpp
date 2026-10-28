@@ -46,7 +46,9 @@ UIModule::UIModule(const flecs::world& world) {
 	world.component<Label>()
 		.member("text", &Label::text)
 		.member("font_size", &Label::font_size)
-		.member("color", &Label::color);
+		.member("color", &Label::color)
+		.member("outline", &Label::outline)
+		.member("outline_color", &Label::outline_color);
 	world.component<Button>()
 		.member("label", &Button::label)
 		.member("font_size", &Button::font_size)
@@ -56,6 +58,7 @@ UIModule::UIModule(const flecs::world& world) {
 		.member("border_color", &Button::border_color)
 		.member("text_color", &Button::text_color)
 		.member("roundness", &Button::roundness)
+		.member("border_thickness", &Button::border_thickness)
 		.member("hovered", &Button::hovered)
 		.member("pressed", &Button::pressed)
 		.member("clicked", &Button::clicked);

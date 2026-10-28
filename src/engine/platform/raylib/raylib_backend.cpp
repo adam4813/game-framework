@@ -82,6 +82,9 @@ namespace {
 std::vector<Sound> g_sounds;
 // Maps canonical path → sound handle; prevents re-loading the same file from disk.
 std::unordered_map<std::string, int> g_sound_paths;
+// Streamed music, stored the same way as sounds.
+std::vector<Music> g_music;
+std::unordered_map<std::string, int> g_music_paths;
 
 // The procedural audio stream and the source it pulls from. raylib's AudioCallback carries no user
 // pointer, so the static trampoline reaches the active source through this global.
@@ -128,6 +131,13 @@ struct CustomShaderEntry {
 
 std::vector<CustomShaderEntry> g_custom_shaders;
 
+// The font DrawText/MeasureText use once SetTextFont succeeds; texture id 0 means raylib's built-in font.
+Font g_text_font{};
+// Pixel size the font atlas is rasterised at; text at other sizes is scaled from it.
+constexpr int kTextFontBaseSize = 96;
+// Extra space between glyphs, as a fraction of the font size.
+constexpr float kTextFontSpacing = 0.02F;
+
 // Loaded textures, indexed by the handle returned from LoadTexture.
 std::vector<Texture2D> g_textures;
 // Maps canonical path → handle
@@ -137,6 +147,28 @@ std::unordered_map<std::string, int> g_texture_paths;
 // the game (CharInput/TextInput) both see them. g_frame_char_next is the CharInput read cursor.
 std::vector<int> g_frame_chars;
 size_t g_frame_char_next = 0;
+
+// The logical canvas everything is drawn into, sized at Init. EndFrame scales it to fit the window, so the game
+// keeps its fixed-pixel layout at any window size.
+RenderTexture2D g_canvas{};
+
+// Where the canvas lands in the window: as large as fits at its own aspect ratio, centred.
+Rectangle CanvasDest() {
+	const auto canvas_w = static_cast<float>(g_canvas.texture.width);
+	const auto canvas_h = static_cast<float>(g_canvas.texture.height);
+	const auto window_w = static_cast<float>(GetScreenWidth());
+	const auto window_h = static_cast<float>(GetScreenHeight());
+	const float scale = std::min(window_w / canvas_w, window_h / canvas_h);
+	const float w = canvas_w * scale;
+	const float h = canvas_h * scale;
+	return {.x = (window_w - w) / 2.0F, .y = (window_h - h) / 2.0F, .width = w, .height = h};
+}
+
+// Canvas pixels per window pixel. 1 while the window is minimized and has no size.
+float CanvasPerWindowPixel() {
+	const float w = CanvasDest().width;
+	return w > 0.0F ? static_cast<float>(g_canvas.texture.width) / w : 1.0F;
+}
 
 // The debug UI: the ImGui overlay when compiled in (created in Init), else the no-op base.
 DebugUi g_null_debug_ui;
@@ -272,8 +304,10 @@ void ApplyOcclusionFade(const CustomShaderEntry& entry, const bool transparentPa
 	const float strength = g_fade.enabled ? g_fade.strength : 0.0f;
 	const float pass = transparentPass ? 1.0f : 0.0f;
 	// GetWorldToScreen returns top-left-origin pixels; flip Y into gl_FragCoord space (bottom-left).
-	const Vector2 sp = GetWorldToScreen(Vector3{g_fade.focus.x, g_fade.focus.y, g_fade.focus.z}, g_camera3d);
-	const float screen_pos[2] = {sp.x, static_cast<float>(GetScreenHeight()) - sp.y};
+	const Vector2 sp = GetWorldToScreenEx(
+		Vector3{g_fade.focus.x, g_fade.focus.y, g_fade.focus.z}, g_camera3d, g_canvas.texture.width, g_canvas.texture.height
+	);
+	const float screen_pos[2] = {sp.x, static_cast<float>(g_canvas.texture.height) - sp.y};
 	SetShaderValue(entry.shader, entry.loc_fade_focus, focus, SHADER_UNIFORM_VEC3);
 	SetShaderValue(entry.shader, entry.loc_fade_screen_pos, screen_pos, SHADER_UNIFORM_VEC2);
 	SetShaderValue(entry.shader, entry.loc_fade_radius, &g_fade.radius, SHADER_UNIFORM_FLOAT);
@@ -810,7 +844,10 @@ int DrawInstancedGroup(
 } // namespace
 
 void RaylibBackend::Init(const int width, const int height, const std::string_view title) {
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	InitWindow(width, height, std::string(title).c_str());
+	g_canvas = LoadRenderTexture(width, height);
+	::SetTextureFilter(g_canvas.texture, TEXTURE_FILTER_BILINEAR);
 	SetExitKey(KEY_NULL); // we use Esc for pause, not window-close
 	SetTargetFPS(60);
 	InitAudioDevice();
@@ -838,12 +875,23 @@ void RaylibBackend::Shutdown() {
 	}
 	g_textures.clear();
 	g_texture_paths.clear();
+	if (g_text_font.texture.id != 0) {
+		UnloadFont(g_text_font);
+		g_text_font = {};
+	}
 	for (const Sound& s : g_sounds) {
 		if (s.frameCount != 0) {
 			::UnloadSound(s);
 		}
 	}
 	g_sounds.clear();
+	for (const Music& m : g_music) {
+		if (m.frameCount != 0) {
+			::UnloadMusicStream(m);
+		}
+	}
+	g_music.clear();
+	g_music_paths.clear();
 	for (const Model& m : g_models) {
 		if (m.meshCount != 0) {
 			::UnloadModel(m);
@@ -871,12 +919,33 @@ void RaylibBackend::Shutdown() {
 	g_custom_shaders.clear();
 	StopSynth();
 	CloseAudioDevice();
+	UnloadRenderTexture(g_canvas);
+	g_canvas = {};
 	CloseWindow();
 }
 
-int RaylibBackend::Width() const { return GetScreenWidth(); }
+int RaylibBackend::Width() const { return g_canvas.texture.width; }
 
-int RaylibBackend::Height() const { return GetScreenHeight(); }
+int RaylibBackend::Height() const { return g_canvas.texture.height; }
+
+void RaylibBackend::SetFullscreen(const bool fullscreen) {
+	if (fullscreen == IsFullscreen()) {
+		return;
+	}
+#if defined(__EMSCRIPTEN__)
+	ToggleFullscreen();
+#else
+	ToggleBorderlessWindowed();
+#endif
+}
+
+bool RaylibBackend::IsFullscreen() const {
+#if defined(__EMSCRIPTEN__)
+	return IsWindowFullscreen();
+#else
+	return IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+#endif
+}
 
 float RaylibBackend::DeltaTime() const { return GetFrameTime(); }
 
@@ -894,7 +963,14 @@ std::string RaylibBackend::AssetDirectory() const {
 
 void RaylibBackend::BeginFrame(const Rgba clear) {
 	profiling::Zone _zone{"Platform::BeginFrame"};
+	// Map the mouse from window pixels to canvas pixels, for the game and the debug UI alike.
+	const Rectangle dest = CanvasDest();
+	const float to_canvas = CanvasPerWindowPixel();
+	SetMouseOffset(static_cast<int>(-dest.x), static_cast<int>(-dest.y));
+	SetMouseScale(to_canvas, to_canvas);
+
 	BeginDrawing();
+	BeginTextureMode(g_canvas);
 	ClearBackground(ToRay(clear));
 
 	g_frame_chars.clear();
@@ -915,7 +991,7 @@ void RaylibBackend::BeginFrame(const Rgba clear) {
 	if (g_debug_ui->IsVisible()) {
 		rlimgui::QueueInput(g_frame_chars);
 	}
-	g_debug_ui->BeginFrame({static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight())}, GetFrameTime());
+	g_debug_ui->BeginFrame({static_cast<float>(g_canvas.texture.width), static_cast<float>(g_canvas.texture.height)}, GetFrameTime());
 #endif
 }
 
@@ -926,6 +1002,17 @@ void RaylibBackend::EndFrame() {
 	// NewFrame/Render pairing holds; nothing is drawn.
 	g_debug_ui->EndFrame();
 #endif
+	EndTextureMode();
+	ClearBackground(BLACK);
+	// Render textures are stored bottom-up, so the negative source height flips the canvas upright. Blending is off
+	// for the copy: translucent draws leave the canvas alpha below 1, which would otherwise darken it against black.
+	const auto canvas_w = static_cast<float>(g_canvas.texture.width);
+	const auto canvas_h = static_cast<float>(g_canvas.texture.height);
+	rlDrawRenderBatchActive();
+	rlDisableColorBlend();
+	DrawTexturePro(g_canvas.texture, {.x = 0.0F, .y = 0.0F, .width = canvas_w, .height = -canvas_h}, CanvasDest(), {}, 0.0F, WHITE);
+	rlDrawRenderBatchActive();
+	rlEnableColorBlend();
 	EndDrawing();
 }
 
@@ -953,8 +1040,9 @@ glm::vec2 RaylibBackend::MousePosition() const {
 }
 
 glm::vec2 RaylibBackend::MouseDelta() const {
+	// raylib's mouse scale doesn't reach the delta, so convert it to canvas pixels here.
 	const auto [x, y] = GetMouseDelta();
-	return glm::vec2{x, y};
+	return glm::vec2{x, y} * CanvasPerWindowPixel();
 }
 
 glm::vec2 RaylibBackend::MouseWheel() const {
@@ -1028,11 +1116,42 @@ void RaylibBackend::DrawText(
 	const float size,
 	const Rgba c
 ) {
-	::DrawText(std::string(text).c_str(), static_cast<int>(x), static_cast<int>(y), static_cast<int>(size), ToRay(c));
+	if (g_text_font.texture.id == 0) {
+		::DrawText(std::string(text).c_str(), static_cast<int>(x), static_cast<int>(y), static_cast<int>(size), ToRay(c));
+		return;
+	}
+	DrawTextEx(g_text_font, std::string(text).c_str(), Vector2{.x = x, .y = y}, size, size * kTextFontSpacing, ToRay(c));
 }
 
 float RaylibBackend::MeasureText(const std::string_view text, const float size) const {
-	return static_cast<float>(::MeasureText(std::string(text).c_str(), static_cast<int>(size)));
+	if (g_text_font.texture.id == 0) {
+		return static_cast<float>(::MeasureText(std::string(text).c_str(), static_cast<int>(size)));
+	}
+	return MeasureTextEx(g_text_font, std::string(text).c_str(), size, size * kTextFontSpacing).x;
+}
+
+bool RaylibBackend::SetTextFont(const std::string_view path) {
+	// Printable ASCII and Latin-1 (accented letters, « », ×, ·), so text isn't limited to plain ASCII.
+	std::vector<int> codepoints;
+	for (int c = 32; c <= 255; ++c) {
+		if (c < 127 || c >= 160) {
+			codepoints.push_back(c);
+		}
+	}
+	const Font font = LoadFontEx(std::string(path).c_str(), kTextFontBaseSize, codepoints.data(), static_cast<int>(codepoints.size()));
+	// LoadFontEx falls back to raylib's default font (not a failure it reports) when the file is missing.
+	if (font.texture.id == 0 || font.texture.id == GetFontDefault().texture.id) {
+		spdlog::warn("[Platform] Could not load font '{}'; keeping the current one", path);
+		return false;
+	}
+	if (g_text_font.texture.id != 0) {
+		UnloadFont(g_text_font);
+	}
+	g_text_font = font;
+	// Rasterised once at a large size, so mipmaps keep small UI text from shimmering when scaled down.
+	GenTextureMipmaps(&g_text_font.texture);
+	::SetTextureFilter(g_text_font.texture, TEXTURE_FILTER_TRILINEAR);
+	return true;
 }
 
 void RaylibBackend::DrawLine(const glm::vec2 a, const glm::vec2 b, const float thickness, const Rgba c) {
@@ -1765,6 +1884,94 @@ void RaylibBackend::UnloadSound(const int handle) {
 	::UnloadSound(sound);
 	sound.frameCount = 0;
 	std::erase_if(g_sound_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+void RaylibBackend::SetSoundPitch(const int handle, const float pitch) {
+	if (handle < 0 || handle >= static_cast<int>(g_sounds.size())) {
+		return;
+	}
+	if (const Sound& sound = g_sounds[static_cast<std::size_t>(handle)]; sound.frameCount != 0) {
+		::SetSoundPitch(sound, pitch);
+	}
+}
+
+void RaylibBackend::SetSoundVolume(const int handle, const float volume) {
+	if (handle < 0 || handle >= static_cast<int>(g_sounds.size())) {
+		return;
+	}
+	if (const Sound& sound = g_sounds[static_cast<std::size_t>(handle)]; sound.frameCount != 0) {
+		::SetSoundVolume(sound, volume);
+	}
+}
+
+int RaylibBackend::LoadMusic(const std::string_view path) {
+	if (!IsAudioDeviceReady()) {
+		return -1;
+	}
+	const std::string key{path};
+	if (const auto it = g_music_paths.find(key); it != g_music_paths.end()) {
+		return it->second;
+	}
+	const Music m = ::LoadMusicStream(key.c_str());
+	if (m.frameCount == 0) {
+		return -1;
+	}
+	const int handle = static_cast<int>(g_music.size());
+	g_music.push_back(m);
+	g_music_paths[key] = handle;
+	return handle;
+}
+
+void RaylibBackend::UnloadMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	Music& music = g_music[static_cast<std::size_t>(handle)];
+	if (music.frameCount == 0) {
+		return; // already unloaded
+	}
+	::UnloadMusicStream(music);
+	music.frameCount = 0;
+	std::erase_if(g_music_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+void RaylibBackend::PlayMusic(const int handle, const bool loop) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	Music& music = g_music[static_cast<std::size_t>(handle)];
+	if (music.frameCount == 0) {
+		return;
+	}
+	music.looping = loop;
+	::PlayMusicStream(music);
+}
+
+void RaylibBackend::StopMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::StopMusicStream(music);
+	}
+}
+
+void RaylibBackend::UpdateMusic(const int handle) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::UpdateMusicStream(music);
+	}
+}
+
+void RaylibBackend::SetMusicVolume(const int handle, const float volume) {
+	if (handle < 0 || handle >= static_cast<int>(g_music.size())) {
+		return;
+	}
+	if (const Music& music = g_music[static_cast<std::size_t>(handle)]; music.frameCount != 0) {
+		::SetMusicVolume(music, volume);
+	}
 }
 
 // ── Procedural audio ──

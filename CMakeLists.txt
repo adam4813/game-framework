@@ -19,6 +19,8 @@ include(cmake/Tracy.cmake)
 
 include(cmake/Testing.cmake)
 
+include(cmake/GameTarget.cmake)
+
 find_package(Angelscript CONFIG REQUIRED)
 find_package(raylib CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -75,9 +77,7 @@ list(APPEND SANDBOX_SOURCES "src/main.cpp")
 
 add_executable(sandbox ${SANDBOX_SOURCES})
 target_include_directories(sandbox PRIVATE src)
-target_compile_options(sandbox PRIVATE ${GAME_COMPILE_OPTS})
-target_link_libraries(sandbox PRIVATE engine_lib)
-setup_tracy(sandbox)
+setup_game_target(sandbox)
 
 if (ENABLE_PROFILE_LOGGING)
     target_compile_definitions(sandbox PRIVATE PROFILE_LOGGING_ENABLED)
@@ -92,52 +92,4 @@ endif ()
 # ── engine unit tests ──
 if (BUILD_TESTING AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_subdirectory(tests/unit)
-endif ()
-
-# ── Assets: sandbox ──────────────────────────────────────────────────────────
-if (EMSCRIPTEN)
-    add_custom_command(TARGET sandbox PRE_LINK
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_CURRENT_BINARY_DIR}/assets
-        COMMENT "Copying assets for sandbox WASM build"
-        VERBATIM
-    )
-else ()
-    add_custom_command(TARGET sandbox POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        $<TARGET_FILE_DIR:sandbox>/assets
-        COMMENT "Copying assets to sandbox build directory"
-    )
-endif ()
-
-# ── Platform-specific configuration: sandbox WASM ────────────────────────────
-if (EMSCRIPTEN)
-    set(CMAKE_EXECUTABLE_SUFFIX ".html")
-
-    set(INITIAL_MEMORY_BYTES 67108864)
-    set(MAXIMUM_MEMORY_BYTES 134217728)
-
-    target_link_options(sandbox PRIVATE
-        -sWASM=1
-        -sUSE_GLFW=3
-        -sFORCE_FILESYSTEM=1
-        -sINITIAL_MEMORY=${INITIAL_MEMORY_BYTES}
-        -sMAXIMUM_MEMORY=${MAXIMUM_MEMORY_BYTES}
-        -sALLOW_MEMORY_GROWTH=1
-        -sGL_ENABLE_GET_PROC_ADDRESS=1
-        --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets
-        -sSTACK_SIZE=512KB
-        # SHELL: keeps each flag paired with its path; CMake would de-duplicate a bare repeated --pre-js.
-        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_abort.js"
-        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/tools/wasm_audio_unlock.js"
-        "$<$<CONFIG:Debug>:-sASSERTIONS -sSTACK_OVERFLOW_CHECK=2;-sGL_DEBUG=1>"
-        "$<$<NOT:$<CONFIG:Debug>>:-O3;--closure 1>")
-
-    message(STATUS "Emscripten configuration applied")
-    message(
-        STATUS
-        "Memory: Initial ${INITIAL_MEMORY_BYTES} bytes, Maximum ${MAXIMUM_MEMORY_BYTES} bytes"
-    )
 endif ()

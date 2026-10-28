@@ -22,6 +22,7 @@ int PlatformLoad(platform::Platform* platform, const AssetType type, const std::
 	case AssetType::Texture: return platform->LoadTexture(path);
 	case AssetType::Sound: return platform->LoadSound(path);
 	case AssetType::Mesh: return platform->LoadMesh(path);
+	case AssetType::Music: return platform->LoadMusic(path);
 	}
 	return -1;
 }
@@ -32,6 +33,7 @@ void PlatformUnload(platform::Platform* platform, const AssetType type, const in
 	case AssetType::Texture: platform->UnloadTexture(handle); break;
 	case AssetType::Sound: platform->UnloadSound(handle); break;
 	case AssetType::Mesh: platform->UnloadMesh(handle); break;
+	case AssetType::Music: platform->UnloadMusic(handle); break;
 	}
 }
 

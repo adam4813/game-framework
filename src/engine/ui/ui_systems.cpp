@@ -305,7 +305,7 @@ void EmitElement(
 		else {
 			list.PushRoundedRect(r, button->roundness, fill);
 		}
-		list.PushRoundedRectLines(r, button->roundness, 2.0F, button->border_color);
+		list.PushRoundedRectLines(r, button->roundness, button->border_thickness, button->border_color);
 		if (!button->label.empty()) {
 			const glm::vec2 pos = PlaceText(platform, r, button->label, button->font_size, TextAlign::Center);
 			list.PushText(button->label, pos.x, pos.y, button->font_size, button->text_color);
@@ -313,6 +313,23 @@ void EmitElement(
 	}
 
 	if (const auto* label = entity.try_get<Label>()) {
+		// The outline is copies of the text in outline_color, ringed around it, drawn first.
+		const auto push_label_text = [&](const std::string& text, const float x, const float y) {
+			if (label->outline > 0.0F) {
+				const int steps = label->outline <= 2.0F ? 8 : 16;
+				for (int i = 0; i < steps; ++i) {
+					const float angle = kTwoPi * static_cast<float>(i) / static_cast<float>(steps);
+					list.PushText(
+						text,
+						x + std::cos(angle) * label->outline,
+						y + std::sin(angle) * label->outline,
+						label->font_size,
+						label->outline_color
+					);
+				}
+			}
+			list.PushText(text, x, y, label->font_size, label->color);
+		};
 		if (!label->text.empty()) {
 			if (label->wrap) {
 				const float line_height = label->font_size + label->line_spacing;
@@ -326,14 +343,14 @@ void EmitElement(
 						case TextAlign::Center: lx = r.x + (r.w - tw) / 2.0F; break;
 						case TextAlign::Right: lx = r.x + r.w - tw; break;
 						}
-						list.PushText(line, lx, ly, label->font_size, label->color);
+						push_label_text(line, lx, ly);
 					}
 					ly += line_height;
 				}
 			}
 			else {
 				const glm::vec2 pos = PlaceText(platform, r, label->text, label->font_size, label->align);
-				list.PushText(label->text, pos.x, pos.y, label->font_size, label->color);
+				push_label_text(label->text, pos.x, pos.y);
 			}
 		}
 	}

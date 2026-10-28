@@ -16,7 +16,7 @@ namespace engine::audio {
 AudioModule::AudioModule(const flecs::world& world) {
 	// === Reflection
 	world.component<SoundEffect>().member<std::string>("path").member<int>("handle").member<bool>("playing");
-	world.component<Music>().member<std::string>("path").member<int>("handle").member<bool>("loop");
+	world.component<Music>().member<std::string>("path").member<int>("handle").member<bool>("loop").member<float>("volume").member<bool>("playing");
 
 	// === Scripting ===
 	scripting::RegisterComponentForScripts(world, world.component<SoundEffect>());
@@ -31,12 +31,13 @@ AudioModule::AudioModule(const flecs::world& world) {
 		e.set<Music>({
 			.path = assets::ResolveAsset(e.world(), j.value("path", std::string{})),
 			.loop = j.value("loop", false),
+			.volume = j.value("volume", 1.0F),
 		});
 	});
 
 	// === Path-asset resolvers ===
 	assets::RegisterPathAsset<SoundEffect>(world, assets::AssetType::Sound);
-	assets::RegisterPathAsset<Music>(world, assets::AssetType::Sound);
+	assets::RegisterPathAsset<Music>(world, assets::AssetType::Music);
 
 	// === SYSTEM: SoundEffectPlayback ===
 	world.system<SoundEffect>("SoundEffectPlayback")
@@ -48,6 +49,21 @@ AudioModule::AudioModule(const flecs::world& world) {
 			if (sfx.handle >= 0) {
 				platform->PlaySound(sfx.handle);
 			}
+		});
+
+	// === SYSTEM: MusicPlayback ===
+	// Not Pausable: music keeps streaming while a scene is paused.
+	world.system<Music>("MusicPlayback")
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, size_t, Music& music) {
+			if (music.handle < 0) return;
+			auto* platform = it.world().get<platform::PlatformRef>().ptr;
+			if (!music.playing) {
+				music.playing = true;
+				platform->PlayMusic(music.handle, music.loop);
+			}
+			platform->SetMusicVolume(music.handle, music.volume);
+			platform->UpdateMusic(music.handle);
 		});
 
 	// === Script global: PlaySoundHandle(int handle) ===

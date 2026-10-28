@@ -23,6 +23,9 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
 - Configure the WASM build with:
   - `cmake --preset wasm`
   - `cmake --build --preset wasm-release`
+- On the Intel Mac, use the `macos-intel`, `macos-intel-test` presets (and their `-release`/`-debug` build and test
+  presets) in place of `desktop`/`desktop-test`. They carry the toolchain environment (README, "macOS Intel").
+  Emscripten isn't installed there, so the `wasm` preset is checked by CI on the pull request.
 - CMake uses `GLOB_RECURSE` — new `.cpp` files in `src/` are auto-discovered.
 - VCPKG manages dependencies (Raylib, nlohmann-json, Flecs).
 

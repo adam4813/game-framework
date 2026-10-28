@@ -129,8 +129,13 @@ public:
 	virtual void Init(int width, int height, std::string_view title) = 0;
 	[[nodiscard]] virtual bool ShouldClose() const = 0;
 	virtual void Shutdown() = 0;
+	// The logical canvas size the game draws on, fixed at Init. The window can be resized, maximized or made
+	// fullscreen; the backend scales the canvas to fit it (letterboxed) and maps the mouse back to canvas pixels.
 	[[nodiscard]] virtual int Width() const = 0;
 	[[nodiscard]] virtual int Height() const = 0;
+	// Fullscreen on or off. Desktop uses a borderless window over the whole monitor.
+	virtual void SetFullscreen(bool fullscreen) = 0;
+	[[nodiscard]] virtual bool IsFullscreen() const = 0;
 	[[nodiscard]] virtual float DeltaTime() const = 0;
 	[[nodiscard]] virtual double Time() const = 0;
 	[[nodiscard]] virtual std::string AssetDirectory() const = 0;
@@ -172,6 +177,10 @@ public:
 	virtual void DrawRoundedRectLines(Rect r, float roundness, float thickness, Rgba c) = 0;
 	virtual void DrawText(std::string_view text, float x, float y, float size, Rgba c) = 0;
 	[[nodiscard]] virtual float MeasureText(std::string_view text, float size) const = 0;
+	// Loads a TTF/OTF font file and makes it the font DrawText and MeasureText use from now on (the 2D UI
+	// and game overlays; not the debug UI). Text is UTF-8; the printable ASCII and Latin-1 glyphs are loaded. Returns false and keeps the current font when the file can't
+	// be loaded. Call after Init.
+	virtual bool SetTextFont(std::string_view path) = 0;
 	virtual void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) = 0;
 	virtual void DrawCircle(glm::vec2 center, float radius, Rgba c) = 0;
 	// Draws `texture` into `dest` (screen-space pixels), tiling it at native resolution (the source
@@ -250,6 +259,21 @@ public:
 	virtual int LoadSound(std::string_view path) = 0; // returns handle, or -1
 	virtual void UnloadSound(int handle) = 0;
 	virtual void PlaySound(int handle) = 0;
+	// Pitch (and speed) multiplier applied to the sound's next plays; 1 is unchanged.
+	virtual void SetSoundPitch(int handle, float pitch) = 0;
+	// Volume (0..1) applied to the sound's next plays; 1 is as recorded.
+	virtual void SetSoundVolume(int handle, float volume) = 0;
+
+	// Streamed music (one decoded chunk at a time, for long tracks). LoadMusic returns a handle or -1
+	// and deduplicates by path. PlayMusic restarts the track from the start; `loop` makes it wrap.
+	// UpdateMusic refills the stream's buffers and must be called every frame while it plays.
+	// StopMusic and UnloadMusic with a bad handle are no-ops.
+	virtual int LoadMusic(std::string_view path) = 0;
+	virtual void UnloadMusic(int handle) = 0;
+	virtual void PlayMusic(int handle, bool loop) = 0;
+	virtual void StopMusic(int handle) = 0;
+	virtual void UpdateMusic(int handle) = 0;
+	virtual void SetMusicVolume(int handle, float volume) = 0; // 0..1
 
 	// ── Procedural audio ──
 	// Starts the single procedural output stream (mono f32 at audio::kSynthSampleRate), pulled by
