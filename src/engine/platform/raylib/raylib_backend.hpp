@@ -89,6 +89,7 @@ public:
 	int LoadSound(std::string_view path) override;
 	void UnloadSound(int handle) override;
 	void PlaySound(int handle) override;
+	void SetSoundPitch(int handle, float pitch) override;
 	int LoadMusic(std::string_view path) override;
 	void UnloadMusic(int handle) override;
 	void PlayMusic(int handle, bool loop) override;
