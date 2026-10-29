@@ -61,13 +61,7 @@ void SceneManagementModule::RegisterSceneObservers(const flecs::world& world) {
 			if (const auto entity = it.entity(i); entity.has<SceneComponent>()) {
 				if (auto& [instance] = entity.get<SceneComponent>(); instance) {
 					it_world.set_pipeline(instance->GetPipeline());
-					// Load runs undeferred, so a scene can read back what it just created. defer_suspend only
-					// works while deferred, and this observer may or may not be, so defer_begin first.
-					it_world.defer_begin();
-					it_world.defer_suspend();
 					instance->Load(it_world);
-					it_world.defer_resume();
-					it_world.defer_end();
 				}
 			}
 		});
