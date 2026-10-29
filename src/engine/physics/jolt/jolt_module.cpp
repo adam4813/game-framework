@@ -125,16 +125,17 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
 
-	// === OBSERVER: Create physics body when RigidBody is added ===
+	// === OBSERVER: Create physics body when RigidBody is set ===
+	// Reacts to OnSet, not OnAdd: inside a defer_suspend()ed region (a scene's own level load) `set<RigidBody>` adds the component
+	// default-constructed and fires OnAdd before copying the value in, so an OnAdd observer would see
+	// MotionType::Dynamic and build the wrong body. HasBody makes repeated sets a no-op.
 	// CollisionShape MUST already be present — RigidBody without CollisionShape is an authoring
 	// error and will NOT create a body. If CollisionShape arrives after RigidBody (e.g. component
 	// order in a level file), PhysicsAddBodyOnCollisionShape below handles that case.
 	// TODO: Add system with detect_changes() to recreate bodies when RigidBody/CollisionShape changes.
-	// TODO: OnAdd means we won't recreate the body if RigidBody is removed and then re-added.
-	// Using OnSet causes the world to get into a weird state where the body sleeps forever.
 	std::ignore =
 		world.observer<const RigidBody, JoltBackend>("PhysicsAddBody")
-			.event(flecs::OnAdd)
+			.event(flecs::OnSet)
 			.term_at<JoltBackend>()
 			.singleton()
 			.run([](flecs::iter& it) {
@@ -145,6 +146,9 @@ JoltModule::JoltModule(const flecs::world& world) {
 
 					for (const size_t i : it) {
 						flecs::entity e = it.entity(i);
+						if (sys.HasBody(e.id())) {
+							continue;
+						}
 						const auto& rb = rb_array[i];
 						const auto* cs = e.try_get<CollisionShape>();
 
