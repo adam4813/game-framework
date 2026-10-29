@@ -1,59 +1,47 @@
-// Tilemap dialog demo: builds a 2-node dialog graph at runtime, registers tile 102 as the
-// trigger, and uses ShowDialog / CloseDialog to drive navigation.
-// Attached as a child of the Tilemap entity so GetTileSet() resolves correctly.
+// Tilemap dialog demo: builds the Elder conversation from script with the engine dialog module's
+// API, and starts it when the player steps on tile 102 (north of spawn).
+// Attached as a child of the Tilemap entity, so GetTileSet() resolves and the tree (parented to the
+// host) is destroyed with the scene.
 //
-// Dialog choices are configured via the DialogNode component handle (returned by AddDialogNode/
-// GetDialogNode). Callbacks receive the clicked button Entity:
-//   DialogNode@ dn = entity.GetDialogNode();
-//   dn.choice_0_label = "Label";
-//   dn.SetOn_choice_0(@OnChoice);   // NodeCallback1 = void(Entity e)
+// Flow: the tree's root is the first node shown. A choice is a child node carrying SetDialogChoice;
+// picking it runs that node. A node marked SetDialogEnd closes the conversation.
+//
+//   ElderDialog  "Welcome, traveler. What do you seek?"
+//   ├─ AskAboutRuins  [Tell me about the ancient ruins.]  "The ruins to the north..."
+//   │  └─ ThankElder  [Thank you, Elder.]  (end)
+//   └─ Farewell       [Farewell.]  (end)
 
-Entity g_greeting;
-Entity g_responseRuins;
+Entity g_elder;
 
 void OnInit(Entity self) {
-    // Create dialog nodes — each entity gets a DialogNode + GraphNode component.
-    g_greeting      = CreateDialogNode("ElderGreeting", "The Elder: 'Welcome, traveler. What do you seek?'");
-    g_responseRuins = CreateDialogNode("ElderResponseRuins","The Elder: 'The ruins to the north hold great power...and great danger. Tread carefully.'");
+    g_elder = CreateDialogTree("ElderDialog", self);
+    SetDialogLine(g_elder, "The Elder", "Welcome, traveler. What do you seek?", "");
 
-    // Configure greeting node choices.
-    DialogNode@ greeting = g_greeting.GetDialogNode();
-    greeting.choice_0_label = "Tell me about the ancient ruins.";
-    greeting.choice_1_label = "Farewell.";
-    greeting.SetOn_choice_0(@OnChoiceRuins);
-    greeting.SetOn_choice_1(@OnChoiceFarewell);
+    Entity ruins = AddDialogNode(g_elder, "AskAboutRuins");
+    SetDialogChoice(ruins, "Tell me about the ancient ruins.", 0, "");
+    SetDialogLine(ruins, "The Elder", "The ruins to the north hold great power...and great danger. Tread carefully.", "");
+    ConnectDialogNodes(g_elder, ruins);
 
-    // Configure response node.
-    DialogNode@ response = g_responseRuins.GetDialogNode();
-    response.choice_0_label = "Thank you, Elder.";
-    response.SetOn_choice_0(@OnCloseDialog);
+    Entity thanks = AddDialogNode(g_elder, "ThankElder");
+    SetDialogChoice(thanks, "Thank you, Elder.", 0, "");
+    SetDialogEnd(thanks);
+    ConnectDialogNodes(ruins, thanks);
 
-    // Structural edges for Flecs Explorer visualization.
-    ConnectDialogNodes(g_greeting, g_responseRuins);
+    Entity farewell = AddDialogNode(g_elder, "Farewell");
+    SetDialogChoice(farewell, "Farewell.", 1, "");
+    SetDialogEnd(farewell);
+    ConnectDialogNodes(g_elder, farewell);
 
-    // Register tile 102 as the dialog trigger.
+    // Tile 102 is the trigger.
     TileSet@ tileSet = self.GetTileSet();
     TileDescriptor@ td = tileSet.CreateTile(102);
     td.walkable = true;
     td.SetOnEnter(@OnDialogTileEnter);
 
-    Print("[TilemapDialog] Elder dialog ready — walk south of spawn to trigger");
+    Print("[TilemapDialog] Elder dialog ready - walk north of spawn to trigger");
 }
 
 void OnDialogTileEnter(Entity entity, int tx, int tz) {
     if (!entity.HasPlayerControlled()) { return; }
-    ShowDialog(g_greeting);
-}
-
-// Callbacks receive the clicked button Entity (e).
-void OnChoiceRuins(Entity e) {
-    ShowDialog(g_responseRuins);
-}
-
-void OnChoiceFarewell(Entity e) {
-    CloseDialog();
-}
-
-void OnCloseDialog(Entity e) {
-    CloseDialog();
+    StartDialog(g_elder, entity);
 }

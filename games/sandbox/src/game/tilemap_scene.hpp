@@ -1,7 +1,7 @@
 #pragma once
 
-#include <functional>
-#include <string>
+#include <array>
+#include <vector>
 
 #include <glm/glm.hpp>
 
@@ -39,23 +39,6 @@ inline constexpr std::array<glm::vec3, 3> kCastleCenters = {
 // Smooth per-tile interpolation.
 // (GridMover + PlayerControlled now live in grid_movement.hpp, shared with the farm scene.)
 
-/// Dialog text + two optional script-driven choices. Attach alongside GraphEdge children to
-/// visualize the dialog graph in the Flecs Explorer. The choice callbacks are set by scripts
-/// via SetDialogChoice(entity, index, label, @fn). Call ShowDialog(entity) to display it.
-struct DialogNode {
-	std::string text;
-	std::string speaker;
-	std::string choice_0_label;
-	std::string choice_1_label;
-	std::function<void(flecs::entity)> on_choice_0;
-	std::function<void(flecs::entity)> on_choice_1;
-};
-
-/// World singleton set by ShowDialog(entity); removed by CloseDialog().
-struct DialogActiveSingleton {
-	flecs::entity current_node;
-};
-
 class TilemapScene : public engine::scene::SceneBase {
 public:
 	explicit TilemapScene() = default;
@@ -75,7 +58,6 @@ private:
 	flecs::entity castle_hopper_entity_;
 	flecs::entity uiRoot_;
 	flecs::entity pauseModal_;
-	flecs::entity dialog_modal_;
 
 	unsigned int spawned_npc_count_{0};
 	std::vector<glm::vec3> walkable;
@@ -85,8 +67,6 @@ private:
 	void SetupNPCs(const flecs::world& world) const;
 	void SetupPathfindingAgent();
 	void SetupPathfindingStressTest();
-	void SetupDialogSystem(const flecs::world& world);
-	void BuildDialogUI(const flecs::world& world);
 	void RegisterInputSystems(const flecs::world& world) const;
 	void BuildUI(const flecs::world& world);
 };

@@ -62,6 +62,14 @@ void TilemapScene::Load(flecs::world& world) {
 		.child_of(tilemap_entity_)
 		.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/tile_callback_demo.as")});
 
+	// The Elder conversation is built and triggered from script through the engine dialog module's
+	// script API. The script is a child of the tilemap so GetTileSet() resolves, and the tree it
+	// parents to its host is destroyed with the scene.
+	world.entity()
+		.child_of(tilemap_entity_)
+		.set_name("TilemapDialogScript")
+		.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/tilemap_dialog.as")});
+
 	SetupPlayer(world);
 	SetupNPCs(world);
 
@@ -84,16 +92,12 @@ void TilemapScene::Load(flecs::world& world) {
 	world.get<EngineContextRef>().ptr->GetDeferredTaskQueue().Enqueue([this]() { SetupPathfindingAgent(); });
 	RegisterInputSystems(world);
 	BuildUI(world);
-	SetupDialogSystem(world);
 }
 
 void TilemapScene::Unload(flecs::world& world) {
-	if (dialog_modal_) {
-		dialog_modal_.destruct();
-		dialog_modal_ = {};
-	}
-	if (world.has<DialogActiveSingleton>()) {
-		world.remove<DialogActiveSingleton>();
+	// End a conversation still on screen: its runner and dialog box live outside sceneRoot_.
+	if (world.has<dialog::DialogActive>()) {
+		dialog::EndDialog(world, world.get<dialog::DialogActive>().runner);
 	}
 
 	if (sceneRoot_) {
@@ -108,7 +112,6 @@ void TilemapScene::Unload(flecs::world& world) {
 	player_entity_ = flecs::entity{};
 	castle_hopper_entity_ = flecs::entity{};
 	pauseModal_ = flecs::entity{};
-	dialog_modal_ = flecs::entity{};
 
 	// Clear pause state when unloading the scene
 	world.remove<scene::Paused>();
@@ -122,7 +125,7 @@ void TilemapScene::Tick(const flecs::world& world, float) {
 		// Only write when the value actually changes: get_mut dirty-marks the component and notifies
 		// OnSet observers every frame otherwise, for a discrete pause/unpause state.
 		if (auto& modal = pauseModal_.get_mut<ui::Modal>(); modal.open != paused) {
-			modal.open = !world.has<DialogActiveSingleton>() && paused;
+			modal.open = !world.has<dialog::DialogActive>() && paused;
 		}
 	}
 }
@@ -488,262 +491,6 @@ void TilemapScene::SetupPathfindingStressTest() {
 	spawned_npc_count_ += kbatchSize;
 
 	spdlog::info("[TilemapScene] Spawned {} of {} stress-test agents", spawned_npc_count_, MAX_NPC_COUNT);
-}
-
-void TilemapScene::SetupDialogSystem(const flecs::world& world) {
-	// Register DialogNode component with Flecs reflection + scripting.
-	// All four string fields are reflected so scripts can assign them directly (e.g. dn.text = "...").
-	const auto dn_entity = world.component<DialogNode>()
-							   .member<std::string>("text")
-							   .member<std::string>("speaker")
-							   .member<std::string>("choice_0_label")
-							   .member<std::string>("choice_1_label");
-
-	scripting::RegisterComponentForScripts(world, dn_entity);
-
-	const std::vector<scripting::ScriptMethodParam> dialog_choice_params = {
-		{.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
-		 .by_reference = false,
-		 .name = "player"},
-	};
-	scripting::RegisterCallbackViewTypeForScripts(
-		world,
-		dn_entity,
-		{
-			{.decl = "string text", .offset = scripting::CalculateOffset(&DialogNode::text)},
-			{.decl = "string speaker", .offset = scripting::CalculateOffset(&DialogNode::speaker)},
-			{.decl = "string choice_0_label", .offset = scripting::CalculateOffset(&DialogNode::choice_0_label)},
-			{.decl = "string choice_1_label", .offset = scripting::CalculateOffset(&DialogNode::choice_1_label)},
-		},
-		{
-			{
-				.name = "On_choice_0",
-				.funcdef_name = "NodeCallback",
-				.params = dialog_choice_params,
-				.sink =
-					[](void* object, scripting::ScriptFunctionHandle* handle) {
-						auto* dn = static_cast<DialogNode*>(object);
-						if (!dn) return;
-						if (!handle) {
-							dn->on_choice_0 = nullptr;
-							return;
-						}
-						handle->AddRef();
-						auto sp = std::shared_ptr<scripting::ScriptFunctionHandle>(
-							handle,
-							[](scripting::ScriptFunctionHandle* h) {
-								if (h) h->Release();
-							}
-						);
-						dn->on_choice_0 = [sp](const flecs::entity& entity) {
-							scripting::ScriptEntityRef entity_ref{entity};
-							const void* args[] = {&entity_ref};
-							sp->Invoke(args, 1);
-						};
-					},
-				.invoke =
-					[](void* object, const scripting::ScriptCallContext& ctx) {
-						const auto* dn = static_cast<DialogNode*>(object);
-						const auto* player = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
-						if (!player) return;
-						if (dn && dn->on_choice_0) dn->on_choice_0(player->GetEntity());
-					},
-			},
-			{
-				.name = "On_choice_1",
-				.funcdef_name = "NodeCallback",
-				.params = dialog_choice_params,
-				.sink =
-					[](void* object, scripting::ScriptFunctionHandle* handle) {
-						auto* dn = static_cast<DialogNode*>(object);
-						if (!dn) return;
-						if (!handle) {
-							dn->on_choice_1 = nullptr;
-							return;
-						}
-						handle->AddRef();
-						auto sp = std::shared_ptr<scripting::ScriptFunctionHandle>(
-							handle,
-							[](scripting::ScriptFunctionHandle* h) {
-								if (h) h->Release();
-							}
-						);
-						dn->on_choice_1 = [sp](const flecs::entity& entity) {
-							scripting::ScriptEntityRef entity_ref{entity};
-							const void* args[] = {&entity_ref};
-							sp->Invoke(args, 1);
-						};
-					},
-				.invoke =
-					[](void* object, const scripting::ScriptCallContext& ctx) {
-						const auto* dn = static_cast<DialogNode*>(object);
-						const auto* player = static_cast<scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
-						if (!player) return;
-						if (dn && dn->on_choice_1) dn->on_choice_1(player->GetEntity());
-					},
-			},
-		}
-	);
-
-	// JSON loader: "dialog_node": { "text": "...", "speaker": "..." }
-	level::RegisterComponentLoader(world, "dialog_node", [](const flecs::entity e, const nlohmann::json& j) {
-		DialogNode dn;
-		dn.text = j.value("text", std::string{});
-		dn.speaker = j.value("speaker", std::string{});
-		e.set<DialogNode>(std::move(dn));
-	});
-
-	// === Script global functions ===
-
-	// ShowDialog(entity) — open dialog for the given entity's DialogNode.
-	scripting::RegisterGlobalFunctionForScripts(
-		world,
-		{.name = "ShowDialog",
-		 .return_type = scripting::ScriptValueType::MakeVoid(),
-		 .params =
-			 {{.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
-			   .by_reference = false,
-			   .name = "node"}}},
-		[](const scripting::ScriptCallContext& ctx, const flecs::world& w) {
-			const auto* ref = static_cast<const scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
-			if (ref && ref->GetEntity().is_valid()) {
-				w.add<scene::Paused>();
-				w.set<DialogActiveSingleton>({.current_node = ref->GetEntity()});
-			}
-		}
-	);
-
-	// CloseDialog() — dismiss the active dialog.
-	scripting::RegisterGlobalFunctionForScripts(
-		world,
-		{.name = "CloseDialog", .return_type = scripting::ScriptValueType::MakeVoid()},
-		[](scripting::ScriptCallContext&, const flecs::world& w) {
-			w.remove<scene::Paused>();
-			w.remove<DialogActiveSingleton>();
-		}
-	);
-
-	// CreateDialogNode(name, text) → Entity — creates entity with DialogNode + GraphNode
-	scripting::RegisterGlobalFunctionForScripts(
-		world,
-		{.name = "CreateDialogNode",
-		 .return_type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
-		 .params =
-			 {
-				 {.type = scripting::ScriptValueType::MakeString(), .by_reference = true, .name = "name"},
-				 {.type = scripting::ScriptValueType::MakeString(), .by_reference = true, .name = "text"},
-			 }},
-		[root = sceneRoot_](scripting::ScriptCallContext& ctx, const flecs::world& w) {
-			const std::string name = ctx.GetArgString(0);
-			const std::string text = ctx.GetArgString(1);
-			const flecs::entity e = w.entity(name.c_str()).child_of(root);
-			e.set<DialogNode>({.text = text});
-			e.set<graph::GraphNode>({.label = text});
-			new (ctx.GetReturnObjectLocation()) scripting::ScriptEntityRef{e};
-		}
-	);
-
-	// ConnectDialogNodes(parent, child) — adds structural GraphEdge for visualization.
-	scripting::RegisterGlobalFunctionForScripts(
-		world,
-		{.name = "ConnectDialogNodes",
-		 .return_type = scripting::ScriptValueType::MakeVoid(),
-		 .params =
-			 {
-				 {.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
-				  .by_reference = false,
-				  .name = "parent"},
-				 {.type = scripting::ScriptValueType::MakeObject(world.component<scripting::ScriptEntityRef>()),
-				  .by_reference = false,
-				  .name = "child"},
-			 }},
-		[](const scripting::ScriptCallContext& ctx, flecs::world&) {
-			const auto* p = static_cast<const scripting::ScriptEntityRef*>(ctx.GetArgObject(0));
-			const auto* c = static_cast<const scripting::ScriptEntityRef*>(ctx.GetArgObject(1));
-			if (p && c) {
-				p->GetEntity().add<graph::GraphEdge>(c->GetEntity());
-			}
-		}
-	);
-
-	// === Observers: rebuild/tear down dialog UI when DialogActiveSingleton changes ===
-
-	std::ignore =
-		world.observer<DialogActiveSingleton>("DialogActiveBuildUI")
-			.event(flecs::OnSet)
-			.each([this](const flecs::iter& it, size_t, DialogActiveSingleton&) { BuildDialogUI(it.world()); })
-			.child_of(sceneRoot_);
-
-	std::ignore = world.observer<DialogActiveSingleton>("DialogActiveDestroyUI")
-					  .event(flecs::OnRemove)
-					  .each([this](const flecs::iter&, size_t, DialogActiveSingleton) {
-						  if (dialog_modal_) {
-							  dialog_modal_.destruct();
-							  dialog_modal_ = {};
-						  }
-					  })
-					  .child_of(sceneRoot_);
-
-	// Dialog script is a child of tilemap_entity_ so GetTileSet() resolves correctly.
-	world.entity("TilemapDialogScript")
-		.child_of(tilemap_entity_)
-		.set<scripting::ScriptComponent>({.source_path = assets::ResolveAsset(world, "scripts/tilemap_dialog.as")});
-}
-
-void TilemapScene::BuildDialogUI(const flecs::world& world) {
-	if (dialog_modal_) {
-		dialog_modal_.destruct();
-		dialog_modal_ = {};
-	}
-	if (!uiRoot_ || !world.has<DialogActiveSingleton>()) return;
-
-	const flecs::entity node = world.get<DialogActiveSingleton>().current_node;
-	if (!node.is_valid() || !node.has<DialogNode>()) return;
-
-	const auto& dn = node.get<DialogNode>();
-
-	std::vector<ui::PromptButton> buttons;
-
-	auto wrap_callback = [](std::function<void(flecs::entity)> fn) {
-		return [fn = std::move(fn)](const flecs::entity e) {
-			if (fn) fn(e);
-		};
-	};
-
-	if (!dn.choice_0_label.empty()) {
-		buttons.push_back({.label = dn.choice_0_label, .on_click = wrap_callback(dn.on_choice_0)});
-	}
-	if (!dn.choice_1_label.empty()) {
-		buttons.push_back({.label = dn.choice_1_label, .on_click = wrap_callback(dn.on_choice_1)});
-	}
-	if (buttons.empty()) {
-		buttons.push_back({.label = "Close", .on_click = [](const flecs::entity e) {
-							   e.world().remove<DialogActiveSingleton>();
-						   }});
-	}
-
-	const auto* platform = world.get<platform::PlatformRef>().ptr;
-	constexpr float w = 560.0F;
-	constexpr float h = 310.0F; // extra height to accommodate wrapped dialog text
-	const float x = (static_cast<float>(platform->Width()) - w) * 0.5F;
-	const float y = static_cast<float>(platform->Height()) - h - 48.0F;
-	const std::string title = dn.speaker.empty() ? "Dialog" : dn.speaker;
-
-	dialog_modal_ =
-		ui::CreatePrompt(world, {.x = x, .y = y, .w = w, .h = h}, title, dn.text, std::move(buttons)).child_of(uiRoot_);
-
-	// Patch the message label: enable word-wrap and increase height so long dialog text is visible.
-	// CreatePrompt layout: modal → column → [title_label, message_label, button_row]
-	std::vector<flecs::entity> columnChildren;
-	dialog_modal_.children([&](const flecs::entity child) {
-		child.children([&](const flecs::entity grandchild) { columnChildren.push_back(grandchild); });
-	});
-	if (columnChildren.size() >= 2 && columnChildren[1].has<ui::Label>()) {
-		columnChildren[1].get_mut<ui::UIRect>().rect.h = 120.0F;
-		auto& lbl = columnChildren[1].get_mut<ui::Label>();
-		lbl.wrap = true;
-		lbl.align = ui::TextAlign::Left;
-	}
 }
 
 void TilemapScene::BuildUI(const flecs::world& world) {
