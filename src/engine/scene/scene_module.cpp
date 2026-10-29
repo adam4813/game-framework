@@ -61,7 +61,17 @@ void SceneManagementModule::RegisterSceneObservers(const flecs::world& world) {
 			if (const auto entity = it.entity(i); entity.has<SceneComponent>()) {
 				if (auto& [instance] = entity.get<SceneComponent>(); instance) {
 					it_world.set_pipeline(instance->GetPipeline());
+					// Load runs undeferred, so a scene reads back what it just created (lookups, get_mut on
+					// a freshly loaded entity). This is the only place that suspends for Load: scenes must not
+					// defer_suspend themselves, as a second suspend re-enables deferral. defer_suspend only
+					// works while deferred, and this observer may or may not be (ActivateScene from a
+					// constructor), so defer_begin first. Observers that read component data must therefore
+					// react to OnSet, not OnAdd, since undeferred set<T> fires OnAdd before the value lands.
+					it_world.defer_begin();
+					it_world.defer_suspend();
 					instance->Load(it_world);
+					it_world.defer_resume();
+					it_world.defer_end();
 				}
 			}
 		});

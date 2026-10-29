@@ -145,22 +145,17 @@ void TilemapScene::RegisterInputSystems(const flecs::world& world) const {
 }
 
 void TilemapScene::SetupTilemap(const flecs::world& world) {
-	// Load the tilemap entity (and all NPC/registry entities) from a single level JSON in immediate
-	// mode. defer_suspend() makes the entire load synchronous so refs are resolved before we
-	// inject C++ callbacks and explicitly bake the tilemap.
-	world.defer_suspend();
-
+	// Load the tilemap entity (and all NPC/registry entities) from a single level JSON. Scene Load
+	// runs undeferred, so refs are resolved before we inject C++ callbacks and explicitly bake the tilemap.
 	level::LoadLevel(world, assets::ResolveAsset(world, "levels/tilemap_map.level.json"), sceneRoot_);
 	tilemap_entity_ = sceneRoot_.lookup("Tilemap");
 	if (!tilemap_entity_.is_valid()) {
-		world.defer_resume();
 		spdlog::error("[TilemapScene] 'Tilemap' entity not found after level load");
 		return;
 	}
 
 	const flecs::entity registry_entity = tilemap_entity_.target<level::UseRegistry>();
 	if (!registry_entity.is_valid()) {
-		world.defer_resume();
 		spdlog::error("[TilemapScene] Tilemap has no UseRegistry target");
 		return;
 	}
@@ -191,8 +186,6 @@ void TilemapScene::SetupTilemap(const flecs::world& world) {
 			}
 		};
 	}
-
-	world.defer_resume();
 }
 
 void TilemapScene::SetupPlayer(const flecs::world& world) const {

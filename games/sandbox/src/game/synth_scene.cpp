@@ -30,10 +30,7 @@ void SynthScene::InitializePipeline(const flecs::world& world) {
 void SynthScene::Load(flecs::world& world) {
 	voice_ = std::make_unique<SynthDemoVoice>();
 	world.get<platform::PlatformRef>().ptr->StartSynth(voice_.get());
-
-	world.defer_suspend();
 	BuildUI(world);
-	world.defer_resume();
 }
 
 void SynthScene::Tick(const flecs::world& world, float) {
