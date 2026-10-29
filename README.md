@@ -286,7 +286,7 @@ The engine has a strict separation between **authored** and **computed** transfo
 
 - **Author `Transform`** — this holds local position, rotation, and scale. Always set this when creating entities.
 - **Never hand-write `WorldTransform`** — this is world-space data computed from `Transform` by the engine. The
-  `TransformSeedWorldTransform` observer seeds it once when an entity is created, then `TransformPropagation` (for
+  `TransformSeedWorldTransform` observer seeds it whenever `Transform` is set, then `TransformPropagation` (for
   parented entities) or the physics backend (for dynamic bodies) keeps it in sync.
 
 ```cpp

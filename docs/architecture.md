@@ -87,9 +87,10 @@ See [systems-reference.md](systems-reference.md) for the full per-module system/
 **Design principle**: author `Transform` (local position/rotation/scale), never `WorldTransform` (world space). The
 engine computes and maintains `WorldTransform` exclusively.
 
-- **`SetInitialWorldTransform` observer**: When a new entity gets a `WorldTransform` component,
-  this observer seeds its `WorldTransform` once from `Transform`. This is the **only**  place `WorldTransform` is
-  hand-authored.
+- **`TransformSeedWorldTransform` observer** (`OnSet Transform`): every time `Transform` is set, this observer seeds
+  `WorldTransform` from it, composed with the parent's current `WorldTransform`. This is the **only** place
+  `WorldTransform` is hand-authored, and for rigid bodies (which `TransformPropagation` skips) it is how a set
+  `Transform` reaches the physics body.
 - **`TransformPropagation` system** (`OnUpdate`): For parented and unparented entities carrying `Transform`, this system
   computes the parent's `WorldTransform` matrix (if parented) or uses `Transform` directly (if root), and applies it.
   This is the canonical writer for `WorldTransform` in simulation.

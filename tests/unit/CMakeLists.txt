@@ -30,6 +30,12 @@ add_engine_test(key_override_test
 )
 target_include_directories(key_override_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
 
+# Level loads give the same transforms and physics bodies deferred or undeferred, in any component order
+add_engine_test(scene_load_order_test
+    scene_load_order_test.cpp
+)
+target_include_directories(scene_load_order_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
+
 # JSON field parsers and Level loading of malformed component values
 add_engine_test(json_loading_test
     json_loading_test.cpp

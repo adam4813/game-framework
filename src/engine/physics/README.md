@@ -87,9 +87,10 @@ All systems follow Flecs 4.x best practices:
 
 3. **Observers** (event-based):
 
-- PhysicsAddBody (OnAdd RigidBody — creates body if CollisionShape already present)
+- PhysicsAddBody (OnSet RigidBody — creates body if CollisionShape already present)
 - PhysicsAddBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates body if not yet created)
-- PhysicsSetInitialTransform (OnAdd WorldTransform + has RigidBody — syncs initial position)
+- PhysicsSetBodyTransform (OnSet WorldTransform + has RigidBody — moves the body to the seeded transform; setting a
+  rigid body's `Transform` teleports it)
 - PhysicsSyncToBackend (OnSet — syncs ECS transform changes to Jolt)
 - PhysicsRemoveBody (OnRemove)
 

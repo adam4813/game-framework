@@ -38,4 +38,8 @@ struct WorldTransform {
 	}
 };
 
+// Computes `world_transform` from a local Transform and the parent's WorldTransform (nullptr for a
+// root entity). Shared by TransformPropagation and the OnSet seed so both agree on the result.
+void ComposeWorldTransform(const Transform& local, const WorldTransform* parent_wt, WorldTransform& world_transform);
+
 } // namespace engine::spatial

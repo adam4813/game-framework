@@ -190,7 +190,7 @@ void RegisterMetaSaveExample(const flecs::world& world) {
 			auto& t = cube.get_mut<spatial::Transform>();
 			t.position = {j.value("px", 0.0F), j.value("py", 3.0F), j.value("pz", 0.0F)};
 			t.rotation = {j.value("rx", 0.0F), j.value("ry", 0.0F), j.value("rz", 0.0F)};
-			cube.modified<physics::RigidBody>(); // teleports the Jolt body to the new position
+			cube.modified<spatial::Transform>(); // reseeds WorldTransform, which teleports the Jolt body
 		});
 
 	// Falling cube: linear and angular velocity (what the cube was DOING at save time).

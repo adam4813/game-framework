@@ -38,5 +38,6 @@ world.system<const WorldTransform>()
 - Skips rigid bodies (physics backend owns their WorldTransform).
 
 **TransformSeedWorldTransform** (OnSet observer)
-- Fires once per entity when Transform is first set.
-- Initializes WorldTransform from Transform so entities always have both.
+- Fires every time Transform is set (OnSet, so an undeferred set never seeds from a default Transform).
+- Sets WorldTransform from Transform composed with the parent's WorldTransform, so it is right before the first frame.
+- The only Transform -> WorldTransform path for rigid bodies; the physics module moves the body on that set.

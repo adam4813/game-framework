@@ -41,7 +41,7 @@ The *authorable* local-space position (vec3), rotation (Euler radians, vec3), an
 _Avoid_: local transform, position component
 
 **WorldTransform**:
-The *computed* world-space position, rotation, scale, and transformation matrix. Seeded once from `Transform` by the `SetInitialWorldTransform` observer and then owned exclusively by `TransformPropagation` (for parented/unparented entities) or the physics backend (for dynamic rigid bodies). Writing `WorldTransform` directly after initialisation is overwritten the next frame.
+The *computed* world-space position, rotation, scale, and transformation matrix. Seeded from `Transform` whenever it is set, by the `TransformSeedWorldTransform` observer, and then owned exclusively by `TransformPropagation` (for parented/unparented entities) or the physics backend (for dynamic rigid bodies). Writing `WorldTransform` directly after initialisation is overwritten the next frame.
 _Avoid_: world position, global transform
 
 **Singleton**:

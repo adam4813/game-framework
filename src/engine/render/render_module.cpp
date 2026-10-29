@@ -514,9 +514,9 @@ RenderModule::RenderModule(const flecs::world& world) {
 			}
 		});
 
+	// OnSet only: an undeferred set fires OnAdd before the value is copied, so texture_path would be empty.
 	world.observer<const SpriteAtlas>("SpriteAtlasAutoMaterial")
 		.event(flecs::OnSet)
-		.event(flecs::OnAdd)
 		.each([](const flecs::entity e, const SpriteAtlas& sa) {
 			if (e.has<AlbedoMap>()) return; // already set up
 			e.set<Material>({.color = {.r = 255, .g = 255, .b = 255, .a = 255}});

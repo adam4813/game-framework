@@ -165,7 +165,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 						const auto* wt = e.try_get<const spatial::WorldTransform>();
 						const PhysicsTransform phys_transform =
 							wt ? PhysicsTransform::FromMatrix(wt->matrix)
-							   : PhysicsTransform{}; // identity; corrected by PhysicsSetInitialTransform / PhysicsSyncToBackend
+							   : PhysicsTransform{}; // identity; corrected by PhysicsSetBodyTransform
 
 						sys.SyncBodyToBackend(e.id(), phys_transform, rb, *cs);
 
@@ -221,22 +221,18 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .singleton()
 					  .each([](const flecs::entity& e, const RigidBody&, JoltBackend& sys) { sys.RemoveBody(e.id()); });
 
-	// When WorldTransform is added AFTER RigidBody, the body was created with an identity
-	// transform. Sync immediately to the correct initial position so the first simulated
-	// frame sees the right pose.
-	std::ignore = world.observer<const spatial::WorldTransform, JoltBackend>("PhysicsSetInitialTransform")
-					  .event(flecs::OnAdd)
+	// Moves the body whenever its WorldTransform is set: the Transform seed (TransformSeedWorldTransform)
+	// after a level load or spawn, or a teleport. Covers a body created before its transform arrived
+	// (JSON component order puts rigid_body before transform), which starts at the identity. OnSet,
+	// not OnAdd: an undeferred set fires OnAdd with the default value, which would pin it to the origin.
+	std::ignore = world.observer<const spatial::WorldTransform, JoltBackend>("PhysicsSetBodyTransform")
+					  .event(flecs::OnSet)
 					  .with<RigidBody>()
 					  .term_at<JoltBackend>()
 					  .singleton()
-					  .run([](flecs::iter& it) {
-						  auto& sys = it.world().get_mut<JoltBackend>();
-						  while (it.next()) {
-							  for (const size_t i : it) {
-								  const flecs::entity e = it.entity(i);
-								  const auto& wt = e.get<const spatial::WorldTransform>();
-								  sys.SetBodyTransform(e.id(), PhysicsTransform::FromMatrix(wt.matrix));
-							  }
+					  .each([](const flecs::entity e, const spatial::WorldTransform& wt, JoltBackend& sys) {
+						  if (sys.HasBody(e.id())) {
+							  sys.SetBodyTransform(e.id(), PhysicsTransform::FromMatrix(wt.matrix));
 						  }
 					  });
 
