@@ -5,6 +5,7 @@
 #include "audio/audio.hpp"
 #include "core/core.hpp"
 #include "debug/debug.hpp"
+#include "dialog/dialog.hpp"
 #include "ecs/ecs.hpp"
 #include "engine_context.hpp"
 #include "graph/graph.hpp"

@@ -14,9 +14,7 @@
 #include "dialog_runtime.hpp"
 #include "dialog_ui.hpp"
 
-using namespace engine;
-
-namespace game::dialog {
+namespace engine::dialog {
 
 namespace {
 
@@ -623,4 +621,4 @@ DialogModule::DialogModule(const flecs::world& world) {
 	spdlog::info("[DialogModule] Registered interaction-tree components, handlers, systems, and authoring bindings");
 }
 
-} // namespace game::dialog
+} // namespace engine::dialog

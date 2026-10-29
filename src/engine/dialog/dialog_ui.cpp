@@ -9,9 +9,7 @@
 #include "dialog_components.hpp"
 #include "dialog_runtime.hpp"
 
-using namespace engine;
-
-namespace game::dialog {
+namespace engine::dialog {
 
 namespace {
 
@@ -131,4 +129,4 @@ void BuildDialogBox(const flecs::world& world) {
 	world.get_mut<DialogUI>().box = box;
 }
 
-} // namespace game::dialog
+} // namespace engine::dialog

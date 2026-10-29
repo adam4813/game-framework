@@ -7,7 +7,6 @@
 #include <spdlog/spdlog.h>
 
 #include "cube_scene.hpp"
-#include "dialog/dialog.hpp"
 #include "engine/engine.hpp"
 #include "meta_save_example.hpp"
 #include "noise_scene.hpp"
@@ -25,12 +24,9 @@ GameModule::GameModule(flecs::world& world) {
 
 	// Import engine subsystems used by sandbox scenes.
 	auto& registry = world.get<EngineContextRef>().ptr->GetModuleRegistry();
-	registry.Import(world, {"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles"});
+	registry.Import(world, {"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles", "dialog"});
 
 	world.set<GameData>({});
-
-	// Interaction/dialog-tree system (data-driven node graph) usable by any game scene.
-	world.import<dialog::DialogModule>();
 
 	// Worked example of the JSON save system: registers the save schema and the script-facing save
 	// verbs used by assets/scripts/save_demo.as.

@@ -12,7 +12,7 @@
 
 #include "dialog_components.hpp"
 
-namespace game::dialog {
+namespace engine::dialog {
 
 /// Builder for dialog interaction trees. Accumulates tree structure in memory,
 /// then materializes it into ECS entities via build().
@@ -336,4 +336,4 @@ private:
 	std::string root_id_;
 };
 
-} // namespace game::dialog
+} // namespace engine::dialog

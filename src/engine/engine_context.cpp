@@ -5,6 +5,7 @@
 #include "engine/audio/audio.hpp"
 #include "engine/core/core.hpp"
 #include "engine/debug/debug.hpp"
+#include "engine/dialog/dialog.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/graph/graph.hpp"
 #include "engine/input/input.hpp"
@@ -60,6 +61,10 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : pla
 	// (or ImportAll to get everything). Entries import their own dependencies first.
 
 	moduleRegistry_.Register("graph", [](flecs::world& w) { w.import<graph::GraphModule>(); });
+	moduleRegistry_.Register("dialog", [](flecs::world& w) {
+		w.import<graph::GraphModule>(); // dialog trees are graph node entities
+		w.import<dialog::DialogModule>();
+	});
 	moduleRegistry_.Register("ai", [](flecs::world& w) {
 		w.import<graph::GraphModule>(); // ai depends on graph
 		w.import<ai::AIModule>();

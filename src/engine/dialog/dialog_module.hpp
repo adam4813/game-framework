@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 
-namespace game::dialog {
+namespace engine::dialog {
 
 /// Dialog / interaction-tree module (game level).
 ///
@@ -27,4 +27,4 @@ public:
 	explicit DialogModule(const flecs::world& world);
 };
 
-} // namespace game::dialog
+} // namespace engine::dialog
