@@ -70,6 +70,12 @@ target_compile_definitions(engine_lib PUBLIC ${GAME_COMPILE_DEFS})
 target_compile_options(engine_lib PRIVATE ${GAME_COMPILE_OPTS})
 target_link_libraries(engine_lib PUBLIC ${GAME_LINK_LIBS})
 setup_tracy(engine_lib)
+# The stats panel that auto-starts telemetry is compiled into engine_lib, so the switch lives here
+# and applies to every Game Target. (Tracy is per-target: setup_game_target calls setup_tracy.)
+if (ENABLE_PROFILE_LOGGING)
+    target_compile_definitions(engine_lib PRIVATE PROFILE_LOGGING_ENABLED)
+    message(STATUS "JSONL profile logging auto-start enabled")
+endif ()
 # Game Targets link this name, so the same game CMake builds in-tree and against an installed framework.
 add_library(game_framework::engine_lib ALIAS engine_lib)
 

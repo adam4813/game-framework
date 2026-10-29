@@ -11,8 +11,3 @@ file(GLOB_RECURSE SANDBOX_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(sandbox ${SANDBOX_SOURCES})
 target_include_directories(sandbox PRIVATE src)
 setup_game_target(sandbox)
-
-if (ENABLE_PROFILE_LOGGING)
-    target_compile_definitions(sandbox PRIVATE PROFILE_LOGGING_ENABLED)
-    message(STATUS "JSONL profile logging auto-start enabled")
-endif ()
