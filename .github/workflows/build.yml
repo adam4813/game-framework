@@ -94,32 +94,39 @@ jobs:
             exit 1
           fi
           echo "Running test from: $TEST_EXE_PATH"
+          # Fails on any mismatch not listed in kKnownMismatches (tests/scene_equivalence/main.cpp),
+          # and on a listed one that now matches, so the list is cleaned up when its issue is fixed.
+          set +e
           $TEST_EXE_PATH scene_test_output
-          
-          # Count checked components and mismatches from diff_table.txt
+          TEST_EXIT=$?
+          set -e
+
+          # Count rows by status from diff_table.txt
+          # Format: | entity | JSON | AS | C++ | [MATCH] / [MISMATCH] / [KNOWN #issue] |
           if [ -f "scene_test_output/diff_table.txt" ]; then
             # Skip first 2 lines (header + separator), count non-empty data lines
             CHECKED_COMPONENTS=$(tail -n +3 scene_test_output/diff_table.txt | grep -c . || echo "0")
             echo "CHECKED_COMPONENTS=$CHECKED_COMPONENTS" >> $GITHUB_ENV
-            
-            # Count lines where column 6 (status) does NOT contain [MATCH]
-            # Format: | entity | JSON | AS | C++ | | [MATCH] |
-            MISMATCHES=$(tail -n +3 scene_test_output/diff_table.txt | awk -F'|' '$6 !~ /MATCH/ && NF > 0 {count++} END {print count+0}')
+            MISMATCHES=$(tail -n +3 scene_test_output/diff_table.txt | awk -F'|' '$6 ~ /\[MISMATCH\]/ {count++} END {print count+0}')
             echo "MISMATCHES=$MISMATCHES" >> $GITHUB_ENV
+            KNOWN=$(tail -n +3 scene_test_output/diff_table.txt | awk -F'|' '$6 ~ /\[KNOWN/ {count++} END {print count+0}')
+            echo "KNOWN=$KNOWN" >> $GITHUB_ENV
           else
             echo "CHECKED_COMPONENTS=0" >> $GITHUB_ENV
             echo "MISMATCHES=0" >> $GITHUB_ENV
+            echo "KNOWN=0" >> $GITHUB_ENV
           fi
-          
-          exit 0  # Don't fail the workflow on test mismatches
+
+          exit $TEST_EXIT
 
       - name: Generate Scene Equivalence Status
-        if: matrix.target != 'WebAssembly'
+        if: matrix.target != 'WebAssembly' && always()
         shell: bash
         run: |
           echo "### 🔍 Scene Equivalence Test Results" >> $GITHUB_STEP_SUMMARY
           echo "* **Checked Components:** \`${{ env.CHECKED_COMPONENTS }}\`" >> $GITHUB_STEP_SUMMARY
           echo "* **Component Mismatches:** \`${{ env.MISMATCHES }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Known Mismatches (open issues):** \`${{ env.KNOWN }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -f "scene_test_output/diff_table.txt" ]; then
             echo "* **Diff Table:** Available in artifacts" >> $GITHUB_STEP_SUMMARY
           fi
