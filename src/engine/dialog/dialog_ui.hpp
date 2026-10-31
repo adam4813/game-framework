@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 
-namespace game::dialog {
+namespace engine::dialog {
 
 /// UI-runtime singleton: the persistent full-screen root the dialog box is parented to,
 /// and the currently-shown box (destroyed on teardown/rebuild).
@@ -18,4 +18,4 @@ void BuildDialogBox(const flecs::world& world);
 /// Destroy the on-screen dialog box, if any.
 void DestroyDialogBox(const flecs::world& world);
 
-} // namespace game::dialog
+} // namespace engine::dialog

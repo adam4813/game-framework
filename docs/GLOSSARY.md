@@ -21,7 +21,7 @@ An independent cmake executable under `games/<name>/` that links `engine_lib` an
 _Avoid_: game project, game executable
 
 **Sandbox**:
-The `sandbox` Game Target built from `src/game/`. It contains engine demonstration Scenes (CubeScene, NoiseScene, TilemapScene, TitleScene) used for engine feature development and manual testing. Not a production game.
+The `sandbox` Game Target built from `games/sandbox/src/game/`. It contains engine demonstration Scenes (CubeScene, NoiseScene, TilemapScene, TitleScene) used for engine feature development and manual testing. Not a production game.
 _Avoid_: game, playground, demo (use Sandbox consistently)
 
 **Scene**:
@@ -41,7 +41,7 @@ The *authorable* local-space position (vec3), rotation (Euler radians, vec3), an
 _Avoid_: local transform, position component
 
 **WorldTransform**:
-The *computed* world-space position, rotation, scale, and transformation matrix. Seeded once from `Transform` by the `SetInitialWorldTransform` observer and then owned exclusively by `TransformPropagation` (for parented/unparented entities) or the physics backend (for dynamic rigid bodies). Writing `WorldTransform` directly after initialisation is overwritten the next frame.
+The *computed* world-space position, rotation, scale, and transformation matrix. Seeded from `Transform` whenever it is set, by the `TransformSeedWorldTransform` observer, and then owned exclusively by `TransformPropagation` (for parented/unparented entities) or the physics backend (for dynamic rigid bodies). Writing `WorldTransform` directly after initialisation is overwritten the next frame.
 _Avoid_: world position, global transform
 
 **Singleton**:

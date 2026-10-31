@@ -14,9 +14,7 @@
 #include "dialog_runtime.hpp"
 #include "dialog_ui.hpp"
 
-using namespace engine;
-
-namespace game::dialog {
+namespace engine::dialog {
 
 namespace {
 
@@ -236,32 +234,57 @@ void RegisterScripting(const flecs::world& world) {
 		new (ctx.GetReturnObjectLocation()) ScriptEntityRef{e};
 	};
 
-	// CreateDialogTree(name) -> Entity
+	// Create (or reuse) the entity `name` under `parent`, or at the root when `parent` is invalid.
+	// Create, parent, then name: world.entity(name).child_of(parent) looks the name up at the root,
+	// so it would merge with a same-named node from another tree.
+	const auto named_child = [](const flecs::world& w, const flecs::entity parent, const std::string& name)
+		-> flecs::entity {
+		if (!parent.is_valid()) {
+			return w.entity(name.c_str());
+		}
+		if (const flecs::entity existing = parent.lookup(name.c_str())) {
+			return existing;
+		}
+		return w.entity().child_of(parent).set_name(name.c_str());
+	};
+	const auto make_tree = [named_child](const flecs::world& w, const flecs::entity parent, const std::string& name) {
+		const flecs::entity e = named_child(w, parent, name);
+		e.add<graph::GraphRoot>();
+		e.set<graph::GraphNode>({.label = name});
+		return e;
+	};
+
+	// CreateDialogTree(name) -> Entity — a root-level tree that outlives scenes.
 	RegisterGlobalFunctionForScripts(
 		world,
 		{.name = "CreateDialogTree",
 		 .return_type = ScriptValueType::MakeObject(entity_type),
 		 .params = {P_str("name")}},
-		[return_ent](ScriptCallContext& ctx, const flecs::world& w) {
-			const flecs::entity e = w.entity(ctx.GetArgString(0).c_str());
-			e.add<graph::GraphRoot>();
-			e.set<graph::GraphNode>({.label = ctx.GetArgString(0)});
-			return_ent(ctx, e);
+		[make_tree, return_ent](ScriptCallContext& ctx, const flecs::world& w) {
+			return_ent(ctx, make_tree(w, {}, ctx.GetArgString(0)));
 		}
 	);
 
-	// AddDialogNode(tree, name) -> Entity
+	// CreateDialogTree(name, parent) -> Entity — a tree owned by `parent` (e.g. the script's host),
+	// destroyed with it, so a scene's dialog is torn down with the scene.
+	RegisterGlobalFunctionForScripts(
+		world,
+		{.name = "CreateDialogTree",
+		 .return_type = ScriptValueType::MakeObject(entity_type),
+		 .params = {P_str("name"), P_ent("parent")}},
+		[make_tree, arg_ent, return_ent](ScriptCallContext& ctx, const flecs::world& w) {
+			return_ent(ctx, make_tree(w, arg_ent(ctx, 1), ctx.GetArgString(0)));
+		}
+	);
+
+	// AddDialogNode(tree, name) -> Entity — a node named `name` under `tree`.
 	RegisterGlobalFunctionForScripts(
 		world,
 		{.name = "AddDialogNode",
 		 .return_type = ScriptValueType::MakeObject(entity_type),
 		 .params = {P_ent("tree"), P_str("name")}},
-		[arg_ent, return_ent](ScriptCallContext& ctx, const flecs::world& w) {
-			const flecs::entity tree = arg_ent(ctx, 0);
-			const flecs::entity e = w.entity(ctx.GetArgString(1).c_str());
-			if (tree.is_valid()) {
-				e.child_of(tree);
-			}
+		[named_child, arg_ent, return_ent](ScriptCallContext& ctx, const flecs::world& w) {
+			const flecs::entity e = named_child(w, arg_ent(ctx, 0), ctx.GetArgString(1));
 			e.set<graph::GraphNode>({.label = ctx.GetArgString(1)});
 			return_ent(ctx, e);
 		}
@@ -623,4 +646,4 @@ DialogModule::DialogModule(const flecs::world& world) {
 	spdlog::info("[DialogModule] Registered interaction-tree components, handlers, systems, and authoring bindings");
 }
 
-} // namespace game::dialog
+} // namespace engine::dialog

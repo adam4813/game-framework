@@ -31,10 +31,7 @@ void NoiseScene::InitializePipeline(const flecs::world& world) {
 
 void NoiseScene::Load(flecs::world& world) {
 	dirty_ = true;
-
-	world.defer_suspend();
 	BuildUI(world);
-	world.defer_resume();
 }
 
 void NoiseScene::Tick(const flecs::world& world, float) {

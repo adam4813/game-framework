@@ -3,8 +3,12 @@
 # Reads GAME_COMPILE_OPTS from the root CMakeLists.txt.
 function(setup_game_target target)
     target_compile_options(${target} PRIVATE ${GAME_COMPILE_OPTS})
-    target_link_libraries(${target} PRIVATE engine_lib)
+    target_link_libraries(${target} PRIVATE game_framework::engine_lib)
     setup_tracy(${target})
+    # The calling game's project() version; empty for targets defined in the root project.
+    if (PROJECT_VERSION)
+        target_compile_definitions(${target} PRIVATE GAME_VERSION="${PROJECT_VERSION}")
+    endif ()
 
     if (NOT EMSCRIPTEN)
         add_custom_command(TARGET ${target} POST_BUILD

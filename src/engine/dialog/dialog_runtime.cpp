@@ -9,9 +9,7 @@
 
 #include "dialog_components.hpp"
 
-using namespace engine;
-
-namespace game::dialog {
+namespace engine::dialog {
 
 namespace {
 
@@ -135,4 +133,4 @@ void ResolveDialog(const flecs::world& world, const flecs::entity runner, const 
 
 void EndDialog(const flecs::world& world, const flecs::entity runner) { Finish(world, runner); }
 
-} // namespace game::dialog
+} // namespace engine::dialog

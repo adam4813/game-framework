@@ -73,7 +73,7 @@ const SCENE_ACTIVE_TAG = "engine.scene.SceneManagementModule.Active";
 // SceneManagementModule). Every scene entity carries this component plus a single identity tag
 // named "<Name>SceneTag" (e.g. game.CubeSceneTag), added by scene::RegisterScene<Tag>(). Scenes
 // are resolved by that tag's short name ("Cube", "Title", "Tilemap") — stable across launches,
-// independent of runtime-assigned entity ids. See engine/scene/scene.hpp and src/game/*_scene.hpp.
+// independent of runtime-assigned entity ids. See engine/scene/scene.hpp and games/sandbox/src/game/*_scene.hpp.
 const SCENE_COMPONENT = "engine.scene.SceneManagementModule.SceneComponent";
 const SCENE_TAG_SUFFIX = "SceneTag";
 

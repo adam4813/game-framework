@@ -8,7 +8,7 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 
-namespace game::dialog {
+namespace engine::dialog {
 
 // ---------------------------------------------------------------------------
 // Node identity & flow vocabulary
@@ -208,4 +208,4 @@ struct DialogNodeHandlers {
 		std::make_shared<std::unordered_map<std::string, DialogNodeHandler>>();
 };
 
-} // namespace game::dialog
+} // namespace engine::dialog

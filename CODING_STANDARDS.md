@@ -78,6 +78,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
   systems omit it.
 - **Event-driven over polling.** A discrete state change reacts through an observer (`OnSet` for values, `OnAdd` /
   `OnRemove` for structure) or an event; per-frame systems are for continuous work (movement, projectiles, rendering).
+- **An observer that reads component data reacts to `OnSet`, never `OnAdd`** (ADR 0007). Outside a deferred merge,
+  `set<T>(v)` fires `OnAdd` with `T` default-constructed, before `v` is copied in. It must also tolerate any component
+  order: level JSON applies components alphabetically, so a sibling component it reads may not exist yet.
 - **Per-frame systems stay cheap**: no needless allocation, no redundant queries, no `O(n²)` scans in the hot path.
 - **`modified<T>()` on an engine component fires its module's `OnSet` observer**, which may rebuild meshes or reset
   streaming state. Mutate engine data in place without `modified<>()` unless the rebuild is the point.
@@ -90,9 +93,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **`Load()` registers before it spawns.** Registries, system registration and component registration come before the
   setup calls whose `OnSet` observers read them (`LoadObjectKindRegistry` before `SetupTilemap`). Spawn order is free
   once the module constructor has pre-registered every component.
-- **`Load()` writes are deferred** when activation runs inside an observer: never `get_mut<>()` a component `set<>()`
-  earlier in the same `Load()`, and guard per-frame `get_mut<>()` in `Tick()` with `has<>()`. Code that needs the
-  writes to land suspends deferral, guarded by `world.is_deferred()`.
+- **`Load()` runs undeferred** (ADR 0007): the scene module suspends deferral around it, so a `Load()` can look up and
+  `get_mut<>()` what it just created. A scene never calls `defer_suspend()` itself; a second suspend re-enables
+  deferral. Guard per-frame `get_mut<>()` in `Tick()` with `has<>()`.
 - **`Unload()` undoes `Load()`.** Destroy the scene's root entities; hold no `flecs::entity` handles across an
   Unload/Load cycle. A scene can activate more than once.
 - **Scenes are switched by identity** (`SceneId`, name), never a runtime entity id.
@@ -100,7 +103,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 ### Transforms and relationships
 
 - **Author `Transform`, never `WorldTransform`** (ADR 0005). `TransformPropagation` or the physics backend computes
-  `WorldTransform`; it is stale during a scene `Load()`, so load-time code reads `Transform`.
+  `WorldTransform`. Each `set<Transform>` seeds it from the parent's current `WorldTransform`, so during a scene `Load()`
+  it is only as fresh as the parent was when the child's `Transform` was set; load-time code reads `Transform`.
+  Setting a rigid body's `Transform` teleports its body.
 - **Relationships, not stored copies.** Link entities with first-class relationships (`RenderWith`, `LookAt`) and
   derive dependent values each frame from the target: a camera with a target is authored as
   `"refs": {"look_at": "PlayerEntity"}`, and its aim comes from the target's `WorldTransform`, not a stored position.

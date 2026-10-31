@@ -29,7 +29,7 @@ For the complete module order, see `src/engine/engine_context.cpp`.
 `ecs::InitializeRemoteAPI(world)` is called last on desktop (the Flecs REST API needs TCP sockets, which browsers lack,
 so it is compiled out under `__EMSCRIPTEN__`).
 
-The **game** layer is a separate Flecs module (`game::GameModule`, `src/game/game.cpp`) imported on top of the engine.
+The **game** layer is a separate Flecs module (`game::GameModule`, `games/sandbox/src/game/game.cpp`) imported on top of the engine.
 It reads `EngineContextRef`, registers the save schema, registers scenes, and activates the title scene.
 
 ## The frame loop
@@ -87,9 +87,10 @@ See [systems-reference.md](systems-reference.md) for the full per-module system/
 **Design principle**: author `Transform` (local position/rotation/scale), never `WorldTransform` (world space). The
 engine computes and maintains `WorldTransform` exclusively.
 
-- **`SetInitialWorldTransform` observer**: When a new entity gets a `WorldTransform` component,
-  this observer seeds its `WorldTransform` once from `Transform`. This is the **only**  place `WorldTransform` is
-  hand-authored.
+- **`TransformSeedWorldTransform` observer** (`OnSet Transform`): every time `Transform` is set, this observer seeds
+  `WorldTransform` from it, composed with the parent's current `WorldTransform`. This is the **only** place
+  `WorldTransform` is hand-authored, and for rigid bodies (which `TransformPropagation` skips) it is how a set
+  `Transform` reaches the physics body.
 - **`TransformPropagation` system** (`OnUpdate`): For parented and unparented entities carrying `Transform`, this system
   computes the parent's `WorldTransform` matrix (if parented) or uses `Transform` directly (if root), and applies it.
   This is the canonical writer for `WorldTransform` in simulation.
@@ -216,5 +217,5 @@ from a seed. Systems that need randomness (e.g. particle emission) pull from
 ## Related
 
 - Bootstrapping & DI: `src/engine/engine_context.{hpp,cpp}`
-- Frame loop: `src/engine/app/app.cpp`, `src/main.cpp`
+- Frame loop: `src/engine/app/app.cpp`, `games/sandbox/src/main.cpp`
 - Tuning constants: `constants.hpp` (all `constexpr`, per the data-driven convention)

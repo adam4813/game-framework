@@ -2,10 +2,15 @@
 
 #include <cstddef>
 #include <fstream>
+#include <cstring>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
+#include <flecs.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -22,6 +27,43 @@ namespace {
 // Modules whose plots are suppressed (from the filter file). Written once by LoadModuleFilter at
 // startup, read-only thereafter — so concurrent IsModuleEnabled reads from worker threads are safe.
 std::unordered_set<std::string> g_disabled_modules;
+
+// Per-system-name stable source-location entries so Tracy can correlate zones across frames
+// without allocating a new entry on every push. Flecs system names are permanent strings
+// (owned by the ECS world) so using std::string keys by value is safe and cheap.
+// g_tracy_locs_mutex serialises the rare first-write (new system name seen for the first time);
+// concurrent reads on the hot path (name already present) share the lock and never block each other.
+std::unordered_map<std::string, ___tracy_source_location_data> g_tracy_locs;
+std::shared_mutex g_tracy_locs_mutex;
+thread_local std::vector<TracyCZoneCtx> g_tracy_zone_stack;
+
+void PerfTracePush(const char* file, const size_t line, const char* name) {
+	// Hot path: shared lock — most calls find an existing entry. Multiple threads can read
+	// concurrently; a rehash (exclusive write) cannot happen while any shared lock is held,
+	// so &it->second is stable for the duration of this scope.
+	{
+		std::shared_lock read(g_tracy_locs_mutex);
+		if (const auto it = g_tracy_locs.find(name); it != g_tracy_locs.end()) {
+			g_tracy_zone_stack.push_back(___tracy_emit_zone_begin(&it->second, 1));
+			return;
+		}
+	}
+	// First registration for this name — exclusive lock to insert. Double-checked: another thread
+	// may have inserted between the shared-lock release and here.
+	std::unique_lock write(g_tracy_locs_mutex);
+	auto& loc = g_tracy_locs[name];
+	if (!loc.name) {
+		loc = {name, name, file, static_cast<uint32_t>(line), 0};
+	}
+	g_tracy_zone_stack.push_back(___tracy_emit_zone_begin(&loc, 1));
+}
+
+void PerfTracePop(const char*, size_t, const char*) {
+	if (!g_tracy_zone_stack.empty()) {
+		___tracy_emit_zone_end(g_tracy_zone_stack.back());
+		g_tracy_zone_stack.pop_back();
+	}
+}
 
 // Tracy identifies a plot by the pointer identity of its name, so the char* must be stable for the
 // program's lifetime. This interning pool provides that stability; std::unordered_set node storage
@@ -113,6 +155,15 @@ void Plot(
 		return;
 	}
 	TracyPlot(InternName(name), value);
+#endif
+}
+
+void InstallFlecsSystemZones() {
+#ifdef TRACY_ENABLE
+	ecs_os_api_t os_api = ecs_os_get_api();
+	os_api.perf_trace_push_ = PerfTracePush;
+	os_api.perf_trace_pop_ = PerfTracePop;
+	ecs_os_set_api(&os_api);
 #endif
 }
 

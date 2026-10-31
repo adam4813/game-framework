@@ -6,7 +6,7 @@
 
 #include "dialog_components.hpp"
 
-namespace game::dialog {
+namespace engine::dialog {
 
 // ---------------------------------------------------------------------------
 // Handler registry
@@ -48,4 +48,4 @@ void EndDialog(const flecs::world& world, flecs::entity runner);
 /// passes, ignoring branch-only children. Returns an invalid entity when there is none.
 [[nodiscard]] flecs::entity FirstEligibleChild(const flecs::world& world, flecs::entity node);
 
-} // namespace game::dialog
+} // namespace engine::dialog

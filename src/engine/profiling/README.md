@@ -36,6 +36,10 @@ profiling::Plot("PathfindingModule", "astar.nodes_expanded", static_cast<int64_t
 
 // Frame boundary (called once per frame by main).
 profiling::MarkFrame();
+
+// Zone around every Flecs system (called once in main, after ecs_os_set_api_defaults()
+// and before the world is created). No-op unless Tracy is enabled.
+profiling::InstallFlecsSystemZones();
 ```
 
 ## Components
@@ -108,4 +112,6 @@ world_.import<engine::profiling::ProfilerModule>();
 ```
 
 Flecs system-level timeline instrumentation (bracketing each system with a zone) is wired into the
-Flecs OS API at process start in `main.cpp`, the one place third-party backend hooks are installed.
+Flecs OS API by `profiling::InstallFlecsSystemZones()`, which each Game Target's `main()` calls at
+process start. Build-side, `setup_game_target` calls `setup_tracy` (`-DENABLE_TRACY=ON`) for every
+Game Target, and `-DENABLE_PROFILE_LOGGING=ON` auto-starts the JSONL telemetry in all of them.

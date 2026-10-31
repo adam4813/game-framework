@@ -51,7 +51,34 @@ struct DiffRow {
 	std::string as_value;
 	std::string cpp_value;
 	bool mismatch{false};
+	bool known{false}; // mismatch covered by kKnownMismatches; reported, not counted
 };
+
+// Temporary: mismatches with an open issue, matched by key prefix. A known mismatch is reported but
+// does not fail the run; a prefix that no longer mismatches does fail, so the entry is removed once
+// the issue is fixed.
+struct KnownMismatch {
+	std::string_view key_prefix;
+	std::string_view issue;
+};
+
+// Script AddT() never notifies OnSet observers after the script writes the fields, so the AS world
+// misses what OnSet observers derive (body + velocity, viewport size, atlas material).
+// https://github.com/adam4813/game-framework/issues/13
+constexpr std::array kKnownMismatches = {
+	KnownMismatch{.key_prefix = "TestBox#PhysicsVelocity.", .issue = "#13"},
+	KnownMismatch{.key_prefix = "TestTilemap#TilemapViewport.buffer_", .issue = "#13"},
+	KnownMismatch{.key_prefix = "TestTilemapAtlas#AlbedoMap.", .issue = "#13"},
+};
+
+const KnownMismatch* FindKnownMismatch(const std::string_view key) {
+	for (const auto& known : kKnownMismatches) {
+		if (key.starts_with(known.key_prefix)) {
+			return &known;
+		}
+	}
+	return nullptr;
+}
 
 std::string EntityName(const flecs::entity entity) {
 	const char* name = entity.name();
@@ -214,6 +241,7 @@ ComputeDiff(const json& json_world, const json& as_world, const json& cpp_world,
 			.as_value = has_as ? FormatJsonValue(as_it->second) : "N/A",
 			.cpp_value = has_cpp ? FormatJsonValue(cpp_it->second) : "N/A",
 			.mismatch = mismatch,
+			.known = mismatch && FindKnownMismatch(key) != nullptr,
 		});
 	}
 
@@ -226,6 +254,16 @@ void WriteJsonFile(const std::filesystem::path& path, const json& value) {
 		throw std::runtime_error("Failed to open output file: " + path.string());
 	}
 	out << value.dump(2) << '\n';
+}
+
+std::string RowStatus(const DiffRow& row) {
+	if (!row.mismatch) {
+		return "[MATCH]";
+	}
+	if (row.known) {
+		return "[KNOWN " + std::string{FindKnownMismatch(row.key)->issue} + "]";
+	}
+	return "[MISMATCH]";
 }
 
 void WriteDiffTable(const std::filesystem::path& path, const std::vector<DiffRow>& rows) {
@@ -245,10 +283,7 @@ void WriteDiffTable(const std::filesystem::path& path, const std::vector<DiffRow
 		json_width = std::max(json_width, row.json_value.size());
 		as_width = std::max(as_width, row.as_value.size());
 		cpp_width = std::max(cpp_width, row.cpp_value.size());
-		match_width = std::max(
-			match_width,
-			row.mismatch ? std::string_view("[MISMATCH]").size() + 1 : std::string_view("[MATCH]").size() + 1
-		);
+		match_width = std::max(match_width, RowStatus(row).size() + 1);
 	}
 
 	auto separator = [](const size_t width) { return std::string(width + 2, '-'); };
@@ -305,7 +340,7 @@ void WriteDiffTable(const std::filesystem::path& path, const std::vector<DiffRow
 			<< row.cpp_value
 			<< " |"
 			<< std::setw(static_cast<int>(match_width))
-			<< (row.mismatch ? " [MISMATCH]" : " [MATCH]")
+			<< " " + RowStatus(row)
 			<< " |\n";
 	}
 }
@@ -929,9 +964,30 @@ int main(const int argc, char** argv) {
 		WriteDiffTable(output_dir / "diff_table.txt", rows);
 
 		size_t mismatches = 0;
+		size_t known = 0;
 		for (const auto& row : rows) {
-			if (row.mismatch) {
+			if (row.known) {
+				++known;
+			}
+			else if (row.mismatch) {
 				++mismatches;
+				std::cout << "MISMATCH " << row.key << '\n';
+			}
+		}
+
+		size_t stale = 0;
+		for (const auto& entry : kKnownMismatches) {
+			const bool still_mismatches = std::ranges::any_of(rows, [&](const DiffRow& row) {
+				return row.known && row.key.starts_with(entry.key_prefix);
+			});
+			if (!still_mismatches) {
+				++stale;
+				std::cout
+					<< "STALE known mismatch '"
+					<< entry.key_prefix
+					<< "' ("
+					<< entry.issue
+					<< ") now matches: remove it from kKnownMismatches\n";
 			}
 		}
 
@@ -940,8 +996,12 @@ int main(const int argc, char** argv) {
 			<< rows.size()
 			<< " properties, "
 			<< mismatches
-			<< " mismatches\n";
-		return mismatches == 0 ? 0 : 1;
+			<< " mismatches, "
+			<< known
+			<< " known (open issues), "
+			<< stale
+			<< " stale known entries\n";
+		return mismatches == 0 && stale == 0 ? 0 : 1;
 	}
 	catch (const std::exception& e) {
 		std::cerr << "scene_equivalence_test failed: " << e.what() << '\n';

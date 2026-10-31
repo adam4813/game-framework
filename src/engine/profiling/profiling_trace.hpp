@@ -82,6 +82,11 @@ inline void Plot(const std::string_view module_key, const std::string_view name,
 	Plot(module_key, name, static_cast<double>(value));
 }
 
+// Bracket every Flecs system with a profiler zone by installing the Flecs OS API perf hooks. A
+// no-op unless the build enables Tracy. Call from main() after ecs_os_set_api_defaults() and before
+// the first flecs::world is created; the hooks are read when the world is built.
+void InstallFlecsSystemZones();
+
 // Mark the end of a frame on the profiler timeline. Call once per rendered frame.
 void MarkFrame();
 
