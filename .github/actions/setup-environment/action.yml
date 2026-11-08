@@ -36,6 +36,10 @@ runs:
           libgl1-mesa-dev \
           libglu1-mesa-dev \
           libltdl-dev \
+          autoconf \
+          autoconf-archive \
+          automake \
+          libtool \
           xvfb \
           xorg-dev
 

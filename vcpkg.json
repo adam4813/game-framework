@@ -42,14 +42,6 @@
 		{
 			"name": "flecs",
 			"version": "4.1.0"
-		},
-		{
-			"name": "spdlog",
-			"version": "1.11.0"
-		},
-		{
-			"name": "fmt",
-			"version": "9.0.0"
 		}
 	]
 }

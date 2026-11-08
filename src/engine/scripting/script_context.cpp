@@ -39,7 +39,7 @@ std::pair<flecs::id_t, void*> ResolveMutableComponent(const flecs::entity entity
 
 	void* ptr = entity.try_get_mut(comp.id());
 	if (!ptr) {
-		spdlog::warn("[Script] Entity '{}' does not have component '{}'", entity.name(), component_name);
+		spdlog::warn("[Script] Entity '{}' does not have component '{}'", entity.name().c_str(), component_name);
 		return {0, nullptr};
 	}
 	return {comp.id(), ptr};
