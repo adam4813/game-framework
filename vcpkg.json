@@ -37,8 +37,12 @@
 			"platform": "emscripten"
 		}
 	],
-	"builtin-baseline": "dd3097e305afa53f7b4312371f62058d2e665320",
+	"builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
 	"overrides": [
+		{
+			"name": "flecs",
+			"version": "4.1.0"
+		},
 		{
 			"name": "spdlog",
 			"version": "1.11.0"
