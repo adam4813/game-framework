@@ -4,7 +4,10 @@
 #include <string>
 #include <vector>
 
-#include "engine/engine.hpp"
+#include "engine/assets/assets.hpp"
+#include "engine/graph/graph.hpp"
+#include "engine/platform/platform.hpp"
+#include "engine/ui/ui.hpp"
 
 #include "dialog_components.hpp"
 #include "dialog_runtime.hpp"
