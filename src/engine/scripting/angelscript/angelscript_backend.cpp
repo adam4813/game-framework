@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <cstring>
 
 namespace engine::scripting::angelscript {
 
