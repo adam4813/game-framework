@@ -9,6 +9,7 @@
 			]
 		},
 		"raylib",
+		"cgltf",
 		"flecs",
 		"stb",
 		"glfw3",

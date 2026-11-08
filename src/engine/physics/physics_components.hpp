@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -38,6 +39,9 @@ struct CollisionShape {
 	glm::vec3 offset{0.0F};
 	glm::quat rotation{1.0F, 0.0F, 0.0F, 0.0F};
 	std::vector<ChildShape> compound_children;
+	/// Model file (.glb/.gltf) whose triangles make a static `Mesh` shape. Read only when `type == Mesh`.
+	/// Level JSON resolves it against the asset directory; C++ and script authors pass a resolved path.
+	std::string mesh_path;
 };
 
 /// Velocity component tracked by physics (separate from engine::components::Velocity)

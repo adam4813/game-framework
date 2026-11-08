@@ -3,9 +3,13 @@
 #include <algorithm>
 #include <cstdarg>
 #include <ranges>
+#include <string>
 #include <thread>
+#include <unordered_map>
 
 #include <spdlog/spdlog.h>
+
+#include "engine/physics/gltf_geometry.hpp"
 
 // Jolt Physics includes. Order matters!
 // clang-format off
@@ -22,12 +26,17 @@
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
+#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 // clang-format on
 
 namespace engine::physics {
+
+struct MeshShapeCache {
+	std::unordered_map<std::string, JPH::ShapeRefC> shapes;
+};
 
 // Jolt callbacks
 static void JoltTraceImpl(const char* fmt, ...) {
@@ -128,7 +137,8 @@ private:
 };
 } // namespace
 
-JoltBackend::JoltBackend(const PhysicsConfig& config) : config_(config) {}
+JoltBackend::JoltBackend(const PhysicsConfig& config)
+	: config_(config), mesh_shape_cache_(std::make_unique<MeshShapeCache>()) {}
 
 JoltBackend::~JoltBackend() { Shutdown(); }
 
@@ -192,6 +202,7 @@ void JoltBackend::Shutdown() {
 		body_interface.DestroyBody(bid);
 	}
 	entity_to_body_.clear();
+	mesh_shape_cache_->shapes.clear();
 
 	physics_system_.reset();
 	contact_listener_.reset();
@@ -278,28 +289,26 @@ static JPH::ShapeRefC CreateShape(const ShapeConfig& cfg) {
 			JPH::ConvexHullShapeSettings settings(verts.data(), static_cast<int>(verts.size()));
 			return settings.Create().Get();
 		}
-		break;
+		return nullptr; // no vertices: the caller logs; never a silent box
 	}
 	case ShapeType::Mesh:
 	{
-		if (!cfg.vertices.empty() && !cfg.indices.empty()) {
-			JPH::TriangleList triangles;
-			for (size_t i = 0; i + 2 < cfg.indices.size(); i += 3) {
-				const auto& v0 = cfg.vertices[cfg.indices[i]];
-				const auto& v1 = cfg.vertices[cfg.indices[i + 1]];
-				const auto& v2 = cfg.vertices[cfg.indices[i + 2]];
-				triangles.push_back(
-					JPH::Triangle(
-						JPH::Float3(v0.x, v0.y, v0.z),
-						JPH::Float3(v1.x, v1.y, v1.z),
-						JPH::Float3(v2.x, v2.y, v2.z)
-					)
-				);
-			}
-			JPH::MeshShapeSettings settings(triangles);
-			return settings.Create().Get();
+		if (cfg.vertices.empty() || cfg.indices.empty()) return nullptr;
+		JPH::TriangleList triangles;
+		for (size_t i = 0; i + 2 < cfg.indices.size(); i += 3) {
+			const auto& v0 = cfg.vertices[cfg.indices[i]];
+			const auto& v1 = cfg.vertices[cfg.indices[i + 1]];
+			const auto& v2 = cfg.vertices[cfg.indices[i + 2]];
+			triangles.push_back(
+				JPH::Triangle(
+					JPH::Float3(v0.x, v0.y, v0.z),
+					JPH::Float3(v1.x, v1.y, v1.z),
+					JPH::Float3(v2.x, v2.y, v2.z)
+				)
+			);
 		}
-		break;
+		JPH::MeshShapeSettings settings(triangles);
+		return settings.Create().Get();
 	}
 	case ShapeType::Compound:
 	{
@@ -333,8 +342,77 @@ static JPH::ShapeRefC CreateShape(const ShapeConfig& cfg) {
 	return settings.Create().Get();
 }
 
+static ShapeConfig MakeShapeConfig(const CollisionShape& shape) {
+	ShapeConfig cfg;
+	cfg.type = shape.type;
+	cfg.box_half_extents = shape.box_half_extents;
+	cfg.sphere_radius = shape.sphere_radius;
+	cfg.capsule_radius = shape.capsule_radius;
+	cfg.capsule_height = shape.capsule_height;
+	cfg.cylinder_radius = shape.cylinder_radius;
+	cfg.cylinder_height = shape.cylinder_height;
+	cfg.offset = shape.offset;
+	cfg.rotation = shape.rotation;
+	cfg.compound_children = shape.compound_children;
+	return cfg;
+}
+
+// Builds (or reuses) the static mesh shape for a model file, then applies the authored offset. Logs one error and
+// returns null when the body can't be a mesh: not static, file unreadable, or no triangles.
+static JPH::ShapeRefC BuildMeshShape(
+	MeshShapeCache& cache,
+	const std::string_view entity_name,
+	const RigidBody& body,
+	const CollisionShape& shape
+) {
+	if (body.motion_type != MotionType::Static) {
+		spdlog::error(
+			"[Physics] Entity '{}': a mesh collider needs a static rigid_body (path '{}').",
+			entity_name,
+			shape.mesh_path
+		);
+		return nullptr;
+	}
+
+	JPH::ShapeRefC mesh;
+	if (const auto cached = cache.shapes.find(shape.mesh_path); cached != cache.shapes.end()) {
+		mesh = cached->second;
+	}
+	else {
+		ShapeConfig cfg;
+		cfg.type = ShapeType::Mesh;
+		GltfGeometry geometry = shape.mesh_path.empty() ? GltfGeometry{} : LoadGltfGeometry(shape.mesh_path);
+		if (geometry.Empty()) {
+			spdlog::error(
+				"[Physics] Entity '{}': mesh collider '{}' is missing, unreadable, or has no triangles.",
+				entity_name,
+				shape.mesh_path
+			);
+			return nullptr;
+		}
+		cfg.vertices = std::move(geometry.positions);
+		cfg.indices = std::move(geometry.indices);
+		mesh = CreateShape(cfg);
+		if (!mesh) {
+			spdlog::error("[Physics] Entity '{}': Jolt rejected the mesh collider '{}'.", entity_name, shape.mesh_path);
+			return nullptr;
+		}
+		cache.shapes.emplace(shape.mesh_path, mesh);
+	}
+
+	if (shape.offset == glm::vec3{0.0F}) return mesh;
+	return JPH::RotatedTranslatedShapeSettings(
+			   JPH::Vec3(shape.offset.x, shape.offset.y, shape.offset.z),
+			   JPH::Quat::sIdentity(),
+			   mesh
+	)
+		.Create()
+		.Get();
+}
+
 void JoltBackend::SyncBodyToBackend(
 	flecs::entity_t entity,
+	const std::string_view entity_name,
 	const PhysicsTransform& transform,
 	const RigidBody& body,
 	const CollisionShape& shape
@@ -344,22 +422,21 @@ void JoltBackend::SyncBodyToBackend(
 		return;
 	}
 
-	ShapeConfig shape_cfg;
-	shape_cfg.type = shape.type;
-	shape_cfg.box_half_extents = shape.box_half_extents;
-	shape_cfg.sphere_radius = shape.sphere_radius;
-	shape_cfg.capsule_radius = shape.capsule_radius;
-	shape_cfg.capsule_height = shape.capsule_height;
-	shape_cfg.cylinder_radius = shape.cylinder_radius;
-	shape_cfg.cylinder_height = shape.cylinder_height;
-	shape_cfg.offset = shape.offset;
-	shape_cfg.rotation = shape.rotation;
-	shape_cfg.compound_children = shape.compound_children;
-
-	auto jolt_shape = CreateShape(shape_cfg);
-	if (!jolt_shape) {
-		spdlog::error("[Physics] Failed to create shape for entity {}", entity);
+	JPH::ShapeRefC jolt_shape;
+	if (shape.type == ShapeType::Mesh) {
+		jolt_shape = BuildMeshShape(*mesh_shape_cache_, entity_name, body, shape);
+		if (!jolt_shape) return;
+	}
+	else if (shape.type == ShapeType::ConvexHull) {
+		spdlog::error("[Physics] Entity '{}': a convex hull collider has no vertices to build from.", entity_name);
 		return;
+	}
+	else {
+		jolt_shape = CreateShape(MakeShapeConfig(shape));
+		if (!jolt_shape) {
+			spdlog::error("[Physics] Entity '{}': failed to create shape.", entity_name);
+			return;
+		}
 	}
 
 	auto& body_interface = physics_system_->GetBodyInterface();

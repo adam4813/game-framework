@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -25,6 +26,8 @@ class DebugRenderer;
 } // namespace JPH
 
 namespace engine::physics {
+
+struct MeshShapeCache; // defined in jolt_backend.cpp so this header needs no Jolt shape types
 
 /// Concrete Jolt Physics System implementation
 class JoltBackend {
@@ -52,9 +55,12 @@ public:
 	/// Step the physics simulation
 	void StepSimulation(float delta_time) const;
 
-	/// Sync body from ECS to physics backend
+	/// Sync body from ECS to physics backend. `entity_name` only labels errors. A shape that cannot be built (an
+	/// unreadable mesh file, a mesh on a non-static body, a convex hull with no vertices) logs an error naming the
+	/// entity and creates no body.
 	void SyncBodyToBackend(
 		flecs::entity_t entity,
+		std::string_view entity_name,
 		const PhysicsTransform& transform,
 		const RigidBody& body,
 		const CollisionShape& shape
@@ -112,6 +118,9 @@ private:
 	std::unique_ptr<JPH::ObjectLayerPairFilter> object_layer_pair_filter_;
 	std::unique_ptr<JPH::PhysicsSystem> physics_system_;
 	std::unique_ptr<JPH::ContactListener> contact_listener_;
+
+	// Built mesh shapes by resolved path, so entities sharing a model file share one shape. Cleared on Shutdown.
+	std::unique_ptr<MeshShapeCache> mesh_shape_cache_;
 
 	// Entity to Jolt body mapping
 	std::unordered_map<flecs::entity_t, uint32_t> entity_to_body_;

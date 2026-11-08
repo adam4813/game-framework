@@ -51,7 +51,7 @@ Legend:
 | Component                 | Meta fields                                             | Status | Notes                                                                 |
 |---------------------------|---------------------------------------------------------|--------|-----------------------------------------------------------------------|
 | `RigidBody`               | mass, friction, restitution, use_gravity, gravity_scale | ✅     | Partial — motion_type, layer, etc. not in meta                        |
-| `CollisionShape`          | offset(vec3)                                            | ✅     | Partial — type, box_half_extents etc. not in meta                     |
+| `CollisionShape`          | type(enum), offset(vec3), mesh_path(string)             | ✅     | Partial — box_half_extents etc. not in meta; mesh_path only stored    |
 | `PhysicsVelocity`         | linear(vec3), angular(vec3)                             | ✅     |                                                                       |
 | `PhysicsForce`            | force(vec3), torque(vec3), clear_after_apply            | 🚫     | One-frame transient; consumed and removed each tick                   |
 | `PhysicsImpulse`          | impulse(vec3), point(vec3)                              | 🚫     | Transient; consumed and removed each tick                             |

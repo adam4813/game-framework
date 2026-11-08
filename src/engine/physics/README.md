@@ -5,6 +5,7 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 ## Structure
 
 - **physics_types.hpp** — Core physics types, enums (MotionType, ShapeType, etc.), and data structures
+- **gltf_geometry.hpp/cpp** — CPU glTF/GLB triangle loader for mesh colliders (cgltf, no raylib)
 - **physics_components.hpp** — ECS components (RigidBody, CollisionShape, PhysicsVelocity, etc.)
 - **physics_module.hpp/cpp** — Flecs system registration, ECS integration, and physics-world setup
 - **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping)
@@ -44,6 +45,29 @@ In JSON level files, always author both components on the same entity:
 "rigid_body": { "motion_type": "static" },
 "collision_shape": { "type": "box", "box_half_extents": [0.5, 0.5, 0.5] }
 ```
+
+### Mesh colliders
+
+A `mesh` shape makes a loaded model solid. It collides against every triangle of every mesh in the file, with each
+node's transform applied (so a multi-node `.glb` comes out assembled):
+
+```json
+"rigid_body": { "motion_type": "static" },
+"collision_shape": { "type": "mesh", "mesh_path": "models/room.glb" }
+```
+
+- `mesh_path` is read only when `type` is `mesh`. Level JSON resolves it against the asset directory, so a level can
+  use the same string for `mesh` and `collision_shape`. C++ and script authors pass an already-resolved path
+  (`assets::ResolveAsset`).
+- **Static bodies only.** A mesh on a dynamic or kinematic body logs an error and creates no body.
+- A missing or unreadable file, or one with zero triangles, logs one error naming the entity and path and creates no
+  body. A `convex_hull` shape has no vertex source yet, so it logs instead of becoming a box.
+- Entities with the same `mesh_path` share one built shape (cached until the backend shuts down).
+- `CollisionShape.offset` is honored. Rotation and `Transform.scale` on a mesh are **unsupported**.
+- The shape keeps the file's winding. A `CharacterVirtual` collides with back faces, but rigid bodies collide
+  one-sided, so check that a converted asset faces into the room.
+- The CPU loader (`gltf_geometry.hpp`, built on cgltf) has no raylib dependency, so a headless server can build the
+  same collision world.
 
 
 

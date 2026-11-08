@@ -93,6 +93,20 @@ All keyboard codes are available as `Key_<Name>` int constants, e.g. `Key_Space`
 
 `PhysicsImpulse`, `RigidBody`, `CollisionShape`, `PhysicsVelocity`, `PhysicsForce`, `PhysicsVelocityOverride`
 
+`CollisionShape` fields scripts can set: `type` (an int, use the constants below), `offset`, `mesh_path`.
+
+### Shape constants
+
+| Constant           | Value |
+|--------------------|-------|
+| `Shape_Box`        | 0     |
+| `Shape_Sphere`     | 1     |
+| `Shape_Capsule`    | 2     |
+| `Shape_Cylinder`   | 3     |
+| `Shape_ConvexHull` | 4     |
+| `Shape_Mesh`       | 5     |
+| `Shape_Compound`   | 6     |
+
 ---
 
 ## Scene (`scene_module.cpp`)

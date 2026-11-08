@@ -612,7 +612,9 @@ json BuildCppWorld() {
 			.scale = {1.0F, 1.0F, 1.0F},
 		})
 		.set<engine::physics::CollisionShape>({
+			.type = engine::physics::ShapeType::Mesh,
 			.offset = {0.0F, 0.1F, 0.0F},
+			.mesh_path = engine::assets::ResolveAsset(test_world.World(), "models/cube.glb"),
 		});
 
 	test_world.World()

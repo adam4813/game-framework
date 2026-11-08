@@ -22,6 +22,10 @@ ResolveMemberTypeName(const asIScriptEngine* engine, const flecs::world& world, 
 	if (member_type_id == ecs_id(ecs_bool_t)) return "bool";
 	if (member_type_id == ecs_id(ecs_u8_t) || member_type_id == ecs_id(ecs_byte_t)) return "uint8";
 
+	// A reflected enum is always stored as a 4-byte int (see the flecs-systems skill), so scripts read and write
+	// it as an int holding the enum's value.
+	if (world.entity(member_type_id).has<flecs::Enum>()) return "int";
+
 	const char* type_name = world.entity(member_type_id).name();
 	if (!type_name || *type_name == '\0') return nullptr;
 

@@ -263,7 +263,8 @@ inline constexpr std::string_view kTestSceneJson = R"json(
           "scale": [1.0, 1.0, 1.0]
         },
         "collision_shape": {
-          "type": "box",
+          "type": "mesh",
+          "mesh_path": "models/cube.glb",
           "offset": [0.0, 0.1, 0.0]
         }
       }
@@ -673,6 +674,8 @@ void OnInit(Entity self) {
     sht.rotation = vec3(0.0f, 0.0f, 0.0f);
     sht.scale = vec3(1.0f, 1.0f, 1.0f);
     CollisionShape@ cs = shape.AddCollisionShape();
+    cs.type = Shape_Mesh;
+    cs.mesh_path = "./models/cube.glb";
     cs.offset = vec3(0.0f, 0.1f, 0.0f);
 
     Entity audio = CreateNamedEntity("TestAudio");
