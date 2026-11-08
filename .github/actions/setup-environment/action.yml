@@ -40,6 +40,7 @@ runs:
           autoconf-archive \
           automake \
           libtool \
+          libwayland-dev \
           xvfb \
           xorg-dev
 
