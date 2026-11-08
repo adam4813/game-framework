@@ -17,7 +17,6 @@ jobs:
 
     env:
       EM-VERSION: '4.0.10'
-      VCPKG-COMMIT: 'dd3097e305afa53f7b4312371f62058d2e665320'
 
     strategy:
       fail-fast: false
@@ -61,13 +60,7 @@ jobs:
         uses: $/.github/actions/setup-environment
         with:
           em-version: ${{ env.EM-VERSION }}
-          vcpkg-commit: ${{ env.VCPKG-COMMIT }}
           target: ${{ matrix.target }}
-
-      - name: Restore artifacts, or run vcpkg, build and cache artifacts
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: ${{ env.VCPKG-COMMIT }}
 
       # Configure, build and (desktop only) run the GoogleTest unit suite. WASM has no preset_test.
       - name: Run CMake with Presets
