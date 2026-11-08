@@ -8,7 +8,12 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include "engine/engine.hpp"
+#include "engine/core/core.hpp"
+#include "engine/ecs/ecs.hpp"
+#include "engine/graph/graph.hpp"
+#include "engine/level/level.hpp"
+#include "engine/scripting/scripting.hpp"
+#include "engine/spatial/spatial.hpp"
 
 #include "dialog_components.hpp"
 #include "dialog_runtime.hpp"

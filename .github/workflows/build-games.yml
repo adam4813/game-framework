@@ -16,7 +16,6 @@ on:
 
 env:
   EM-VERSION: '4.0.10'
-  VCPKG-COMMIT: 'dd3097e305afa53f7b4312371f62058d2e665320'
 
 jobs:
   discover:
@@ -79,7 +78,6 @@ jobs:
         uses: $/.github/actions/setup-environment
         with:
           em-version: ${{ env.EM-VERSION }}
-          vcpkg-commit: ${{ env.VCPKG-COMMIT }}
           target: ${{ matrix.target }}
 
       - name: Configure

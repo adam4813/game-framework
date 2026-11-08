@@ -119,6 +119,10 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **Game logic reads input through the engine**: `InputState`, and in a game its action layer (key bindings
   mapped to game actions), never raw key codes in logic.
 - **Includes point one way**: engine code never includes game code; game code includes `engine/engine.hpp`.
+- **Engine code includes a module through its index header**, `engine/<module>/<module>.hpp`
+  (`engine/graph/graph.hpp`), never `engine/engine.hpp`, and only the modules it uses. A header includes what it
+  names, so it compiles on its own: one that relies on an earlier include of another module breaks the first time it
+  is included first. Files inside a module include their siblings directly (`"dialog_components.hpp"`).
 
 ## Code style
 

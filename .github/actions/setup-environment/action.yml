@@ -10,9 +10,9 @@ inputs:
     required: false
     default: '4.0.10'
   vcpkg-commit:
-    description: 'vcpkg Git commit ID to use'
+    description: "vcpkg Git commit ID override. Empty (default) uses vcpkg.json's builtin-baseline."
     required: false
-    default: 'dd3097e305afa53f7b4312371f62058d2e665320'
+    default: ''
 
 runs:
   using: 'composite'
@@ -36,6 +36,11 @@ runs:
           libgl1-mesa-dev \
           libglu1-mesa-dev \
           libltdl-dev \
+          autoconf \
+          autoconf-archive \
+          automake \
+          libtool \
+          libwayland-dev \
           xvfb \
           xorg-dev
 
@@ -52,7 +57,18 @@ runs:
       with:
         version: ${{ inputs.em-version }}
 
+    - name: Resolve vcpkg commit
+      id: vcpkg
+      shell: bash
+      run: |
+        commit='${{ inputs.vcpkg-commit }}'
+        if [ -z "$commit" ]; then
+          commit=$(sed -n 's/.*"builtin-baseline"[[:space:]]*:[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' vcpkg.json)
+        fi
+        [ -n "$commit" ] || { echo "no vcpkg commit: set the input or builtin-baseline in vcpkg.json" >&2; exit 1; }
+        echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
     - name: Restore artifacts, or run vcpkg, build and cache artifacts
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: ${{ inputs.vcpkg-commit }}
+        vcpkgGitCommitId: ${{ steps.vcpkg.outputs.commit }}

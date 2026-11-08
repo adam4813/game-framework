@@ -33,6 +33,20 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
   `main`, so feature and game branches get no CI. Before calling work done, build the
   `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` yourself.
 
+## vcpkg baseline
+
+`vcpkg.json` `builtin-baseline` is the single source of truth; CI reads it. When changing the vcpkg commit:
+
+1. Check out the target tag in `$VCPKG_ROOT` and re-run `bootstrap-vcpkg`.
+2. Set `builtin-baseline` in `vcpkg.json`.
+3. Find every other copy of the old commit (`git grep <old-sha>`) and update it. Expect `README.md`; the workflows and
+   the `setup-environment` action should hold none, since they default to `vcpkg.json`. A copy there is an
+   intentional override (e.g. a game needing a different commit), so keep it and say why in a comment.
+4. Rebuild and run `ctest --preset desktop-test-release`.
+
+A bump can move other ports (flecs 4.1.0 → 4.1.6 dropped `singleton()`), so keep `overrides` in `vcpkg.json` for
+anything the engine isn't migrated to yet. Docs under `docs/research/` cite historical baselines on purpose; leave them.
+
 ## Git
 
 - Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file.

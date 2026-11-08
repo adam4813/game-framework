@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <cstring>
 
 namespace engine::scripting::angelscript {
 
@@ -424,7 +425,7 @@ void AngelScriptBackend::ComponentGetRefGeneric(asIScriptGeneric* gen) {
 	if (ptr == nullptr) {
 		spdlog::warn(
 			"[AngelScript] GetT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
-			host.name(),
+			host.name().c_str(),
 			component_id
 		);
 	}
@@ -463,7 +464,7 @@ void AngelScriptBackend::ComponentGetMutRefGeneric(asIScriptGeneric* gen) {
 	if (ptr == nullptr) {
 		spdlog::warn(
 			"[AngelScript] MutT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
-			host.name(),
+			host.name().c_str(),
 			component_id
 		);
 	}
@@ -504,7 +505,7 @@ void AngelScriptBackend::ComponentGetConstRefGeneric(asIScriptGeneric* gen) {
 	if (ptr == nullptr) {
 		spdlog::warn(
 			"[AngelScript] GetT (const): entity '{}' does not have component id {}; returning null handle",
-			host.name(),
+			host.name().c_str(),
 			component_id
 		);
 	}

@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 
 #include "dialog_components.hpp"
+#include "engine/graph/graph.hpp"
 
 namespace engine::dialog {
 

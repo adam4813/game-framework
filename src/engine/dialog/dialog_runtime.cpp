@@ -5,7 +5,8 @@
 
 #include <spdlog/spdlog.h>
 
-#include "engine/engine.hpp"
+#include "engine/graph/graph.hpp"
+#include "engine/scene/scene.hpp"
 
 #include "dialog_components.hpp"
 

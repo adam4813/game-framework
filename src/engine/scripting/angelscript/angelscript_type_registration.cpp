@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 
 #include <string>
+#include <cstring>
 
 namespace engine::scripting::angelscript {
 

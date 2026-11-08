@@ -7,7 +7,7 @@ clicks, steam hiss, stamp thud) through the engine's `Platform` abstraction, on 
 
 **Date:** 2026-10-17. **Pinned versions:** raylib **5.5** (vcpkg port `raylib` 5.5 port-version 1, feature `audio`),
 with miniaudio **0.11.22** de-vendored from the vcpkg `miniaudio` port, under `builtin-baseline`
-`dd3097e305afa53f7b4312371f62058d2e665320`. Both versions confirmed from the installed `vcpkg.spdx.json` files in
+`9eec002df1cd109f8f104cd966a763daf9751489`. Both versions confirmed from the installed `vcpkg.spdx.json` files in
 `build/desktop` and `build/wasm`, and from `RAYLIB_VERSION "5.5"` / `MA_VERSION_REVISION 22` in the installed headers.
 
 Source keys used below:
