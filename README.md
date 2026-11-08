@@ -218,8 +218,10 @@ Quick reference:
 - `src/engine/engine_context.cpp` — bootstraps all modules in dependency order
 - `src/engine/app/` — frame loop and startup
 - `games/sandbox/` — the Sandbox: engine demonstration scenes
-- `games/<name>/` — one Game Target per game (its own `CMakeLists.txt`, `src/`, `tests/`, spec and ADRs)
-- `assets/` — game content (JSON configs, models, textures, sounds)
+- `games/<name>/` — one Game Target per game (its own `CMakeLists.txt`, `src/`, `tests/`, `assets/`, spec and ADRs)
+- `assets/` — content shared by every Game Target (JSON configs, models, textures, sounds). A game's own
+  `games/<name>/assets/` is layered over it at build time, so both resolve under the same runtime asset
+  directory; `setup_game_target(<target> ROOT_ASSETS shaders config)` copies only those root folders
 - `build/` — build output (generated, git-ignored)
 - `tools/` — build and debugging utilities (e.g., Flecs scripting, CI helpers)
 - `docs/` — **[framework documentation](docs/README.md)** (start here for architecture details)
@@ -318,10 +320,11 @@ If you're starting a new game:
 1. **Read the framework docs** — start with `docs/README.md` and `docs/architecture.md`
 2. **Familiarize with the ECS** — study `docs/ecs-components.md` and existing module READMEs
 3. **Add your Game Target** — create `games/<name>/` (`CMakeLists.txt` calling
-   `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper) and add
-   `add_subdirectory(games/<name>)` to the root `CMakeLists.txt`
+   `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper,
+   optionally `assets/`); the root `CMakeLists.txt` picks up every `games/*/CMakeLists.txt` on its own
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
-5. **Define your data** — game content goes in JSON configs under `assets/`
+5. **Define your data** — game-specific content goes in JSON configs under `games/<name>/assets/`; content
+   more than one game uses goes under the root `assets/`
 
 ## Scene Equivalence Test
 
