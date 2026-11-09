@@ -367,7 +367,7 @@ static ShapeConfig MakeShapeConfig(const CollisionShape& shape) {
 	return cfg;
 }
 
-// Builds (or reuses) the static mesh shape for a model file, then applies the authored offset. Logs one error and
+// Builds (or reuses) the static mesh shape for a model file, unplaced (see PlaceShape). Logs one error and
 // returns null when the body can't be a mesh: not static, file unreadable, or no triangles.
 static JPH::ShapeRefC BuildMeshShape(
 	MeshShapeCache& cache,
@@ -410,11 +410,18 @@ static JPH::ShapeRefC BuildMeshShape(
 		cache.shapes.emplace(shape.mesh_path, mesh);
 	}
 
-	if (shape.offset == glm::vec3{0.0F}) return mesh;
+	return mesh;
+}
+
+// Places a rigid body's shape at its authored offset and rotation from the entity origin, so the body's position stays
+// the entity's. Characters apply their own offset instead (CharacterRecord::shape_offset).
+static JPH::ShapeRefC PlaceShape(const JPH::ShapeRefC& shape_ref, const CollisionShape& shape) {
+	const bool identity_rotation = shape.rotation == glm::quat{1.0F, 0.0F, 0.0F, 0.0F};
+	if (shape.offset == glm::vec3{0.0F} && identity_rotation) return shape_ref;
 	return JPH::RotatedTranslatedShapeSettings(
 			   JPH::Vec3(shape.offset.x, shape.offset.y, shape.offset.z),
-			   JPH::Quat::sIdentity(),
-			   mesh
+			   JPH::Quat(shape.rotation.x, shape.rotation.y, shape.rotation.z, shape.rotation.w),
+			   shape_ref
 	)
 		.Create()
 		.Get();
@@ -448,6 +455,7 @@ void JoltBackend::SyncBodyToBackend(
 			return;
 		}
 	}
+	jolt_shape = PlaceShape(jolt_shape, shape);
 
 	auto& body_interface = physics_system_->GetBodyInterface();
 
