@@ -25,6 +25,7 @@
 #include "engine/audio/synth_source.hpp"
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
+#include "engine/platform/gltf_materials.hpp"
 #include "engine/platform/imgui/imgui_debug_ui.hpp"
 #include "engine/platform/raylib/rl_imgui.hpp"
 #include "engine/platform/render_batch.hpp"
@@ -114,6 +115,9 @@ void SynthTrampoline(void* buffer, const unsigned int frames) {
 std::vector<Model> g_models;
 // Maps canonical path → model handle.
 std::unordered_map<std::string, int> g_model_paths;
+// Per model handle, the glTF doubleSided flag of each raylib material (index 0 is raylib's default material, always
+// false; index i + 1 is glTF material i). Empty for a model that isn't glTF.
+std::vector<std::vector<bool>> g_model_double_sided;
 
 // Skeletal animation sets (all clips of one model file), indexed by the handle LoadSkeletalAnimationSet returns.
 // raylib resamples every clip to a fixed 17 ms frame step, so a clip's length is frameCount * kSkeletalFrameSeconds.
@@ -388,14 +392,64 @@ Matrix ToRayMatrix(const glm::mat4& m) {
 	return r;
 }
 
-void DrawMeshWithMaterial(const Mesh& mesh, const Material& material, const glm::mat4& model, const bool wireframe) {
-	if (wireframe) {
-		rlEnableWireMode();
+// Sets raylib's raster state for the draws inside its scope: wire mode, and back-face culling off for a double-sided
+// material. It restores the defaults (filled, back faces culled) when it leaves scope. rlgl queues immediate-mode
+// geometry, so it flushes on each change to bracket exactly the geometry drawn inside. With neither flag set it does
+// nothing, so the default draw path pays nothing.
+//
+// Pass `Flush::No` around a raw rlgl draw that has bound its own shader (the instanced path): nothing is queued
+// there, and a flush draws through the default shader and leaves no program bound.
+class RasterScope {
+public:
+	enum class Flush : uint8_t { Yes, No };
+
+	RasterScope(const bool wireframe, const bool double_sided, const Flush flush = Flush::Yes)
+		: wireframe(wireframe), doubleSided(double_sided), flush(flush == Flush::Yes) {
+		if (!wireframe && !double_sided) {
+			return;
+		}
+		if (this->flush) {
+			rlDrawRenderBatchActive();
+		}
+		if (wireframe) {
+			rlEnableWireMode();
+		}
+		if (double_sided) {
+			rlDisableBackfaceCulling();
+		}
 	}
+	~RasterScope() {
+		if (!wireframe && !doubleSided) {
+			return;
+		}
+		if (flush) {
+			rlDrawRenderBatchActive();
+		}
+		if (wireframe) {
+			rlDisableWireMode();
+		}
+		if (doubleSided) {
+			rlEnableBackfaceCulling();
+		}
+	}
+	RasterScope(const RasterScope&) = delete;
+	RasterScope& operator=(const RasterScope&) = delete;
+
+private:
+	bool wireframe;
+	bool doubleSided;
+	bool flush;
+};
+
+void DrawMeshWithMaterial(
+	const Mesh& mesh,
+	const Material& material,
+	const glm::mat4& model,
+	const bool wireframe,
+	const bool double_sided
+) {
+	const RasterScope raster{wireframe, double_sided};
 	::DrawMesh(mesh, material, ToRayMatrix(model));
-	if (wireframe) {
-		rlDisableWireMode();
-	}
 }
 
 // Projects world-space geometry onto the plane y = ground along the light direction `l`.
@@ -680,6 +734,20 @@ DrawMaterial WithAuthoredColor(const DrawMaterial& material, const Model& model,
 	return result;
 }
 
+// `material` for mesh `i` of loaded model `handle`, made double-sided when that mesh's glTF material is.
+DrawMaterial WithMeshDoubleSided(const DrawMaterial& material, const int handle, const Model& model, const int i) {
+	DrawMaterial result = material;
+	if (model.meshMaterial == nullptr) {
+		return result;
+	}
+	const std::vector<bool>& flags = g_model_double_sided[static_cast<size_t>(handle)];
+	const int index = model.meshMaterial[i];
+	if (index >= 0 && index < static_cast<int>(flags.size()) && flags[static_cast<size_t>(index)]) {
+		result.double_sided = true;
+	}
+	return result;
+}
+
 // Draws a cached mesh with the lit material, then an optional planar projected shadow.
 void DrawLitMeshWithFallbackTexture(
 	LitState& lit,
@@ -703,17 +771,18 @@ void DrawLitMeshWithFallbackTexture(
 	SetShaderValue(lit.shader, lit.loc_unlit, &unlit, SHADER_UNIFORM_FLOAT);
 
 	if (wireframe) {
-		DrawMeshWithMaterial(mesh, lit.material, model, true);
+		DrawMeshWithMaterial(mesh, lit.material, model, true, material.double_sided);
 		return;
 	}
 
-	DrawMeshWithMaterial(mesh, lit.material, model, false);
+	DrawMeshWithMaterial(mesh, lit.material, model, false, material.double_sided);
 
 	if (cast_shadow && lit.shadows_enabled) {
 		const glm::mat4 shadow_model = lit.shadow_matrix * model;
 		SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
 		rlDisableDepthMask(); // shadows blend without fighting the receiver's depth
-		DrawMeshWithMaterial(mesh, lit.material, shadow_model, false);
+		// Culled even for a double-sided material: the flattened shadow needs no back faces, and both would double-blend.
+		DrawMeshWithMaterial(mesh, lit.material, shadow_model, false, false);
 		rlEnableDepthMask();
 		SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 	}
@@ -738,7 +807,7 @@ bool DrawCustomMesh(
 	entry->material.maps[MATERIAL_MAP_DIFFUSE].texture =
 		ResolveTextureHandle(material.texture, fallback_texture.id != 0 ? fallback_texture : entry->white);
 	ApplyOcclusionFade(*entry, material.fade_transparent);
-	DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
+	DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe, material.double_sided);
 	return true;
 }
 
@@ -747,7 +816,7 @@ bool DrawCustomMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(material.tint);
 		entry->material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(material.texture, entry->white);
 		ApplyOcclusionFade(*entry, material.fade_transparent);
-		DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe);
+		DrawMeshWithMaterial(mesh, entry->material, model, material.wireframe, material.double_sided);
 		return true;
 	}
 	return false;
@@ -961,7 +1030,10 @@ int DrawInstancedGroup(
 		rlDisableVertexArray();
 	};
 
-	issue();
+	{
+		const RasterScope raster{false, material.double_sided, RasterScope::Flush::No};
+		issue();
+	}
 	int draws = 1;
 
 	if (material.cast_shadow && g_lit.shadows_enabled) {
@@ -1042,6 +1114,7 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_models.clear();
+	g_model_double_sided.clear();
 	for (SkeletalSet& set : g_skeletal_sets) {
 		if (set.clips != nullptr) {
 			::UnloadModelAnimations(set.clips, set.count);
@@ -1440,6 +1513,7 @@ void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, c
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
+	const RasterScope raster{false, material.double_sided};
 	if (material.wireframe) {
 		DrawCubeWiresV(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, ToRay(size), ToRay(material.tint));
 	}
@@ -1460,6 +1534,7 @@ void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, c
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
+	const RasterScope raster{false, material.double_sided};
 	if (material.wireframe) {
 		DrawSphereWires(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, radius, 16, 16, ToRay(material.tint));
 	}
@@ -1480,6 +1555,7 @@ void RaylibBackend::DrawQuad(const glm::mat4& transform, const glm::vec2 size, c
 	}
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
+	const RasterScope raster{false, material.double_sided};
 	if (material.wireframe) {
 		const float hx = size.x * 0.5F;
 		const float hz = size.y * 0.5F;
@@ -1531,6 +1607,7 @@ void RaylibBackend::DrawCapsule(
 	const Vector3 end{.x = 0.0F, .y = half, .z = 0.0F};
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
+	const RasterScope raster{false, material.double_sided};
 	if (material.wireframe) {
 		DrawCapsuleWires(start, end, radius, 16, 8, ToRay(material.tint));
 	}
@@ -1554,8 +1631,8 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 		};
 
 		if (ResolveCustomShaderEntry(material.shader) != nullptr) {
-			draw_meshes([&](const Mesh& mesh, const Texture2D& fallback, int) {
-				DrawCustomMesh(mesh, transform, material, fallback);
+			draw_meshes([&](const Mesh& mesh, const Texture2D& fallback, const int i) {
+				DrawCustomMesh(mesh, transform, WithMeshDoubleSided(material, handle, model, i), fallback);
 			});
 			return;
 		}
@@ -1564,7 +1641,9 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &off, SHADER_UNIFORM_FLOAT);
 
 		draw_meshes([&](const Mesh& mesh, const Texture2D& fallback, const int i) {
-			DrawLitMeshWithFallbackTexture(g_lit, mesh, transform, WithAuthoredColor(material, model, i), fallback);
+			DrawLitMeshWithFallbackTexture(
+				g_lit, mesh, transform, WithMeshDoubleSided(WithAuthoredColor(material, model, i), handle, model, i), fallback
+			);
 		});
 		return;
 	}
@@ -1579,12 +1658,12 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 	}
 
 	model.transform = ToRayMatrix(transform);
-	if (material.wireframe) {
-		rlEnableWireMode();
-	}
-	DrawModel(model, Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, 1.0F, ToRay(material.tint));
-	if (material.wireframe) {
-		rlDisableWireMode();
+	{
+		// DrawModel draws every mesh in one call, so one double-sided glTF material makes the whole model double-sided.
+		const std::vector<bool>& flags = g_model_double_sided[static_cast<size_t>(handle)];
+		const bool double_sided = material.double_sided || std::ranges::find(flags, true) != flags.end();
+		const RasterScope raster{material.wireframe, double_sided};
+		DrawModel(model, Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, 1.0F, ToRay(material.tint));
 	}
 	model.transform = ToRayMatrix(glm::mat4(1.0f));
 	if (restore_texture) {
@@ -1675,8 +1754,15 @@ int RaylibBackend::LoadMesh(const std::string_view path) {
 			model.materials[i].shader = g_lit.shader;
 		}
 	}
+	// raylib's material i + 1 is glTF material i; its material 0 is a default that no glTF material maps to.
+	std::vector<bool> double_sided;
+	if (const std::string ext = std::filesystem::path(key).extension().string(); ext == ".glb" || ext == ".gltf") {
+		double_sided = LoadGltfDoubleSidedMaterials(key);
+		double_sided.insert(double_sided.begin(), false);
+	}
 	const int handle = static_cast<int>(g_models.size());
 	g_models.push_back(model);
+	g_model_double_sided.push_back(std::move(double_sided));
 	g_model_paths[key] = handle;
 	return handle;
 }
@@ -1805,11 +1891,8 @@ void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform
 
 	rlPushMatrix();
 	rlMultMatrixf(glm::value_ptr(transform));
-	if (material.wireframe) {
-		rlEnableWireMode();
-	}
-
 	{
+		const RasterScope raster{material.wireframe, material.double_sided};
 		// Immediate-mode fallback when shaders haven't been initialised yet
 		for (int i = 0; i < mesh.triangleCount; i++) {
 			rlBegin(RL_TRIANGLES);
@@ -1830,10 +1913,6 @@ void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform
 			}
 			rlEnd();
 		}
-	}
-
-	if (material.wireframe) {
-		rlDisableWireMode();
 	}
 	rlPopMatrix();
 }
@@ -2036,6 +2115,7 @@ void RaylibBackend::UnloadMesh(const int handle) {
 	}
 	::UnloadModel(model);
 	model.meshCount = 0;
+	g_model_double_sided[static_cast<std::size_t>(handle)].clear();
 	std::erase_if(g_model_paths, [handle](const auto& kv) { return kv.second == handle; });
 }
 
@@ -2131,7 +2211,11 @@ void RaylibBackend::DrawSkinnedMesh(
 		// A mesh with no bones (a static node in the same file) draws through the ordinary lit program.
 		LitState& lit = m.boneMatrices != nullptr ? g_skin : g_lit;
 		DrawLitMeshWithFallbackTexture(
-			lit, m, transform, WithAuthoredColor(material, model, i), MeshFallbackTexture(model, i)
+			lit,
+			m,
+			transform,
+			WithMeshDoubleSided(WithAuthoredColor(material, model, i), mesh, model, i),
+			MeshFallbackTexture(model, i)
 		);
 	}
 }

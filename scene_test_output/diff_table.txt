@@ -133,6 +133,7 @@
 | TestMaterial#Material.color.b                   | 50                      | 50                      | 50                      | [MATCH]     |
 | TestMaterial#Material.color.g                   | 100                     | 100                     | 100                     | [MATCH]     |
 | TestMaterial#Material.color.r                   | 200                     | 200                     | 200                     | [MATCH]     |
+| TestMaterial#Material.double_sided              | true                    | true                    | true                    | [MATCH]     |
 | TestMaterial#Material.unlit                     | false                   | false                   | false                   | [MATCH]     |
 | TestMaterial#Material.wireframe                 | false                   | false                   | false                   | [MATCH]     |
 | TestMesh#MeshPrimitive.path                     | ./models/cube.glb       | ./models/cube.glb       | ./models/cube.glb       | [MATCH]     |
@@ -260,6 +261,7 @@
 | TestTilemapAtlas#Material.color.b               | 255                     | 255                     | 255                     | [MATCH]     |
 | TestTilemapAtlas#Material.color.g               | 255                     | 255                     | 255                     | [MATCH]     |
 | TestTilemapAtlas#Material.color.r               | 255                     | 255                     | 255                     | [MATCH]     |
+| TestTilemapAtlas#Material.double_sided          | false                   | false                   | false                   | [MATCH]     |
 | TestTilemapAtlas#Material.unlit                 | false                   | false                   | false                   | [MATCH]     |
 | TestTilemapAtlas#Material.wireframe             | false                   | false                   | false                   | [MATCH]     |
 | TestTilemapAtlas#SpriteAtlas.image_height_px    | 128                     | 128                     | 128                     | [MATCH]     |

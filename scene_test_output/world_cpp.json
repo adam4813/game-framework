@@ -424,6 +424,7 @@
             "g": 100,
             "r": 200
           },
+          "double_sided": true,
           "unlit": false,
           "wireframe": false
         }
@@ -856,6 +857,7 @@
             "g": 255,
             "r": 255
           },
+          "double_sided": false,
           "unlit": false,
           "wireframe": false
         },

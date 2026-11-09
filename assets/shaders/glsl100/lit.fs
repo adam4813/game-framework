@@ -45,6 +45,9 @@ void main() {
 	}
 
 	vec3 normal = normalize(fragNormal);
+	// A back face is only rasterized for a double-sided material (culled draws never reach here). It carries its
+	// front face's normal, so flip it to light the side the camera sees.
+	if (!gl_FrontFacing) normal = -normal;
 	vec3 l = normalize(-lightDir);
 
 	float diff = max(dot(normal, l), 0.0);

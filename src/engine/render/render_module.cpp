@@ -75,6 +75,7 @@ platform::DrawMaterial MakeDrawMaterial(const flecs::entity mat_e) {
 		.wireframe = mat->wireframe,
 		.cast_shadow = mat->cast_shadow,
 		.unlit = mat->unlit,
+		.double_sided = mat->double_sided,
 	};
 }
 
@@ -180,6 +181,7 @@ platform::DrawMaterial MaterialFromColumns(const Material* mat, const AlbedoMap*
 		.wireframe = mat->wireframe,
 		.cast_shadow = mat->cast_shadow,
 		.unlit = mat->unlit,
+		.double_sided = mat->double_sided,
 	};
 }
 
@@ -350,6 +352,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		m.wireframe = j.value("wireframe", m.wireframe);
 		m.cast_shadow = j.value("cast_shadow", m.cast_shadow);
 		m.unlit = j.value("unlit", m.unlit);
+		m.double_sided = j.value("double_sided", m.double_sided);
 		e.set<Material>(m);
 	});
 	level::RegisterComponentLoader(world, "albedo", [](const flecs::entity e, const json& j) {
@@ -483,6 +486,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<bool>("wireframe")
 		.member<bool>("cast_shadow")
 		.member<bool>("unlit")
+		.member<bool>("double_sided")
 		.add<scripting::ScriptTraversal>(world.component<RenderWith>());
 	world.component<AlbedoMap>().member<std::string>("path").member<int>("handle").add<scripting::ScriptTraversal>(
 		world.component<RenderWith>()

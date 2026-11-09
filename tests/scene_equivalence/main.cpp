@@ -605,6 +605,7 @@ json BuildCppWorld() {
 			.color = {.r = 200, .g = 100, .b = 50, .a = 255},
 			.wireframe = false,
 			.cast_shadow = true,
+			.double_sided = true,
 		});
 
 	test_world.World()
