@@ -108,7 +108,7 @@ InputModule::InputModule(const flecs::world& world) {
 
 	// === SYSTEM: Poll input from platform each frame ===
 	// Updates the InputState singleton with current keyboard and mouse input
-	world.system("InputPoll").kind(flecs::PreUpdate).write<InputState>().run([](const flecs::iter& it) {
+	world.system("InputPoll").kind(flecs::OnLoad).write<InputState>().run([](const flecs::iter& it) {
 		auto& input_state = it.world().get_mut<InputState>();
 		auto& keys = input_state.keys;
 		auto& mouse = input_state.mouse;
@@ -117,7 +117,8 @@ InputModule::InputModule(const flecs::world& world) {
 		// so the game doesn't also act on it. Mouse position still flows for hover/picking.
 		const auto& debug_ui = platform.ptr->GetDebugUi();
 		const bool keyboard_free = !debug_ui.CapturesKeyboard();
-		const bool mouse_free = !debug_ui.CapturesMouse();
+		// A locked cursor is hidden, so it can't be over a panel: the mouse gate would only zero the look delta.
+		const bool mouse_free = platform.ptr->IsCursorLocked() || !debug_ui.CapturesMouse();
 
 		// Poll keyboard input; keys the KeyOverride holds count as physically down.
 		const auto overridden = OverrideKeys(it.world().get<KeyOverride>());

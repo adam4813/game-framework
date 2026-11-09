@@ -114,9 +114,9 @@ KeyCode::Backspace, KeyCode::Delete, KeyCode::Pause, KeyCode::PrintScreen
 
 ## Systems
 
-### `InputPoll` (PreUpdate)
+### `InputPoll` (OnLoad)
 
-Runs before game logic each frame. Polls input from the platform layer and updates the InputState singleton with current
+Runs first in the frame, so a game can sample input in `PostLoad` and act on it in `PreUpdate`. Polls input from the platform layer and updates the InputState singleton with current
 keyboard and mouse state.
 
 **What it does:**
@@ -126,6 +126,12 @@ keyboard and mouse state.
 - Tracks "pressed" events (transitions from up to down)
 - Updates mouse position and delta
 - Updates scroll wheel state
+
+**Cursor lock:** `Platform::SetCursorLocked(bool)` hides and captures the cursor for mouselook, and `IsCursorLocked()`
+reports it. Nothing locks it by default. While locked, `mouse.relative` carries raw relative motion (canvas-scaled) and
+the debug UI's mouse-capture gate is skipped, so buttons, delta and scroll flow even with a panel open under the hidden
+cursor. Check `IsCursorLocked()` rather than assuming: the browser drops the lock on Esc. Web caveats: raylib keeps
+only the last `mousemove` per frame, and Firefox may defer the lock to the next click.
 
 ### `InputResetFrameState` (PostUpdate)
 

@@ -1064,6 +1064,19 @@ glm::vec2 RaylibBackend::MouseDelta() const {
 	return glm::vec2{x * raw.x, y * raw.y} * CanvasPerWindowPixel();
 }
 
+void RaylibBackend::SetCursorLocked(const bool locked) {
+	if (locked) {
+		DisableCursor();
+	} else {
+		EnableCursor();
+	}
+}
+
+// Asks raylib rather than caching the request: the browser drops the pointer lock on Esc.
+bool RaylibBackend::IsCursorLocked() const {
+	return IsCursorHidden();
+}
+
 glm::vec2 RaylibBackend::MouseWheel() const {
 	const auto [x, y] = GetMouseWheelMoveV();
 	return glm::vec2{x, y};
