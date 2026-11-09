@@ -656,6 +656,30 @@ Texture2D MeshFallbackTexture(const Model& model, const int i) {
 	return g_lit.white;
 }
 
+// `material` with its tint multiplied by the base color model mesh `i` was authored with (a glTF
+// baseColorFactor), so an untextured model keeps its own colors under the entity's tint. White (the
+// default Material color) leaves the authored colors untouched.
+DrawMaterial WithAuthoredColor(const DrawMaterial& material, const Model& model, const int i) {
+	DrawMaterial result = material;
+	if (model.meshMaterial == nullptr
+		|| model.materials == nullptr
+		|| model.meshMaterial[i] < 0
+		|| model.meshMaterial[i] >= model.materialCount) {
+		return result;
+	}
+	const Color authored = model.materials[model.meshMaterial[i]].maps[MATERIAL_MAP_DIFFUSE].color;
+	const auto modulate = [](const uint8_t tint, const uint8_t base) {
+		return static_cast<uint8_t>(static_cast<int>(tint) * static_cast<int>(base) / 255);
+	};
+	result.tint = {
+		.r = modulate(material.tint.r, authored.r),
+		.g = modulate(material.tint.g, authored.g),
+		.b = modulate(material.tint.b, authored.b),
+		.a = modulate(material.tint.a, authored.a),
+	};
+	return result;
+}
+
 // Draws a cached mesh with the lit material, then an optional planar projected shadow.
 void DrawLitMeshWithFallbackTexture(
 	LitState& lit,
@@ -1525,12 +1549,12 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 	if (ResolveCustomShaderEntry(material.shader) != nullptr || g_lit.ready) {
 		auto draw_meshes = [&](auto&& draw_fn) {
 			for (int i = 0; i < model.meshCount; ++i) {
-				draw_fn(model.meshes[i], MeshFallbackTexture(model, i));
+				draw_fn(model.meshes[i], MeshFallbackTexture(model, i), i);
 			}
 		};
 
 		if (ResolveCustomShaderEntry(material.shader) != nullptr) {
-			draw_meshes([&](const Mesh& mesh, const Texture2D& fallback) {
+			draw_meshes([&](const Mesh& mesh, const Texture2D& fallback, int) {
 				DrawCustomMesh(mesh, transform, material, fallback);
 			});
 			return;
@@ -1539,8 +1563,8 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 		constexpr float off = 0.0f;
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &off, SHADER_UNIFORM_FLOAT);
 
-		draw_meshes([&](const Mesh& mesh, const Texture2D& fallback) {
-			DrawLitMeshWithFallbackTexture(g_lit, mesh, transform, material, fallback);
+		draw_meshes([&](const Mesh& mesh, const Texture2D& fallback, const int i) {
+			DrawLitMeshWithFallbackTexture(g_lit, mesh, transform, WithAuthoredColor(material, model, i), fallback);
 		});
 		return;
 	}
@@ -2106,7 +2130,9 @@ void RaylibBackend::DrawSkinnedMesh(
 		const Mesh& m = model.meshes[i];
 		// A mesh with no bones (a static node in the same file) draws through the ordinary lit program.
 		LitState& lit = m.boneMatrices != nullptr ? g_skin : g_lit;
-		DrawLitMeshWithFallbackTexture(lit, m, transform, material, MeshFallbackTexture(model, i));
+		DrawLitMeshWithFallbackTexture(
+			lit, m, transform, WithAuthoredColor(material, model, i), MeshFallbackTexture(model, i)
+		);
 	}
 }
 
