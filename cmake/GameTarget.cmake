@@ -24,22 +24,27 @@ function(setup_game_target target)
     if (ARG_ROOT_ASSETS)
         foreach (dir IN LISTS ARG_ROOT_ASSETS)
             list(APPEND ASSET_COPY_COMMANDS
-                COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets/${dir} <dest>/${dir})
+                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/${dir} <dest>/${dir})
         endforeach ()
     else ()
-        list(APPEND ASSET_COPY_COMMANDS COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets <dest>)
+        list(APPEND ASSET_COPY_COMMANDS
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets <dest>)
     endif ()
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets AND NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
         list(APPEND ASSET_COPY_COMMANDS
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/assets <dest>)
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_CURRENT_SOURCE_DIR}/assets <dest>)
     endif ()
 
     if (NOT EMSCRIPTEN)
+        # An always-run target rather than a POST_BUILD step: POST_BUILD runs only when the executable relinks, so an
+        # edited level, shader or model stayed stale until some C++ changed. copy_directory_if_different keeps an
+        # unchanged tree cheap.
         list(TRANSFORM ASSET_COPY_COMMANDS REPLACE "<dest>" "$<TARGET_FILE_DIR:${target}>/assets")
-        add_custom_command(TARGET ${target} POST_BUILD
+        add_custom_target(${target}_assets ALL
             ${ASSET_COPY_COMMANDS}
             COMMENT "Copying assets to ${target} build directory"
         )
+        add_dependencies(${target} ${target}_assets)
         return()
     endif ()
 
