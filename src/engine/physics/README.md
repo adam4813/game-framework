@@ -56,9 +56,10 @@ node's transform applied (so a multi-node `.glb` comes out assembled):
 "collision_shape": { "type": "mesh", "mesh_path": "models/room.glb" }
 ```
 
-- `mesh_path` is read only when `type` is `mesh`. Level JSON resolves it against the asset directory, so a level can
-  use the same string for `mesh` and `collision_shape`. C++ and script authors pass an already-resolved path
-  (`assets::ResolveAsset`).
+- `mesh_path` is read only when `type` is `mesh`. Level JSON resolves it against the asset directory with
+  `assets::ResolveAsset` (`engine/assets/assets.hpp`, the same call `MeshPrimitive` uses), so a level can use the same
+  string for `mesh` and `collision_shape`. C++ and script authors pass a path in the form `ResolveAsset` produces; the
+  collider does not resolve it again.
 - **Static bodies only.** A mesh on a dynamic or kinematic body logs an error and creates no body.
 - A missing or unreadable file, or one with zero triangles, logs one error naming the entity and path and creates no
   body. A `convex_hull` shape has no vertex source yet, so it logs instead of becoming a box.
