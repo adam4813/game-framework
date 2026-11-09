@@ -1,3 +1,4 @@
+#include "crash_visibility.hpp"
 #include "null_platform.hpp"
 #include "scene_data.hpp"
 
@@ -967,6 +968,7 @@ json BuildScriptWorld() {
 } // namespace
 
 int main(const int argc, char** argv) {
+	test_support::InstallCrashVisibility();
 	try {
 		spdlog::set_level(spdlog::level::trace);
 

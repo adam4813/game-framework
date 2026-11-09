@@ -59,6 +59,21 @@ Target names its own. Flecs asserts and errors go there too, tagged `[Flecs]`.
 - `NullPlatform` (`tests/scene_equivalence/null_platform.hpp`) takes an asset directory, so headless loads resolve
   real asset files.
 
+## Crash tripwire
+
+A headless test or game that dies with no log line (Windows status `-1073740791`, or exit 127 for a missing exe) gets
+one round of bisecting: print or log before and after the suspect calls, then rebuild and run once. If the second
+round doesn't narrow it, **ask the user for a stack trace**: they run the Debug exe under Visual Studio or WinDbg and
+paste the call stack. No debugger is installed for the agent (`lldb` lacks `python311.dll`).
+
+- **Check the fixture first.** A duplicate sibling name in a level aborts Flecs silently; the loader now logs
+  `Duplicate entity name` and skips the second.
+- **Tests print their own crash reason.** `add_engine_test` executables and `scene_equivalence_test` call
+  `InstallCrashVisibility` (`tests/support/crash_visibility.hpp`): warnings flush immediately, uncaught exceptions
+  print, and the Windows crash and CRT assert dialogs are off, so a Debug run exits instead of waiting on the user.
+  A new test `main` calls it too.
+- **Don't relaunch a crashing exe unattended.** A game's Debug build still opens the crash dialog for the user.
+
 ## In-game overlays
 
 - **Backtick** toggles the ImGui debug UI: the Engine panel (FPS, entity count) plus any game panels.
