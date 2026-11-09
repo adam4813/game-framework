@@ -1,8 +1,5 @@
 #pragma once
 
-#include <algorithm>
-#include <span>
-
 #include <glm/glm.hpp>
 
 #include "engine/platform/platform.hpp"
@@ -17,23 +14,22 @@ struct PointLightSource {
 	glm::vec3 position{0.0F};
 };
 
-/// Packs `sources` into `params.point_lights` in order and sets `params.point_light_count`.
-/// Stops at `LightParams::kMaxPointLights`; returns how many sources it dropped.
-inline int PackPointLights(const std::span<const PointLightSource> sources, platform::LightParams& params) {
-	const int packed = static_cast<int>(std::min<std::size_t>(sources.size(), platform::LightParams::kMaxPointLights));
-	for (int i = 0; i < packed; ++i) {
-		const auto& [light, position] = sources[static_cast<std::size_t>(i)];
-		params.point_lights[static_cast<std::size_t>(i)] = {
-			.position = position,
-			.color = light.color,
-			.intensity = light.intensity,
-			.constant = light.constant,
-			.linear = light.linear,
-			.quadratic = light.quadratic,
-		};
+/// Appends `source` to `params.point_lights`, in call order. Returns false, leaving `params` untouched, when
+/// `LightParams::kMaxPointLights` are already packed (the light is dropped).
+inline bool AddPointLight(platform::LightParams& params, const PointLightSource& source) {
+	if (params.point_light_count >= platform::LightParams::kMaxPointLights) {
+		return false;
 	}
-	params.point_light_count = packed;
-	return static_cast<int>(sources.size()) - packed;
+	const auto& [light, position] = source;
+	params.point_lights[static_cast<std::size_t>(params.point_light_count++)] = {
+		.position = position,
+		.color = light.color,
+		.intensity = light.intensity,
+		.constant = light.constant,
+		.linear = light.linear,
+		.quadratic = light.quadratic,
+	};
+	return true;
 }
 
 } // namespace engine::render

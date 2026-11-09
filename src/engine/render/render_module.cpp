@@ -3,7 +3,6 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
-#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -460,6 +459,8 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<bool>("casts_shadows")
 		.member<float>("shadow_ground_y")
 		.member<core::Rgba>("shadow_color");
+	world.component<PointLightOverflowLog>();
+	world.set<PointLightOverflowLog>({});
 	world.component<PointLight>()
 		.member<core::Rgba>("color")
 		.member<float>("intensity")
@@ -681,19 +682,19 @@ RenderModule::RenderModule(const flecs::world& world) {
 							  params.ambient_color = al.color;
 							  params.ambient_intensity = al.intensity;
 						  }
-						  std::vector<PointLightSource> point_lights;
-						  point_light_query.each([&point_lights](const PointLight& pl, const spatial::WorldTransform& wt) {
-							  point_lights.push_back({.light = pl, .position = wt.position});
+						  int dropped = 0;
+						  point_light_query.each([&params, &dropped](const PointLight& pl, const spatial::WorldTransform& wt) {
+							  if (!AddPointLight(params, {.light = pl, .position = wt.position})) ++dropped;
 						  });
-						  // Warn once per scene, not per frame: the dropped count only changes on a scene change.
-						  static int last_dropped_warned = 0;
-						  if (const int dropped = PackPointLights(point_lights, params);
-							  dropped != last_dropped_warned) {
-							  last_dropped_warned = dropped;
+						  // Warn when the overflow first appears, not every frame; the count falls back to 0 (and
+						  // re-arms the warning) when the scene that overflowed goes away.
+						  auto& log = it.world().get_mut<PointLightOverflowLog>();
+						  if (dropped != log.warned_dropped) {
+							  log.warned_dropped = dropped;
 							  if (dropped > 0) {
 								  spdlog::warn(
 									  "[render] {} point lights in the scene; only the first {} are used",
-									  point_lights.size(),
+									  dropped + params.point_light_count,
 									  platform::LightParams::kMaxPointLights
 								  );
 							  }

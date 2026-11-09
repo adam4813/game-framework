@@ -106,6 +106,12 @@ struct PointLight {
 	float quadratic{0.032F};
 };
 
+// Singleton: how many point lights the last overflowing frame dropped, so RenderLightingUpload logs the overflow
+// once instead of every frame.
+struct PointLightOverflowLog {
+	int warned_dropped{0};
+};
+
 // Relationship: links a renderable entity to a dedicated material entity that carries Material,
 // optionally AlbedoMap, and optionally ShaderMap. Registered with flecs::Exclusive so each entity
 // can target at most one material at a time. Usage:

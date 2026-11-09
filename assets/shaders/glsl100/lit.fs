@@ -18,7 +18,7 @@ uniform vec3 viewPos;
 uniform float specularStrength;
 uniform float shininess;
 
-// Point lights (up to 4): world position, colour (rgb) * intensity in a, and attenuation as
+// Point lights (up to 4, LightParams::kMaxPointLights; keep the array sizes and loop bound in sync): world position, colour (rgb) * intensity in a, and attenuation as
 // (constant, linear, quadratic). Only the first pointCount entries are used.
 uniform vec3 pointPos[4];
 uniform vec4 pointColor[4];
