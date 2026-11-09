@@ -47,6 +47,16 @@ Legend:
 
 ---
 
+## animation
+
+| Component              | Meta fields                                                 | Status | Notes                                                                    |
+|------------------------|-------------------------------------------------------------|--------|--------------------------------------------------------------------------|
+| `SkeletalAnimationSet` | path(string), handle(int)                                   | ✅     | handle skipped (runtime); path compared                                  |
+| `AnimationPlayer`      | clip, clip_index, clip_duration, time, speed, loop, playing | ✅     | authored in all three paths; NullPlatform never binds it                 |
+| `SkeletalPose`         |                                                             | 🚫     | value struct passed to `Platform::DrawSkinnedMesh`, not a component      |
+
+---
+
 ## physics
 
 | Component                 | Meta fields                                             | Status | Notes                                                                 |

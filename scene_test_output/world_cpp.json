@@ -10,6 +10,25 @@
       "name": "TestAlbedo",
       "parent": "SceneRoot"
     },
+    "TestAnimated": {
+      "components": {
+        "AnimationPlayer": {
+          "clip": "Walk",
+          "clip_duration": 0,
+          "clip_index": -1,
+          "loop": false,
+          "playing": true,
+          "speed": 1.5,
+          "time": 0
+        },
+        "SkeletalAnimationSet": {
+          "handle": -1,
+          "path": "./models/character.glb"
+        }
+      },
+      "name": "TestAnimated",
+      "parent": "SceneRoot"
+    },
     "TestAudio": {
       "components": {
         "SoundEffect": {

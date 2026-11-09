@@ -674,6 +674,23 @@ json BuildCppWorld() {
 	test_world.World()
 		.entity()
 		.child_of(scene_root)
+		.set_name("TestAnimated")
+		.set<engine::animation::SkeletalAnimationSet>({
+			.path = engine::assets::ResolveAsset(test_world.World(), "models/character.glb"),
+		})
+		.set<engine::animation::AnimationPlayer>({
+			.clip = "Walk",
+			.clip_index = -1,
+			.clip_duration = 0.0F,
+			.time = 0.0F,
+			.speed = 1.5F,
+			.loop = false,
+			.playing = true,
+		});
+
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
 		.set_name("TestAlbedo")
 		.set<engine::render::AlbedoMap>({
 			.path = engine::assets::ResolveAsset(test_world.World(), "textures/checker.png"),

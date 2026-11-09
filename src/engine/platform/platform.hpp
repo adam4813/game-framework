@@ -122,6 +122,13 @@ struct LightParams {
 	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
 };
 
+// A skeletal pose: which clip of an animation set, and how far into it, in seconds. A value struct (not a
+// component) so blending can add fields later and change only the backend.
+struct SkeletalPose {
+	int clip = 0;
+	float time = 0.0f;
+};
+
 // Occluder-fade configuration pushed to fade-aware shaders (e.g. the upright-quad cutout shader).
 // Upright sprites that cover `focus` (typically the camera's LookAt target, i.e. the player) on
 // screen become alpha-blended translucent so the focus shows through. The test is screen-space, so
@@ -272,6 +279,23 @@ public:
 	// Free a previously loaded resource. Safe to call with an out-of-range or already-unloaded
 	// handle (no-op). Handles are not reused, so the freed slot stays valid-but-empty.
 	virtual void UnloadMesh(int handle) = 0;
+	// Skeletal animation sets (the clips of a glTF/IQM/M3D file). Returns a handle or -1.
+	virtual int LoadSkeletalAnimationSet(std::string_view path) = 0;
+	virtual void UnloadSkeletalAnimationSet(int set) = 0;
+	[[nodiscard]] virtual int SkeletalClipCount(int set) const = 0;
+	[[nodiscard]] virtual std::string SkeletalClipName(int set, int clip) const = 0;
+	// Clip length in seconds: the backend's frame count times 17 ms.
+	[[nodiscard]] virtual float SkeletalClipDuration(int set, int clip) const = 0;
+	// Draws loaded model `mesh` GPU-skinned to `pose` of animation set `set`, lit like DrawMesh. Draws are
+	// immediate, so two entities sharing one model can be at different poses in the same frame. A model with
+	// more joints than the skinning shader supports (64) logs one error and draws in its bind pose.
+	virtual void DrawSkinnedMesh(
+		int mesh,
+		int set,
+		const SkeletalPose& pose,
+		const glm::mat4& transform,
+		const DrawMaterial& material
+	) = 0;
 	virtual void UnloadTexture(int handle) = 0;
 	// Configure filtering / wrap mode on an already-loaded texture.
 	virtual void SetTextureFilter(int handle, bool linear) = 0; // false = NEAREST (default)

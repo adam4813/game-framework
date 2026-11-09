@@ -1,8 +1,10 @@
 #include "render_module.hpp"
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <mutex>
+#include <optional>
 
 #include <spdlog/spdlog.h>
 
@@ -12,6 +14,7 @@
 #include <nlohmann/json.hpp>
 
 #include "camera_projection.hpp"
+#include "engine/animation/animation.hpp"
 #include "engine/assets/assets.hpp"
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
@@ -90,6 +93,30 @@ platform::DrawMaterial ResolveDrawMaterial(const flecs::entity e) {
 	return MakeDrawMaterial(parent.is_valid() ? parent.target<RenderWith>() : flecs::entity{});
 }
 
+// The shared gate of the direct per-entity draw systems: nothing when 3D rendering is inactive, the entity has
+// no material source, or the opt-in frustum cull rejects it; otherwise the entity's draw material.
+std::optional<platform::DrawMaterial>
+ResolveDrawable(const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt) {
+	if (!it.world().get<Render3DState>().active) return std::nullopt;
+	const auto entity = it.entity(i);
+	// Entities must have a material source: inline Material, a direct (RenderWith,*) pair,
+	// or a parent with (RenderWith,*) — the latter covers overflow chunk children whose
+	// atlas/material is inherited from the carrier entity.
+	if (!entity.has<Material>()
+		&& !entity.has<RenderWith>(flecs::Wildcard)
+		&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
+		return std::nullopt;
+	}
+	// Opt-in sphere frustum cull: only applied to entities that carry FrustumCullRadius
+	// (e.g. per-entity creature/NPC sprites). Static or streaming meshes omit this
+	// component and are never position-culled.
+	if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
+		const auto& cull = it.world().get<CameraFrustum>();
+		if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) return std::nullopt;
+	}
+	return ResolveDrawMaterial(entity);
+}
+
 // Registers a draw system for primitive component TPrim. The per-primitive draw calls differ, so it is
 // passed as a callable: draw(platform, worldMatrix, primitive, material). RenderWith is optional so
 // entities carrying an inline Material (no relationship) are still drawn.
@@ -102,25 +129,9 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 		.self()
 		.up()
 		.each([draw](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const TPrim& prim) {
-			if (!it.world().get<Render3DState>().active) return;
-			const auto platform_ref = it.world().get<platform::PlatformRef>();
-			const auto entity = it.entity(i);
-			// Entities must have a material source: inline Material, a direct (RenderWith,*) pair,
-			// or a parent with (RenderWith,*) — the latter covers overflow chunk children whose
-			// atlas/material is inherited from the carrier entity.
-			if (!entity.has<Material>()
-				&& !entity.has<RenderWith>(flecs::Wildcard)
-				&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
-				return;
-			}
-			// Opt-in sphere frustum cull: only applied to entities that carry FrustumCullRadius
-			// (e.g. per-entity creature/NPC sprites). Static or streaming meshes omit this
-			// component and are never position-culled.
-			if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
-				const auto& cull = it.world().get<CameraFrustum>();
-				if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) return;
-			}
-			draw(*platform_ref.ptr, wt.matrix, prim, ResolveDrawMaterial(entity));
+			const auto material = ResolveDrawable(it, i, wt);
+			if (!material) return;
+			draw(*it.world().get<platform::PlatformRef>().ptr, wt.matrix, prim, *material);
 		})
 		.template add<scene::GameScene>();
 }
@@ -807,14 +818,43 @@ RenderModule::RenderModule(const flecs::world& world) {
 
 	// Loaded models and dynamic meshes are few and often unique, so they keep the direct per-entity
 	// draw path rather than the instanced batch.
-	RegisterPrimitiveRenderer<MeshPrimitive>(
-		world,
-		"RenderMeshes",
-		[](platform::Platform& p, const glm::mat4& m, const MeshPrimitive& mesh, const platform::DrawMaterial& mat) {
+	// Written out rather than through RegisterPrimitiveRenderer: it alone must leave skinned models to
+	// RenderSkinnedMeshes below.
+	world.system<const spatial::WorldTransform, const MeshPrimitive>("RenderMeshes")
+		.without<animation::SkeletalAnimationSet>()
+		.kind(flecs::OnStore)
+		.with<RenderWith>(flecs::Wildcard)
+		.optional()
+		.self()
+		.up()
+		.each([](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const MeshPrimitive& mesh) {
 			if (mesh.handle < 0) return;
-			p.DrawMesh(mesh.handle, m, mat);
-		}
-	);
+			const auto material = ResolveDrawable(it, i, wt);
+			if (!material) return;
+			it.world().get<platform::PlatformRef>().ptr->DrawMesh(mesh.handle, wt.matrix, *material);
+		})
+		.add<scene::GameScene>();
+	// Skinned models: a MeshPrimitive plus a SkeletalAnimationSet, drawn at the AnimationPlayer's clip and time
+	// (clip 0 at time 0 without a player). An unbound player (clip_index -1) shows the first clip too.
+	world.system<const spatial::WorldTransform, const MeshPrimitive, const animation::SkeletalAnimationSet>(
+			  "RenderSkinnedMeshes"
+	)
+		.kind(flecs::OnStore)
+		.each([](const flecs::iter& it,
+				 const size_t i,
+				 const spatial::WorldTransform& wt,
+				 const MeshPrimitive& mesh,
+				 const animation::SkeletalAnimationSet& set) {
+			if (mesh.handle < 0 || set.handle < 0) return;
+			const auto material = ResolveDrawable(it, i, wt);
+			if (!material) return;
+			platform::SkeletalPose pose{};
+			if (const auto* player = it.entity(i).try_get<animation::AnimationPlayer>(); player != nullptr) {
+				pose = {.clip = std::max(player->clip_index, 0), .time = player->time};
+			}
+			it.world().get<platform::PlatformRef>().ptr->DrawSkinnedMesh(mesh.handle, set.handle, pose, wt.matrix, *material);
+		})
+		.add<scene::GameScene>();
 	RegisterPrimitiveRenderer<DynamicMesh>(
 		world,
 		"RenderDynamicMeshes",

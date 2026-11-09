@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "ai/ai.hpp"
+#include "animation/animation.hpp"
 #include "assets/assets.hpp"
 #include "audio/audio.hpp"
 #include "core/core.hpp"

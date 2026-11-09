@@ -112,6 +112,38 @@
 			}
 		},
 		{
+			"name": "Robot",
+			"components": {
+				"transform": {
+					"position": [
+						2.0,
+						0.25,
+						0.0
+					],
+					"scale": [
+						0.5,
+						0.5,
+						0.5
+					]
+				},
+				"mesh": {
+					"path": "models/robot.glb"
+				},
+				"skeletal_animation_set": {
+					"path": "models/robot.glb"
+				},
+				"animation": {},
+				"material": {
+					"color": [
+						255,
+						255,
+						255,
+						255
+					]
+				}
+			}
+		},
+		{
 			"name": "Floor",
 			"components": {
 				"transform": {

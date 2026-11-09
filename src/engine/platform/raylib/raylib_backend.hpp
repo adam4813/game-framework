@@ -86,6 +86,18 @@ public:
 	int UploadTexture(int width, int height, const std::vector<uint8_t>& rgba) override;
 	void UpdateTexture(int handle, const std::vector<uint8_t>& rgba) override;
 	void UnloadMesh(int handle) override;
+	int LoadSkeletalAnimationSet(std::string_view path) override;
+	void UnloadSkeletalAnimationSet(int set) override;
+	[[nodiscard]] int SkeletalClipCount(int set) const override;
+	[[nodiscard]] std::string SkeletalClipName(int set, int clip) const override;
+	[[nodiscard]] float SkeletalClipDuration(int set, int clip) const override;
+	void DrawSkinnedMesh(
+		int mesh,
+		int set,
+		const SkeletalPose& pose,
+		const glm::mat4& transform,
+		const DrawMaterial& material
+	) override;
 	void UnloadTexture(int handle) override;
 	void SetTextureFilter(int handle, bool linear) override;
 	void SetTextureWrap(int handle, bool clamp) override;

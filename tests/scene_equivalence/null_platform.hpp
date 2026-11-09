@@ -2,6 +2,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "engine/platform/platform.hpp"
 
@@ -93,6 +94,25 @@ public:
 	int UploadTexture(int, int, const std::vector<uint8_t>&) override { return -1; }
 	void UpdateTexture(int, const std::vector<uint8_t>&) override {}
 	void UnloadMesh(int) override {}
+	int LoadSkeletalAnimationSet(std::string_view) override { return -1; }
+	void UnloadSkeletalAnimationSet(int) override {}
+	[[nodiscard]] int SkeletalClipCount(const int set) const override {
+		return set >= 0 && set < static_cast<int>(fakeClips_.size()) ? static_cast<int>(fakeClips_[set].size()) : 0;
+	}
+	[[nodiscard]] std::string SkeletalClipName(const int set, const int clip) const override {
+		return fakeClips_[static_cast<std::size_t>(set)][static_cast<std::size_t>(clip)].first;
+	}
+	[[nodiscard]] float SkeletalClipDuration(const int set, const int clip) const override {
+		return fakeClips_[static_cast<std::size_t>(set)][static_cast<std::size_t>(clip)].second;
+	}
+	void DrawSkinnedMesh(int, int, const engine::platform::SkeletalPose&, const glm::mat4&, const engine::platform::DrawMaterial&)
+		override {}
+	// Registers fake clips (name, duration seconds) for a set and returns its handle, so tests can bind players
+	// without a model file.
+	int AddFakeSkeletalSet(std::vector<std::pair<std::string, float>> clips) {
+		fakeClips_.push_back(std::move(clips));
+		return static_cast<int>(fakeClips_.size()) - 1;
+	}
 	void UnloadTexture(int) override {}
 	void SetTextureFilter(int, bool) override {}
 	void SetTextureWrap(int, bool) override {}
@@ -121,5 +141,6 @@ public:
 private:
 	std::string assetDirectory_;
 	bool cursorLocked_ = false;
+	std::vector<std::vector<std::pair<std::string, float>>> fakeClips_;
 	engine::platform::DebugUi debugUi_;
 };

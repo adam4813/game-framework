@@ -18,6 +18,11 @@ add_engine_test(camera_projection_test
     camera_projection_test.cpp
 )
 
+# AnimationPlayer playback: loop wrap, clamp and stop, speed scaling, unbound players
+add_engine_test(animation_playback_test
+    animation_playback_test.cpp
+)
+
 # Point lights packed into LightParams: order, the 4-light cap and the dropped count
 add_engine_test(point_light_packing_test
     point_light_packing_test.cpp

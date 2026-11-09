@@ -1,6 +1,7 @@
 #include "engine/engine_context.hpp"
 
 #include "engine/ai/ai.hpp"
+#include "engine/animation/animation.hpp"
 #include "engine/assets/assets.hpp"
 #include "engine/audio/audio.hpp"
 #include "engine/core/core.hpp"
@@ -46,6 +47,7 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : pla
 	world_.import<assets::AssetModule>();
 	world_.import<audio::AudioModule>();
 	world_.import<input::InputModule>();
+	world_.import<animation::AnimationModule>(); // before render: the skinned-mesh renderer queries its components
 	world_.import<render::RenderModule>();
 	world_.import<ui::UIModule>();
 	world_.import<timer::TimerModule>();
