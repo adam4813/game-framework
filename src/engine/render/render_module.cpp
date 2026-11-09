@@ -120,11 +120,10 @@ ResolveDrawable(const flecs::iter& it, const size_t i, const spatial::WorldTrans
 // Registers a draw system for primitive component TPrim. The per-primitive draw calls differ, so it is
 // passed as a callable: draw(platform, worldMatrix, primitive, material). RenderWith is optional so
 // entities carrying an inline Material (no relationship) are still drawn.
-template<typename TPrim, typename... Excluded, typename Draw>
+template<typename TPrim, typename Draw>
 void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw draw) {
-	auto builder = world.system<const spatial::WorldTransform, const TPrim>(name);
-	(builder.template without<Excluded>(), ...);
-	builder.kind(flecs::OnStore)
+	world.system<const spatial::WorldTransform, const TPrim>(name)
+		.kind(flecs::OnStore)
 		.template with<RenderWith>(flecs::Wildcard)
 		.optional()
 		.self()
@@ -819,14 +818,22 @@ RenderModule::RenderModule(const flecs::world& world) {
 
 	// Loaded models and dynamic meshes are few and often unique, so they keep the direct per-entity
 	// draw path rather than the instanced batch.
-	RegisterPrimitiveRenderer<MeshPrimitive, animation::SkeletalAnimationSet>(
-		world,
-		"RenderMeshes",
-		[](platform::Platform& p, const glm::mat4& m, const MeshPrimitive& mesh, const platform::DrawMaterial& mat) {
+	// Written out rather than through RegisterPrimitiveRenderer: it alone must leave skinned models to
+	// RenderSkinnedMeshes below.
+	world.system<const spatial::WorldTransform, const MeshPrimitive>("RenderMeshes")
+		.without<animation::SkeletalAnimationSet>()
+		.kind(flecs::OnStore)
+		.with<RenderWith>(flecs::Wildcard)
+		.optional()
+		.self()
+		.up()
+		.each([](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const MeshPrimitive& mesh) {
 			if (mesh.handle < 0) return;
-			p.DrawMesh(mesh.handle, m, mat);
-		}
-	);
+			const auto material = ResolveDrawable(it, i, wt);
+			if (!material) return;
+			it.world().get<platform::PlatformRef>().ptr->DrawMesh(mesh.handle, wt.matrix, *material);
+		})
+		.add<scene::GameScene>();
 	// Skinned models: a MeshPrimitive plus a SkeletalAnimationSet, drawn at the AnimationPlayer's clip and time
 	// (clip 0 at time 0 without a player). An unbound player (clip_index -1) shows the first clip too.
 	world.system<const spatial::WorldTransform, const MeshPrimitive, const animation::SkeletalAnimationSet>(
