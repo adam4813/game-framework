@@ -4,7 +4,8 @@ project(game LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(BUILD_SCENE_EQUIVALENCE_TEST "Build the scene equivalence test application" ON)
+# Only the Framework's own build gets the test by default; a game that fetches the Framework does not.
+option(BUILD_SCENE_EQUIVALENCE_TEST "Build the scene equivalence test application" ${PROJECT_IS_TOP_LEVEL})
 # Enable Tracy frame profiler integration. Only meaningful on desktop (no WASM support).
 # Activates the Flecs OS API perf hooks, explicit render zones, and the FrameMark.
 option(ENABLE_TRACY "Enable Tracy profiler integration" OFF)
