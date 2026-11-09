@@ -53,6 +53,10 @@ Legend:
 | `RigidBody`               | mass, friction, restitution, use_gravity, gravity_scale | ✅     | Partial — motion_type, layer, etc. not in meta                        |
 | `CollisionShape`          | type(enum), offset(vec3), mesh_path(string)             | ✅     | Partial — box_half_extents etc. not in meta; mesh_path only stored    |
 | `PhysicsVelocity`         | linear(vec3), angular(vec3)                             | ✅     |                                                                       |
+| `CharacterBody`           | max_slope_deg, step_height, stick_to_floor, mass        | ✅     | Partial — layer not in meta                                           |
+| `Gravity`                 | acceleration(vec3)                                      | ✅     |                                                                       |
+| `CharacterMove`           | velocity(vec3)                                          | 🚫     | Runtime input; the game writes it every frame                         |
+| `CharacterState`          | grounded, ground_entity, ground_normal, velocity        | 🚫     | Derived each frame by the physics module; excluded from diff           |
 | `PhysicsForce`            | force(vec3), torque(vec3), clear_after_apply            | 🚫     | One-frame transient; consumed and removed each tick                   |
 | `PhysicsImpulse`          | impulse(vec3), point(vec3)                              | 🚫     | Transient; consumed and removed each tick                             |
 | `PhysicsVelocityOverride` | linear(vec3), angular(vec3)                             | 🚫     | Transient; consumed and removed each tick                             |

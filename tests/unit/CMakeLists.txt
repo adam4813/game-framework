@@ -45,3 +45,9 @@ target_include_directories(scene_load_order_test PRIVATE "${CMAKE_SOURCE_DIR}/te
 add_engine_test(json_loading_test
     json_loading_test.cpp
 )
+
+# CharacterBody: landing, walking and the position-only teleport rule, headless
+add_engine_test(character_body_test
+    character_body_test.cpp
+)
+target_include_directories(character_body_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")

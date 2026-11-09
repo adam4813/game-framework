@@ -28,11 +28,20 @@
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 // clang-format on
 
 namespace engine::physics {
+
+// A Jolt character plus what the backend needs to place it. Not a body: the physics system never sees it.
+struct CharacterRecord {
+	JPH::Ref<JPH::CharacterVirtual> character;
+	CharacterBody settings;
+	glm::vec3 shape_offset{0.0F}; // capsule center relative to the entity origin, in the up-aligned frame
+	glm::vec3 written_position{0.0F};
+};
 
 struct MeshShapeCache {
 	std::unordered_map<std::string, JPH::ShapeRefC> shapes;
@@ -137,8 +146,8 @@ private:
 };
 } // namespace
 
-JoltBackend::JoltBackend(const PhysicsConfig& config)
-	: config_(config), mesh_shape_cache_(std::make_unique<MeshShapeCache>()) {}
+JoltBackend::JoltBackend(const PhysicsConfig& config) :
+		config_(config), mesh_shape_cache_(std::make_unique<MeshShapeCache>()) {}
 
 JoltBackend::~JoltBackend() { Shutdown(); }
 
@@ -202,6 +211,7 @@ void JoltBackend::Shutdown() {
 		body_interface.DestroyBody(bid);
 	}
 	entity_to_body_.clear();
+	characters_.clear();
 	mesh_shape_cache_->shapes.clear();
 
 	physics_system_.reset();
@@ -588,6 +598,155 @@ void JoltBackend::SetBodyVelocity(const flecs::entity_t entity, const glm::vec3&
 			{linear.x, linear.y, linear.z},
 			{angular.x, angular.y, angular.z}
 		);
+	}
+}
+
+namespace {
+constexpr float kMinGravityLength = 1e-6F;
+// A grounded character whose vertical speed is below this isn't moving away from the ground.
+constexpr float kLeavingGroundSpeed = 0.1F;
+
+JPH::Vec3 ToJolt(const glm::vec3& v) { return {v.x, v.y, v.z}; }
+glm::vec3 FromJolt(const JPH::Vec3 v) { return {v.GetX(), v.GetY(), v.GetZ()}; }
+
+// up = -normalize(gravity); zero gravity keeps world Y so a character in zero-g still has an up to stand on.
+JPH::Vec3 UpFromGravity(const glm::vec3& gravity) {
+	const float length = glm::length(gravity);
+	return length < kMinGravityLength ? JPH::Vec3::sAxisY() : ToJolt(-gravity / length);
+}
+
+// Rotates the capsule's Y axis onto up.
+JPH::Quat AlignToUp(const JPH::Vec3 up) { return JPH::Quat::sFromTo(JPH::Vec3::sAxisY(), up); }
+} // namespace
+
+void JoltBackend::AddCharacter(
+	const flecs::entity_t entity,
+	const std::string_view entity_name,
+	const glm::vec3& position,
+	const CharacterBody& body,
+	const CollisionShape& shape
+) {
+	if (!initialized_) return;
+	if (shape.type != ShapeType::Capsule) {
+		spdlog::error("[Physics] Entity '{}': a character_body needs a capsule collision_shape.", entity_name);
+		return;
+	}
+	characters_.erase(entity);
+
+	const JPH::ShapeRefC capsule = CreateShape(MakeShapeConfig(shape));
+	if (!capsule) {
+		spdlog::error("[Physics] Entity '{}': failed to create the character capsule.", entity_name);
+		return;
+	}
+
+	const JPH::Vec3 up = JPH::Vec3::sAxisY();
+	JPH::CharacterVirtualSettings settings;
+	settings.mShape = capsule;
+	settings.mUp = up;
+	settings.mMaxSlopeAngle = glm::radians(body.max_slope_deg);
+	settings.mMass = body.mass;
+	// Only contacts below the capsule's bottom hemisphere count as support (Jolt's character sample does the same).
+	settings.mSupportingVolume = JPH::Plane(up, -shape.capsule_radius);
+
+	auto record = std::make_unique<CharacterRecord>();
+	record->settings = body;
+	record->shape_offset = shape.offset;
+	record->written_position = position;
+	record->character = new JPH::CharacterVirtual(
+		&settings,
+		ToJolt(position + shape.offset),
+		JPH::Quat::sIdentity(),
+		entity,
+		physics_system_.get()
+	);
+	characters_[entity] = std::move(record);
+}
+
+void JoltBackend::RemoveCharacter(const flecs::entity_t entity) { characters_.erase(entity); }
+
+bool JoltBackend::HasCharacter(const flecs::entity_t entity) const { return characters_.contains(entity); }
+
+void JoltBackend::SetCharacterPosition(const flecs::entity_t entity, const glm::vec3& position) {
+	const auto it = characters_.find(entity);
+	if (it == characters_.end()) return;
+	CharacterRecord& record = *it->second;
+	const JPH::Quat align = record.character->GetRotation();
+	record.character->SetPosition(ToJolt(position) + align * ToJolt(record.shape_offset));
+	record.written_position = position;
+}
+
+void JoltBackend::StepCharacter(const flecs::entity_t entity, const float delta_time, const CharacterStepInput& input) {
+	const auto it = characters_.find(entity);
+	if (it == characters_.end()) return;
+	CharacterRecord& record = *it->second;
+	JPH::CharacterVirtual& character = *record.character;
+
+	const JPH::Vec3 up = UpFromGravity(input.gravity);
+	const JPH::Vec3 old_up = character.GetUp();
+	const JPH::Quat old_rotation = character.GetRotation();
+	const JPH::Quat align = AlignToUp(up);
+	if (!up.IsClose(old_up)) {
+		// The capsule's center moves with the entity origin when up changes, so keep the origin fixed.
+		const JPH::RVec3 origin = character.GetPosition() - old_rotation * ToJolt(record.shape_offset);
+		character.SetUp(up);
+		character.SetRotation(align);
+		character.SetPosition(origin + align * ToJolt(record.shape_offset));
+	}
+
+	const JPH::Vec3 move = ToJolt(input.move_velocity);
+	const JPH::Vec3 planar = move - up * move.Dot(up);
+	const float vertical_speed = character.GetLinearVelocity().Dot(up);
+	const bool on_ground = character.GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround;
+	const float kept_vertical = (on_ground && vertical_speed < kLeavingGroundSpeed) ? 0.0F : vertical_speed;
+	const JPH::Vec3 gravity = ToJolt(input.gravity);
+	character.SetLinearVelocity(planar + up * kept_vertical + gravity * delta_time);
+
+	JPH::CharacterVirtual::ExtendedUpdateSettings update_settings;
+	update_settings.mStickToFloorStepDown = -up * record.settings.stick_to_floor;
+	update_settings.mWalkStairsStepUp = up * record.settings.step_height;
+	character.ExtendedUpdate(
+		delta_time,
+		gravity,
+		update_settings,
+		physics_system_->GetDefaultBroadPhaseLayerFilter(LAYER_MOVING),
+		physics_system_->GetDefaultLayerFilter(LAYER_MOVING),
+		{},
+		{},
+		*temp_allocator_
+	);
+}
+
+CharacterSyncResult JoltBackend::GetCharacterSyncResult(const flecs::entity_t entity) const {
+	CharacterSyncResult result;
+	const auto it = characters_.find(entity);
+	if (it == characters_.end()) return result;
+	const CharacterRecord& record = *it->second;
+	const JPH::CharacterVirtual& character = *record.character;
+
+	const JPH::Vec3 center = JPH::Vec3(character.GetPosition());
+	result.position = FromJolt(center - character.GetRotation() * ToJolt(record.shape_offset));
+	result.velocity = FromJolt(character.GetLinearVelocity());
+	result.grounded = character.GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround;
+	if (result.grounded) {
+		result.ground_normal = FromJolt(character.GetGroundNormal());
+		if (const auto* ground = physics_system_->GetBodyLockInterface().TryGetBody(character.GetGroundBodyID())) {
+			result.ground_entity = ground->GetUserData();
+		}
+	}
+	else {
+		result.ground_normal = FromJolt(character.GetUp());
+	}
+	return result;
+}
+
+glm::vec3 JoltBackend::GetCharacterWrittenPosition(const flecs::entity_t entity) const {
+	const auto it = characters_.find(entity);
+	return it == characters_.end() ? glm::vec3{0.0F} : it->second->written_position;
+}
+
+void JoltBackend::SetCharacterWrittenPosition(const flecs::entity_t entity, const glm::vec3& position) {
+	if (const auto it = characters_.find(entity); it != characters_.end()) {
+		it->second->written_position = position;
 	}
 }
 

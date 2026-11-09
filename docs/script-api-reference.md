@@ -91,7 +91,11 @@ All keyboard codes are available as `Key_<Name>` int constants, e.g. `Key_Space`
 
 ### Components (via standard GetT/MutT/AddT)
 
-`PhysicsImpulse`, `RigidBody`, `CollisionShape`, `PhysicsVelocity`, `PhysicsForce`, `PhysicsVelocityOverride`
+`PhysicsImpulse`, `RigidBody`, `CollisionShape`, `PhysicsVelocity`, `PhysicsForce`, `PhysicsVelocityOverride`,
+`CharacterBody`, `CharacterMove`, `Gravity`, `CharacterState`
+
+`CharacterState.ground_entity` is not exposed to scripts (the binding skips entity-id members); read it through the
+REST API. `CharacterMove.velocity` is the field a script writes each frame to walk a character.
 
 `CollisionShape` fields scripts can set: `type` (an int, use the constants below), `offset`, `mesh_path`.
 

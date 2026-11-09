@@ -27,7 +27,8 @@ class DebugRenderer;
 
 namespace engine::physics {
 
-struct MeshShapeCache; // defined in jolt_backend.cpp so this header needs no Jolt shape types
+struct CharacterRecord; // defined in jolt_backend.cpp
+struct MeshShapeCache;  // defined in jolt_backend.cpp so this header needs no Jolt shape types
 
 /// Concrete Jolt Physics System implementation
 class JoltBackend {
@@ -86,6 +87,34 @@ public:
 	/// Set linear and angular velocity directly (physics module internal — consume PhysicsVelocityOverride).
 	void SetBodyVelocity(flecs::entity_t entity, const glm::vec3& linear, const glm::vec3& angular);
 
+	/// Create a character from a capsule `CollisionShape`. Logs an error naming `entity_name` and creates nothing when
+	/// the shape isn't a capsule. `position` is the entity's position (the capsule sits at position + shape offset).
+	void AddCharacter(
+		flecs::entity_t entity,
+		std::string_view entity_name,
+		const glm::vec3& position,
+		const CharacterBody& body,
+		const CollisionShape& shape
+	);
+
+	void RemoveCharacter(flecs::entity_t entity);
+
+	[[nodiscard]] bool HasCharacter(flecs::entity_t entity) const;
+
+	/// Teleport a character to an entity position.
+	void SetCharacterPosition(flecs::entity_t entity, const glm::vec3& position);
+
+	/// Advance one character by `delta_time`: planar velocity, gravity along up, grounding, slopes, steps. Call before
+	/// `StepSimulation` for the same substep.
+	void StepCharacter(flecs::entity_t entity, float delta_time, const CharacterStepInput& input);
+
+	/// The character's position and ground state as of the last step.
+	[[nodiscard]] CharacterSyncResult GetCharacterSyncResult(flecs::entity_t entity) const;
+
+	/// The entity position last written back to its Transform, for teleport detection.
+	[[nodiscard]] glm::vec3 GetCharacterWrittenPosition(flecs::entity_t entity) const;
+	void SetCharacterWrittenPosition(flecs::entity_t entity, const glm::vec3& position);
+
 	/// Get collision events from this frame
 	[[nodiscard]] std::vector<CollisionInfo> GetCollisionEvents() const;
 
@@ -121,6 +150,9 @@ private:
 
 	// Built mesh shapes by resolved path, so entities sharing a model file share one shape. Cleared on Shutdown.
 	std::unique_ptr<MeshShapeCache> mesh_shape_cache_;
+
+	// Entity to character mapping; characters are not bodies in the physics system.
+	std::unordered_map<flecs::entity_t, std::unique_ptr<CharacterRecord>> characters_;
 
 	// Entity to Jolt body mapping
 	std::unordered_map<flecs::entity_t, uint32_t> entity_to_body_;

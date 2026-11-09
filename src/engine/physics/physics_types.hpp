@@ -100,6 +100,24 @@ struct PhysicsSyncResult {
 	glm::vec3 angular_velocity{0.0F};
 };
 
+// What a character is asked to do for one substep.
+struct CharacterStepInput {
+	/// Desired velocity; any part along up is discarded.
+	glm::vec3 move_velocity{0.0F};
+	/// Acceleration the character feels; its up is -normalize(gravity).
+	glm::vec3 gravity{0.0F, -9.81F, 0.0F};
+};
+
+// A character's state after stepping. `position` is the entity position (the capsule center minus the shape
+// offset), i.e. what belongs in the entity's Transform.
+struct CharacterSyncResult {
+	glm::vec3 position{0.0F};
+	bool grounded{false};
+	flecs::entity_t ground_entity{0};
+	glm::vec3 ground_normal{0.0F, 1.0F, 0.0F};
+	glm::vec3 velocity{0.0F};
+};
+
 // Raycast
 struct Ray {
 	glm::vec3 origin{0.0F};
