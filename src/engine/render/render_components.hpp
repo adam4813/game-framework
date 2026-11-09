@@ -60,6 +60,9 @@ struct Material {
 	bool wireframe{false};
 	bool cast_shadow{true};
 	bool unlit{false}; // draw the colour as-is, skipping the scene lighting
+	// Draw both faces (no back-face culling), lighting the back face with its flipped normal. A model's glTF
+	// `doubleSided` materials are double-sided whatever this says; true here makes the whole model double-sided.
+	bool double_sided{false};
 };
 
 // Convention: each texture-map component carries `std::string path` and `int handle`. They are

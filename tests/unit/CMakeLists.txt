@@ -33,6 +33,16 @@ add_engine_test(gltf_geometry_test
     gltf_geometry_test.cpp
 )
 
+# glTF doubleSided flags per material, which raylib's LoadModel drops
+add_engine_test(gltf_materials_test
+    gltf_materials_test.cpp
+)
+
+# Render command batching: double-sided and culled draws split, tint doesn't
+add_engine_test(render_batch_test
+    render_batch_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp

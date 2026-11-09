@@ -354,6 +354,73 @@
 			]
 		},
 		{
+			"name": "DoubleSidedSign",
+			"components": {
+				"transform": {
+					"position": [-1.5, 1.0, -2.5],
+					"rotation": [1.5707963, 0.0, 0.0]
+				},
+				"quad": {
+					"size": [1.5, 1.5]
+				},
+				"material": {
+					"color": [230, 230, 230, 255],
+					"cast_shadow": false,
+					"double_sided": true
+				}
+			},
+			"children": [
+				{
+					"name": "DoubleSidedSignSpinScript",
+					"components": {
+						"script": {
+							"source": "scripts/sign_spin.as"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "SingleSidedSign",
+			"components": {
+				"transform": {
+					"position": [1.5, 1.0, -2.5],
+					"rotation": [1.5707963, 0.0, 0.0]
+				},
+				"quad": {
+					"size": [1.5, 1.5]
+				},
+				"material": {
+					"color": [230, 230, 230, 255],
+					"cast_shadow": false
+				}
+			},
+			"children": [
+				{
+					"name": "SingleSidedSignSpinScript",
+					"components": {
+						"script": {
+							"source": "scripts/sign_spin.as"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "SignBackLight",
+			"components": {
+				"transform": {
+					"position": [0.0, 1.0, -3.5]
+				},
+				"point_light": {
+					"color": [80, 140, 255, 255],
+					"intensity": 3.0,
+					"linear": 0.22,
+					"quadratic": 0.2
+				}
+			}
+		},
+		{
 			"name": "SaveDemoScript",
 			"components": {
 				"script": {

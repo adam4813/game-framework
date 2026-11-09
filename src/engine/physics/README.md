@@ -5,7 +5,8 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 ## Structure
 
 - **physics_types.hpp** — Core physics types, enums (MotionType, ShapeType, etc.), and data structures
-- **gltf_geometry.hpp/cpp** — CPU glTF/GLB triangle loader for mesh colliders (cgltf, no raylib)
+- **gltf_geometry.hpp/cpp** — CPU glTF/GLB triangle loader for mesh colliders (cgltf, no raylib); it compiles the
+  engine's prefixed cgltf copy (`engine/platform/cgltf_prefixed.hpp`)
 - **physics_components.hpp** — ECS components (RigidBody, CollisionShape, PhysicsVelocity, etc.)
 - **physics_module.hpp/cpp** — Flecs system registration, ECS integration, and physics-world setup
 - **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping)

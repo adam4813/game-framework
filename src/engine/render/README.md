@@ -8,7 +8,7 @@ render systems resolve the world matrix and material, then issue draw calls thro
 ## Relationships and Material Entities
 
 Each renderable entity links to a named **material entity** via the `(RenderWith, mat_entity)` relationship. The
-material entity carries all surface data: `Material` (colour, wireframe, cast-shadow flag; wireframe is desktop-only,
+material entity carries all surface data: `Material` (colour, wireframe, cast-shadow, unlit and double-sided flags; wireframe is desktop-only,
 since WebGL has no polygon wire mode), optionally `AlbedoMap`
 (diffuse texture), and optionally `ShaderMap` (custom GLSL shader stages). This mirrors AAA engine conventions where
 materials own their texture references and multiple objects can share the same material entity.
@@ -110,6 +110,16 @@ variant for WebGL).
   so it works on desktop and WebGL alike.
 - **Unlit** — `Material.unlit` draws the colour exactly as given, skipping the scene light (flat white art, markers).
   It is independent of `cast_shadow`, which only controls the projected shadow.
+- **Double-sided** — `Material.double_sided` (`"double_sided": true` in a level's `material`) turns back-face culling
+  off for that draw, on every path (primitives, instanced batches, models, skinned models, dynamic meshes). Use it for
+  foliage cards, flags and banners, grates, ribbons, and open geometry whose inside shows; billboards and particles
+  always face the camera and don't need it. The lit shaders flip a back face's normal (`gl_FrontFacing`), so each side
+  is lit by the lights on its own side. The planar shadow pass stays culled. A model's glTF `materials[].doubleSided`
+  (Blender: material **Backface Culling** off) makes the meshes using that material double-sided, read with cgltf at
+  load since raylib's loader drops it. The flags combine: `true` on the entity's `Material` makes the whole model
+  double-sided, but `false` can't turn off an asset's flag; fix that in the asset. Alpha-cutout surfaces are fine;
+  **blended** double-sided surfaces draw their two faces in no fixed order and can show sorting artifacts. Desktop and
+  WebGL alike. Sandbox example: `DoubleSidedSign` beside a culled `SingleSidedSign` in `assets/levels/demo.level.json`.
 - **Textures** — `AlbedoMap { path, handle }` on the material entity is resolved to a platform handle via the
   `RegisterPathAsset<AlbedoMap>()` observer. `ShaderMap { stages, handle }` similarly loads a custom GLSL shader.
 

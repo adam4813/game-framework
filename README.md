@@ -158,7 +158,8 @@ cmake --build --preset wasm-debug
 3. A header-only port with no CMake package (`cgltf`) is just `#include`d: vcpkg's include directory is already on the
    path. Define its `*_IMPLEMENTATION` macro in exactly one engine `.cpp`. Raylib compiles its own copy of cgltf, and
    the two clashed at link time in the **wasm** build only (desktop linked fine), so build the `wasm` preset before
-   calling a header-only dependency done. `src/engine/physics/gltf_geometry.cpp` shows the symbol-prefix workaround.
+   calling a header-only dependency done. `src/engine/platform/cgltf_prefixed.hpp` holds the symbol-prefix workaround: include it, not `<cgltf.h>`
+   (`gltf_geometry.cpp` defines the implementation).
 
 ### Running
 

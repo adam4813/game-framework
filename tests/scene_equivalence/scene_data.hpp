@@ -253,7 +253,8 @@ inline constexpr std::string_view kTestSceneJson = R"json(
         "material": {
           "color": [200, 100, 50, 255],
           "wireframe": false,
-          "cast_shadow": true
+          "cast_shadow": true,
+          "double_sided": true
         }
       }
     },
@@ -723,6 +724,7 @@ void OnInit(Entity self) {
     mat.color = MakeRgba(200, 100, 50, 255);
     mat.wireframe = false;
     mat.cast_shadow = true;
+    mat.double_sided = true;
 
     Entity velocity = CreateNamedEntity("TestVelocity");
     Transform@ vt = velocity.AddTransform();

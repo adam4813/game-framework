@@ -18,7 +18,7 @@ struct RenderBatchGroup {
 };
 
 // Sorts `order` (indices into `commands`) so that commands sharing the batch key
-// (mesh, shader, texture, wireframe, cast_shadow) are contiguous, and returns the resulting group
+// (mesh, shader, texture, wireframe, cast_shadow, unlit, double_sided) are contiguous, and returns the resulting group
 // ranges over `order`. The material tint is deliberately NOT part of the key: it is applied
 // per-instance, so differently-coloured copies of the same mesh/shader/texture still batch into a
 // single instanced draw. `order` is resized to match `commands`.
