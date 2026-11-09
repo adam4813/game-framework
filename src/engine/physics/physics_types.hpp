@@ -12,7 +12,7 @@ namespace engine::physics {
 
 enum class MotionType : uint8_t { Static, Kinematic, Dynamic };
 
-enum class ShapeType : uint8_t { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compound };
+enum class ShapeType { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compound };
 
 enum class CollisionLayer : uint8_t { Default = 0, Player = 1, Enemy = 2, Obstacle = 3, Trigger = 4 };
 

@@ -58,6 +58,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **Reflect, then expose to scripts**: `.member<…>()` for the Explorer, then `RegisterComponentForScripts`. Use
   sequential `.member<T>("name")` when every field from first to last is listed in order; use pointer-to-member
   `.member("name", &T::field)` as soon as any field in between is skipped.
+- **A reflected enum on a scriptable component gets `<Enum>_*` script constants.** Scripts bind an enum member as an
+  `int`, so register its values with `RegisterGlobalConstantsForScripts` (`Easing_*`, `BTStatus_*`, `Shape_*`) and list
+  them in `docs/script-api-reference.md`; a script never writes a bare number.
 - **Components the Explorer should show are reflected**, including the gameplay state a developer will inspect
   (positions, velocities, timers, relationships).
 

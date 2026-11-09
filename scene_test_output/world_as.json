@@ -34,29 +34,19 @@
     "TestBox": {
       "components": {
         "CollisionShape": {
+          "mesh_path": "",
           "offset": {
             "x": 0,
             "y": 0,
             "z": 0
-          }
+          },
+          "type": "Box"
         },
         "CubePrimitive": {
           "size": {
             "x": 1,
             "y": 1,
             "z": 1
-          }
-        },
-        "PhysicsVelocity": {
-          "angular": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-          },
-          "linear": {
-            "x": 0,
-            "y": 0,
-            "z": 0
           }
         },
         "RigidBody": {
@@ -111,6 +101,8 @@
           "far_plane": 100,
           "fov": 60,
           "near_plane": 0.1000000015,
+          "ortho_size": 20,
+          "projection": "Perspective",
           "up": {
             "x": 0,
             "y": 1,
@@ -325,6 +317,7 @@
             "g": 100,
             "r": 200
           },
+          "unlit": false,
           "wireframe": false
         }
       },
@@ -346,7 +339,9 @@
         "Music": {
           "handle": -1,
           "loop": true,
-          "path": "./audio/music/theme.ogg"
+          "path": "./audio/music/theme.ogg",
+          "playing": false,
+          "volume": 1
         }
       },
       "name": "TestMusic",
@@ -500,11 +495,13 @@
     "TestShape": {
       "components": {
         "CollisionShape": {
+          "mesh_path": "./models/cube.glb",
           "offset": {
             "x": 0,
             "y": 0.1000000015,
             "z": 0
-          }
+          },
+          "type": "Mesh"
         },
         "Transform": {
           "position": {
@@ -688,10 +685,6 @@
     },
     "TestTilemapAtlas": {
       "components": {
-        "AlbedoMap": {
-          "handle": -1,
-          "path": ""
-        },
         "Material": {
           "cast_shadow": true,
           "color": {
@@ -700,6 +693,7 @@
             "g": 255,
             "r": 255
           },
+          "unlit": false,
           "wireframe": false
         },
         "SpriteAtlas": {
@@ -758,6 +752,7 @@
             "g": 100,
             "r": 90
           },
+          "border_thickness": 2,
           "clicked": false,
           "font_size": 22,
           "hover": {
@@ -911,6 +906,13 @@
             "r": 200
           },
           "font_size": 24,
+          "outline": 0,
+          "outline_color": {
+            "a": 255,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
           "text": "Hello"
         },
         "UIRect": {

@@ -79,3 +79,19 @@ _Avoid_: entity reference, named reference
 **RenderWith**:
 An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, `AlbedoMap`, and `ShaderMap`. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`, `GetAlbedoMap()`) do the same transparently.
 _Avoid_: material reference, material link
+
+**Animation Kind**:
+A family of animation that supplies its own clips and decides how a clip at a given time changes what's drawn: skeletal mesh, 2D sprite, spline, and so on. Every kind shares the same Animation Player; only its clips and how they take effect differ.
+_Avoid_: animation type, animator
+
+**Animation Player**:
+An entity's playback state for one clip of its Animation Kind: which clip, the time into it, the speed, and whether it loops or is playing. It knows nothing of meshes or sprites; it only moves time through a clip of known length.
+_Avoid_: animator, animation controller, animation state
+
+**Character Body**:
+An entity's physical presence as a walking character: a capsule that moves at the velocity the game asks for, falls under its Gravity, stays on the ground, climbs slopes and steps, and slides along walls. It goes where the game wants it to, but it doesn't know about input. It's distinct from a rigid body, which the simulation pushes around.
+_Avoid_: character controller, player controller, kinematic body
+
+**Gravity**:
+The single acceleration an entity is subject to, which also defines its up. An entity without its own Gravity uses the world's. There's no blending between sources: something else decides which source applies and sets it.
+_Avoid_: gravity source, gravity field, gravity well

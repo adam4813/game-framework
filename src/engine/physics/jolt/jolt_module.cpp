@@ -1,6 +1,7 @@
 #include "jolt_module.hpp"
 
 #include <memory>
+#include <string>
 
 #include <flecs.h>
 #include <spdlog/spdlog.h>
@@ -20,6 +21,9 @@ namespace {
 struct PhysicsAccumulator {
 	float accumulated_time{0.0F};
 };
+
+// Name for log messages: the entity's name, or its id when unnamed.
+std::string EntityLabel(const flecs::entity& e) { return e.name() ? std::string{e.name()} : std::to_string(e.id()); }
 } // namespace
 
 JoltModule::JoltModule(const flecs::world& world) {
@@ -153,7 +157,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 						const auto* cs = e.try_get<CollisionShape>();
 
 						if (!cs) {
-							const std::string entity_name = e.name() ? std::string{e.name()} : std::to_string(e.id());
+							const std::string entity_name = EntityLabel(e);
 							spdlog::warn(
 								"[Physics] Entity '{}' has RigidBody but no CollisionShape — body creation deferred "
 								"until CollisionShape is added.",
@@ -167,7 +171,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 							wt ? PhysicsTransform::FromMatrix(wt->matrix)
 							   : PhysicsTransform{}; // identity; corrected by PhysicsSetBodyTransform
 
-						sys.SyncBodyToBackend(e.id(), phys_transform, rb, *cs);
+						sys.SyncBodyToBackend(e.id(), EntityLabel(e), phys_transform, rb, *cs);
 
 						if (rb.motion_type == MotionType::Dynamic && !e.has<PhysicsVelocity>()) {
 							e.set<PhysicsVelocity>({});
@@ -205,7 +209,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 								  const PhysicsTransform phys_transform =
 									  wt ? PhysicsTransform::FromMatrix(wt->matrix) : PhysicsTransform{};
 
-								  sys.SyncBodyToBackend(e.id(), phys_transform, rb, cs);
+								  sys.SyncBodyToBackend(e.id(), EntityLabel(e), phys_transform, rb, cs);
 
 								  if (rb.motion_type == MotionType::Dynamic && !e.has<PhysicsVelocity>()) {
 									  e.set<PhysicsVelocity>({});

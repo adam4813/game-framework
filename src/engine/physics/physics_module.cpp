@@ -1,6 +1,8 @@
 #include "physics_module.hpp"
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -8,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
 
+#include "engine/assets/assets.hpp"
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
@@ -29,6 +32,7 @@ ShapeType ParseShapeType(const std::string& s) {
 	if (s == "sphere") return ShapeType::Sphere;
 	if (s == "capsule") return ShapeType::Capsule;
 	if (s == "cylinder") return ShapeType::Cylinder;
+	if (s == "mesh") return ShapeType::Mesh;
 	return ShapeType::Box;
 }
 
@@ -57,6 +61,7 @@ void RegisterPhysicsLevelLoaders(const flecs::world& world) {
 		cs.capsule_radius = j.value("capsule_radius", cs.capsule_radius);
 		cs.capsule_height = j.value("capsule_height", cs.capsule_height);
 		cs.offset = JVec3(j, "offset", cs.offset);
+		cs.mesh_path = assets::ResolveAsset(e.world(), j.value("mesh_path", std::string{}));
 		e.set<CollisionShape>(cs);
 	});
 	level::RegisterComponentLoader(world, "physics_velocity", [](const flecs::entity e, const json& j) {
@@ -89,7 +94,18 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 		.member("restitution", &RigidBody::restitution)
 		.member("use_gravity", &RigidBody::use_gravity)
 		.member("gravity_scale", &RigidBody::gravity_scale);
-	world.component<CollisionShape>().member("offset", &CollisionShape::offset);
+	world.component<ShapeType>()
+		.constant("Box", ShapeType::Box)
+		.constant("Sphere", ShapeType::Sphere)
+		.constant("Capsule", ShapeType::Capsule)
+		.constant("Cylinder", ShapeType::Cylinder)
+		.constant("ConvexHull", ShapeType::ConvexHull)
+		.constant("Mesh", ShapeType::Mesh)
+		.constant("Compound", ShapeType::Compound);
+	world.component<CollisionShape>()
+		.member("type", &CollisionShape::type)
+		.member("offset", &CollisionShape::offset)
+		.member("mesh_path", &CollisionShape::mesh_path);
 	world.component<PhysicsVelocity>()
 		.member("linear", &PhysicsVelocity::linear)
 		.member("angular", &PhysicsVelocity::angular);
@@ -113,6 +129,26 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<PhysicsVelocity>());
 	scripting::RegisterComponentForScripts(world, world.component<PhysicsForce>());
 	scripting::RegisterComponentForScripts(world, world.component<PhysicsVelocityOverride>());
+
+	// Reflected enums bind to scripts as ints, so expose ShapeType's values as `Shape_*` constants.
+	constexpr std::pair<const char*, ShapeType> k_shape_types[] = {
+		{"Shape_Box", ShapeType::Box},
+		{"Shape_Sphere", ShapeType::Sphere},
+		{"Shape_Capsule", ShapeType::Capsule},
+		{"Shape_Cylinder", ShapeType::Cylinder},
+		{"Shape_ConvexHull", ShapeType::ConvexHull},
+		{"Shape_Mesh", ShapeType::Mesh},
+		{"Shape_Compound", ShapeType::Compound},
+	};
+	std::vector<scripting::ScriptConstant> shape_constants;
+	for (const auto& [name, type] : k_shape_types) {
+		shape_constants.push_back(
+			{.name = name,
+			 .type = scripting::ScriptValueType::MakeInt(),
+			 .value_str = std::to_string(static_cast<int>(type))}
+		);
+	}
+	scripting::RegisterGlobalConstantsForScripts(world, std::move(shape_constants));
 
 	// === Level loader ===
 	RegisterPhysicsLevelLoaders(world);

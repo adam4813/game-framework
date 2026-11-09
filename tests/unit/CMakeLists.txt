@@ -18,6 +18,11 @@ add_engine_test(camera_projection_test
     camera_projection_test.cpp
 )
 
+# CPU glTF loader behind mesh colliders: settles that cgltf links beside raylib's copy and applies node transforms
+add_engine_test(gltf_geometry_test
+    gltf_geometry_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp
