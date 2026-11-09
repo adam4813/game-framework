@@ -2,7 +2,7 @@
 
 // Phong lighting vertex shader with GPU skinning: identical outputs to lit.vs, so lit.fs lights it the same.
 // Attribute + uniform names match raylib's defaults, which it binds and uploads for models with bones.
-#define MAX_BONES 64
+#define MAX_BONES 64 // keep in sync with kMaxSkinningBones in raylib_backend.cpp
 
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;

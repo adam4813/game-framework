@@ -55,6 +55,13 @@ TEST(AdvanceAnimationTest, a_paused_player_does_not_advance) {
 	EXPECT_FLOAT_EQ(player.time, 0.0F);
 }
 
+TEST(AdvanceAnimationTest, an_unbound_player_that_is_not_playing_is_skipped_without_complaint) {
+	AnimationPlayer player;
+	player.playing = false;
+	EXPECT_TRUE(AdvanceAnimation(player, 1.0F));
+	EXPECT_FLOAT_EQ(player.time, 0.0F);
+}
+
 TEST(AdvanceAnimationTest, an_unbound_player_is_left_untouched) {
 	AnimationPlayer player; // clip_index == -1: no Animation Kind has bound it
 	player.time = 0.25F;

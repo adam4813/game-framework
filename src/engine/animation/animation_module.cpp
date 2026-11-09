@@ -59,7 +59,13 @@ AnimationModule::AnimationModule(const flecs::world& world) {
 			if (player.clip_index >= 0 || set.handle < 0) return;
 			auto& platform = *it.world().get<platform::PlatformRef>().ptr;
 			const int count = platform.SkeletalClipCount(set.handle);
-			if (count <= 0) return;
+			const auto name = std::string{it.entity(i).name().c_str()};
+			if (count <= 0) {
+				// Bind to an empty clip so the player stops looking unbound; nothing is drawn for it.
+				spdlog::warn("[Animation] '{}' has a SkeletalAnimationSet with no clips", name);
+				player.clip_index = 0;
+				return;
+			}
 			int index = 0;
 			for (int c = 0; c < count && !player.clip.empty(); ++c) {
 				if (platform.SkeletalClipName(set.handle, c) == player.clip) {
@@ -69,7 +75,7 @@ AnimationModule::AnimationModule(const flecs::world& world) {
 				if (c == count - 1) {
 					spdlog::warn(
 						"[Animation] '{}' has no clip '{}'; playing '{}'",
-						std::string{it.entity(i).name().c_str()},
+						name,
 						player.clip,
 						platform.SkeletalClipName(set.handle, 0)
 					);

@@ -3,7 +3,7 @@
 // Phong lighting vertex shader with GPU skinning (GLSL ES 1.00 / WebGL): identical outputs to lit.vs.
 precision mediump float;
 
-#define MAX_BONES 64
+#define MAX_BONES 64 // keep in sync with kMaxSkinningBones in raylib_backend.cpp
 
 attribute vec3 vertexPosition;
 attribute vec2 vertexTexCoord;

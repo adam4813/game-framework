@@ -122,7 +122,7 @@ struct SkeletalSet {
 	int count = 0;
 };
 constexpr float kSkeletalFrameSeconds = 0.017f;
-constexpr int kMaxSkinningBones = 64; // MAX_BONES in lit_skinned.vs
+constexpr int kMaxSkinningBones = 64; // keep in sync with MAX_BONES in lit_skinned.vs (glsl330 and glsl100)
 std::vector<SkeletalSet> g_skeletal_sets;
 std::unordered_map<std::string, int> g_skeletal_set_paths;
 
@@ -2097,7 +2097,9 @@ void RaylibBackend::DrawSkinnedMesh(
 
 	// Draws are immediate, so setting the shared model's bones here is correct for this draw only.
 	const ModelAnimation& clip = g_skeletal_sets[static_cast<std::size_t>(set)].clips[pose.clip];
-	const int frame = static_cast<int>(std::floor(pose.time / kSkeletalFrameSeconds)) % std::max(clip.frameCount, 1);
+	// floor(time * 1000 / 17) mod frameCount, kept non-negative for any time.
+	const int frame_count = std::max(clip.frameCount, 1);
+	const int frame = ((static_cast<int>(std::floor(pose.time * 1000.0f / 17.0f)) % frame_count) + frame_count) % frame_count;
 	UpdateModelAnimationBones(model, clip, frame);
 
 	for (int i = 0; i < model.meshCount; ++i) {

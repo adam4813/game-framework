@@ -833,10 +833,6 @@ RenderModule::RenderModule(const flecs::world& world) {
 			  "RenderSkinnedMeshes"
 	)
 		.kind(flecs::OnStore)
-		.with<RenderWith>(flecs::Wildcard)
-		.optional()
-		.self()
-		.up()
 		.each([](const flecs::iter& it,
 				 const size_t i,
 				 const spatial::WorldTransform& wt,

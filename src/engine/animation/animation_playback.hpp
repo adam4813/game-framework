@@ -7,16 +7,16 @@
 
 namespace engine::animation {
 
-/// Advances `player` by `dt` seconds. Returns false, leaving it untouched, when it is unbound
-/// (`clip_index == -1`). A player that isn't `playing` is left as is. Time grows by
+/// Advances `player` by `dt` seconds. A player that isn't `playing` is left as is. Returns false, leaving it
+/// untouched, when it should be advancing but is unbound (`clip_index == -1`). Time grows by
 /// `dt * max(speed, 0)`: a negative speed counts as 0. With `loop` time wraps at `clip_duration`;
 /// without it time clamps there and `playing` becomes false.
 inline bool AdvanceAnimation(AnimationPlayer& player, const float dt) {
-	if (player.clip_index < 0) {
-		return false;
-	}
 	if (!player.playing) {
 		return true;
+	}
+	if (player.clip_index < 0) {
+		return false;
 	}
 	player.time += dt * std::max(player.speed, 0.0F);
 	if (player.time < player.clip_duration) {
