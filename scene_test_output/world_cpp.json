@@ -34,11 +34,13 @@
     "TestBox": {
       "components": {
         "CollisionShape": {
+          "mesh_path": "",
           "offset": {
             "x": 0,
             "y": 0,
             "z": 0
-          }
+          },
+          "type": "Box"
         },
         "CubePrimitive": {
           "size": {
@@ -86,7 +88,7 @@
         "WorldTransform": {
           "position": {
             "x": 0,
-            "y": 0,
+            "y": 3,
             "z": 0
           },
           "rotation": {
@@ -111,6 +113,8 @@
           "far_plane": 100,
           "fov": 60,
           "near_plane": 0.1000000015,
+          "ortho_size": 20,
+          "projection": "Perspective",
           "up": {
             "x": 0,
             "y": 1,
@@ -137,8 +141,8 @@
         "WorldTransform": {
           "position": {
             "x": 0,
-            "y": 0,
-            "z": 0
+            "y": 5,
+            "z": 5
           },
           "rotation": {
             "x": 0,
@@ -180,7 +184,7 @@
         },
         "WorldTransform": {
           "position": {
-            "x": 0,
+            "x": 5,
             "y": 0,
             "z": 0
           },
@@ -297,7 +301,7 @@
         "WorldTransform": {
           "position": {
             "x": 0,
-            "y": 0,
+            "y": 10,
             "z": 0
           },
           "rotation": {
@@ -325,6 +329,7 @@
             "g": 100,
             "r": 200
           },
+          "unlit": false,
           "wireframe": false
         }
       },
@@ -346,7 +351,9 @@
         "Music": {
           "handle": -1,
           "loop": true,
-          "path": "./audio/music/theme.ogg"
+          "path": "./audio/music/theme.ogg",
+          "playing": false,
+          "volume": 1
         }
       },
       "name": "TestMusic",
@@ -401,7 +408,7 @@
           "position": {
             "x": 0,
             "y": 0,
-            "z": 0
+            "z": 5
           },
           "rotation": {
             "x": 0,
@@ -478,7 +485,7 @@
         },
         "WorldTransform": {
           "position": {
-            "x": 0,
+            "x": 3,
             "y": 0,
             "z": 0
           },
@@ -500,11 +507,13 @@
     "TestShape": {
       "components": {
         "CollisionShape": {
+          "mesh_path": "./models/cube.glb",
           "offset": {
             "x": 0,
             "y": 0.1000000015,
             "z": 0
-          }
+          },
+          "type": "Mesh"
         },
         "Transform": {
           "position": {
@@ -525,7 +534,7 @@
         },
         "WorldTransform": {
           "position": {
-            "x": 0,
+            "x": -3,
             "y": 0,
             "z": 0
           },
@@ -568,8 +577,8 @@
         },
         "WorldTransform": {
           "position": {
-            "x": 0,
-            "y": 0,
+            "x": -2.5,
+            "y": 0.5,
             "z": 0
           },
           "rotation": {
@@ -620,7 +629,7 @@
         },
         "WorldTransform": {
           "position": {
-            "x": 0,
+            "x": 7,
             "y": 0,
             "z": 0
           },
@@ -643,8 +652,8 @@
       "components": {
         "Tilemap": null,
         "TilemapViewport": {
-          "buffer_height": 0,
-          "buffer_width": 0,
+          "buffer_height": 10,
+          "buffer_width": 10,
           "origin_tile_x": -2147483648,
           "origin_tile_z": -2147483648
         },
@@ -690,7 +699,7 @@
       "components": {
         "AlbedoMap": {
           "handle": -1,
-          "path": ""
+          "path": "./textures/tileset.png"
         },
         "Material": {
           "cast_shadow": true,
@@ -700,6 +709,7 @@
             "g": 255,
             "r": 255
           },
+          "unlit": false,
           "wireframe": false
         },
         "SpriteAtlas": {
@@ -758,6 +768,7 @@
             "g": 100,
             "r": 90
           },
+          "border_thickness": 2,
           "clicked": false,
           "font_size": 22,
           "hover": {
@@ -911,6 +922,13 @@
             "r": 200
           },
           "font_size": 24,
+          "outline": 0,
+          "outline_color": {
+            "a": 255,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
           "text": "Hello"
         },
         "UIRect": {
@@ -1342,7 +1360,7 @@
           "position": {
             "x": 0,
             "y": 0,
-            "z": 0
+            "z": -3
           },
           "rotation": {
             "x": 0,
