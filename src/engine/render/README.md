@@ -98,6 +98,11 @@ Primitives are drawn as **lit meshes** through a Phong shader (`assets/shaders/g
 variant for WebGL).
 
 - **Phong shading** — ambient + one directional light + specular, configured from `AmbientLight` and `DirectionalLight`.
+- **Point lights** — a `point_light` entity (`PointLight { color, intensity, constant, linear, quadratic }`, all
+  optional in level JSON) lights primitives, models and instanced batches from its `WorldTransform` position, on top of
+  the ambient and directional terms. Attenuation is `1 / (constant + linear·d + quadratic·d²)`; the defaults fade over
+  about 50 m. At most **4** are used (`LightParams::kMaxPointLights`, in query order); the rest are ignored with one
+  logged warning. Point lights cast no shadows. A scene with none renders as before.
 - **Shadows** — cheap **planar projected shadows** flattened onto `DirectionalLight.shadow_ground_y`. No render targets,
   so it works on desktop and WebGL alike.
 - **Unlit** — `Material.unlit` draws the colour exactly as given, skipping the scene light (flat white art, markers).
@@ -108,7 +113,7 @@ variant for WebGL).
 ## Structure
 
 - **render_components.hpp** — plain-data components: shape primitives, `Material`, `AlbedoMap`, `ShaderMap`,
-  `RenderWith` (relationship tag), `LookAt` (relationship tag), lights (`AmbientLight`, `DirectionalLight`), and
+  `RenderWith` (relationship tag), `LookAt` (relationship tag), lights (`AmbientLight`, `DirectionalLight`, `PointLight`), and
   `Camera`.
 - **render_module.hpp/cpp** — reflection, scripting registration (`ScriptTraversal` tagging), observers, systems.
 - **render.hpp** — public umbrella header.

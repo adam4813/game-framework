@@ -208,6 +208,21 @@ constexpr auto kGlslDir = "glsl100";
 constexpr auto kGlslDir = "glsl330";
 #endif
 
+// Uniform locations of the point-light arrays in lit.fs, shared by every program that links it.
+struct PointLightLocs {
+	int pos = -1;
+	int color = -1;
+	int atten = -1;
+	int count = -1;
+
+	void Resolve(const Shader& shader) {
+		pos = GetShaderLocation(shader, "pointPos[0]");
+		color = GetShaderLocation(shader, "pointColor[0]");
+		atten = GetShaderLocation(shader, "pointAtten[0]");
+		count = GetShaderLocation(shader, "pointCount");
+	}
+};
+
 // Lit-rendering resources: the Phong shader, its custom uniform locations, the shared material,
 // cached unit primitive meshes, and the per-frame lighting/shadow state. Populated once GL is
 // ready (first BeginMode3D) and torn down on Shutdown.
@@ -232,6 +247,7 @@ struct LitState {
 	int loc_shadow_pass = -1;
 	int loc_shadow_color = -1;
 	int loc_unlit = -1;
+	PointLightLocs point_locs;
 
 	bool shadows_enabled = false;
 	glm::mat4 shadow_matrix{1.0f};
@@ -264,6 +280,7 @@ struct InstancedState {
 	int loc_shadow_color = -1;
 	int loc_shadow_matrix = -1;
 	int loc_unlit = -1;
+	PointLightLocs point_locs;
 };
 
 InstancedState g_inst;
@@ -551,6 +568,7 @@ void InitLitResources() {
 	g_lit.loc_shadow_pass = GetShaderLocation(g_lit.shader, "shadowPass");
 	g_lit.loc_unlit = GetShaderLocation(g_lit.shader, "unlit");
 	g_lit.loc_shadow_color = GetShaderLocation(g_lit.shader, "shadowColor");
+	g_lit.point_locs.Resolve(g_lit.shader);
 
 	const Image white_img = GenImageColor(1, 1, WHITE);
 	g_lit.white = LoadTextureFromImage(white_img);
@@ -689,6 +707,7 @@ void InitInstancedResources() {
 	g_inst.loc_unlit = GetShaderLocation(g_inst.shader, "unlit");
 	g_inst.loc_shadow_color = GetShaderLocation(g_inst.shader, "shadowColor");
 	g_inst.loc_shadow_matrix = GetShaderLocation(g_inst.shader, "shadowMatrix");
+	g_inst.point_locs.Resolve(g_inst.shader);
 
 	if (g_inst.attr_transform < 0 || g_inst.attr_color < 0) {
 		TraceLog(LOG_WARNING, "[RaylibBackend] Instanced shader missing per-instance attributes; batching disabled");
@@ -720,6 +739,32 @@ void ShutdownInstancedResources() {
 	g_inst = InstancedState{};
 }
 
+// Feeds the point-light uniform arrays of a lit program (the per-draw one or the instanced one).
+void UploadPointLights(const Shader& shader, const PointLightLocs& locs, const LightParams& lighting) {
+	constexpr int kMax = LightParams::kMaxPointLights;
+	float pos[kMax][3]{};
+	float color[kMax][4]{};
+	float atten[kMax][3]{};
+	for (int i = 0; i < lighting.point_light_count; ++i) {
+		const auto& pl = lighting.point_lights[static_cast<std::size_t>(i)];
+		pos[i][0] = pl.position.x;
+		pos[i][1] = pl.position.y;
+		pos[i][2] = pl.position.z;
+		color[i][0] = static_cast<float>(pl.color.r) / 255.0f;
+		color[i][1] = static_cast<float>(pl.color.g) / 255.0f;
+		color[i][2] = static_cast<float>(pl.color.b) / 255.0f;
+		color[i][3] = pl.intensity;
+		atten[i][0] = pl.constant;
+		atten[i][1] = pl.linear;
+		atten[i][2] = pl.quadratic;
+	}
+	SetShaderValueV(shader, locs.pos, pos, SHADER_UNIFORM_VEC3, kMax);
+	SetShaderValueV(shader, locs.color, color, SHADER_UNIFORM_VEC4, kMax);
+	SetShaderValueV(shader, locs.atten, atten, SHADER_UNIFORM_VEC3, kMax);
+	const int count = std::clamp(lighting.point_light_count, 0, kMax);
+	SetShaderValue(shader, locs.count, &count, SHADER_UNIFORM_INT);
+}
+
 // Pushes the cached scene lighting onto the instanced shader (a separate program from g_lit, so it
 // needs its own uniform uploads).
 void UploadInstancedLighting() {
@@ -747,6 +792,7 @@ void UploadInstancedLighting() {
 	SetShaderValue(g_inst.shader, g_inst.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
 	SetShaderValue(g_inst.shader, g_inst.loc_specular, &g_light_params.specular_strength, SHADER_UNIFORM_FLOAT);
 	SetShaderValue(g_inst.shader, g_inst.loc_shininess, &g_light_params.shininess, SHADER_UNIFORM_FLOAT);
+	UploadPointLights(g_inst.shader, g_inst.point_locs, g_light_params);
 }
 
 // (Re)allocates the per-instance VBOs on a RenderMesh when capacity must grow, attaching them to the
@@ -1267,6 +1313,7 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 
 	SetShaderValue(g_lit.shader, g_lit.loc_specular, &lighting.specular_strength, SHADER_UNIFORM_FLOAT);
 	SetShaderValue(g_lit.shader, g_lit.loc_shininess, &lighting.shininess, SHADER_UNIFORM_FLOAT);
+	UploadPointLights(g_lit.shader, g_lit.point_locs, lighting);
 
 	const float shadow_col[4] = {
 		static_cast<float>(lighting.shadow_color.r) / 255.0f,

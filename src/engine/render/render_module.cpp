@@ -21,6 +21,7 @@
 #include "engine/scene/scene.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "engine/spatial/spatial.hpp"
+#include "point_light_packing.hpp"
 #include "render_components.hpp"
 #include "render_queue.hpp"
 
@@ -365,6 +366,16 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		e.set<DirectionalLight>(dl);
 	});
 
+	level::RegisterComponentLoader(world, "point_light", [](const flecs::entity e, const json& j) {
+		PointLight pl{};
+		pl.color = JRgba(j, "color", pl.color);
+		pl.intensity = j.value("intensity", pl.intensity);
+		pl.constant = j.value("constant", pl.constant);
+		pl.linear = j.value("linear", pl.linear);
+		pl.quadratic = j.value("quadratic", pl.quadratic);
+		e.set<PointLight>(pl);
+	});
+
 	level::RegisterSingletonLoader(world, "ambient_light", [](const flecs::world& w, const json& j) {
 		AmbientLight al{};
 		al.color = JRgba(j, "color", al.color);
@@ -448,6 +459,14 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<bool>("casts_shadows")
 		.member<float>("shadow_ground_y")
 		.member<core::Rgba>("shadow_color");
+	world.component<PointLightOverflowLog>();
+	world.set<PointLightOverflowLog>({});
+	world.component<PointLight>()
+		.member<core::Rgba>("color")
+		.member<float>("intensity")
+		.member<float>("constant")
+		.member<float>("linear")
+		.member<float>("quadratic");
 	world.component<Material>()
 		.member<core::Rgba>("color")
 		.member<bool>("wireframe")
@@ -468,6 +487,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<MeshPrimitive>());
 	scripting::RegisterComponentForScripts(world, world.component<AmbientLight>());
 	scripting::RegisterComponentForScripts(world, world.component<DirectionalLight>());
+	scripting::RegisterComponentForScripts(world, world.component<PointLight>());
 	scripting::RegisterComponentForScripts(world, world.component<Material>());
 	scripting::RegisterComponentForScripts(world, world.component<SpriteAtlas>());
 	scripting::RegisterComponentForScripts(world, world.component<AlbedoMap>());
@@ -637,11 +657,12 @@ RenderModule::RenderModule(const flecs::world& world) {
 			.add<scene::GameScene>();
 
 	const auto light_query = world.query_builder<const DirectionalLight>().build();
+	const auto point_light_query = world.query_builder<const PointLight, const spatial::WorldTransform>().build();
 
 	// === SYSTEM: Upload scene lighting ===
 	std::ignore = world.system("RenderLightingUpload")
 					  .kind(flecs::OnStore)
-					  .run([light_query](const flecs::iter& it) {
+					  .run([light_query, point_light_query](const flecs::iter& it) {
 						  const auto& platform_ref = it.world().get<platform::PlatformRef>();
 						  if (!it.world().get<Render3DState>().active) return;
 						  platform::LightParams params;
@@ -660,6 +681,23 @@ RenderModule::RenderModule(const flecs::world& world) {
 							  const auto& al = it.world().get<AmbientLight>();
 							  params.ambient_color = al.color;
 							  params.ambient_intensity = al.intensity;
+						  }
+						  int dropped = 0;
+						  point_light_query.each([&params, &dropped](const PointLight& pl, const spatial::WorldTransform& wt) {
+							  if (!AddPointLight(params, {.light = pl, .position = wt.position})) ++dropped;
+						  });
+						  // Warn when the overflow first appears, not every frame; the count falls back to 0 (and
+						  // re-arms the warning) when the scene that overflowed goes away.
+						  auto& log = it.world().get_mut<PointLightOverflowLog>();
+						  if (dropped != log.warned_dropped) {
+							  log.warned_dropped = dropped;
+							  if (dropped > 0) {
+								  spdlog::warn(
+									  "[render] {} point lights in the scene; only the first {} are used",
+									  dropped + params.point_light_count,
+									  platform::LightParams::kMaxPointLights
+								  );
+							  }
 						  }
 						  platform_ref.ptr->SetLighting(params);
 					  })

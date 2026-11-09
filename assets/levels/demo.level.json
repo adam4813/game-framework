@@ -89,6 +89,29 @@
 			]
 		},
 		{
+			"name": "LampLight",
+			"components": {
+				"transform": {
+					"position": [
+						2.0,
+						1.2,
+						1.0
+					]
+				},
+				"point_light": {
+					"color": [
+						255,
+						120,
+						60,
+						255
+					],
+					"intensity": 2.5,
+					"linear": 0.22,
+					"quadratic": 0.2
+				}
+			}
+		},
+		{
 			"name": "Floor",
 			"components": {
 				"transform": {

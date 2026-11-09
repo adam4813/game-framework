@@ -391,6 +391,23 @@ json BuildCppWorld() {
 	test_world.World()
 		.entity()
 		.child_of(scene_root)
+		.set_name("TestPointLight")
+		.set<engine::spatial::Transform>({
+			.position = {2.0F, 4.0F, -1.0F},
+			.rotation = {0.0F, 0.0F, 0.0F},
+			.scale = {1.0F, 1.0F, 1.0F},
+		})
+		.set<engine::render::PointLight>({
+			.color = {.r = 255, .g = 180, .b = 120, .a = 255},
+			.intensity = 1.5F,
+			.constant = 1.0F,
+			.linear = 0.14F,
+			.quadratic = 0.07F,
+		});
+
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
 		.set_name("TestBox")
 		.set<engine::spatial::Transform>({
 			.position = {0.0F, 3.0F, 0.0F},

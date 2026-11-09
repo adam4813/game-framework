@@ -522,6 +522,58 @@
       "name": "TestPathFollow",
       "parent": "SceneRoot"
     },
+    "TestPointLight": {
+      "components": {
+        "PointLight": {
+          "color": {
+            "a": 255,
+            "b": 120,
+            "g": 180,
+            "r": 255
+          },
+          "constant": 1,
+          "intensity": 1.5,
+          "linear": 0.1400000006,
+          "quadratic": 0.0700000003
+        },
+        "Transform": {
+          "position": {
+            "x": 2,
+            "y": 4,
+            "z": -1
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestPointLight",
+      "parent": "SceneRoot"
+    },
     "TestQuad": {
       "components": {
         "QuadPrimitive": {

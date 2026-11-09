@@ -95,6 +95,23 @@ struct DirectionalLight {
 	core::Rgba shadow_color{.r = 10, .g = 12, .b = 16, .a = 120};
 };
 
+// A local light at the entity's WorldTransform position, adding diffuse and specular on top of the ambient and
+// directional terms. Attenuation is 1 / (constant + linear*d + quadratic*d^2); the defaults fade out over about
+// 50 m. At most platform::LightParams::kMaxPointLights are used; the rest are ignored. No shadows.
+struct PointLight {
+	core::Rgba color{.r = 255, .g = 255, .b = 255, .a = 255};
+	float intensity{1.0F};
+	float constant{1.0F};
+	float linear{0.09F};
+	float quadratic{0.032F};
+};
+
+// Singleton: how many point lights the last overflowing frame dropped, so RenderLightingUpload logs the overflow
+// once instead of every frame.
+struct PointLightOverflowLog {
+	int warned_dropped{0};
+};
+
 // Relationship: links a renderable entity to a dedicated material entity that carries Material,
 // optionally AlbedoMap, and optionally ShaderMap. Registered with flecs::Exclusive so each entity
 // can target at most one material at a time. Usage:

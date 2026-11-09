@@ -18,6 +18,13 @@ uniform vec3 viewPos;
 uniform float specularStrength;
 uniform float shininess;
 
+// Point lights (up to 4, LightParams::kMaxPointLights; keep the array sizes and loop bound in sync): world position, colour (rgb) * intensity in a, and attenuation as
+// (constant, linear, quadratic). Only the first pointCount entries are used.
+uniform vec3 pointPos[4];
+uniform vec4 pointColor[4];
+uniform vec3 pointAtten[4];
+uniform int pointCount;
+
 uniform float shadowPass;
 uniform vec4 shadowColor;
 
@@ -49,6 +56,18 @@ void main() {
 	vec3 lighting = ambient.rgb * ambient.a
 		+ diff * lightColor.rgb * lightColor.a
 		+ spec * lightColor.rgb * lightColor.a;
+
+	for (int i = 0; i < 4; ++i) {
+		if (i >= pointCount) break;
+		vec3 toLight = pointPos[i] - fragPosition;
+		float dist = length(toLight);
+		vec3 pl = toLight / max(dist, 0.0001);
+		float atten = 1.0 / (pointAtten[i].x + pointAtten[i].y * dist + pointAtten[i].z * dist * dist);
+		float pdiff = max(dot(normal, pl), 0.0);
+		vec3 pReflect = reflect(-pl, normal);
+		float pspec = pow(max(dot(viewD, pReflect), 0.0), shininess) * specularStrength * pdiff;
+		lighting += (pdiff + pspec) * pointColor[i].rgb * pointColor[i].a * atten;
+	}
 
 	vec3 color = base.rgb * lighting;
 	gl_FragColor = vec4(color, base.a);
