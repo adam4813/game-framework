@@ -60,4 +60,20 @@ TEST(LevelLoading, AComponentWithAWronglyTypedValueIsSkippedAndTheRestOfTheEntit
 	EXPECT_TRUE(thing.has<Marker>());
 }
 
+TEST(LevelLoading, ASecondSiblingWithTheSameNameIsSkippedInsteadOfAbortingFlecs) {
+	flecs::world world;
+	world.import<engine::level::LevelModule>();
+	const auto root = world.entity("Root");
+
+	engine::level::LoadLevelFromSource(
+		world,
+		R"({"entities": [{"name": "Twin"}, {"name": "Twin"}, {"name": "Other"}]})",
+		root
+	);
+
+	int children = 0;
+	root.children([&](flecs::entity) { ++children; });
+	EXPECT_EQ(children, 2);
+}
+
 } // namespace

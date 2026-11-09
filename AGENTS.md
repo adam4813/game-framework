@@ -29,6 +29,9 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
 - CMake uses `GLOB_RECURSE` — new `.cpp` files in `src/` are auto-discovered.
 - VCPKG manages dependencies (Raylib, nlohmann-json, Flecs).
 
+- **Test executables live under `build/desktop-test/`**, built by `cmake --build --preset desktop-test-release`. The
+  `desktop` presets build the games only, so a test exe path under `build/desktop/` doesn't exist (exit 127).
+
 - **No guardrail runs for you.** There is no pre-commit hook, and CI (`.github/workflows/build.yml`) only runs for
   `main`, so feature and game branches get no CI. Before calling work done, build the
   `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` yourself.
@@ -89,7 +92,7 @@ For all other debugging and inspection tasks, use the **`flecs-remote-api` skill
 scene switching, UI navigation, input overrides, component queries, and ECS introspection.
 
 For screenshots (desktop and browser), logs, the headless test harness, and finding a component's full path, see
-`docs/agents/debugging-toolbelt.md`.
+`docs/agents/debugging-toolbelt.md`. **A native crash with no log line: read its "Crash tripwire" first.**
 
 ## Interaction style
 

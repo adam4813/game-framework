@@ -4,6 +4,7 @@ add_executable(scene_equivalence_test
 
 target_include_directories(scene_equivalence_test PRIVATE
     "${CMAKE_SOURCE_DIR}/src"
+    "${CMAKE_SOURCE_DIR}/tests/support"
     "${STB_INCLUDE_DIRS}"
 )
 

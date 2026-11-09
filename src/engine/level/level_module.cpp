@@ -1,6 +1,8 @@
 #include "level_module.hpp"
 
 #include <filesystem>
+#include <set>
+#include <utility>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -71,6 +73,18 @@ public:
 		// so a named create (world.entity(name) is lookup-or-create) would resolve the shared name to
 		// the same entity and silently merge them. Naming after child_of scopes the name under the
 		// parent, keeping each child distinct — and gives levels "instantiate fresh" semantics.
+		// Flecs aborts without a message when two siblings share a name, so refuse the second here and say which.
+		if (def.contains("name")) {
+			const auto& name = def.at("name").get<std::string>();
+			if (!sibling_names_.emplace(parent.id(), name).second) {
+				spdlog::error(
+					"[Level] Duplicate entity name '{}' under '{}' — skipping the second",
+					name,
+					parent ? parent.name().c_str() : "(root)"
+				);
+				return {};
+			}
+		}
 		const flecs::entity e = world_.entity();
 		if (parent) {
 			e.child_of(parent);
@@ -187,6 +201,7 @@ private:
 
 	const flecs::world& world_;
 	std::unordered_map<std::string, flecs::entity> named_;
+	std::set<std::pair<flecs::entity_t, std::string>> sibling_names_; // (parent id, name) pairs built so far
 	std::vector<PendingRef> pending_refs_;
 };
 
