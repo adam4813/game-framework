@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <flecs.h>
 #include <glm/glm.hpp>
 
 #include "physics_types.hpp"
@@ -42,6 +43,37 @@ struct CollisionShape {
 	/// Model file (.glb/.gltf) whose triangles make a static `Mesh` shape. Read only when `type == Mesh`.
 	/// Level JSON resolves it against the asset directory; C++ and script authors pass a resolved path.
 	std::string mesh_path;
+};
+
+/// Marks an entity as a walking character, paired with a capsule `CollisionShape` (an error without one, or with a
+/// `RigidBody`). Backed by Jolt's `CharacterVirtual`. Defaults are Jolt's own.
+struct CharacterBody {
+	float max_slope_deg{50.0F};
+	float step_height{0.4F};
+	float stick_to_floor{0.5F};
+	float mass{70.0F};
+	/// Stored for authors; the backend has only moving and non-moving object layers, so it doesn't filter on this yet.
+	CollisionLayer layer{CollisionLayer::Player};
+};
+
+/// Desired velocity, written by the game each frame. Only the part perpendicular to the character's up is used.
+/// Without it the desired velocity is zero.
+struct CharacterMove {
+	glm::vec3 velocity{0.0F};
+};
+
+/// The single acceleration an entity feels, which also defines its up (-normalize(acceleration)). Without it an
+/// entity uses `PhysicsWorldConfig::gravity`. Only characters read it for now.
+struct Gravity {
+	glm::vec3 acceleration{0.0F, -9.81F, 0.0F};
+};
+
+/// Runtime state of a character, written every frame for inspection.
+struct CharacterState {
+	bool grounded{false};
+	flecs::entity_t ground_entity{0};
+	glm::vec3 ground_normal{0.0F, 1.0F, 0.0F};
+	glm::vec3 velocity{0.0F};
 };
 
 /// Velocity component tracked by physics (separate from engine::components::Velocity)

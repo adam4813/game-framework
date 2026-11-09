@@ -203,6 +203,82 @@
       "name": "TestCapsule",
       "parent": "SceneRoot"
     },
+    "TestCharacter": {
+      "components": {
+        "CharacterBody": {
+          "mass": 60,
+          "max_slope_deg": 40,
+          "step_height": 0.3000000119,
+          "stick_to_floor": 0.400000006
+        },
+        "CharacterState": {
+          "ground_entity": 0,
+          "ground_normal": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "grounded": false,
+          "velocity": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "CollisionShape": {
+          "mesh_path": "",
+          "offset": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "type": "Capsule"
+        },
+        "Gravity": {
+          "acceleration": {
+            "x": 0,
+            "y": -5,
+            "z": 0
+          }
+        },
+        "Transform": {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        "WorldTransform": {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      },
+      "name": "TestCharacter",
+      "parent": "SceneRoot"
+    },
     "TestFSMAgent": {
       "components": {
         "FSMAgent": {

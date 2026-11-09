@@ -270,6 +270,28 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestCharacter",
+      "components": {
+        "transform": {
+          "position": [4.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "collision_shape": {
+          "type": "capsule"
+        },
+        "character_body": {
+          "max_slope_deg": 40.0,
+          "step_height": 0.3,
+          "stick_to_floor": 0.4,
+          "mass": 60.0
+        },
+        "gravity": {
+          "acceleration": [0.0, -5.0, 0.0]
+        }
+      }
+    },
+    {
       "name": "TestAudio",
       "components": {
         "sound_effect": {
@@ -677,6 +699,21 @@ void OnInit(Entity self) {
     cs.type = Shape_Mesh;
     cs.mesh_path = "./models/cube.glb";
     cs.offset = vec3(0.0f, 0.1f, 0.0f);
+
+    Entity character = CreateNamedEntity("TestCharacter");
+    Transform@ cht = character.AddTransform();
+    cht.position = vec3(4.0f, 0.0f, 0.0f);
+    cht.rotation = vec3(0.0f, 0.0f, 0.0f);
+    cht.scale = vec3(1.0f, 1.0f, 1.0f);
+    CollisionShape@ chs = character.AddCollisionShape();
+    chs.type = Shape_Capsule;
+    CharacterBody@ cb = character.AddCharacterBody();
+    cb.max_slope_deg = 40.0f;
+    cb.step_height = 0.3f;
+    cb.stick_to_floor = 0.4f;
+    cb.mass = 60.0f;
+    Gravity@ grav = character.AddGravity();
+    grav.acceleration = vec3(0.0f, -5.0f, 0.0f);
 
     Entity audio = CreateNamedEntity("TestAudio");
     SoundEffect@ sfx = audio.AddSoundEffect();

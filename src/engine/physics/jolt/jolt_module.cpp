@@ -24,6 +24,21 @@ struct PhysicsAccumulator {
 
 // Name for log messages: the entity's name, or its id when unnamed.
 std::string EntityLabel(const flecs::entity& e) { return e.name() ? std::string{e.name()} : std::to_string(e.id()); }
+
+// Creates the entity's character once it has both CharacterBody and a CollisionShape. Called from the observers
+// for either component, since level JSON applies components alphabetically.
+void CreateCharacter(JoltBackend& sys, const flecs::entity e) {
+	if (sys.HasCharacter(e.id())) return;
+	const auto* body = e.try_get<CharacterBody>();
+	const auto* shape = e.try_get<CollisionShape>();
+	if (!body || !shape) return;
+	if (e.has<RigidBody>()) {
+		spdlog::error("[Physics] Entity '{}': a character_body can't also be a rigid_body.", EntityLabel(e));
+		return;
+	}
+	const auto* local = e.try_get<spatial::Transform>();
+	sys.AddCharacter(e.id(), EntityLabel(e), local ? local->position : glm::vec3{0.0F}, *body, *shape);
+}
 } // namespace
 
 JoltModule::JoltModule(const flecs::world& world) {
@@ -93,41 +108,122 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
 
-	// === SYSTEM: Step physics simulation ===
-	// Handles fixed timestep accumulation and physics stepping
-	std::ignore = world.system<const JoltBackend, const PhysicsWorldConfig, PhysicsAccumulator>("PhysicsStep")
+	// === Characters ===
+	// A Transform position that differs from the one last written back is a teleport; rotation is ignored, so a game
+	// can drive facing every frame. Runs before PhysicsStep so the move starts from the teleported spot.
+	std::ignore = world.system<const spatial::Transform>("CharacterTeleport")
+					  .with<CharacterBody>()
 					  .kind(flecs::OnUpdate)
-					  .term_at<JoltBackend>()
-					  .singleton()
-					  .term_at<PhysicsWorldConfig>()
-					  .singleton()
-					  .term_at<PhysicsAccumulator>()
-					  .singleton()
-					  .run([](flecs::iter& it) {
-						  const auto& sys = it.world().get<JoltBackend>();
-						  const auto& cfg = it.world().get<PhysicsWorldConfig>();
-						  auto& acc = it.world().get_mut<PhysicsAccumulator>();
-
-						  sys.SetGravity(cfg.gravity);
-
-						  acc.accumulated_time += it.delta_time();
-
-						  int steps = 0;
-						  while (acc.accumulated_time >= cfg.fixed_timestep && steps < cfg.max_substeps) {
-							  sys.StepSimulation(cfg.fixed_timestep);
-							  acc.accumulated_time -= cfg.fixed_timestep;
-							  ++steps;
+					  .each([](const flecs::iter& it, const size_t i, const spatial::Transform& local) {
+						  auto& sys = it.world().get_mut<JoltBackend>();
+						  const flecs::entity_t id = it.entity(i).id();
+						  if (sys.HasCharacter(id) && local.position != sys.GetCharacterWrittenPosition(id)) {
+							  sys.SetCharacterPosition(id, local.position);
 						  }
-
-						  // Clamp to prevent spiral of death
-						  acc.accumulated_time =
-							  std::min(acc.accumulated_time, cfg.fixed_timestep * static_cast<float>(cfg.max_substeps));
-
-						  // Spin through the iterator to ensure ECS systems are aware of the iteration
-						  while (it.next());
 					  })
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
+
+	// Reacts to OnSet (not OnAdd) so the observer reads the authored values, and tolerates either component arriving
+	// first.
+	std::ignore = world.observer<const CharacterBody, JoltBackend>("CharacterAdd")
+					  .event(flecs::OnSet)
+					  .term_at<JoltBackend>()
+					  .singleton()
+					  .run([](flecs::iter& it) {
+						  auto& sys = it.world().get_mut<JoltBackend>();
+						  while (it.next()) {
+							  for (const size_t i : it) {
+								  CreateCharacter(sys, it.entity(i));
+							  }
+						  }
+					  });
+	std::ignore = world.observer<const CollisionShape, JoltBackend>("CharacterAddOnCollisionShape")
+					  .event(flecs::OnSet)
+					  .with<CharacterBody>()
+					  .term_at<JoltBackend>()
+					  .singleton()
+					  .run([](flecs::iter& it) {
+						  auto& sys = it.world().get_mut<JoltBackend>();
+						  while (it.next()) {
+							  for (const size_t i : it) {
+								  CreateCharacter(sys, it.entity(i));
+							  }
+						  }
+					  });
+	// A rigid_body arriving after the character_body (JSON order) makes the pairing invalid.
+	std::ignore =
+		world.observer<const RigidBody, JoltBackend>("CharacterRejectRigidBody")
+			.event(flecs::OnSet)
+			.with<CharacterBody>()
+			.term_at<JoltBackend>()
+			.singleton()
+			.each([](const flecs::entity e, const RigidBody&, JoltBackend& sys) {
+				if (!sys.HasCharacter(e.id())) return;
+				spdlog::error("[Physics] Entity '{}': a character_body can't also be a rigid_body.", EntityLabel(e));
+				sys.RemoveCharacter(e.id());
+			});
+	std::ignore =
+		world.observer<const CharacterBody, JoltBackend>("CharacterRemove")
+			.event(flecs::OnRemove)
+			.term_at<JoltBackend>()
+			.singleton()
+			.each([](const flecs::entity& e, const CharacterBody&, JoltBackend& sys) { sys.RemoveCharacter(e.id()); });
+	std::ignore =
+		world.observer<const CollisionShape, JoltBackend>("CharacterRemoveOnCollisionShape")
+			.event(flecs::OnRemove)
+			.with<CharacterBody>()
+			.term_at<JoltBackend>()
+			.singleton()
+			.each([](const flecs::entity& e, const CollisionShape&, JoltBackend& sys) { sys.RemoveCharacter(e.id()); });
+
+	auto characters = world.query_builder<const CharacterMove*, const Gravity*>().with<CharacterBody>().build();
+
+	// === SYSTEM: Step physics simulation ===
+	// Handles fixed timestep accumulation and physics stepping
+	std::ignore =
+		world.system<const JoltBackend, const PhysicsWorldConfig, PhysicsAccumulator>("PhysicsStep")
+			.kind(flecs::OnUpdate)
+			.term_at<JoltBackend>()
+			.singleton()
+			.term_at<PhysicsWorldConfig>()
+			.singleton()
+			.term_at<PhysicsAccumulator>()
+			.singleton()
+			.run([characters](flecs::iter& it) {
+				auto& sys = it.world().get_mut<JoltBackend>();
+				const auto& cfg = it.world().get<PhysicsWorldConfig>();
+				auto& acc = it.world().get_mut<PhysicsAccumulator>();
+
+				sys.SetGravity(cfg.gravity);
+
+				acc.accumulated_time += it.delta_time();
+
+				int steps = 0;
+				while (acc.accumulated_time >= cfg.fixed_timestep && steps < cfg.max_substeps) {
+					// Characters move first so the simulation step sees their new positions.
+					characters.each([&](const flecs::entity e, const CharacterMove* move, const Gravity* gravity) {
+						sys.StepCharacter(
+							e.id(),
+							cfg.fixed_timestep,
+							{.move_velocity = move ? move->velocity : glm::vec3{0.0F},
+							 .gravity = gravity ? gravity->acceleration : cfg.gravity}
+						);
+					});
+					sys.StepSimulation(cfg.fixed_timestep);
+					acc.accumulated_time -= cfg.fixed_timestep;
+					++steps;
+				}
+
+				// Clamp to prevent spiral of death
+				acc.accumulated_time =
+					std::min(acc.accumulated_time, cfg.fixed_timestep * static_cast<float>(cfg.max_substeps));
+
+				// Spin through the iterator to ensure ECS systems are aware of the iteration
+				while (it.next());
+			})
+			.add<ecs::Pausable>()
+			.add<scene::GameScene>();
 
 	// === OBSERVER: Create physics body when RigidBody is set ===
 	// Reacts to OnSet, not OnAdd: inside a defer_suspend()ed region (a scene's own level load) `set<RigidBody>` adds the component
@@ -288,6 +384,29 @@ JoltModule::JoltModule(const flecs::world& world) {
 						vel.angular = ang_vel;
 					}
 				}
+			})
+			.add<ecs::Pausable>()
+			.add<scene::GameScene>();
+
+	// Writes the character's position to its Transform (never the rotation, which the game owns) and fills
+	// CharacterState. In place, without modified<>: TransformPropagation recomputes WorldTransform every frame.
+	std::ignore =
+		world.system<spatial::Transform, CharacterState>("CharacterSyncFromBackend")
+			.with<CharacterBody>()
+			.kind(flecs::PostUpdate)
+			.each([](const flecs::iter& it, const size_t i, spatial::Transform& local, CharacterState& state) {
+				auto& sys = it.world().get_mut<JoltBackend>();
+				const flecs::entity_t id = it.entity(i).id();
+				if (!sys.HasCharacter(id)) return;
+				const CharacterSyncResult result = sys.GetCharacterSyncResult(id);
+				local.position = result.position;
+				sys.SetCharacterWrittenPosition(id, result.position);
+				state = {
+					.grounded = result.grounded,
+					.ground_entity = result.ground_entity,
+					.ground_normal = result.ground_normal,
+					.velocity = result.velocity
+				};
 			})
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();

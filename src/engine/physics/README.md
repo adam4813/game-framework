@@ -90,6 +90,45 @@ entity.set<engine::physics::CollisionShape>({
 });
 ```
 
+## Character body
+
+A walking character is a capsule `collision_shape` plus `character_body`, backed by Jolt's `CharacterVirtual`. It is
+not a rigid body: pairing it with a `rigid_body`, or with a non-capsule shape, logs an error and creates no character.
+
+```json
+{"name": "Player", "components": {
+  "character_body": {"max_slope_deg": 50, "step_height": 0.4, "stick_to_floor": 0.5, "mass": 70},
+  "collision_shape": {"type": "capsule", "capsule_radius": 0.4, "capsule_height": 1.0, "offset": [0, 0.9, 0]},
+  "gravity": {"acceleration": [0, -9.81, 0]},
+  "transform": {"position": [0, 1, 0]}
+}}
+```
+
+| Component | Role |
+|---|---|
+| `CharacterBody` | Authored: max slope (degrees), step height, stick-to-floor distance, mass, layer. Defaults are Jolt's. `layer` is stored only; the backend has just moving and non-moving object layers. |
+| `CharacterMove` | Runtime input. The game writes `velocity` each frame; only the part perpendicular to up is used. Absent means zero. |
+| `Gravity` | Authored. The one acceleration an entity feels; up is `-normalize(acceleration)`. Absent means `PhysicsWorldConfig.gravity`. Only characters read it. |
+| `CharacterState` | Runtime, added with `CharacterBody`: `grounded`, `ground_entity`, `ground_normal`, `velocity`. |
+
+`CollisionShape.offset` is the capsule center relative to the entity origin (put the origin at the feet by offsetting
+half the height plus the radius), expressed in the character's up-aligned frame.
+
+**Step order**, per substep inside `PhysicsStep`, before `PhysicsSystem::Update`:
+
+1. Project `CharacterMove.velocity` onto the plane perpendicular to up.
+2. Vertical speed resets to 0 when grounded and not moving away from the ground; gravity adds `gravity * dt`.
+3. `SetLinearVelocity`, then `ExtendedUpdate` (stick to floor, walk stairs).
+
+After the step, `CharacterSyncFromBackend` (PostUpdate) writes the position to `Transform.position` and fills
+`CharacterState`. It never writes `Transform.rotation`.
+
+**Teleport:** `CharacterTeleport` compares `Transform.position` to the position last written back; a difference moves
+the character there. Rotation is ignored, so a game can drive facing every frame.
+
+Out of scope: jump, pushing dynamic bodies, an inner body (raycasts don't hit a character), and saving or restoring
+`CharacterVirtual` state.
+
 ## Flecs System Registration Patterns
 
 All systems follow Flecs 4.x best practices:

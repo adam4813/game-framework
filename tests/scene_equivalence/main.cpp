@@ -146,7 +146,8 @@ std::map<std::string, json> FlattenScene(const json& scene_json) {
 			continue;
 		}
 		for (const auto& [component_name, component_value] : entity_json.at("components").items()) {
-			if (component_name == "WorldTransform") {
+			// Derived at runtime, never authored. CharacterState is auto-added with CharacterBody.
+			if (component_name == "WorldTransform" || component_name == "CharacterState") {
 				continue;
 			}
 			// Skip components with no meta (serialized as null by Flecs) — no values to compare.
@@ -616,6 +617,24 @@ json BuildCppWorld() {
 			.offset = {0.0F, 0.1F, 0.0F},
 			.mesh_path = engine::assets::ResolveAsset(test_world.World(), "models/cube.glb"),
 		});
+
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestCharacter")
+		.set<engine::spatial::Transform>({
+			.position = {4.0F, 0.0F, 0.0F},
+			.rotation = {0.0F, 0.0F, 0.0F},
+			.scale = {1.0F, 1.0F, 1.0F},
+		})
+		.set<engine::physics::CollisionShape>({.type = engine::physics::ShapeType::Capsule})
+		.set<engine::physics::CharacterBody>({
+			.max_slope_deg = 40.0F,
+			.step_height = 0.3F,
+			.stick_to_floor = 0.4F,
+			.mass = 60.0F,
+		})
+		.set<engine::physics::Gravity>({.acceleration = {0.0F, -5.0F, 0.0F}});
 
 	test_world.World()
 		.entity()

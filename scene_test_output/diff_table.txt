@@ -62,6 +62,27 @@
 | TestCapsule#Transform.scale.x                   | 1                       | 1                       | 1                       | [MATCH]     |
 | TestCapsule#Transform.scale.y                   | 1                       | 1                       | 1                       | [MATCH]     |
 | TestCapsule#Transform.scale.z                   | 1                       | 1                       | 1                       | [MATCH]     |
+| TestCharacter#CharacterBody.mass                | 60                      | 60                      | 60                      | [MATCH]     |
+| TestCharacter#CharacterBody.max_slope_deg       | 40                      | 40                      | 40                      | [MATCH]     |
+| TestCharacter#CharacterBody.step_height         | 0.300000                | 0.300000                | 0.300000                | [MATCH]     |
+| TestCharacter#CharacterBody.stick_to_floor      | 0.400000                | 0.400000                | 0.400000                | [MATCH]     |
+| TestCharacter#CollisionShape.mesh_path          |                         |                         |                         | [MATCH]     |
+| TestCharacter#CollisionShape.offset.x           | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#CollisionShape.offset.y           | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#CollisionShape.offset.z           | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#CollisionShape.type               | Capsule                 | Capsule                 | Capsule                 | [MATCH]     |
+| TestCharacter#Gravity.acceleration.x            | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Gravity.acceleration.y            | -5                      | -5                      | -5                      | [MATCH]     |
+| TestCharacter#Gravity.acceleration.z            | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.position.x              | 4                       | 4                       | 4                       | [MATCH]     |
+| TestCharacter#Transform.position.y              | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.position.z              | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.rotation.x              | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.rotation.y              | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.rotation.z              | 0                       | 0                       | 0                       | [MATCH]     |
+| TestCharacter#Transform.scale.x                 | 1                       | 1                       | 1                       | [MATCH]     |
+| TestCharacter#Transform.scale.y                 | 1                       | 1                       | 1                       | [MATCH]     |
+| TestCharacter#Transform.scale.z                 | 1                       | 1                       | 1                       | [MATCH]     |
 | TestFSMAgent#FSMAgent.current_state             | idle                    | idle                    | idle                    | [MATCH]     |
 | TestFSMAgent#FSMAgent.previous_state            |                         |                         |                         | [MATCH]     |
 | TestFSMAgent#FSMAgent.state_changed             | false                   | false                   | false                   | [MATCH]     |
