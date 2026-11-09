@@ -368,7 +368,17 @@
 					"cast_shadow": false,
 					"double_sided": true
 				}
-			}
+			},
+			"children": [
+				{
+					"name": "DoubleSidedSignSpinScript",
+					"components": {
+						"script": {
+							"source": "scripts/sign_spin.as"
+						}
+					}
+				}
+			]
 		},
 		{
 			"name": "SingleSidedSign",
@@ -384,7 +394,17 @@
 					"color": [230, 230, 230, 255],
 					"cast_shadow": false
 				}
-			}
+			},
+			"children": [
+				{
+					"name": "SingleSidedSignSpinScript",
+					"components": {
+						"script": {
+							"source": "scripts/sign_spin.as"
+						}
+					}
+				}
+			]
 		},
 		{
 			"name": "SignBackLight",
