@@ -1,6 +1,7 @@
 #include "raylib_backend.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -10,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -112,6 +114,17 @@ void SynthTrampoline(void* buffer, const unsigned int frames) {
 std::vector<Model> g_models;
 // Maps canonical path → model handle.
 std::unordered_map<std::string, int> g_model_paths;
+
+// Skeletal animation sets (all clips of one model file), indexed by the handle LoadSkeletalAnimationSet returns.
+// raylib resamples every clip to a fixed 17 ms frame step, so a clip's length is frameCount * kSkeletalFrameSeconds.
+struct SkeletalSet {
+	ModelAnimation* clips = nullptr;
+	int count = 0;
+};
+constexpr float kSkeletalFrameSeconds = 0.017f;
+constexpr int kMaxSkinningBones = 64; // MAX_BONES in lit_skinned.vs
+std::vector<SkeletalSet> g_skeletal_sets;
+std::unordered_map<std::string, int> g_skeletal_set_paths;
 
 // Dynamic meshes uploaded programmatically (for tilemaps, etc), indexed by handle
 std::vector<Mesh> g_dynamic_meshes;
@@ -254,6 +267,9 @@ struct LitState {
 };
 
 LitState g_lit;
+// The skinned variant of the lit program (lit_skinned.vs + lit.fs). Same uniforms and draw path as g_lit, fed by
+// the same SetLighting; only the vertex stage differs. `ready` stays false when it fails to load.
+LitState g_skin;
 
 // Instanced-rendering resources: a variant of the lit shader whose vertex stage reads the model
 // matrix and colour from per-instance vertex attributes, so many copies of one primitive draw in a
@@ -536,6 +552,40 @@ int KeyCodeToRay(const int key_code) {
 	}
 }
 
+// Loads one lit program (vertex stage `vs` + fragment stage `fs`) into `lit`: the shader, its lighting uniform
+// locations, the white fallback texture and the shared material. Returns false, leaving `lit` unchanged, when the
+// shader fails to compile.
+bool LoadLitProgram(LitState& lit, const std::string& vs, const std::string& fs) {
+	lit.shader = LoadShader(vs.c_str(), fs.c_str());
+	if (lit.shader.id == rlGetShaderIdDefault()) {
+		lit = LitState{};
+		return false;
+	}
+
+	// raylib binds matModel/matNormal/mvp/colDiffuse/texture0 automatically by name; resolve the
+	// custom lighting uniforms here.
+	lit.shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(lit.shader, "viewPos");
+	lit.loc_view_pos = lit.shader.locs[SHADER_LOC_VECTOR_VIEW];
+	lit.loc_light_dir = GetShaderLocation(lit.shader, "lightDir");
+	lit.loc_light_color = GetShaderLocation(lit.shader, "lightColor");
+	lit.loc_ambient = GetShaderLocation(lit.shader, "ambient");
+	lit.loc_specular = GetShaderLocation(lit.shader, "specularStrength");
+	lit.loc_shininess = GetShaderLocation(lit.shader, "shininess");
+	lit.loc_shadow_pass = GetShaderLocation(lit.shader, "shadowPass");
+	lit.loc_unlit = GetShaderLocation(lit.shader, "unlit");
+	lit.loc_shadow_color = GetShaderLocation(lit.shader, "shadowColor");
+	lit.point_locs.Resolve(lit.shader);
+
+	const Image white_img = GenImageColor(1, 1, WHITE);
+	lit.white = LoadTextureFromImage(white_img);
+	UnloadImage(white_img);
+
+	lit.material = LoadMaterialDefault();
+	lit.material.shader = lit.shader;
+	lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = lit.white;
+	return true;
+}
+
 // Builds the Phong shader, cached primitive meshes, shared material, and white fallback texture.
 // Safe to call once GL is initialised; a shader load failure leaves g_lit.ready false so the
 // draw paths fall back to unlit immediate-mode rendering.
@@ -550,33 +600,10 @@ void InitLitResources() {
 	const std::string vs = dir + "/lit.vs";
 	const std::string fs = dir + "/lit.fs";
 
-	g_lit.shader = LoadShader(vs.c_str(), fs.c_str());
-	if (g_lit.shader.id == rlGetShaderIdDefault()) {
+	if (!LoadLitProgram(g_lit, vs, fs)) {
 		TraceLog(LOG_WARNING, "[RaylibBackend] Lit shader failed to load; falling back to unlit rendering");
 		return;
 	}
-
-	// raylib binds matModel/matNormal/mvp/colDiffuse/texture0 automatically by name; resolve the
-	// custom lighting uniforms here.
-	g_lit.shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(g_lit.shader, "viewPos");
-	g_lit.loc_view_pos = g_lit.shader.locs[SHADER_LOC_VECTOR_VIEW];
-	g_lit.loc_light_dir = GetShaderLocation(g_lit.shader, "lightDir");
-	g_lit.loc_light_color = GetShaderLocation(g_lit.shader, "lightColor");
-	g_lit.loc_ambient = GetShaderLocation(g_lit.shader, "ambient");
-	g_lit.loc_specular = GetShaderLocation(g_lit.shader, "specularStrength");
-	g_lit.loc_shininess = GetShaderLocation(g_lit.shader, "shininess");
-	g_lit.loc_shadow_pass = GetShaderLocation(g_lit.shader, "shadowPass");
-	g_lit.loc_unlit = GetShaderLocation(g_lit.shader, "unlit");
-	g_lit.loc_shadow_color = GetShaderLocation(g_lit.shader, "shadowColor");
-	g_lit.point_locs.Resolve(g_lit.shader);
-
-	const Image white_img = GenImageColor(1, 1, WHITE);
-	g_lit.white = LoadTextureFromImage(white_img);
-	UnloadImage(white_img);
-
-	g_lit.material = LoadMaterialDefault();
-	g_lit.material.shader = g_lit.shader;
-	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = g_lit.white;
 
 	g_lit.cube = GenMeshCube(1.0f, 1.0f, 1.0f);
 	g_lit.sphere = GenMeshSphere(1.0f, 24, 24);
@@ -584,6 +611,16 @@ void InitLitResources() {
 	g_lit.cylinder = GenMeshCylinder(1.0f, 1.0f, 24);
 
 	g_lit.ready = true;
+
+	// The skinned program is optional: without it, skinned models draw in their bind pose.
+	const std::string skin_vs = dir + "/lit_skinned.vs";
+	if (LoadLitProgram(g_skin, skin_vs, fs)) {
+		g_skin.shader.locs[SHADER_LOC_BONE_MATRICES] = GetShaderLocation(g_skin.shader, "boneMatrices");
+		g_skin.material.shader = g_skin.shader; // material holds a copy of the shader struct; refresh its locs
+		g_skin.ready = true;
+	} else {
+		TraceLog(LOG_WARNING, "[RaylibBackend] Skinned lit shader failed to load; skinned models draw in bind pose");
+	}
 }
 
 void ShutdownLitResources() {
@@ -597,10 +634,31 @@ void ShutdownLitResources() {
 	// UnloadMaterial doesn't double-free it (the default map textures are shared, too).
 	UnloadShader(g_lit.shader);
 	g_lit = LitState{};
+	if (g_skin.shader.id != 0) {
+		UnloadTexture(g_skin.white);
+		UnloadShader(g_skin.shader);
+	}
+	g_skin = LitState{};
+}
+
+// The diffuse texture a model's mesh `i` was authored with, or the white texture when it has none.
+Texture2D MeshFallbackTexture(const Model& model, const int i) {
+	if (model.meshMaterial != nullptr
+		&& model.materials != nullptr
+		&& model.materialCount > 0
+		&& model.meshMaterial[i] >= 0
+		&& model.meshMaterial[i] < model.materialCount) {
+		const Texture2D source = model.materials[model.meshMaterial[i]].maps[MATERIAL_MAP_DIFFUSE].texture;
+		if (source.id != 0) {
+			return source;
+		}
+	}
+	return g_lit.white;
 }
 
 // Draws a cached mesh with the lit material, then an optional planar projected shadow.
 void DrawLitMeshWithFallbackTexture(
+	LitState& lit,
 	const Mesh& mesh,
 	const glm::mat4& model,
 	const DrawMaterial& material,
@@ -611,34 +669,34 @@ void DrawLitMeshWithFallbackTexture(
 	const bool cast_shadow = material.cast_shadow;
 	const bool wireframe = material.wireframe;
 
-	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(color);
-	g_lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(texture, fallback_texture);
+	lit.material.maps[MATERIAL_MAP_DIFFUSE].color = ToRay(color);
+	lit.material.maps[MATERIAL_MAP_DIFFUSE].texture = ResolveTextureHandle(texture, fallback_texture);
 
 	constexpr float kOff = 0.0f;
 	constexpr float kOn = 1.0f;
-	SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+	SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 	const float unlit = material.unlit ? kOn : kOff;
-	SetShaderValue(g_lit.shader, g_lit.loc_unlit, &unlit, SHADER_UNIFORM_FLOAT);
+	SetShaderValue(lit.shader, lit.loc_unlit, &unlit, SHADER_UNIFORM_FLOAT);
 
 	if (wireframe) {
-		DrawMeshWithMaterial(mesh, g_lit.material, model, true);
+		DrawMeshWithMaterial(mesh, lit.material, model, true);
 		return;
 	}
 
-	DrawMeshWithMaterial(mesh, g_lit.material, model, false);
+	DrawMeshWithMaterial(mesh, lit.material, model, false);
 
-	if (cast_shadow && g_lit.shadows_enabled) {
-		const glm::mat4 shadow_model = g_lit.shadow_matrix * model;
-		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
+	if (cast_shadow && lit.shadows_enabled) {
+		const glm::mat4 shadow_model = lit.shadow_matrix * model;
+		SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
 		rlDisableDepthMask(); // shadows blend without fighting the receiver's depth
-		DrawMeshWithMaterial(mesh, g_lit.material, shadow_model, false);
+		DrawMeshWithMaterial(mesh, lit.material, shadow_model, false);
 		rlEnableDepthMask();
-		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
+		SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 	}
 }
 
 void DrawLitMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial& material) {
-	DrawLitMeshWithFallbackTexture(mesh, model, material, g_lit.white);
+	DrawLitMeshWithFallbackTexture(g_lit, mesh, model, material, g_lit.white);
 }
 
 bool DrawCustomMesh(
@@ -960,6 +1018,13 @@ void RaylibBackend::Shutdown() {
 		}
 	}
 	g_models.clear();
+	for (SkeletalSet& set : g_skeletal_sets) {
+		if (set.clips != nullptr) {
+			::UnloadModelAnimations(set.clips, set.count);
+		}
+	}
+	g_skeletal_sets.clear();
+	g_skeletal_set_paths.clear();
 	// Defensive: dynamic meshes are normally freed by the DeleteDynamicMesh observer when the world
 	// is destroyed (before this runs), but free any survivors so a future teardown-order change can't
 	// silently leak GPU buffers. UnloadDynamicMesh's guard makes double-free impossible.
@@ -1279,6 +1344,9 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	if (g_lit.ready) {
 		const float view_pos[3] = {camera.position.x, camera.position.y, camera.position.z};
 		SetShaderValue(g_lit.shader, g_lit.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
+		if (g_skin.ready) {
+			SetShaderValue(g_skin.shader, g_skin.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
+		}
 	}
 }
 
@@ -1287,13 +1355,13 @@ void RaylibBackend::EndMode3D() {
 	::EndMode3D();
 }
 
-void RaylibBackend::SetLighting(const LightParams& lighting) {
-	g_light_params = lighting; // cached so the instanced shader can be fed the same values
-	if (!g_lit.ready) return;
+// Feeds one lit program (the per-draw one or its skinned variant) the scene lighting and planar-shadow state.
+void UploadLitLighting(LitState& lit, const LightParams& lighting) {
+	if (!lit.ready) return;
 
 	const glm::vec3 dir = glm::normalize(lighting.direction);
 	const float dir_v[3] = {dir.x, dir.y, dir.z};
-	SetShaderValue(g_lit.shader, g_lit.loc_light_dir, dir_v, SHADER_UNIFORM_VEC3);
+	SetShaderValue(lit.shader, lit.loc_light_dir, dir_v, SHADER_UNIFORM_VEC3);
 
 	const float light_col[4] = {
 		static_cast<float>(lighting.light_color.r) / 255.0f,
@@ -1301,7 +1369,7 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 		static_cast<float>(lighting.light_color.b) / 255.0f,
 		lighting.light_intensity,
 	};
-	SetShaderValue(g_lit.shader, g_lit.loc_light_color, light_col, SHADER_UNIFORM_VEC4);
+	SetShaderValue(lit.shader, lit.loc_light_color, light_col, SHADER_UNIFORM_VEC4);
 
 	const float ambient[4] = {
 		static_cast<float>(lighting.ambient_color.r) / 255.0f,
@@ -1309,11 +1377,11 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 		static_cast<float>(lighting.ambient_color.b) / 255.0f,
 		lighting.ambient_intensity,
 	};
-	SetShaderValue(g_lit.shader, g_lit.loc_ambient, ambient, SHADER_UNIFORM_VEC4);
+	SetShaderValue(lit.shader, lit.loc_ambient, ambient, SHADER_UNIFORM_VEC4);
 
-	SetShaderValue(g_lit.shader, g_lit.loc_specular, &lighting.specular_strength, SHADER_UNIFORM_FLOAT);
-	SetShaderValue(g_lit.shader, g_lit.loc_shininess, &lighting.shininess, SHADER_UNIFORM_FLOAT);
-	UploadPointLights(g_lit.shader, g_lit.point_locs, lighting);
+	SetShaderValue(lit.shader, lit.loc_specular, &lighting.specular_strength, SHADER_UNIFORM_FLOAT);
+	SetShaderValue(lit.shader, lit.loc_shininess, &lighting.shininess, SHADER_UNIFORM_FLOAT);
+	UploadPointLights(lit.shader, lit.point_locs, lighting);
 
 	const float shadow_col[4] = {
 		static_cast<float>(lighting.shadow_color.r) / 255.0f,
@@ -1321,14 +1389,20 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 		static_cast<float>(lighting.shadow_color.b) / 255.0f,
 		static_cast<float>(lighting.shadow_color.a) / 255.0f,
 	};
-	SetShaderValue(g_lit.shader, g_lit.loc_shadow_color, shadow_col, SHADER_UNIFORM_VEC4);
+	SetShaderValue(lit.shader, lit.loc_shadow_color, shadow_col, SHADER_UNIFORM_VEC4);
 
 	// Shadows require a light that points downward onto the ground plane. A small upward bias on
 	// the plane keeps projected shadows from z-fighting the receiver surface.
-	g_lit.shadows_enabled = lighting.shadows_enabled && dir.y < -0.05f;
-	if (g_lit.shadows_enabled) {
-		g_lit.shadow_matrix = BuildShadowMatrix(dir, lighting.shadow_ground_y + 0.01f);
+	lit.shadows_enabled = lighting.shadows_enabled && dir.y < -0.05f;
+	if (lit.shadows_enabled) {
+		lit.shadow_matrix = BuildShadowMatrix(dir, lighting.shadow_ground_y + 0.01f);
 	}
+}
+
+void RaylibBackend::SetLighting(const LightParams& lighting) {
+	g_light_params = lighting; // cached so the instanced shader can be fed the same values
+	UploadLitLighting(g_lit, lighting);
+	UploadLitLighting(g_skin, lighting);
 }
 
 void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, const DrawMaterial& material) {
@@ -1451,18 +1525,7 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 	if (ResolveCustomShaderEntry(material.shader) != nullptr || g_lit.ready) {
 		auto draw_meshes = [&](auto&& draw_fn) {
 			for (int i = 0; i < model.meshCount; ++i) {
-				Texture2D fallback = g_lit.white;
-				if (model.meshMaterial != nullptr
-					&& model.materials != nullptr
-					&& model.materialCount > 0
-					&& model.meshMaterial[i] >= 0
-					&& model.meshMaterial[i] < model.materialCount) {
-					const Texture2D source = model.materials[model.meshMaterial[i]].maps[MATERIAL_MAP_DIFFUSE].texture;
-					if (source.id != 0) {
-						fallback = source;
-					}
-				}
-				draw_fn(model.meshes[i], fallback);
+				draw_fn(model.meshes[i], MeshFallbackTexture(model, i));
 			}
 		};
 
@@ -1477,7 +1540,7 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 		SetShaderValue(g_lit.shader, g_lit.loc_shadow_pass, &off, SHADER_UNIFORM_FLOAT);
 
 		draw_meshes([&](const Mesh& mesh, const Texture2D& fallback) {
-			DrawLitMeshWithFallbackTexture(mesh, transform, material, fallback);
+			DrawLitMeshWithFallbackTexture(g_lit, mesh, transform, material, fallback);
 		});
 		return;
 	}
@@ -1950,6 +2013,99 @@ void RaylibBackend::UnloadMesh(const int handle) {
 	::UnloadModel(model);
 	model.meshCount = 0;
 	std::erase_if(g_model_paths, [handle](const auto& kv) { return kv.second == handle; });
+}
+
+int RaylibBackend::LoadSkeletalAnimationSet(const std::string_view path) {
+	const std::string key{path};
+	if (const auto it = g_skeletal_set_paths.find(key); it != g_skeletal_set_paths.end()) {
+		return it->second;
+	}
+	int count = 0;
+	ModelAnimation* clips = ::LoadModelAnimations(key.c_str(), &count);
+	if (clips == nullptr || count <= 0) {
+		spdlog::error("[RaylibBackend] No animation clips in '{}'", key);
+		return -1;
+	}
+	const int handle = static_cast<int>(g_skeletal_sets.size());
+	g_skeletal_sets.push_back({.clips = clips, .count = count});
+	g_skeletal_set_paths[key] = handle;
+	return handle;
+}
+
+void RaylibBackend::UnloadSkeletalAnimationSet(const int set) {
+	if (set < 0 || set >= static_cast<int>(g_skeletal_sets.size())) {
+		return;
+	}
+	SkeletalSet& entry = g_skeletal_sets[static_cast<std::size_t>(set)];
+	if (entry.clips == nullptr) {
+		return; // already unloaded
+	}
+	::UnloadModelAnimations(entry.clips, entry.count);
+	entry = {};
+	std::erase_if(g_skeletal_set_paths, [set](const auto& kv) { return kv.second == set; });
+}
+
+int RaylibBackend::SkeletalClipCount(const int set) const {
+	if (set < 0 || set >= static_cast<int>(g_skeletal_sets.size())) {
+		return 0;
+	}
+	return g_skeletal_sets[static_cast<std::size_t>(set)].count;
+}
+
+std::string RaylibBackend::SkeletalClipName(const int set, const int clip) const {
+	if (clip < 0 || clip >= SkeletalClipCount(set)) {
+		return {};
+	}
+	return g_skeletal_sets[static_cast<std::size_t>(set)].clips[clip].name;
+}
+
+float RaylibBackend::SkeletalClipDuration(const int set, const int clip) const {
+	if (clip < 0 || clip >= SkeletalClipCount(set)) {
+		return 0.0f;
+	}
+	return static_cast<float>(g_skeletal_sets[static_cast<std::size_t>(set)].clips[clip].frameCount)
+		   * kSkeletalFrameSeconds;
+}
+
+void RaylibBackend::DrawSkinnedMesh(
+	const int mesh,
+	const int set,
+	const SkeletalPose& pose,
+	const glm::mat4& transform,
+	const DrawMaterial& material
+) {
+	if (mesh < 0 || mesh >= static_cast<int>(g_models.size()) || pose.clip < 0 || pose.clip >= SkeletalClipCount(set)) {
+		return;
+	}
+	Model& model = g_models[static_cast<std::size_t>(mesh)];
+	if (model.meshCount == 0) {
+		return;
+	}
+	if (!g_skin.ready || model.boneCount > kMaxSkinningBones) {
+		static std::unordered_set<int> reported;
+		if (reported.insert(mesh).second) {
+			spdlog::error(
+				"[RaylibBackend] Model {} has {} joints (limit {}) or no skinned shader; drawing in bind pose",
+				mesh,
+				model.boneCount,
+				kMaxSkinningBones
+			);
+		}
+		DrawMesh(mesh, transform, material);
+		return;
+	}
+
+	// Draws are immediate, so setting the shared model's bones here is correct for this draw only.
+	const ModelAnimation& clip = g_skeletal_sets[static_cast<std::size_t>(set)].clips[pose.clip];
+	const int frame = static_cast<int>(std::floor(pose.time / kSkeletalFrameSeconds)) % std::max(clip.frameCount, 1);
+	UpdateModelAnimationBones(model, clip, frame);
+
+	for (int i = 0; i < model.meshCount; ++i) {
+		const Mesh& m = model.meshes[i];
+		// A mesh with no bones (a static node in the same file) draws through the ordinary lit program.
+		LitState& lit = m.boneMatrices != nullptr ? g_skin : g_lit;
+		DrawLitMeshWithFallbackTexture(lit, m, transform, material, MeshFallbackTexture(model, i));
+	}
 }
 
 void RaylibBackend::UnloadSound(const int handle) {

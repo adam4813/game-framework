@@ -325,6 +325,20 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestAnimated",
+      "components": {
+        "skeletal_animation_set": {
+          "path": "models/character.glb"
+        },
+        "animation": {
+          "clip": "Walk",
+          "speed": 1.5,
+          "loop": false,
+          "playing": true
+        }
+      }
+    },
+    {
       "name": "TestAlbedo",
       "components": {
         "albedo": {
@@ -751,6 +765,15 @@ void OnInit(Entity self) {
     Entity mesh_ent = CreateNamedEntity("TestMesh");
     MeshPrimitive@ mp = mesh_ent.AddMeshPrimitive();
     mp.path = "./models/cube.glb";
+
+    Entity anim_ent = CreateNamedEntity("TestAnimated");
+    SkeletalAnimationSet@ sas = anim_ent.AddSkeletalAnimationSet();
+    sas.path = "./models/character.glb";
+    AnimationPlayer@ ap = anim_ent.AddAnimationPlayer();
+    ap.clip = "Walk";
+    ap.speed = 1.5f;
+    ap.loop = false;
+    ap.playing = true;
 
     Entity albedo_ent = CreateNamedEntity("TestAlbedo");
     AlbedoMap@ am = albedo_ent.AddAlbedoMap();

@@ -33,6 +33,8 @@ Legend:
 | `QuadPrimitive`    | size(vec2)                                                                                                                | ✅     |                                                                                      |
 | `CapsulePrimitive` | radius, height                                                                                                            | ✅     |                                                                                      |
 | `PointLight` | color(Rgba), intensity, constant, linear, quadratic | ✅     |                                                                                      |
+| `SkeletalAnimationSet` | path | ✅ | `handle` is runtime state, excluded from comparison |
+| `AnimationPlayer` | clip, clip_index, clip_duration, time, speed, loop, playing | ✅ | `SkeletalPose` is 🚫: a value struct passed to `Platform`, never authored |
 | `DirectionalLight` | direction(vec3), color(Rgba), intensity, specular_strength, shininess, casts_shadows, shadow_ground_y, shadow_color(Rgba) | ✅     |                                                                                      |
 | `Material`         | color(Rgba), wireframe, cast_shadow, unlit                                                                                | ✅     | Tested standalone; RenderWith relationship not compared                              |
 | `MeshPrimitive`    | path(string), handle(int)                                                                                                 | ✅     | handle skipped (runtime); path compared via direct property assignment               |

@@ -1,6 +1,14 @@
 | entity#Component.field                          | JSON                    | AS                      | C++                     |             |
 |-------------------------------------------------|-------------------------|-------------------------|-------------------------|-------------|
 | TestAlbedo#AlbedoMap.path                       | ./textures/checker.png  | ./textures/checker.png  | ./textures/checker.png  | [MATCH]     |
+| TestAnimated#AnimationPlayer.clip               | Walk                    | Walk                    | Walk                    | [MATCH]     |
+| TestAnimated#AnimationPlayer.clip_duration      | 0                       | 0                       | 0                       | [MATCH]     |
+| TestAnimated#AnimationPlayer.clip_index         | -1                      | -1                      | -1                      | [MATCH]     |
+| TestAnimated#AnimationPlayer.loop               | false                   | false                   | false                   | [MATCH]     |
+| TestAnimated#AnimationPlayer.playing            | true                    | true                    | true                    | [MATCH]     |
+| TestAnimated#AnimationPlayer.speed              | 1.500000                | 1.500000                | 1.500000                | [MATCH]     |
+| TestAnimated#AnimationPlayer.time               | 0                       | 0                       | 0                       | [MATCH]     |
+| TestAnimated#SkeletalAnimationSet.path          | ./models/character.glb  | ./models/character.glb  | ./models/character.glb  | [MATCH]     |
 | TestAudio#SoundEffect.path                      | ./audio/sfx/jump.wav    | ./audio/sfx/jump.wav    | ./audio/sfx/jump.wav    | [MATCH]     |
 | TestAudio#SoundEffect.playing                   | false                   | false                   | false                   | [MATCH]     |
 | TestBTree#BehaviorTree.tick_interval            | 0.100000                | 0.100000                | 0.100000                | [MATCH]     |

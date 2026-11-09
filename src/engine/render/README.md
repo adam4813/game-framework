@@ -103,6 +103,9 @@ variant for WebGL).
   the ambient and directional terms. Attenuation is `1 / (constant + linear·d + quadratic·d²)`; the defaults fade over
   about 50 m. At most **4** are used (`LightParams::kMaxPointLights`, in query order); the rest are ignored with one
   logged warning. Point lights cast no shadows. A scene with none renders as before.
+- **Skinned models** — a `mesh` entity that also has a `skeletal_animation_set` is drawn by `RenderSkinnedMeshes`
+  (and skipped by `RenderMeshes`) through `Platform::DrawSkinnedMesh`, at its `AnimationPlayer`'s clip and time (clip 0
+  at time 0 without a player). See `src/engine/animation/README.md`.
 - **Shadows** — cheap **planar projected shadows** flattened onto `DirectionalLight.shadow_ground_y`. No render targets,
   so it works on desktop and WebGL alike.
 - **Unlit** — `Material.unlit` draws the colour exactly as given, skipping the scene light (flat white art, markers).

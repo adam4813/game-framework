@@ -15,6 +15,7 @@ enum class AssetType : int {
 	Sound,
 	Mesh,
 	Music,
+	Animation, // skeletal animation clips of a model file (Platform::LoadSkeletalAnimationSet)
 };
 
 // Tracks a single loaded asset's reference count. The platform backend owns the handle;

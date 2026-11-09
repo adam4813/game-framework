@@ -156,7 +156,8 @@ REST API. `CharacterMove.velocity` is the field a script writes each frame to wa
 ### Components (via GetMaterial/MutMaterial etc.)
 
 `Camera`, `CubePrimitive`, `SpherePrimitive`, `QuadPrimitive`, `CapsulePrimitive`, `MeshPrimitive`,
-`AmbientLight`, `DirectionalLight`, `PointLight`, `Material`, `SpriteAtlas`, `AlbedoMap`
+`AmbientLight`, `DirectionalLight`, `PointLight`, `Material`, `SpriteAtlas`, `AlbedoMap`, `SkeletalAnimationSet`,
+`AnimationPlayer`
 
 ---
 
