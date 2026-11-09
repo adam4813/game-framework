@@ -46,6 +46,10 @@ In JSON level files, always author both components on the same entity:
 "collision_shape": { "type": "box", "box_half_extents": [0.5, 0.5, 0.5] }
 ```
 
+A rigid body's shape sits at `CollisionShape.offset` (and `rotation`, C++ only) from the entity origin, for every shape
+type; the body's position stays the entity's. A character's capsule uses `offset` too, to put its origin at the feet
+(see below).
+
 ### Mesh colliders
 
 A `mesh` shape makes a loaded model solid. It collides against every triangle of every mesh in the file, with each
@@ -64,7 +68,7 @@ node's transform applied (so a multi-node `.glb` comes out assembled):
 - A missing or unreadable file, or one with zero triangles, logs one error naming the entity and path and creates no
   body. A `convex_hull` shape has no vertex source yet, so it logs instead of becoming a box.
 - Entities with the same `mesh_path` share one built shape (cached until the backend shuts down).
-- `CollisionShape.offset` is honored. Rotation and `Transform.scale` on a mesh are **unsupported**.
+- `CollisionShape.offset` and `rotation` are honored. `Transform.scale` on a mesh is **unsupported**.
 - The shape keeps the file's winding. A `CharacterVirtual` collides with back faces, but rigid bodies collide
   one-sided, so check that a converted asset faces into the room.
 - The CPU loader (`gltf_geometry.hpp`, built on cgltf) has no raylib dependency, so a headless server can build the

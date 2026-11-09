@@ -68,6 +68,32 @@ TEST(CharacterBody, WalksAtTheRequestedPlanarVelocity) {
 	EXPECT_TRUE(walker.get<CharacterState>().grounded);
 }
 
+// The floor's entity origin is at y = 0, and its offset moves the box down so its top face is at y = 0, not 0.25.
+TEST(CharacterBody, LandsOnAPrimitiveColliderAtItsAuthoredOffset) {
+	const auto ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+	auto& world = *ctx->GetWorld();
+	ctx->GetModuleRegistry().Import(world, {"physics"});
+	engine::level::LoadLevelFromSource(world, R"({"entities": [
+		{"name": "Floor", "components": {
+			"rigid_body": {"motion_type": "static", "mass": 0.0, "use_gravity": false},
+			"collision_shape": {"type": "box", "box_half_extents": [20.0, 0.25, 20.0], "offset": [0.0, -0.25, 0.0]},
+			"transform": {"position": [0.0, 0.0, 0.0]}
+		}},
+		{"name": "Walker", "components": {
+			"character_body": {},
+			"collision_shape": {"type": "capsule", "capsule_radius": 0.5, "capsule_height": 1.0, "offset": [0.0, 1.0, 0.0]},
+			"transform": {"position": [0.0, 3.0, 0.0]}
+		}}
+	]})");
+	for (int i = 0; i < 120; ++i) {
+		world.progress(1.0F / 60.0F);
+	}
+
+	const auto walker = world.lookup("Walker");
+	EXPECT_TRUE(walker.get<CharacterState>().grounded);
+	EXPECT_NEAR(walker.get<Transform>().position.y, 0.0F, 0.05F);
+}
+
 TEST(CharacterBody, RotatingTheTransformNeverTeleportsButMovingItDoes) {
 	const CharacterWorld w;
 	w.Step(120);
