@@ -33,6 +33,11 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
   `main`, so feature and game branches get no CI. Before calling work done, build the
   `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` yourself.
 
+- **Scene equivalence output is committed.** After changing an authored component, run from the repo root
+  `./build/desktop-test/tests/scene_equivalence/Release/scene_equivalence_test.exe scene_test_output` (`ctest` writes
+  into the build directory instead) and commit the changed `scene_test_output/` files. See README, "Scene Equivalence
+  Test".
+
 ## vcpkg baseline
 
 `vcpkg.json` `builtin-baseline` is the single source of truth; CI reads it. When changing the vcpkg commit:
