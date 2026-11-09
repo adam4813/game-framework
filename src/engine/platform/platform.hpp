@@ -150,6 +150,11 @@ public:
 	[[nodiscard]] virtual glm::vec2 MousePosition() const = 0;
 	[[nodiscard]] virtual glm::vec2 MouseDelta() const = 0;
 	[[nodiscard]] virtual glm::vec2 MouseWheel() const = 0;
+	// Captures the cursor for mouselook: hidden, with unbounded relative motion in MouseDelta(). Opt-in:
+	// nothing locks it by default. On the web the browser can drop the lock itself (Esc), so ask
+	// IsCursorLocked() rather than assuming the last request held.
+	virtual void SetCursorLocked(bool locked) = 0;
+	[[nodiscard]] virtual bool IsCursorLocked() const = 0;
 	[[nodiscard]] virtual bool MousePressed(MouseButton button) const = 0;
 	[[nodiscard]] virtual bool MouseReleased(MouseButton button) const = 0;
 	[[nodiscard]] virtual bool MouseDown(MouseButton button) const = 0;

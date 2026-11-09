@@ -19,7 +19,7 @@ field. The built-in **Engine** panel shows FPS, frame time and the live entity c
 ## Frame
 
 1. `Platform::BeginFrame` — toggle key, queue input on ImGui, `ImGui::NewFrame` (only while visible).
-2. `InputPoll` (PreUpdate) — withholds input the UI captured (see below).
+2. `InputPoll` (OnLoad) — withholds input the UI captured (see below).
 3. Panel systems (any phase up to `OnUpdate`) — call widgets. Use `OnUpdate` for panels whose buttons
    change game state so the change lands this frame.
 4. `DebugUiDraw` (`OnDebugUI`, after `OnUI`) — `Platform::DrawDebugUi` renders on top of everything.
@@ -46,7 +46,8 @@ not thread-safe.
 
 While the pointer is over (or dragging from) a panel, `InputPoll` reports mouse buttons up and zero
 delta/scroll. While an ImGui text field is active (`io.WantTextInput`), it reports all keys up and no
-typed text. Mouse *position* always flows. Focusing a panel, holding a button or dragging a slider does
+typed text. Mouse *position* always flows. While the cursor is locked (`Platform::SetCursorLocked`) the mouse gate is
+skipped, so a hidden cursor over a panel doesn't zero the look delta; the keyboard gate is unchanged. Focusing a panel, holding a button or dragging a slider does
 not take the keyboard from the game (keyboard navigation is off).
 
 ## Build

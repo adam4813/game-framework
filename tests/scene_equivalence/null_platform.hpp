@@ -29,6 +29,8 @@ public:
 	[[nodiscard]] glm::vec2 MousePosition() const override { return {}; }
 	[[nodiscard]] glm::vec2 MouseDelta() const override { return {}; }
 	[[nodiscard]] glm::vec2 MouseWheel() const override { return {}; }
+	void SetCursorLocked(const bool locked) override { cursorLocked_ = locked; }
+	[[nodiscard]] bool IsCursorLocked() const override { return cursorLocked_; }
 	[[nodiscard]] bool MousePressed(engine::platform::MouseButton) const override { return false; }
 	[[nodiscard]] bool MouseReleased(engine::platform::MouseButton) const override { return false; }
 	[[nodiscard]] bool MouseDown(engine::platform::MouseButton) const override { return false; }
@@ -118,5 +120,6 @@ public:
 
 private:
 	std::string assetDirectory_;
+	bool cursorLocked_ = false;
 	engine::platform::DebugUi debugUi_;
 };

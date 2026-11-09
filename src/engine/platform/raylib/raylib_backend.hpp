@@ -25,6 +25,8 @@ public:
 
 	[[nodiscard]] glm::vec2 MousePosition() const override;
 	[[nodiscard]] glm::vec2 MouseDelta() const override;
+	void SetCursorLocked(bool locked) override;
+	[[nodiscard]] bool IsCursorLocked() const override;
 	[[nodiscard]] glm::vec2 MouseWheel() const override;
 	[[nodiscard]] bool MousePressed(MouseButton button) const override;
 	[[nodiscard]] bool MouseReleased(MouseButton button) const override;
