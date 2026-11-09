@@ -18,6 +18,11 @@ add_engine_test(camera_projection_test
     camera_projection_test.cpp
 )
 
+# Point lights packed into LightParams: order, the 4-light cap and the dropped count
+add_engine_test(point_light_packing_test
+    point_light_packing_test.cpp
+)
+
 # CPU glTF loader behind mesh colliders: settles that cgltf links beside raylib's copy and applies node transforms
 add_engine_test(gltf_geometry_test
     gltf_geometry_test.cpp

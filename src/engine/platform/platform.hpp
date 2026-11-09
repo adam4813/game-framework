@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -88,6 +89,16 @@ struct BatchStats {
 	double draw_ms{0.0};  // time spent issuing the instanced draws (CPU submit, incl. VBO upload)
 };
 
+// One point light as the lit shaders consume it. Attenuation is 1 / (constant + linear*d + quadratic*d^2).
+struct PointLightParams {
+	glm::vec3 position{0.0f}; // world space
+	core::Rgba color{.r = 255, .g = 255, .b = 255, .a = 255};
+	float intensity = 1.0f;
+	float constant = 1.0f;
+	float linear = 0.09f;
+	float quadratic = 0.032f;
+};
+
 // Scene lighting pushed to the 3D lit shader before primitives are drawn. A single directional
 // light plus ambient term drives Phong shading; planar projected shadows are cast onto a ground
 // plane at `shadow_ground_y` (ideal for a flat playfield).
@@ -99,6 +110,12 @@ struct LightParams {
 	float ambient_intensity = 0.35f;
 	float specular_strength = 0.4f;
 	float shininess = 24.0f;
+
+	// Up to kMaxPointLights local lights; only the first `point_light_count` entries are valid. The lit
+	// shaders size their uniform arrays to this constant. Point lights cast no shadows.
+	static constexpr int kMaxPointLights = 4;
+	std::array<PointLightParams, kMaxPointLights> point_lights{};
+	int point_light_count = 0;
 
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;

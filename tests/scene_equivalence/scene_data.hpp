@@ -43,6 +43,23 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestPointLight",
+      "components": {
+        "transform": {
+          "position": [2.0, 4.0, -1.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "point_light": {
+          "color": [255, 180, 120, 255],
+          "intensity": 1.5,
+          "constant": 1.0,
+          "linear": 0.14,
+          "quadratic": 0.07
+        }
+      }
+    },
+    {
       "name": "TestBox",
       "components": {
         "transform": {
@@ -554,6 +571,18 @@ void OnInit(Entity self) {
     dl.casts_shadows = true;
     dl.shadow_ground_y = 0.0f;
     dl.shadow_color = MakeRgba(8, 10, 14, 115);
+
+    Entity plight = CreateNamedEntity("TestPointLight");
+    Transform@ plt = plight.AddTransform();
+    plt.position = vec3(2.0f, 4.0f, -1.0f);
+    plt.rotation = vec3(0.0f, 0.0f, 0.0f);
+    plt.scale = vec3(1.0f, 1.0f, 1.0f);
+    PointLight@ pl = plight.AddPointLight();
+    pl.color = MakeRgba(255, 180, 120, 255);
+    pl.intensity = 1.5f;
+    pl.constant = 1.0f;
+    pl.linear = 0.14f;
+    pl.quadratic = 0.07f;
 
     Entity box = CreateNamedEntity("TestBox");
     Transform@ bt = box.AddTransform();
