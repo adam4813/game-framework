@@ -7,8 +7,9 @@
 #include "engine/platform/platform.hpp"
 
 // Headless Platform: no window, GPU or audio. Every query returns a neutral value and every draw is a
-// no-op. `assetDirectory` is what AssetDirectory() reports, so asset-relative loads resolve under it.
-class NullPlatform final : public engine::platform::Platform {
+// no-op. `assetDirectory` is what AssetDirectory() reports, so asset-relative loads resolve under it. A test
+// subclasses it to make a few calls observable (loads that succeed, recorded unloads).
+class NullPlatform : public engine::platform::Platform {
 public:
 	explicit NullPlatform(std::string assetDirectory = ".") : assetDirectory_(std::move(assetDirectory)) {}
 

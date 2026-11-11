@@ -28,12 +28,20 @@ public:
 
 private:
 	void SetupPhysicsDemo(const flecs::world& world) const;
+	void SetupRuntimeAlbedo(const flecs::world& world);
+	void TickRuntimeAlbedo(const flecs::world& world, float deltaTime);
 	void BuildUI(const flecs::world& world);
 
 	flecs::entity sceneRoot_;
 	flecs::entity uiRoot_;
 	flecs::entity hud_;
 	flecs::entity pauseModal_;
+
+	// Runtime albedo demo: a texture this scene uploads and owns, shown on the level's RuntimeAlbedoQuad and
+	// refilled once a second.
+	int runtimeTexture_{-1};
+	int runtimeTextureStep_{0};
+	float runtimeTextureTimer_{0.0F};
 };
 
 } // namespace game

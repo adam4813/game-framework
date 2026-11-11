@@ -1,6 +1,9 @@
 #include "cube_scene.hpp"
 
+#include <array>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include <glm/glm.hpp>
 #include <spdlog/spdlog.h>
@@ -11,6 +14,39 @@
 using namespace engine;
 
 namespace game {
+
+namespace {
+
+constexpr int kRuntimeTextureSize = 8;
+constexpr float kRuntimeTextureInterval = 1.0F; // seconds between refills
+
+constexpr std::array<core::Rgba, 4> kRuntimeTexturePalette{{
+	{.r = 230, .g = 80, .b = 60, .a = 255},
+	{.r = 240, .g = 200, .b = 70, .a = 255},
+	{.r = 70, .g = 170, .b = 110, .a = 255},
+	{.r = 60, .g = 110, .b = 220, .a = 255},
+}};
+
+// RGBA8 checkerboard for the runtime albedo demo. Each step picks the next pair of palette colors and shifts the
+// checker by one cell, so every refill is visibly different.
+std::vector<uint8_t> FillRuntimeTexture(const int step) {
+	const auto& a = kRuntimeTexturePalette[static_cast<size_t>(step) % kRuntimeTexturePalette.size()];
+	const auto& b = kRuntimeTexturePalette[static_cast<size_t>(step + 1) % kRuntimeTexturePalette.size()];
+	std::vector<uint8_t> rgba(static_cast<size_t>(kRuntimeTextureSize * kRuntimeTextureSize * 4));
+	for (int y = 0; y < kRuntimeTextureSize; ++y) {
+		for (int x = 0; x < kRuntimeTextureSize; ++x) {
+			const auto& c = (x + y + step) % 2 == 0 ? a : b;
+			const auto i = static_cast<size_t>((y * kRuntimeTextureSize + x) * 4);
+			rgba[i + 0] = c.r;
+			rgba[i + 1] = c.g;
+			rgba[i + 2] = c.b;
+			rgba[i + 3] = c.a;
+		}
+	}
+	return rgba;
+}
+
+} // namespace
 
 void CubeScene::InitializePipeline(const flecs::world& world) {
 	// clang-format off
@@ -43,6 +79,7 @@ void CubeScene::Load(flecs::world& world) {
 	// whole tree down with one destruct — no hand-maintained cleanup list to keep in sync.
 	sceneRoot_ = world.entity("CubeSceneRoot");
 	SetupPhysicsDemo(world);
+	SetupRuntimeAlbedo(world);
 	BuildUI(world);
 }
 
@@ -53,6 +90,39 @@ void CubeScene::SetupPhysicsDemo(const flecs::world& world) const {
 	// script. Loading it under sceneRoot_ keeps the whole tree owned by one entity, so Unload tears
 	// it down with a single destruct — the same ownership the imperative setup had, now data-driven.
 	level::LoadLevel(world, assets::ResolveAsset(world, "levels/demo.level.json"), sceneRoot_);
+}
+
+// Shows a texture uploaded at runtime as the albedo of the level's lit RuntimeAlbedoQuad. An AlbedoMap with an
+// empty path keeps the handle it is given, so this scene owns the texture and frees it in Unload.
+void CubeScene::SetupRuntimeAlbedo(const flecs::world& world) {
+	const auto quad = sceneRoot_.lookup("RuntimeAlbedoQuad");
+	if (!quad) {
+		spdlog::warn("[CubeScene] RuntimeAlbedoQuad missing from the demo level; runtime albedo demo skipped");
+		return;
+	}
+	auto* platform = world.get<platform::PlatformRef>().ptr;
+	runtimeTextureStep_ = 0;
+	runtimeTextureTimer_ = 0.0F;
+	runtimeTexture_ = platform->UploadTexture(kRuntimeTextureSize, kRuntimeTextureSize, FillRuntimeTexture(0));
+	if (runtimeTexture_ < 0) {
+		return;
+	}
+	platform->SetTextureFilter(runtimeTexture_, false); // crisp checker cells
+	quad.set<render::AlbedoMap>({.path = "", .handle = runtimeTexture_});
+}
+
+// Refills the runtime albedo in place once a second; the quad's AlbedoMap handle stays the same.
+void CubeScene::TickRuntimeAlbedo(const flecs::world& world, const float deltaTime) {
+	if (runtimeTexture_ < 0) {
+		return;
+	}
+	runtimeTextureTimer_ += deltaTime;
+	if (runtimeTextureTimer_ < kRuntimeTextureInterval) {
+		return;
+	}
+	runtimeTextureTimer_ -= kRuntimeTextureInterval;
+	++runtimeTextureStep_;
+	world.get<platform::PlatformRef>().ptr->UpdateTexture(runtimeTexture_, FillRuntimeTexture(runtimeTextureStep_));
 }
 
 void CubeScene::BuildUI(const flecs::world& world) {
@@ -108,8 +178,11 @@ void CubeScene::BuildUI(const flecs::world& world) {
 			.child_of(uiRoot_);
 }
 
-void CubeScene::Tick(const flecs::world& world, float /*deltaTime*/) {
+void CubeScene::Tick(const flecs::world& world, const float deltaTime) {
 	const bool paused = world.has<scene::Paused>();
+	if (!paused) {
+		TickRuntimeAlbedo(world, deltaTime);
+	}
 	if (hud_ && hud_.has<ui::UIElement>()) {
 		hud_.get_mut<ui::UIElement>().visible = !paused;
 	}
@@ -139,6 +212,11 @@ void CubeScene::Unload(flecs::world& world) {
 	if (uiRoot_) {
 		uiRoot_.destruct();
 		uiRoot_ = flecs::entity{};
+	}
+	// The quad's AlbedoMap had no path, so destroying it released nothing: the texture is this scene's to free.
+	if (runtimeTexture_ >= 0) {
+		world.get<platform::PlatformRef>().ptr->UnloadTexture(runtimeTexture_);
+		runtimeTexture_ = -1;
 	}
 	// hud_/pauseModal_ were children of uiRoot_ and are already destroyed; clear the stale handles.
 	hud_ = flecs::entity{};

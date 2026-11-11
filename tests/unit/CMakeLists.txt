@@ -71,3 +71,9 @@ add_engine_test(character_body_test
     character_body_test.cpp
 )
 target_include_directories(character_body_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
+
+# Path assets: an empty path keeps a runtime handle, a path acquires, and removal frees only what the registry loaded
+add_engine_test(path_asset_test
+    path_asset_test.cpp
+)
+target_include_directories(path_asset_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")

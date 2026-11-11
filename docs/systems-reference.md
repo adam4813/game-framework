@@ -98,7 +98,9 @@ Fixed-timestep step with accumulation; per-entity request components (`Force`/`I
 
 **Path-asset resolution**: `RegisterPathAsset<T>(world, AssetType)` is a unified template for any component with a
 `std::string path` + `int handle`. It registers `OnSet` (acquire via asset registry) and `OnRemove` (release) observers.
-Used for `AlbedoMap`, `MeshPrimitive`, and `SoundEffect`.
+An empty `path` keeps the `handle` it was set with and is never released: the caller owns that handle (e.g. an
+uploaded texture as a runtime albedo). Used for `AlbedoMap`, `MeshPrimitive`, `SoundEffect`, `Music` and
+`SkeletalAnimationSet`.
 
 **Primitive rendering**: `RegisterPrimitiveRenderer<T>(world, name, draw)` is a template that registers a system for
 shape `T`. Each system queries `(RenderWith, *)` with `.self().up()` to resolve the material entity, then issues the
