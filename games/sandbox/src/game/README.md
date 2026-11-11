@@ -10,6 +10,7 @@ the working reference for a few engine features. Find the feature you need below
 | Game-registered level loaders and tags | `tilemap_scene.cpp` (`RegisterLoaders`, `bt_wanderer`) |
 | A dialog tree built from script and started from a tile's `onenter` | `assets/scripts/tilemap_dialog.as`, `src/engine/dialog/dialog_module.cpp` (`RegisterScripting`) |
 | Thousands of tinted primitives that stay one instanced draw call (inline `Material`, not `RenderWith`) | `src/engine/render/README.md` ("Many entities"), `games/crabnado/src/horde.cpp` |
+| A texture made at runtime (`UploadTexture` / `UpdateTexture`) as a lit mesh's albedo | `cube_scene.cpp` (`SetupRuntimeAlbedo`, `RuntimeAlbedoQuad` in `assets/levels/demo.level.json`) |
 | A continuous particle emitter (`particle_emitter` in JSON) | `assets/levels/demo.level.json`, `src/engine/particles/README.md` |
 | Timers, cooldowns and tweens (a pulse, a fade) | `assets/scripts/timer_tween_demo.as`, `src/engine/timer/README.md` |
 | Building a `GridNavGraph` and sending path requests | `tilemap_scene.cpp` (`SetupPathfindingAgent`), `src/engine/pathfinding/README.md` |

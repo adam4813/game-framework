@@ -407,6 +407,23 @@
 			]
 		},
 		{
+			"name": "RuntimeAlbedoQuad",
+			"components": {
+				"transform": {
+					"position": [0.0, 1.0, -2.5],
+					"rotation": [1.5707963, 0.0, 0.0]
+				},
+				"quad": {
+					"size": [1.2, 1.2]
+				},
+				"material": {
+					"color": [255, 255, 255, 255],
+					"cast_shadow": false,
+					"double_sided": true
+				}
+			}
+		},
+		{
 			"name": "SignBackLight",
 			"components": {
 				"transform": {

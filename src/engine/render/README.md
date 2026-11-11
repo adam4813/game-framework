@@ -122,6 +122,12 @@ variant for WebGL).
   WebGL alike. Sandbox example: `DoubleSidedSign` beside a culled `SingleSidedSign` in `assets/levels/demo.level.json`.
 - **Textures** — `AlbedoMap { path, handle }` on the material entity is resolved to a platform handle via the
   `RegisterPathAsset<AlbedoMap>()` observer. `ShaderMap { stages, handle }` similarly loads a custom GLSL shader.
+- **Runtime textures** — an `AlbedoMap` with an empty `path` keeps the `handle` it is set with, so a lit mesh can show
+  a texture the game made with `Platform::UploadTexture` and keeps changing with `UpdateTexture`
+  (`e.set<AlbedoMap>({.path = "", .handle = tex})`). The game owns that handle: removing the component frees nothing,
+  so call `UnloadTexture` yourself. To swap a file albedo for an uploaded one, `remove<AlbedoMap>()` first, then set
+  it; setting over the existing component would never release the file's reference. Sandbox example: the
+  `RuntimeAlbedoQuad` in `CubeScene` (`games/sandbox/src/game/cube_scene.cpp`).
 
 ## Structure
 
@@ -152,9 +158,13 @@ RegisterPrimitiveRenderer<engine::render::CubePrimitive>(
 those fields. It registers:
 
 - `OnSet` observer — calls `Acquire(path)` via the asset registry, stores the returned handle.
-- `OnRemove` observer — calls `Release(handle)` to decrement the ref count.
+- `OnRemove` observer — calls `Release(path)` to decrement the ref count.
 
-Used for `AlbedoMap`, `MeshPrimitive`, and `SoundEffect`.
+An empty `path` means "a handle you own": `OnSet` keeps the given `handle` and acquires nothing, and `OnRemove`
+releases nothing. Replacing a path-loaded component with an owned handle is remove, then set (see "Runtime textures"
+above).
+
+Used for `AlbedoMap`, `MeshPrimitive`, `SoundEffect`, `Music` and `SkeletalAnimationSet`.
 
 ## Adding a renderable to an entity
 
