@@ -84,3 +84,8 @@ add_engine_test(two_physics_worlds_test
 add_engine_test(headless_platform_test
     headless_platform_test.cpp
 )
+
+# REST port: FLECS_REST_PORT overrides a world's given port unless the world is initialized to ignore it
+add_engine_test(rest_port_override_test
+    rest_port_override_test.cpp
+)
