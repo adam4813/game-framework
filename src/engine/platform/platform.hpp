@@ -17,8 +17,8 @@ class SynthSource;
 } // namespace engine::audio
 
 // Platform abstraction. All Raylib/ImGui calls live behind this interface so game logic stays engine-agnostic.
-// Implementations: RaylibBackend (platform/raylib/) and the headless NullPlatform used by the scene equivalence
-// test (tests/scene_equivalence/null_platform.hpp) — a new pure virtual here must be added to both.
+// Implementations: RaylibBackend (platform/raylib/) and HeadlessPlatform (platform/headless_platform.hpp, no window:
+// servers, tools, tests) — a new pure virtual here must be added to both.
 namespace engine::platform {
 
 class Platform;

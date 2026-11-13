@@ -53,13 +53,11 @@ endif ()
 add_engine_test(key_override_test
     key_override_test.cpp
 )
-target_include_directories(key_override_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
 
 # Level loads give the same transforms and physics bodies deferred or undeferred, in any component order
 add_engine_test(scene_load_order_test
     scene_load_order_test.cpp
 )
-target_include_directories(scene_load_order_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
 
 # JSON field parsers and Level loading of malformed component values
 add_engine_test(json_loading_test
@@ -70,17 +68,19 @@ add_engine_test(json_loading_test
 add_engine_test(character_body_test
     character_body_test.cpp
 )
-target_include_directories(character_body_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
 
 # Path assets: an empty path keeps a runtime handle, a path acquires, and removal frees only what the registry loaded
 add_engine_test(path_asset_test
     path_asset_test.cpp
 )
-target_include_directories(path_asset_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
 
 # Two physics worlds in one process: shared Jolt globals survive either teardown order; only a windowed world installs
 # the debug renderer
 add_engine_test(two_physics_worlds_test
     two_physics_worlds_test.cpp
 )
-target_include_directories(two_physics_worlds_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
+
+# HeadlessPlatform: asset paths resolve against its directory, and a world created without a Platform gets one
+add_engine_test(headless_platform_test
+    headless_platform_test.cpp
+)

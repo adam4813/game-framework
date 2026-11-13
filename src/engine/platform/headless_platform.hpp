@@ -6,22 +6,32 @@
 
 #include "engine/platform/platform.hpp"
 
-// Headless Platform: no window, GPU or audio. Every query returns a neutral value and every draw is a
-// no-op. `assetDirectory` is what AssetDirectory() reports, so asset-relative loads resolve under it. A test
-// subclasses it to make a few calls observable (loads that succeed, recorded unloads).
-class NullPlatform : public engine::platform::Platform {
-public:
-	explicit NullPlatform(std::string assetDirectory = ".") : assetDirectory_(std::move(assetDirectory)) {}
+namespace engine::platform {
 
-	void Init(int, int, std::string_view) override {}
+// The Platform with no window, GPU, input or audio: a headless server world, a tool, the tests. What "no window"
+// means lives here. HasWindow() is false, every draw, audio and window call is a no-op, every query returns a neutral
+// value (no keys down, mouse at the origin), and every load returns -1. Asset paths resolve against the directory
+// given at construction, as the desktop Platform resolves them against its own, so a headless world can load
+// colliders, ROMs and level files by asset path. An EngineContext created without a Platform gets one of these.
+class HeadlessPlatform : public Platform {
+public:
+	// `assetDirectory` is what AssetDirectory() reports; relative paths are against the working directory.
+	explicit HeadlessPlatform(std::string assetDirectory = ".") : assetDirectory_(std::move(assetDirectory)) {}
+
+	// Init records the canvas size Width() and Height() report (1280 x 720 until called); there is no window.
+	void Init(const int width, const int height, std::string_view) override {
+		width_ = width;
+		height_ = height;
+	}
 	[[nodiscard]] bool ShouldClose() const override { return false; }
-	[[nodiscard]] bool HasWindow() const override { return false; }
 	void Shutdown() override {}
-	[[nodiscard]] int Width() const override { return 1280; }
-	[[nodiscard]] int Height() const override { return 720; }
+	[[nodiscard]] bool HasWindow() const override { return false; }
+	[[nodiscard]] int Width() const override { return width_; }
+	[[nodiscard]] int Height() const override { return height_; }
 	void SetFullscreen(bool) override {}
 	[[nodiscard]] bool IsFullscreen() const override { return false; }
-	[[nodiscard]] float DeltaTime() const override { return 0.016F; }
+	// No frame clock: a fixed 1/60 s. A headless loop passes its own measured dt to world.progress().
+	[[nodiscard]] float DeltaTime() const override { return 1.0F / 60.0F; }
 	[[nodiscard]] double Time() const override { return 0.0; }
 	[[nodiscard]] std::string AssetDirectory() const override { return assetDirectory_; }
 	[[nodiscard]] int Fps() const override { return 0; }
@@ -32,18 +42,19 @@ public:
 	[[nodiscard]] glm::vec2 MousePosition() const override { return {}; }
 	[[nodiscard]] glm::vec2 MouseDelta() const override { return {}; }
 	[[nodiscard]] glm::vec2 MouseWheel() const override { return {}; }
+	// Remembers the request, so a game that locks the cursor reads back what it asked for.
 	void SetCursorLocked(const bool locked) override { cursorLocked_ = locked; }
 	[[nodiscard]] bool IsCursorLocked() const override { return cursorLocked_; }
-	[[nodiscard]] bool MousePressed(engine::platform::MouseButton) const override { return false; }
-	[[nodiscard]] bool MouseReleased(engine::platform::MouseButton) const override { return false; }
-	[[nodiscard]] bool MouseDown(engine::platform::MouseButton) const override { return false; }
+	[[nodiscard]] bool MousePressed(MouseButton) const override { return false; }
+	[[nodiscard]] bool MouseReleased(MouseButton) const override { return false; }
+	[[nodiscard]] bool MouseDown(MouseButton) const override { return false; }
 	[[nodiscard]] bool IsKeyDown(int) const override { return false; }
 	[[nodiscard]] bool IsKeyPressedRepeat(int) const override { return false; }
 	[[nodiscard]] bool IsMouseButtonDown(int) const override { return false; }
 	[[nodiscard]] int CharInput() const override { return 0; }
 	[[nodiscard]] std::string TextInput() const override { return {}; }
 
-	engine::platform::DebugUi& GetDebugUi() override { return debugUi_; }
+	DebugUi& GetDebugUi() override { return debugUi_; }
 	void DrawDebugUi() override {}
 
 	void DrawRect(Rect, Rgba) override {}
@@ -59,20 +70,18 @@ public:
 	void BeginScissor(Rect) override {}
 	void EndScissor() override {}
 
-	void BeginMode3D(const engine::platform::Camera3DParams&) override {}
+	void BeginMode3D(const Camera3DParams&) override {}
 	void EndMode3D() override {}
-	void SetLighting(const engine::platform::LightParams&) override {}
-	void SetOcclusionFade(const engine::platform::OcclusionFadeParams&) override {}
-	void DrawCube(const glm::mat4&, glm::vec3, const engine::platform::DrawMaterial&) override {}
-	void DrawSphere(const glm::mat4&, float, const engine::platform::DrawMaterial&) override {}
-	void DrawQuad(const glm::mat4&, glm::vec2, const engine::platform::DrawMaterial&) override {}
-	void DrawCapsule(const glm::mat4&, float, float, const engine::platform::DrawMaterial&) override {}
-	void DrawMesh(int, const glm::mat4&, const engine::platform::DrawMaterial&) override {}
+	void SetLighting(const LightParams&) override {}
+	void SetOcclusionFade(const OcclusionFadeParams&) override {}
+	void DrawCube(const glm::mat4&, glm::vec3, const DrawMaterial&) override {}
+	void DrawSphere(const glm::mat4&, float, const DrawMaterial&) override {}
+	void DrawQuad(const glm::mat4&, glm::vec2, const DrawMaterial&) override {}
+	void DrawCapsule(const glm::mat4&, float, float, const DrawMaterial&) override {}
+	void DrawMesh(int, const glm::mat4&, const DrawMaterial&) override {}
 
-	[[nodiscard]] int PrimitiveMesh(engine::platform::PrimitiveShape) const override { return -1; }
-	engine::platform::BatchStats SubmitBatch(std::span<const engine::platform::RenderCommand>) override {
-		return {};
-	}
+	[[nodiscard]] int PrimitiveMesh(PrimitiveShape) const override { return -1; }
+	BatchStats SubmitBatch(std::span<const RenderCommand>) override { return {}; }
 
 	int UploadDynamicMesh(
 		const std::vector<glm::vec3>&,
@@ -83,12 +92,12 @@ public:
 		return -1;
 	}
 	void UnloadDynamicMesh(int) override {}
-	void DrawDynamicMesh(int, const glm::mat4&, const engine::platform::DrawMaterial&) override {}
+	void DrawDynamicMesh(int, const glm::mat4&, const DrawMaterial&) override {}
 	void UpdateDynamicMeshUVs(int, const std::vector<glm::vec2>&) override {}
 	void UpdateDynamicMeshColors(int, const std::vector<glm::vec4>&) override {}
 
-	[[nodiscard]] std::string ShaderDirectory() const override { return "."; }
-	int LoadShader(const std::vector<engine::platform::ShaderStage>&) override { return -1; }
+	[[nodiscard]] std::string ShaderDirectory() const override { return assetDirectory_ + "/shaders"; }
+	int LoadShader(const std::vector<ShaderStage>&) override { return -1; }
 	void UnloadShader(int) override {}
 
 	int LoadMesh(std::string_view) override { return -1; }
@@ -98,23 +107,10 @@ public:
 	void UnloadMesh(int) override {}
 	int LoadSkeletalAnimationSet(std::string_view) override { return -1; }
 	void UnloadSkeletalAnimationSet(int) override {}
-	[[nodiscard]] int SkeletalClipCount(const int set) const override {
-		return set >= 0 && set < static_cast<int>(fakeClips_.size()) ? static_cast<int>(fakeClips_[set].size()) : 0;
-	}
-	[[nodiscard]] std::string SkeletalClipName(const int set, const int clip) const override {
-		return fakeClips_[static_cast<std::size_t>(set)][static_cast<std::size_t>(clip)].first;
-	}
-	[[nodiscard]] float SkeletalClipDuration(const int set, const int clip) const override {
-		return fakeClips_[static_cast<std::size_t>(set)][static_cast<std::size_t>(clip)].second;
-	}
-	void DrawSkinnedMesh(int, int, const engine::platform::SkeletalPose&, const glm::mat4&, const engine::platform::DrawMaterial&)
-		override {}
-	// Registers fake clips (name, duration seconds) for a set and returns its handle, so tests can bind players
-	// without a model file.
-	int AddFakeSkeletalSet(std::vector<std::pair<std::string, float>> clips) {
-		fakeClips_.push_back(std::move(clips));
-		return static_cast<int>(fakeClips_.size()) - 1;
-	}
+	[[nodiscard]] int SkeletalClipCount(int) const override { return 0; }
+	[[nodiscard]] std::string SkeletalClipName(int, int) const override { return {}; }
+	[[nodiscard]] float SkeletalClipDuration(int, int) const override { return 0.0F; }
+	void DrawSkinnedMesh(int, int, const SkeletalPose&, const glm::mat4&, const DrawMaterial&) override {}
 	void UnloadTexture(int) override {}
 	void SetTextureFilter(int, bool) override {}
 	void SetTextureWrap(int, bool) override {}
@@ -131,9 +127,10 @@ public:
 	void UpdateMusic(int) override {}
 	void SetMusicVolume(int, float) override {}
 
-	void StartSynth(engine::audio::SynthSource*) override {}
+	void StartSynth(audio::SynthSource*) override {}
 	void StopSynth() override {}
 
+	// No save storage: writes are dropped and every slot reads as missing.
 	void WriteSave(std::string_view, std::string_view) override {}
 	[[nodiscard]] std::string ReadSave(std::string_view) const override { return {}; }
 	[[nodiscard]] bool HasSave(std::string_view) const override { return false; }
@@ -142,7 +139,10 @@ public:
 
 private:
 	std::string assetDirectory_;
+	int width_ = 1280;
+	int height_ = 720;
 	bool cursorLocked_ = false;
-	std::vector<std::vector<std::pair<std::string, float>>> fakeClips_;
-	engine::platform::DebugUi debugUi_;
+	DebugUi debugUi_;
 };
+
+} // namespace engine::platform

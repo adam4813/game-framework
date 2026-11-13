@@ -5,7 +5,6 @@
 #include "arena_scene.hpp"
 #include "crabnado_module.hpp"
 #include "engine/engine.hpp"
-#include "null_platform.hpp"
 #include "title_backdrop.hpp"
 #include "title_scene.hpp"
 
@@ -16,7 +15,7 @@ namespace {
 // The full engine stack on a headless platform, with Crabnado imported as the game does it.
 struct CrabnadoWorld {
 	std::unique_ptr<EngineContext> ctx =
-		std::make_unique<EngineContext>(std::make_unique<NullPlatform>(CRABNADO_TEST_ASSET_DIR));
+		std::make_unique<EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>(CRABNADO_TEST_ASSET_DIR));
 
 	CrabnadoWorld() { World().import<crabnado::CrabnadoModule>(); }
 

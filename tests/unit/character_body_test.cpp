@@ -5,7 +5,6 @@
 #include <glm/glm.hpp>
 
 #include "engine/engine.hpp"
-#include "null_platform.hpp"
 
 using engine::physics::CharacterMove;
 using engine::physics::CharacterState;
@@ -32,7 +31,7 @@ struct CharacterWorld {
 	std::unique_ptr<engine::EngineContext> ctx;
 
 	CharacterWorld() {
-		ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+		ctx = std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 		ctx->GetModuleRegistry().Import(World(), {"physics"});
 		engine::level::LoadLevelFromSource(World(), kLevel);
 	}
@@ -70,7 +69,7 @@ TEST(CharacterBody, WalksAtTheRequestedPlanarVelocity) {
 
 // The floor's entity origin is at y = 0, and its offset moves the box down so its top face is at y = 0, not 0.25.
 TEST(CharacterBody, LandsOnAPrimitiveColliderAtItsAuthoredOffset) {
-	const auto ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+	const auto ctx = std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 	auto& world = *ctx->GetWorld();
 	ctx->GetModuleRegistry().Import(world, {"physics"});
 	engine::level::LoadLevelFromSource(world, R"({"entities": [

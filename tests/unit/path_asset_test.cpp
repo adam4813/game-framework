@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 
 #include "engine/engine.hpp"
-#include "null_platform.hpp"
 
 using engine::render::AlbedoMap;
 
@@ -16,7 +15,7 @@ constexpr int kUploadedTextureHandle = 7;
 
 // Loads every texture path as kFileTextureHandle and records each unload, so a test can see what the asset
 // registry loaded and freed.
-class TexturePlatform final : public NullPlatform {
+class TexturePlatform final : public engine::platform::HeadlessPlatform {
 public:
 	int LoadTexture(std::string_view) override { return kFileTextureHandle; }
 	void UnloadTexture(const int handle) override { unloaded->push_back(handle); }

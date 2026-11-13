@@ -16,6 +16,7 @@
 #include "particles/particles.hpp"
 #include "pathfinding/pathfinding.hpp"
 #include "physics/physics.hpp"
+#include "platform/headless_platform.hpp"
 #include "platform/platform.hpp"
 #include "profiling/profiling.hpp"
 #include "render/render.hpp"

@@ -1,5 +1,4 @@
 #include "crash_visibility.hpp"
-#include "null_platform.hpp"
 #include "scene_data.hpp"
 
 #include <algorithm>
@@ -28,7 +27,7 @@ namespace {
 
 using json = nlohmann::json;
 
-// TestWorld wraps the full EngineContext with NullPlatform — same engine stack as the game,
+// TestWorld wraps the full EngineContext with HeadlessPlatform — same engine stack as the game,
 // no window or GPU required. The level loader uses nlohmann::ordered_json so JSON component
 // keys are processed in file order (transform before rigid_body), ensuring Jolt observers
 // fire after WorldTransform is already seeded.
@@ -36,7 +35,7 @@ struct TestWorld {
 	std::unique_ptr<engine::EngineContext> ctx;
 
 	TestWorld() {
-		ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+		ctx = std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 		ctx->GetModuleRegistry().Import(
 			*ctx->GetWorld(),
 			{"ai", "physics", "noise", "pathfinding", "save", "tilemap", "particles"}

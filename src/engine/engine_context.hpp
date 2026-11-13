@@ -21,7 +21,9 @@ struct EngineContextRef {
 // This centralizes initialization order and dependency management, enabling proper DI.
 class EngineContext {
 public:
-	explicit EngineContext(std::unique_ptr<platform::Platform> platform);
+	// `platform` may be null: the world then runs on a HeadlessPlatform (asset directory "."), so PlatformRef is never
+	// null. A headless world that loads files by asset path passes a HeadlessPlatform with its asset directory.
+	explicit EngineContext(std::unique_ptr<platform::Platform> platform = nullptr);
 	~EngineContext();
 
 	// Accessors

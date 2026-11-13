@@ -55,9 +55,9 @@ Target names its own. Flecs asserts and errors go there too, tagged `[Flecs]`.
 
 ## Headless tests
 
-- **Engine scenes:** `tests/scene_equivalence` (`TestWorld` = `EngineContext` + `NullPlatform`).
-- `NullPlatform` (`tests/scene_equivalence/null_platform.hpp`) takes an asset directory, so headless loads resolve
-  real asset files.
+- **Engine scenes:** `tests/scene_equivalence` (`TestWorld` = `EngineContext` + `HeadlessPlatform`).
+- `HeadlessPlatform` (`engine/platform/headless_platform.hpp`, in `engine_lib`) takes an asset directory, so headless
+  loads resolve real asset files. An `EngineContext` created with no Platform gets one with asset directory `.`.
 
 ## Crash tripwire
 

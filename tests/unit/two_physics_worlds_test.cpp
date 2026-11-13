@@ -11,7 +11,6 @@
 
 #include "engine/engine.hpp"
 #include "engine/physics/jolt/jolt_debug_config.hpp"
-#include "null_platform.hpp"
 
 #ifdef JPH_DEBUG_RENDERER
 #include <Jolt/Renderer/DebugRenderer.h>
@@ -40,16 +39,16 @@ constexpr float kRestTolerance = 0.05F;
 constexpr int kFramesToSettle = 120;
 
 // A headless Platform that claims a window, so its world installs the debug renderer like a game's would.
-class WindowedPlatform final : public NullPlatform {
+class WindowedPlatform final : public engine::platform::HeadlessPlatform {
 public:
 	[[nodiscard]] bool HasWindow() const override { return true; }
 };
 
-// One world with physics and the crate level, on the given Platform.
+// One world with physics and the crate level. With no Platform it runs on the EngineContext's HeadlessPlatform.
 struct PhysicsWorld {
 	std::unique_ptr<engine::EngineContext> ctx;
 
-	explicit PhysicsWorld(std::unique_ptr<engine::platform::Platform> platform = std::make_unique<NullPlatform>()) :
+	explicit PhysicsWorld(std::unique_ptr<engine::platform::Platform> platform = nullptr) :
 			ctx(std::make_unique<engine::EngineContext>(std::move(platform))) {
 		ctx->GetModuleRegistry().Import(World(), {"physics"});
 		engine::level::LoadLevelFromSource(World(), kCrateLevel);

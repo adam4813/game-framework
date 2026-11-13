@@ -6,7 +6,6 @@
 
 #include "engine/engine.hpp"
 #include "engine/physics/jolt/jolt_backend.hpp"
-#include "null_platform.hpp"
 
 using engine::physics::JoltBackend;
 using engine::spatial::Transform;
@@ -36,7 +35,7 @@ struct LoadWorld {
 	std::unique_ptr<engine::EngineContext> ctx;
 
 	LoadWorld() {
-		ctx = std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+		ctx = std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 		ctx->GetModuleRegistry().Import(World(), {"physics"});
 	}
 

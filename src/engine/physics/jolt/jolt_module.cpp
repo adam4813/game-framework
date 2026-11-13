@@ -482,8 +482,8 @@ JoltModule::JoltModule(const flecs::world& world) {
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 	// Jolt's debug renderer is one process-global (DebugRenderer::sInstance), so only a world that draws installs it.
 	// A headless world (a server beside a client) never creates one, so it never clears the one another world set.
-	if (const auto* ref = world.try_get<platform::PlatformRef>(); ref && ref->ptr && ref->ptr->HasWindow()) {
-		InstallDebugRenderer(world, physics, ref->ptr);
+	if (auto* host = world.get<platform::PlatformRef>().ptr; host->HasWindow()) {
+		InstallDebugRenderer(world, physics, host);
 	}
 #endif
 
