@@ -110,10 +110,11 @@ public:
 	void SetCharacterVelocity(flecs::entity_t entity, const glm::vec3& velocity);
 
 	/// Re-detect a character's contacts at its current position, so its ground state matches a position just set.
+	/// Uses the step's temp allocator, so call it outside `progress()`.
 	void RefreshCharacterContacts(flecs::entity_t entity);
 
 	/// Advance one character by `delta_time`: planar velocity, gravity along up, grounding, slopes, steps. Call before
-	/// `StepSimulation` for the same substep. ECS code steps a character through `StepCharacterTick`
+	/// `StepSimulation` in the same Tick. ECS code steps a character through `StepCharacterTick`
 	/// (character_step.hpp), which reads its input and writes the result back.
 	void StepCharacter(flecs::entity_t entity, float delta_time, const CharacterStepInput& input);
 

@@ -36,8 +36,8 @@ void StepCharacterTick(const flecs::entity character) {
 	auto& backend = world.get_mut<JoltBackend>();
 	if (!backend.HasCharacter(character.id())) return;
 
-	const auto* fixed_step = world.try_get<fixed_step::FixedStepConfig>();
-	const float dt = fixed_step ? fixed_step->TickDeltaTime() : fixed_step::FixedStepConfig{}.TickDeltaTime();
+	// The dt RunTick gives PhysicsStep. No fallback: a world without the fixed step must fail here as it does there.
+	const float dt = world.get<fixed_step::FixedStepConfig>().TickDeltaTime();
 	const glm::vec3 world_gravity = world.get<PhysicsWorldConfig>().gravity;
 	backend.StepCharacter(
 		character.id(),
