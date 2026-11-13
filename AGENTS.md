@@ -119,4 +119,4 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 ### Domain docs
 
-Multi-context: `GLOSSARY-MAP.md` lists each context's glossary and ADRs. See `docs/agents/domain.md`.
+Multi-context: `GLOSSARY-MAP.md` says where the engine and each Game Target keep their glossary and ADRs. See `docs/agents/domain.md`.

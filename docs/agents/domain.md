@@ -4,7 +4,7 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`GLOSSARY-MAP.md`**: lists each domain context and where its glossary and ADRs live.
+- **`GLOSSARY-MAP.md`**: where each kind of context (engine, Game Target) keeps its glossary and ADRs.
 - **The glossary for your context**: `docs/GLOSSARY.md` for the engine, `games/<name>/GLOSSARY.md` for a Game
   Target. Game glossaries build on engine vocabulary, so read the engine glossary too when working in a game.
 - **ADRs**: `docs/adr/` (system-wide) plus the context's own `docs/adr/` if it has one; read those that touch the area
@@ -29,7 +29,7 @@ Multi-context repo (see `GLOSSARY-MAP.md`):
 └── src/
 ```
 
-When a Game Target gets its own glossary, add its row to `GLOSSARY-MAP.md`.
+A Game Target's glossary and ADRs follow this layout, so `GLOSSARY-MAP.md` needs no change when a game gets one.
 
 ## Use the glossary's vocabulary
 
