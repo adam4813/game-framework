@@ -7,17 +7,20 @@ Legend — **Scope**: `all` = untagged (runs in every scene pipeline); `GameScen
 `.add<scene::GameScene>()`, so it runs in any scene pipeline that does not exclude it — the Game scene **and** the
 Tilemap scene (which only excludes `MenuScene`), not only the game scene. **Observers are not pipeline-filtered**: they
 fire on component/structural changes regardless of the active scene, so their scope is always `—`. **Pausable**: ✔
-carries `ecs::Pausable` (stops while paused), ✘ keeps running.
+carries `ecs::Pausable` (stops while paused), ✘ keeps running, **Tick** carries `ecs::FixedStep`: the fixed step runs it
+once per Tick, never in a Frame pipeline, and pause stops it with the whole fixed step (see
+[fixed_step](../src/engine/fixed_step/README.md)). **Sample** carries `ecs::FrameSample`: it runs once at the start of
+every Frame, before the Ticks, paused or not.
 
 ## input (`src/engine/input/input_module.cpp`)
 
 | Name                   | Kind            | Phase        | Scope | Pausable |
 |------------------------|-----------------|--------------|-------|----------|
-| `InputPoll`            | system `.run()` | `PreUpdate`  | all   | ✘       |
+| `InputPoll`            | system `.run()` | `OnLoad`     | all   | Sample   |
 | `InputResetFrameState` | system `.run()` | `PostUpdate` | all   | ✘       |
 
-Input polls before everything (so systems see fresh state) and clears per-frame flags after everything (so a key
-"pressed" edge survives exactly one frame).
+Input polls before everything, the Frame's Ticks included (so systems see fresh state), and clears per-frame flags
+after everything (so a key "pressed" edge survives exactly one Frame, and every Tick in it).
 
 ## debug (`src/engine/debug/debug_ui_module.cpp`)
 
@@ -72,19 +75,24 @@ once so entities always have both components.
 
 | Name                            | Kind             | Phase / Event | Scope     | Pausable |
 |---------------------------------|------------------|---------------|-----------|----------|
-| `PhysicsApplyForces`            | system `.each()` | `OnUpdate`    | GameScene | ✔       |
-| `PhysicsApplyImpulses`          | system `.each()` | `OnUpdate`    | GameScene | ✔       |
-| `PhysicsApplyVelocityOverrides` | system `.each()` | `OnUpdate`    | GameScene | ✔       |
-| `PhysicsStep`                   | system `.run()`  | `OnUpdate`    | GameScene | ✔       |
-| `PhysicsSyncToBackend`          | observer         | `OnSet`       | —         | —        |
+| `PhysicsApplyForces`            | system `.each()` | `OnUpdate`    | GameScene | Tick     |
+| `PhysicsApplyVelocityOverrides` | system `.each()` | `OnUpdate`    | GameScene | Tick     |
+| `CharacterTeleport`             | system `.each()` | `OnUpdate`    | GameScene | Tick     |
+| `PhysicsStep`                   | system `.run()`  | `OnUpdate`    | GameScene | Tick     |
+| `PhysicsApplyImpulses`          | system `.each()` | `OnValidate`  | GameScene | Tick     |
+| `PhysicsSyncToBackend`          | system `.run()`  | `OnValidate`  | all       | ✘       |
+| `PhysicsSyncFromBackend`        | system `.run()`  | `PostUpdate`  | GameScene | Tick     |
+| `CharacterSyncFromBackend`      | system `.each()` | `PostUpdate`  | GameScene | Tick     |
+| `PhysicsCollisionEvents`        | system `.run()`  | `PostFrame`   | GameScene | ✔       |
+| `PhysicsAddBody`, `PhysicsAddBodyOnCollisionShape`, `PhysicsSetBodyTransform` | observer | `OnSet` | — | — |
 | `PhysicsRemoveBody`             | observer         | `OnRemove`    | —         | —        |
-| `PhysicsSyncFromBackend`        | system `.each()` | `OnUpdate`    | GameScene | ✔       |
-| `PhysicsCollisionEvents`        | system `.run()`  | `OnUpdate`    | GameScene | ✔       |
 | `PhysicsDebugRender`            | system           | `OnStore`     | GameScene | ✘       |
 | `PhysicsDebugRenderSync`        | system           | `OnUpdate`    | GameScene | —        |
 
-Fixed-timestep step with accumulation; per-entity request components (`Force`/`Impulse`/
-`VelocityOverride`) applied then consumed; Jolt kept in sync via `OnSet`/`OnRemove` observers.
+The simulation runs on the Tick: each Tick applies the per-entity request components (`Force`/`VelocityOverride`,
+then `Impulse` after the step, for the next one), steps the characters and the world once by the fixed dt, and writes
+the result back. `PhysicsCollisionEvents` runs per Frame and delivers the events of every Tick since the last Frame.
+Jolt is kept in sync via `OnSet`/`OnRemove` observers.
 `PhysicsDebugRender` and `PhysicsDebugRenderSync` exist only in a world whose Platform has a window, and only when
 `ENABLE_PHYSICS_DEBUG_RENDERER` is ON and Jolt was built with its debug renderer (not on WASM).
 

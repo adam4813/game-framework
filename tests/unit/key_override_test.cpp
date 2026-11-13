@@ -27,13 +27,13 @@ struct OverrideWorld {
 		std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 	flecs::world& world = *ctx->GetWorld();
 
-	// Read InputState mid-frame (as game logic does), after InputPoll and before the frame reset.
+	// Read InputState mid-Frame (as game logic does), after the InputPoll sample and before the Frame reset.
 	InputState Frame() {
 		InputState seen{};
 		const auto probe = world.system("Probe").kind(flecs::OnUpdate).run([&](const flecs::iter& it) {
 			seen = it.world().get<InputState>();
 		});
-		world.progress(1.0F / 60.0F);
+		engine::fixed_step::RunFrame(world, 1.0F / 60.0F);
 		probe.destruct();
 		return seen;
 	}

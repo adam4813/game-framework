@@ -2,6 +2,7 @@
 
 #include <flecs.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/input/input.hpp"
 
 namespace engine::scene {
@@ -19,21 +20,20 @@ public:
 	// Register any scene-specific loaders (e.g., level loaders, component loaders) with the world.
 	virtual void RegisterLoaders([[maybe_unused]] const flecs::world& world) {}
 
-	// Initializes and creates the scene's pipeline.
-	// Called when the scene component is added.
-	// Concrete scenes should override to create a pipeline with their specific systems.
+	// Initializes and creates the scene's pipelines. Called when the scene component is added.
 	//
-	// Scene-specific systems should be a chld of the scene root entity.:
+	// A scene builds its Frame pipeline from ecs::FramePipeline, which already leaves out the FixedStep and FrameSample
+	// systems the fixed step runs, and its fixed-step pipeline from ecs::FixedStepPipeline, both with the same mode
+	// filter. A scene with Pausable systems also builds a paused Frame pipeline. Scene-specific systems should be a
+	// child of the scene root entity. A gameplay scene excludes the menu tag:
 	//
-	// The pipeline then excludes the other scene's tag:
-	//
-	//   pipeline_ = world.pipeline()
-	//       .with(flecs::System)
-	//       .without<MenuScene>()
-	//       .build();
+	//   pipeline_ = ecs::FramePipeline(world).without<MenuScene>().build();
+	//   pausedPipeline_ = ecs::FramePipeline(world).without<MenuScene>().without<ecs::Pausable>().build();
+	//   fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<MenuScene>().build();
 	virtual void InitializePipeline(const flecs::world& world) {
-		// Default: use the world's default pipeline
-		pipeline_ = world.pipeline().build();
+		// Default: every system, in every mode.
+		pipeline_ = ecs::FramePipeline(world).build();
+		fixedStepPipeline_ = ecs::FixedStepPipeline(world).build();
 	}
 
 	// Called once when the scene becomes active.
@@ -67,12 +67,19 @@ public:
 	// pausedPipeline_.
 	[[nodiscard]] flecs::entity GetPausedPipeline() const { return pausedPipeline_ ? pausedPipeline_ : pipeline_; }
 
+	// Gets the pipeline the fixed step runs once per Tick while this scene is active. Null when the scene built none,
+	// and the fixed step then runs every FixedStep system.
+	[[nodiscard]] flecs::entity GetFixedStepPipeline() const { return fixedStepPipeline_; }
+
 protected:
 	// Set by scene during InitializePipeline
 	flecs::entity pipeline_;
 
 	// Optional pipeline used while paused; falls back to pipeline_ when unset.
 	flecs::entity pausedPipeline_;
+
+	// Optional pipeline of the FixedStep systems this scene runs on each Tick.
+	flecs::entity fixedStepPipeline_;
 };
 
 } // namespace engine::scene

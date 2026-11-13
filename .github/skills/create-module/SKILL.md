@@ -157,7 +157,8 @@ namespace engine::<name> {
       auto* platform = it.world().get<platform::PlatformRef>().ptr;
       // ... use platform + component ...
     })
-    .add<ecs::Pausable>()          // omit if this system should keep running while paused
+    .add<ecs::Pausable>()          // omit if this system should keep running while paused; a fixed-dt simulation
+                                   // system adds ecs::FixedStep instead (engine/fixed_step/README.md)
     .add<scene::GameScene>();      // or scene::MenuScene; omit to run in every scene
 
   spdlog::info("[<Name>Module] Registered <name> systems with Flecs");

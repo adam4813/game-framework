@@ -18,10 +18,6 @@
 namespace engine::physics::jolt {
 
 namespace {
-struct PhysicsAccumulator {
-	float accumulated_time{0.0F};
-};
-
 // Name for log messages: the entity's name, or its id when unnamed.
 std::string EntityLabel(const flecs::entity& e) { return e.name() ? std::string{e.name()} : std::to_string(e.id()); }
 
@@ -93,10 +89,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 		return;
 	}
 
-	// Initialize accumulator for fixed timestep
-	world.set<PhysicsAccumulator>({});
+	// The simulation systems below are FixedStep: each runs once per Tick, in phase order, with the fixed dt (see
+	// engine/fixed_step/README.md). Pause stops the whole fixed step, so they don't carry Pausable.
 
-	// === SYSTEM: Apply forces each frame ===
+	// === SYSTEM: Apply forces each Tick ===
 	// Runs once per entity that has PhysicsForce
 	std::ignore =
 		world.system<const PhysicsForce, JoltBackend>("PhysicsApplyForces")
@@ -113,10 +109,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 					}
 				}
 			})
-			.add<ecs::Pausable>()
+			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
-	// === SYSTEM: Apply impulses each frame ===
+	// === SYSTEM: Apply impulses each Tick ===
 	// Impulses are single-use and removed after application
 	std::ignore =
 		world.system<const PhysicsImpulse, JoltBackend>("PhysicsApplyImpulses")
@@ -131,10 +127,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 					spdlog::warn("[PhysicsApplyImpulses] Failed to remove PhysicsImpulse from entity {}", e.id());
 				}
 			})
-			.add<ecs::Pausable>()
+			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
-	// === SYSTEM: Apply velocity overrides each frame ===
+	// === SYSTEM: Apply velocity overrides each Tick ===
 	// Single-use: sets the body's velocity directly and removes the component. Used for state
 	// restore (e.g. loading a save snapshot) where you need to land at an exact velocity rather
 	// than accumulate forces/impulses.
@@ -148,7 +144,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 						  }
 						  e.remove<PhysicsVelocityOverride>();
 					  })
-					  .add<ecs::Pausable>()
+					  .add<ecs::FixedStep>()
 					  .add<scene::GameScene>();
 
 	// === Characters ===
@@ -164,7 +160,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 							  sys.SetCharacterPosition(id, local.position);
 						  }
 					  })
-					  .add<ecs::Pausable>()
+					  .add<ecs::FixedStep>()
 					  .add<scene::GameScene>();
 
 	// Reacts to OnSet (not OnAdd) so the observer reads the authored values, and tolerates either component arriving
@@ -223,49 +219,36 @@ JoltModule::JoltModule(const flecs::world& world) {
 	auto characters = world.query_builder<const CharacterMove*, const Gravity*>().with<CharacterBody>().build();
 
 	// === SYSTEM: Step physics simulation ===
-	// Handles fixed timestep accumulation and physics stepping
+	// Steps the characters and then the world exactly once per Tick, by the fixed dt.
 	std::ignore =
-		world.system<const JoltBackend, const PhysicsWorldConfig, PhysicsAccumulator>("PhysicsStep")
+		world.system<const JoltBackend, const PhysicsWorldConfig>("PhysicsStep")
 			.kind(flecs::OnUpdate)
 			.term_at<JoltBackend>()
 			.singleton()
 			.term_at<PhysicsWorldConfig>()
 			.singleton()
-			.term_at<PhysicsAccumulator>()
-			.singleton()
 			.run([characters](flecs::iter& it) {
 				auto& sys = it.world().get_mut<JoltBackend>();
 				const auto& cfg = it.world().get<PhysicsWorldConfig>();
-				auto& acc = it.world().get_mut<PhysicsAccumulator>();
+				const float dt = it.delta_time();
 
 				sys.SetGravity(cfg.gravity);
 
-				acc.accumulated_time += it.delta_time();
-
-				int steps = 0;
-				while (acc.accumulated_time >= cfg.fixed_timestep && steps < cfg.max_substeps) {
-					// Characters move first so the simulation step sees their new positions.
-					characters.each([&](const flecs::entity e, const CharacterMove* move, const Gravity* gravity) {
-						sys.StepCharacter(
-							e.id(),
-							cfg.fixed_timestep,
-							{.move_velocity = move ? move->velocity : glm::vec3{0.0F},
-							 .gravity = gravity ? gravity->acceleration : cfg.gravity}
-						);
-					});
-					sys.StepSimulation(cfg.fixed_timestep);
-					acc.accumulated_time -= cfg.fixed_timestep;
-					++steps;
-				}
-
-				// Clamp to prevent spiral of death
-				acc.accumulated_time =
-					std::min(acc.accumulated_time, cfg.fixed_timestep * static_cast<float>(cfg.max_substeps));
+				// Characters move first so the simulation step sees their new positions.
+				characters.each([&](const flecs::entity e, const CharacterMove* move, const Gravity* gravity) {
+					sys.StepCharacter(
+						e.id(),
+						dt,
+						{.move_velocity = move ? move->velocity : glm::vec3{0.0F},
+						 .gravity = gravity ? gravity->acceleration : cfg.gravity}
+					);
+				});
+				sys.StepSimulation(dt);
 
 				// Spin through the iterator to ensure ECS systems are aware of the iteration
 				while (it.next());
 			})
-			.add<ecs::Pausable>()
+			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
 	// === OBSERVER: Create physics body when RigidBody is set ===
@@ -428,7 +411,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					}
 				}
 			})
-			.add<ecs::Pausable>()
+			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
 	// Writes the character's position to its Transform (never the rotation, which the game owns) and fills
@@ -451,23 +434,23 @@ JoltModule::JoltModule(const flecs::world& world) {
 					.velocity = result.velocity
 				};
 			})
-			.add<ecs::Pausable>()
+			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
 	// === SYSTEM: Distribute collision events ===
-	// Clears previous frame's events and distributes new ones to entities
+	// Per Frame, not per Tick: clears the previous Frame's events and distributes the ones this Frame's Ticks produced
 	std::ignore =
 		world.system("PhysicsCollisionEvents")
 			.kind(flecs::PostFrame)
 			.run([](const flecs::iter& it) {
 				const auto ecs_world = it.world();
-				const auto& sys = ecs_world.get<JoltBackend>();
+				auto& sys = ecs_world.get_mut<JoltBackend>();
 
 				// Clear previous frame's events
 				ecs_world.query<CollisionEvents>().each([](CollisionEvents& ce) { ce.events.clear(); });
 
-				// Distribute new events
-				for (const auto events = sys.GetCollisionEvents(); const auto& event : events) {
+				// Distribute the events of every Tick since the last Frame
+				for (const auto events = sys.TakeCollisionEvents(); const auto& event : events) {
 					if (auto e_a = ecs_world.entity(event.entity_a); e_a.is_valid() && e_a.has<CollisionEvents>()) {
 						e_a.get_mut<CollisionEvents>().events.push_back(event);
 					}

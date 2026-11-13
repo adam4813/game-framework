@@ -10,6 +10,7 @@
 
 #include <flecs.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "input_components.hpp"
@@ -107,7 +108,8 @@ InputModule::InputModule(const flecs::world& world) {
 	RegisterScriptConstants(world);
 
 	// === SYSTEM: Poll input from platform each frame ===
-	// Updates the InputState singleton with current keyboard and mouse input
+	// Updates the InputState singleton with current keyboard and mouse input. A FrameSample system, so the fixed step
+	// runs it before the Frame's Ticks and every Tick sees this Frame's input.
 	world.system("InputPoll").kind(flecs::OnLoad).write<InputState>().run([](const flecs::iter& it) {
 		auto& input_state = it.world().get_mut<InputState>();
 		auto& keys = input_state.keys;
@@ -181,7 +183,7 @@ InputModule::InputModule(const flecs::world& world) {
 		// Printable text typed this frame (drains the platform character queue exactly once per frame,
 		// so focused text-input UI reads it from the TypedText singleton like any other input).
 		it.world().get_mut<TypedText>().text = keyboard_free ? platform.ptr->TextInput() : std::string{};
-	});
+	}).add<ecs::FrameSample>();
 
 	// === SYSTEM: Reset frame-state input flags at end of frame ===
 	// Clears the per-frame "pressed"/scroll flags so they don't persist.

@@ -55,9 +55,9 @@ struct DrawMaterial {
 	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
 	bool wireframe{false};
 	bool cast_shadow{true};
-	bool unlit{false}; // draw the tint as-is, skipping the scene lighting
-	bool double_sided{false}; // no back-face culling; the lit shaders flip a back face's normal
-	bool depth_write{true};      // when false, the draw tests depth but doesn't write it (transparent pass)
+	bool unlit{false};            // draw the tint as-is, skipping the scene lighting
+	bool double_sided{false};     // no back-face culling; the lit shaders flip a back face's normal
+	bool depth_write{true};       // when false, the draw tests depth but doesn't write it (transparent pass)
 	bool fade_transparent{false}; // selects the occluder-fade shader's transparent (ghost) pass
 };
 
@@ -144,6 +144,20 @@ struct OcclusionFadeParams {
 
 enum class MouseButton { Left = 0, Right = 1 };
 
+// How a windowed Platform paces Frames, set apart from the simulation's Tick rate (fixed_step::FixedStepConfig): the
+// Frame rate is how often the game renders, never how fast it simulates.
+enum class FrameRateMode {
+	Capped,   // at most `cap` Frames per second
+	VSync,    // one Frame per display refresh
+	Uncapped, // as fast as the machine allows
+};
+
+struct FrameRate {
+	FrameRateMode mode{FrameRateMode::Capped};
+	// Frames per second; read only when mode is Capped.
+	int cap{60};
+};
+
 class Platform {
 public:
 	using Rect = core::Rect;
@@ -169,6 +183,9 @@ public:
 	[[nodiscard]] virtual std::string AssetDirectory() const = 0;
 	// Frames-per-second over a recent window, for render-stat overlays.
 	[[nodiscard]] virtual int Fps() const = 0;
+	// Sets how Frames are paced. Init starts at FrameRate{} (capped at 60). In a browser the page's animation frame
+	// always paces Frames, so VSync and Uncapped are the same there and a cap can only lower the rate.
+	virtual void SetFrameRate(const FrameRate& rate) = 0;
 
 	// ── Frame ──
 	virtual void BeginFrame(Rgba clear) = 0;

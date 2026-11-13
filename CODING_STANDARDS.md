@@ -79,6 +79,11 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
   that carries it. An unscoped system runs in every scene.
 - **Pausing is data** (ADR 0004): simulation systems add `.add<ecs::Pausable>()`; input, render, UI, audio and debug
   systems omit it.
+- **Simulation that needs a fixed dt runs on the Tick** (ADR 0008): it adds `.add<ecs::FixedStep>()` (and no
+  `Pausable`: pause stops the whole fixed step), never Flecs `interval` or an accumulator of its own. Presentation
+  (animation, particles, camera, rendering) stays per Frame. A scene builds its pipelines with `ecs::FramePipeline` and
+  `ecs::FixedStepPipeline`, and code that drives a world calls `fixed_step::RunFrame`, since `progress()` alone runs
+  no Tick.
 - **Event-driven over polling.** A discrete state change reacts through an observer (`OnSet` for values, `OnAdd` /
   `OnRemove` for structure) or an event; per-frame systems are for continuous work (movement, projectiles, rendering).
 - **An observer that reads component data reacts to `OnSet`, never `OnAdd`** (ADR 0007). Outside a deferred merge,

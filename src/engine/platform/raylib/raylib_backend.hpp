@@ -20,6 +20,7 @@ public:
 	[[nodiscard]] double Time() const override;
 	[[nodiscard]] std::string AssetDirectory() const override;
 	[[nodiscard]] int Fps() const override;
+	void SetFrameRate(const FrameRate& rate) override;
 
 	void BeginFrame(Rgba clear) override;
 	void EndFrame() override;

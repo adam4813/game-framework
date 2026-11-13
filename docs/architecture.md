@@ -34,32 +34,41 @@ It reads `EngineContextRef`, registers the save schema, registers scenes, and ac
 
 ## The frame loop
 
-`engine::App` (`src/engine/app/app.cpp`) is intentionally tiny — the whole frame is one ECS progress step bracketed by
-the platform's frame begin/end:
+`engine::App` (`src/engine/app/app.cpp`) is intentionally tiny — the whole Frame is one `fixed_step::RunFrame`
+bracketed by the platform's frame begin/end:
 
 ```cpp
 void App::Tick() const {
     const float dt = platform->DeltaTime();
     platform->BeginFrame(platform::colors::Background);
-    world->progress(dt);      // runs the active scene's pipeline across all phases
+    fixed_step::RunFrame(*world, dt); // sample input, run 0..N Ticks, then the Frame pipeline
     platform->EndFrame();
 }
 void App::PostTick() const { context_->GetDeferredTaskQueue().ProcessTasks(); }
 ```
 
-`world->progress(dt)` executes whichever **pipeline** is currently active (see
-[scenes.md](scenes.md) for how the active scene selects its pipeline). `PostTick()` drains the deferred task queue for
-actions that cannot safely run mid-progress.
+`RunFrame` runs a Frame in three steps ([fixed_step](../src/engine/fixed_step/README.md), ADR 0008):
+
+1. the `ecs::FrameSample` systems (`InputPoll`), once;
+2. zero to `max_catch_up_ticks` **Ticks**, as the fixed step's accumulator decides: each runs the active scene's
+   fixed-step pipeline (the `ecs::FixedStep` systems, such as the physics step) once with the fixed dt;
+3. `world->progress(dt)`: whichever Frame **pipeline** is currently active (see [scenes.md](scenes.md) for how the
+   active scene selects its pipeline).
+
+The Frame rate (`Platform::SetFrameRate`: a cap, vsync or uncapped) and the Tick rate (`FixedStepConfig::tick_rate`)
+are separate levers. `PostTick()` drains the deferred task queue for actions that cannot safely run mid-progress.
 
 ## Pipeline phases
 
 Systems are ordered by the Flecs built-in phases plus two engine-defined phases, `ecs::OnUI` and `ecs::OnDebugUI`.
-Within a phase, registration order and explicit dependencies decide ordering.
+Within a phase, registration order and explicit dependencies decide ordering. A FixedStep system keeps its phase, which
+orders it within the Tick's own pipeline; the table names the Tick's systems in their phase too.
 
 | Phase                  | Purpose                        | Representative systems                                                                                                                     |
 |------------------------|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `flecs::PreUpdate`     | Sample inputs, lay out UI      | `InputPoll`, `UILayout`, `ScriptPreTick`                                                                                                   |
-| `flecs::OnUpdate`      | Simulation + interaction/logic | physics step & sync, `TimerAdvance`, `ParticleEmit/Update`, UI interaction, `SoundEffectPlayback`, `ActiveSceneTick/Input`, `ScriptOnTick` |
+| `flecs::OnLoad`        | Sample inputs (before the Ticks) | `InputPoll` (FrameSample)                                                                                                                |
+| `flecs::PreUpdate`     | Lay out UI                     | `UILayout`, `ScriptPreTick`                                                                                                                |
+| `flecs::OnUpdate`      | Simulation + interaction/logic | physics step (on the Tick), `TimerAdvance`, `ParticleEmit/Update`, UI interaction, `SoundEffectPlayback`, `ActiveSceneTick/Input`, `ScriptOnTick` |
 | `flecs::OnStore`       | 3D rendering, debug draw       | `Render3DBegin` → lighting → primitives → `Render3DEnd`, `PhysicsDebugRender`                                                              |
 | `ecs::OnUI` *(custom)* | 2D overlays on top of 3D       | `UIBuildDrawList`, `UIRenderDrawList`, `ActiveSceneDebugUI`, `ActiveSceneUI`                                                               |
 | `ecs::OnDebugUI` *(custom)* | ImGui debug UI on top of all | `DebugUiDraw` (panels themselves run in `OnUpdate`, e.g. `EngineDebugPanel`)                                                       |
@@ -190,8 +199,11 @@ Pausing is **data**, not a branch in every system. A system that advances the si
 "paused" pipeline that filters those systems out:
 
 ```cpp
-pausedPipeline_ = world.pipeline().with(flecs::System).without<engine::ecs::Pausable>()./*...*/.build();
+pausedPipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().without<engine::ecs::Pausable>().build();
 ```
+
+Pause also stops the whole fixed step: while `scene::Paused` is on the world no Tick runs, so FixedStep systems need no
+`Pausable`.
 
 Toggling pause is a world tag:
 

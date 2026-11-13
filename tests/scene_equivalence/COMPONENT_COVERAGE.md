@@ -87,6 +87,15 @@ Legend:
 
 ---
 
+## fixed_step
+
+| Component         | Meta fields                       | Status | Notes                                                       |
+|-------------------|-----------------------------------|--------|-------------------------------------------------------------|
+| `FixedStepConfig` | tick_rate, max_catch_up_ticks     | 🚫     | World singleton set from C++; no level loader               |
+| `FixedStepState`  | tick, accumulator, alpha          | 🚫     | Runtime singleton written by the fixed step; not authored   |
+
+---
+
 ## particles
 
 | Component         | Meta fields                                                                                                                | Status | Notes                      |

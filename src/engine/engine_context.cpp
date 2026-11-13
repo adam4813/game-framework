@@ -8,6 +8,7 @@
 #include "engine/debug/debug.hpp"
 #include "engine/dialog/dialog.hpp"
 #include "engine/ecs/ecs.hpp"
+#include "engine/fixed_step/fixed_step.hpp"
 #include "engine/graph/graph.hpp"
 #include "engine/input/input.hpp"
 #include "engine/level/level.hpp"
@@ -51,7 +52,8 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) :
 	world_.import<assets::AssetModule>();
 	world_.import<audio::AudioModule>();
 	world_.import<input::InputModule>();
-	world_.import<animation::AnimationModule>(); // before render: the skinned-mesh renderer queries its components
+	world_.import<fixed_step::FixedStepModule>(); // after scene and input: it runs their systems each Frame
+	world_.import<animation::AnimationModule>();  // before render: the skinned-mesh renderer queries its components
 	world_.import<render::RenderModule>();
 	world_.import<ui::UIModule>();
 	world_.import<timer::TimerModule>();

@@ -30,11 +30,13 @@ public:
 	[[nodiscard]] int Height() const override { return height_; }
 	void SetFullscreen(bool) override {}
 	[[nodiscard]] bool IsFullscreen() const override { return false; }
-	// No frame clock: a fixed 1/60 s. A headless loop passes its own measured dt to world.progress().
+	// No frame clock: a fixed 1/60 s. A headless loop passes its own measured dt to fixed_step::RunFrame().
 	[[nodiscard]] float DeltaTime() const override { return 1.0F / 60.0F; }
 	[[nodiscard]] double Time() const override { return 0.0; }
 	[[nodiscard]] std::string AssetDirectory() const override { return assetDirectory_; }
 	[[nodiscard]] int Fps() const override { return 0; }
+	// No window to pace: the headless loop decides how often to run a Frame.
+	void SetFrameRate(const FrameRate&) override {}
 
 	void BeginFrame(Rgba) override {}
 	void EndFrame() override {}

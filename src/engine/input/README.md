@@ -114,9 +114,11 @@ KeyCode::Backspace, KeyCode::Delete, KeyCode::Pause, KeyCode::PrintScreen
 
 ## Systems
 
-### `InputPoll` (OnLoad)
+### `InputPoll` (OnLoad, FrameSample)
 
-Runs first in the frame, so a game can sample input in `PostLoad` and act on it in `PreUpdate`. Polls input from the platform layer and updates the InputState singleton with current
+Runs first in the Frame, before the Frame's Ticks (it carries `ecs::FrameSample`, so `fixed_step::RunFrame` runs it
+and a Frame pipeline never does), so every Tick and the rest of the Frame see this Frame's input. A game can still act
+on it in `PostLoad` or `PreUpdate`. Polls input from the platform layer and updates the InputState singleton with current
 keyboard and mouse state.
 
 **What it does:**

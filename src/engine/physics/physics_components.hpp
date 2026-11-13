@@ -115,11 +115,10 @@ struct IsSleeping {}; // Body is sleeping
 
 // === SINGLETON COMPONENTS ===
 
-/// World-level physics configuration
+/// World-level physics configuration. Physics steps once per fixed Tick, so its rate is the fixed step's
+/// (fixed_step::FixedStepConfig), not a field here.
 struct PhysicsWorldConfig {
 	glm::vec3 gravity{0.0F, -9.81F, 0.0F};
-	float fixed_timestep{1.0F / 60.0F};
-	int max_substeps{4};
 	bool enable_sleeping{true};
 	bool show_debug_physics{false};
 };

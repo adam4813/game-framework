@@ -40,7 +40,7 @@ struct CrabnadoWorld {
 	template<typename Done>
 	void RunUntil(Done done) const {
 		for (int frame = 0; frame < 600 && !done(); ++frame) {
-			World().progress(1.0F / 60.0F);
+			engine::fixed_step::RunFrame(World(), 1.0F / 60.0F);
 		}
 	}
 
@@ -72,7 +72,7 @@ TEST(CrabnadoSceneFlow, PlayButtonStartsTheIntroOnTheTitleScene) {
 	const CrabnadoWorld game;
 
 	game.Click("TitleUI::PlayButton");
-	game.World().progress(1.0F / 60.0F);
+	engine::fixed_step::RunFrame(game.World(), 1.0F / 60.0F);
 
 	EXPECT_TRUE(game.IsActive<crabnado::TitleSceneTag>());
 	EXPECT_TRUE(game.World().lookup("TitleBackdrop::TitleCrab").has<crabnado::TitleScurry>());
@@ -96,7 +96,7 @@ TEST(CrabnadoSceneFlow, NextThroughEveryStoryPanelOpensTheGameScene) {
 	// One Next per panel still to show, then Fight! on the last.
 	for (int click = 1; click < crabnado::StoryComic::kPanelCount; ++click) {
 		game.Click("TitleUI::StoryComic::NextButton");
-		game.World().progress(1.0F / 60.0F);
+		engine::fixed_step::RunFrame(game.World(), 1.0F / 60.0F);
 		EXPECT_TRUE(game.IsActive<crabnado::TitleSceneTag>());
 	}
 	EXPECT_EQ(game.World().lookup("TitleUI::StoryComic::NextButton").get<ui::Button>().label, "Fight!");

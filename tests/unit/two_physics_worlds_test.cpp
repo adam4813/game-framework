@@ -58,7 +58,7 @@ struct PhysicsWorld {
 
 	void Step(const int frames) const {
 		for (int i = 0; i < frames; ++i) {
-			World().progress(1.0F / 60.0F);
+			engine::fixed_step::RunFrame(World(), 1.0F / 60.0F);
 		}
 	}
 

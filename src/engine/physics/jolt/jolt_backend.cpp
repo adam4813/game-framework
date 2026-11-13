@@ -6,6 +6,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 
 #include <spdlog/spdlog.h>
 
@@ -143,9 +144,7 @@ public:
 
 class ContactListenerImpl : public JPH::ContactListener {
 public:
-	void ClearEvents() { events_.clear(); }
-
-	[[nodiscard]] const std::vector<CollisionInfo>& GetEvents() const { return events_; }
+	[[nodiscard]] std::vector<CollisionInfo> TakeEvents() { return std::exchange(events_, {}); }
 
 	JPH::ValidateResult
 	OnContactValidate(const JPH::Body&, const JPH::Body&, JPH::RVec3Arg, const JPH::CollideShapeResult&) override {
@@ -270,10 +269,6 @@ glm::vec3 JoltBackend::GetGravity() const {
 
 void JoltBackend::StepSimulation(const float delta_time) const {
 	if (!initialized_ || !physics_system_) return;
-
-	if (contact_listener_) {
-		dynamic_cast<ContactListenerImpl*>(contact_listener_.get())->ClearEvents();
-	}
 
 	physics_system_->Update(delta_time, config_.collision_steps, temp_allocator_.get(), job_system_.get());
 }
@@ -782,9 +777,9 @@ void JoltBackend::SetCharacterWrittenPosition(const flecs::entity_t entity, cons
 	}
 }
 
-std::vector<CollisionInfo> JoltBackend::GetCollisionEvents() const {
+std::vector<CollisionInfo> JoltBackend::TakeCollisionEvents() {
 	if (contact_listener_) {
-		return dynamic_cast<ContactListenerImpl*>(contact_listener_.get())->GetEvents();
+		return dynamic_cast<ContactListenerImpl*>(contact_listener_.get())->TakeEvents();
 	}
 	return {};
 }

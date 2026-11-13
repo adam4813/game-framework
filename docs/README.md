@@ -27,11 +27,11 @@ This folder is the framework-level reference. It consolidates and cross-links th
 ```
 src/engine/
 ├── engine_context.{hpp,cpp}  # Owns the world and imports all modules (dependency injection)
-├── app/                      # Frame loop: platform begin/end, world.progress() step
+├── app/                      # Frame loop: platform begin/end, fixed_step::RunFrame() step
 ├── engine.hpp                # Public header: #include "engine/engine.hpp" for all modules
 │
 ├── core/                     # Shared utilities (math, hashing, etc.)
-├── ecs/                      # ECS metadata (components, phases, pausable tag)
+├── ecs/                      # ECS metadata (components, phases, pausable and fixed-step tags, pipeline builders)
 ├── platform/                 # Platform abstraction interface (Raylib, WASM target)
 │
 └── <moduleA>/, <moduleB>/, …  # Flecs modules (each imports via world.import<T>())
@@ -43,7 +43,8 @@ src/engine/
 
 Each **Flecs module** lives under `src/engine/<name>/` and registers itself into the world via `world.import<T>()`. The
 `EngineContext` (`src/engine/engine_context.cpp`) imports all modules in dependency order. The **frame loop**
-(`src/engine/app/`) owns `EngineContext`, calls `world.progress(dt)` each tick, and drains the deferred task queue.
+(`src/engine/app/`) owns `EngineContext`, calls `fixed_step::RunFrame(world, dt)` each Frame, and drains the deferred
+task queue.
 
 | Module        | Kind         | Registers                                                                                              | README                                                                                                        |
 |---------------|--------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
@@ -51,6 +52,7 @@ Each **Flecs module** lives under `src/engine/<name>/` and registers itself into
 | `assets`      | data/service | `AssetRegistry` singleton; free `Acquire/Get/Release` API                                              | [assets](../src/engine/assets/README.md)                                                                      |
 | `audio`       | simulation   | `SoundEffect`/`Music`, resolve observers, playback system                                              | *(no README yet)*                                                                                             |
 | `core`        | foundation   | foundational math and value types used throughout the engine                                           | [core](../src/engine/core/README.md)                                                                          |
+| `fixed_step`  | management   | `FixedStepConfig`/`FixedStepState` singletons; `RunFrame`/`RunTick`; fixed-step and sample pipelines | [fixed_step](../src/engine/fixed_step/README.md) |
 | `graph`       | data/service | directed-graph and rooted-tree data structures (C++ value types + ECS entity components)               | [graph](../src/engine/graph/README.md)                                                                        |
 | `input`       | simulation   | `InputState` singleton, poll + reset systems                                                           | [input](../src/engine/input/README.md)                                                                        |
 | `level`       | data/service | `LevelRegistry` singleton; JSON → entity tree loaders                                                  | [level](../src/engine/level/README.md)                                                                        |
