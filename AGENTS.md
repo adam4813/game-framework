@@ -69,8 +69,8 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
    intentional override (e.g. a game needing a different commit), so keep it and say why in a comment.
 4. Run the verify steps (Build).
 
-A bump can move other ports (flecs 4.1.0 → 4.1.6 dropped `singleton()`), so keep `overrides` in `vcpkg.json` for
-anything the engine isn't migrated to yet. Docs under `docs/research/` cite historical baselines on purpose; leave them.
+A bump can move other ports (flecs 4.1.0 → 4.2.0 drops the world's deferred mode), so keep `overrides` in
+`vcpkg.json` for anything the engine isn't migrated to yet. Docs under `docs/research/` cite historical baselines on purpose; leave them.
 
 ## Git
 
