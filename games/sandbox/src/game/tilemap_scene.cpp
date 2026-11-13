@@ -28,25 +28,9 @@ void TilemapScene::RegisterLoaders(const flecs::world& world) {
 	level::RegisterTag<BtWandererNPC>(world, "bt_wanderer");
 }
 void TilemapScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::MenuScene>()
-					// Re-inject the built-in phase sorting logic:
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-
-	pausedPipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::MenuScene>()
-					.without<ecs::Pausable>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().build();
+	pausedPipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().without<ecs::Pausable>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::MenuScene>().build();
 }
 
 void TilemapScene::Load(flecs::world& world) {

@@ -21,7 +21,6 @@ enum class ConstraintType : uint8_t { Fixed, Hinge, Slider, Ball, Distance };
 // Physics configuration
 struct PhysicsConfig {
 	glm::vec3 gravity{0.0F, -9.81F, 0.0F};
-	float fixed_timestep{1.0F / 60.0F};
 	int collision_steps{1};
 	bool enable_sleeping{true};
 };

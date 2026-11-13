@@ -76,7 +76,7 @@ TEST_P(SceneLoadOrder, AStaticBodyStaysPutAfterTheWorldSteps) {
 	const LoadWorld w;
 	w.Load(GetParam(), kFloorLevel);
 	for (int i = 0; i < 30; ++i) {
-		w.World().progress(1.0F / 60.0F);
+		engine::fixed_step::RunFrame(w.World(), 1.0F / 60.0F);
 	}
 
 	const auto floor = w.World().lookup("Floor");
@@ -93,7 +93,9 @@ TEST_P(SceneLoadOrder, AChildsWorldTransformIsComposedWithItsParentBeforeTheFirs
 }
 
 INSTANTIATE_TEST_SUITE_P(
-	LoadModes, SceneLoadOrder, testing::Values(LoadMode::Undeferred, LoadMode::Deferred),
+	LoadModes,
+	SceneLoadOrder,
+	testing::Values(LoadMode::Undeferred, LoadMode::Deferred),
 	[](const testing::TestParamInfo<LoadMode>& info) {
 		return info.param == LoadMode::Undeferred ? "Undeferred" : "Deferred";
 	}

@@ -94,3 +94,8 @@ add_engine_test(rest_port_override_test
 add_engine_test(world_logger_test
     world_logger_test.cpp
 )
+
+# Fixed step: Ticks per Frame from the accumulator, the catch-up cap, A, B, A, B order, pause, run-once and alpha
+add_engine_test(fixed_step_test
+    fixed_step_test.cpp
+)

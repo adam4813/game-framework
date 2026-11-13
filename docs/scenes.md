@@ -11,7 +11,7 @@ All lifecycle methods are virtual with empty defaults — override only what you
 
 | Method                      | When it runs                                                              | Typical use                                                                                                                          |
 |-----------------------------|---------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `InitializePipeline(world)` | Once, when `SceneComponent` is **set** (`OnSceneComponentAdded` observer) | Build this scene's pipeline(s): the running `pipeline_` and, if the scene pauses, a `pausedPipeline_` that excludes `ecs::Pausable`. |
+| `InitializePipeline(world)` | Once, when `SceneComponent` is **set** (`OnSceneComponentAdded` observer) | Build this scene's pipelines: the running `pipeline_`, a `pausedPipeline_` excluding `ecs::Pausable` if it pauses, and the `fixedStepPipeline_` its Ticks run. |
 | `Load()`                    | Once, when the scene becomes **Active** (`OnSceneActivate` observer)      | Create the scene's entities (world objects, UI roots). Sets the world pipeline first, then calls `Load()`.                           |
 | `Unload()`                  | Once, when the scene stops being Active (`OnSceneDeactivate` observer)    | **Destroy everything `Load()` created** so re-activation doesn't duplicate entities or leak.                                         |
 | `Tick(world, dt)`           | Every frame while active (`ActiveSceneTick`, `OnUpdate`)                  | Per-frame scene logic; e.g. open the pause modal while paused.                                                                       |
@@ -20,7 +20,9 @@ All lifecycle methods are virtual with empty defaults — override only what you
 | `DrawUI(world, input)`      | Every frame while active (`ActiveSceneUI`, `OnUI`)                        | Immediate 2D overlays that must composite on top of 3D.                                                                              |
 
 Accessors: `GetPipeline()` returns the running pipeline; `GetPausedPipeline()` returns
-`pausedPipeline_` if set, else falls back to `pipeline_` (i.e. a scene that never pauses needs no second pipeline).
+`pausedPipeline_` if set, else falls back to `pipeline_` (i.e. a scene that never pauses needs no second pipeline);
+`GetFixedStepPipeline()` returns `fixedStepPipeline_`, which the fixed step runs once per Tick while the scene is
+active (null runs every FixedStep system).
 
 ### Phase vs. scene filter
 
@@ -31,11 +33,13 @@ A scene's own systems separate *when* they run from *which scene* they run in �
 auto sys = world.system("MySystem").kind(flecs::OnUpdate).run([...]).child_of(sceneRootEntity);
 ```
 
-The scene builds its pipeline to exclude the *other* scene's tag, so untagged (engine) systems run in every scene while
-scene-specific systems are isolated:
+The scene builds its pipelines to exclude the *other* scene's tag, so untagged (engine) systems run in every scene while
+scene-specific systems are isolated. It starts from the Framework's builders: `ecs::FramePipeline` already leaves out
+the systems the fixed step runs, and `ecs::FixedStepPipeline` holds only those, so both get the same mode filter:
 
 ```cpp
-pipeline_ = world.pipeline().with(flecs::System).without<scene::MenuScene>().build();
+pipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().build();
+fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::MenuScene>().build();
 ```
 
 ## Registration, activation, reload

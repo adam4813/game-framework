@@ -29,8 +29,24 @@ A distinct screen or game state (title screen, gameplay, pause menu, …). A Sce
 _Avoid_: screen, state, level (a Level is data loaded inside a scene, not the scene itself)
 
 **Pipeline**:
-A scene-owned, filtered sequence of Systems that Flecs executes each frame. Each Scene builds its own running Pipeline and, if it supports pausing, a second paused Pipeline that excludes Pausable systems. This diverges from a single global pipeline: every scene selects which pipeline is active when it is loaded.
+A scene-owned, filtered sequence of Systems that Flecs executes. Each Scene builds its own running Frame Pipeline (from `ecs::FramePipeline`), a paused Pipeline that excludes Pausable systems if it supports pausing, and a fixed-step Pipeline (from `ecs::FixedStepPipeline`) that each Tick runs. This diverges from a single global pipeline: every scene selects which pipelines are active when it is loaded.
 _Avoid_: system pipeline, execution graph
+
+**Frame**:
+One pass of the game loop, `fixed_step::RunFrame(world, dt)`: sample input (the `FrameSample` systems), run zero or more Ticks, then the per-Frame update and render (`world.progress(dt)`). How often Frames run is the Frame rate, set on the Platform (a cap, vsync or uncapped), apart from the Tick rate.
+_Avoid_: tick (a Tick is the simulation's step; `App::Tick` and `SceneBase::Tick` are per-Frame and predate the term), update
+
+**Tick**:
+One fixed step of the simulation: every `FixedStep` System runs once, in phase order, with the fixed dt (`1 / FixedStepConfig::tick_rate`). A Frame runs as many Ticks as its accumulated time holds, up to a catch-up cap; pause runs none. `FixedStepState::tick` counts the Ticks that ran, so things can be stamped against it.
+_Avoid_: step, substep, fixed update, frame (a Frame renders; a Tick simulates)
+
+**FixedStep**:
+A Tag applied to a simulation System to run it on the Tick, in the fixed-step Pipeline, instead of once per Frame. Frame Pipelines leave it out, so `world.progress()` alone never runs it. It needs no Pausable tag, since pause stops the whole fixed step.
+_Avoid_: fixed update, interval system
+
+**FrameSample**:
+A Tag applied to a System that samples the outside world (input) once per Frame, before the Frame's Ticks, so every Tick and the rest of the Frame see the same sample. Frame Pipelines leave it out; `fixed_step::RunFrame` runs it, paused or not. `InputPoll` carries it.
+_Avoid_: pre-tick system, input phase
 
 **Phase**:
 An execution slot within a Pipeline that determines *when* a system runs relative to others. The engine uses the Flecs built-in phases (`PreUpdate`, `OnUpdate`, `OnStore`, `PostUpdate`) plus two custom phases: `ecs::OnUI` runs after `OnStore` and guarantees 2D overlays composite on top of 3D, and `ecs::OnDebugUI` runs after `OnUI` to render the debug UI on top of everything. Systems are assigned a phase via `.kind(phase)`.
@@ -57,7 +73,7 @@ A zero-size struct component used purely for filtering — carries no data. Exam
 _Avoid_: marker, flag component
 
 **Pausable**:
-A Tag applied to a simulation System to exclude it from the paused Pipeline. Systems that should keep running during pause (input, rendering, UI, audio) simply omit this tag. Toggling pause adds/removes `scene::Paused` from the world; the scene-management Module observes this and swaps the active Pipeline.
+A Tag applied to a per-Frame simulation System to exclude it from the paused Pipeline. Systems that should keep running during pause (input, rendering, UI, audio) simply omit this tag. Toggling pause adds/removes `scene::Paused` from the world; the scene-management Module observes this and swaps the active Pipeline, and the fixed step runs no Tick.
 _Avoid_: pausable flag, pause-aware
 
 **Platform**:

@@ -46,15 +46,8 @@ constexpr float kStoryAt = 1.8F;
 
 void TitleScene::InitializePipeline(const flecs::world& world) {
 	// The backdrop is 3D, and the engine's render systems are tagged GameScene, so this pipeline admits them.
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::MenuScene>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::MenuScene>().build();
 }
 
 void TitleScene::Load(flecs::world& world) {

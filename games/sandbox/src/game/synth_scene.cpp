@@ -16,15 +16,8 @@ constexpr float kRowH = 58.0F;
 } // namespace
 
 void SynthScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::GameScene>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::GameScene>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::GameScene>().build();
 }
 
 void SynthScene::Load(flecs::world& world) {

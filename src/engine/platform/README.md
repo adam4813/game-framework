@@ -46,7 +46,7 @@ engine::EngineContext server{std::make_unique<engine::platform::HeadlessPlatform
 
 `assets::ResolveAsset` then resolves paths against that directory, so the world loads levels, mesh colliders (built
 from glTF on the CPU, no GPU needed) and other files by asset path, the same strings the windowed game uses. A
-headless loop passes its own measured dt to `world.progress(dt)`, rather than reading `DeltaTime()`.
+headless loop passes its own measured dt to `fixed_step::RunFrame(world, dt)`, rather than reading `DeltaTime()`.
 
 Tests subclass `HeadlessPlatform` to make a few calls observable, such as a texture load that succeeds
 (`tests/unit/path_asset_test.cpp`) or a Platform that claims a window (`tests/unit/two_physics_worlds_test.cpp`).

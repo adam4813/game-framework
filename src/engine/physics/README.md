@@ -20,14 +20,15 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 // Create physics module (registers physics-world setup and observers)
 engine::physics::PhysicsModule physics_module(world);
 
-// Additionally creates Jolt physics systems (lives in jolt_module.cpp):
-// - PhysicsApplyForces — applies PhysicsForce components each frame
+// Additionally creates Jolt physics systems (lives in jolt_module.cpp). The simulation ones are FixedStep: each runs
+// once per fixed Tick with the fixed dt (engine/fixed_step/README.md), so drive the world with fixed_step::RunFrame.
+// - PhysicsApplyForces — applies PhysicsForce components each Tick
 // - PhysicsApplyImpulses — applies PhysicsImpulse components and removes them
-// - PhysicsStep — fixed timestep physics stepping with accumulation
+// - PhysicsStep — steps the characters and the world once per Tick
 // - PhysicsSyncToBackend — syncs ECS state to Jolt on component changes (OnSet observer)
 // - PhysicsRemoveBody — removes bodies when RigidBody removed (OnRemove observer)
 // - PhysicsSyncFromBackend — syncs dynamic bodies back from Jolt
-// - PhysicsCollisionEvents — distributes collision events to entities
+// - PhysicsCollisionEvents — each Frame, distributes the collision events of that Frame's Ticks to entities
 ```
 
 ## RigidBody + CollisionShape — Required Pair

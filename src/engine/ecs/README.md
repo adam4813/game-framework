@@ -7,6 +7,9 @@ its own.
 
 - **ecs_types.hpp** — The engine's custom pipeline phases, `OnUI` (2D overlays) and `OnDebugUI` (the debug UI).
 - **pausable.hpp** — The `Pausable` system tag that paused pipelines filter out (ADR 0004).
+- **pipelines.hpp / .cpp** — The `FixedStep` and `FrameSample` system tags and the pipeline builders scenes start
+  from: `FramePipeline` (every phased system but those two), `FixedStepPipeline` and `FrameSamplePipeline`. The fixed
+  step that runs them is `engine/fixed_step/` (ADR 0008).
 - **singletons.hpp** — Global run state singletons, such as the deterministic `RngState`.
 - **flecs_remote.hpp / .cpp** — `InitializeRemoteAPI`, which starts the REST server the Flecs Explorer,
   `tools/flecs-api.js` and the `flecs_*` MCP tools talk to. Desktop only: the REST server needs TCP sockets, so games

@@ -9,6 +9,7 @@
 #include "dialog/dialog.hpp"
 #include "ecs/ecs.hpp"
 #include "engine_context.hpp"
+#include "fixed_step/fixed_step.hpp"
 #include "graph/graph.hpp"
 #include "input/input.hpp"
 #include "level/level.hpp"

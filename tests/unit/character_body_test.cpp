@@ -40,7 +40,7 @@ struct CharacterWorld {
 
 	void Step(const int frames) const {
 		for (int i = 0; i < frames; ++i) {
-			World().progress(1.0F / 60.0F);
+			engine::fixed_step::RunFrame(World(), 1.0F / 60.0F);
 		}
 	}
 };
@@ -85,7 +85,7 @@ TEST(CharacterBody, LandsOnAPrimitiveColliderAtItsAuthoredOffset) {
 		}}
 	]})");
 	for (int i = 0; i < 120; ++i) {
-		world.progress(1.0F / 60.0F);
+		engine::fixed_step::RunFrame(world, 1.0F / 60.0F);
 	}
 
 	const auto walker = world.lookup("Walker");

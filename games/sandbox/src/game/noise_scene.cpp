@@ -18,15 +18,8 @@ constexpr float kPad = 16.0F;
 } // namespace
 
 void NoiseScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::GameScene>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::GameScene>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::GameScene>().build();
 }
 
 void NoiseScene::Load(flecs::world& world) {

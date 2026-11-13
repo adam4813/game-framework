@@ -1065,7 +1065,7 @@ void RaylibBackend::Init(const int width, const int height, const std::string_vi
 	g_canvas = LoadRenderTexture(width, height);
 	::SetTextureFilter(g_canvas.texture, TEXTURE_FILTER_BILINEAR);
 	SetExitKey(KEY_NULL); // we use Esc for pause, not window-close
-	SetTargetFPS(60);
+	SetFrameRate({});
 	InitAudioDevice();
 	InitLitResources();
 	InitInstancedResources();
@@ -1176,6 +1176,20 @@ float RaylibBackend::DeltaTime() const { return GetFrameTime(); }
 double RaylibBackend::Time() const { return GetTime(); }
 
 int RaylibBackend::Fps() const { return GetFPS(); }
+
+void RaylibBackend::SetFrameRate(const FrameRate& rate) {
+#if !defined(__EMSCRIPTEN__)
+	// A browser's animation frame always paces the page, so there is no swap interval to set.
+	if (rate.mode == FrameRateMode::VSync) {
+		SetWindowState(FLAG_VSYNC_HINT);
+	}
+	else {
+		ClearWindowState(FLAG_VSYNC_HINT);
+	}
+#endif
+	// A target of 0 leaves the Frame unthrottled: vsync paces it, or nothing does.
+	SetTargetFPS(rate.mode == FrameRateMode::Capped ? rate.cap : 0);
+}
 
 std::string RaylibBackend::AssetDirectory() const {
 #if defined(__EMSCRIPTEN__)
