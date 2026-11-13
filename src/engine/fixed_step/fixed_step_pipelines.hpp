@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 
-#include "engine/scene/scene_components.hpp"
+#include "engine/scene/scene.hpp"
 
 namespace engine::fixed_step {
 

@@ -44,6 +44,10 @@ _Avoid_: step, substep, fixed update, frame (a Frame renders; a Tick simulates)
 A Tag applied to a simulation System to run it on the Tick, in the fixed-step Pipeline, instead of once per Frame. Frame Pipelines leave it out, so `world.progress()` alone never runs it. It needs no Pausable tag, since pause stops the whole fixed step.
 _Avoid_: fixed update, interval system
 
+**FrameSample**:
+A Tag applied to a System that samples the outside world (input) once per Frame, before the Frame's Ticks, so every Tick and the rest of the Frame see the same sample. Frame Pipelines leave it out; `fixed_step::RunFrame` runs it, paused or not. `InputPoll` carries it.
+_Avoid_: pre-tick system, input phase
+
 **Phase**:
 An execution slot within a Pipeline that determines *when* a system runs relative to others. The engine uses the Flecs built-in phases (`PreUpdate`, `OnUpdate`, `OnStore`, `PostUpdate`) plus two custom phases: `ecs::OnUI` runs after `OnStore` and guarantees 2D overlays composite on top of 3D, and `ecs::OnDebugUI` runs after `OnUI` to render the debug UI on top of everything. Systems are assigned a phase via `.kind(phase)`.
 _Avoid_: stage, step, tick phase

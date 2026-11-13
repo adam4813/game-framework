@@ -116,8 +116,8 @@ public:
 	[[nodiscard]] glm::vec3 GetCharacterWrittenPosition(flecs::entity_t entity) const;
 	void SetCharacterWrittenPosition(flecs::entity_t entity, const glm::vec3& position);
 
-	/// Takes the collision events of every step since the last take, leaving none, so a Frame that ran several Ticks
-	/// delivers them all and a Frame that ran none delivers nothing twice.
+	/// Takes the collision events of every StepSimulation call since the last take, leaving none, so a Frame that ran
+	/// several Ticks delivers them all and a Frame that ran none delivers nothing twice.
 	[[nodiscard]] std::vector<CollisionInfo> TakeCollisionEvents();
 
 	/// Raycast query
