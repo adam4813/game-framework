@@ -162,7 +162,8 @@ it by eye.
 - **Tests check behaviour a player, designer or caller would notice**, through a public seam (a harness, a module's
   API), with behaviour-named `TEST`s. Expected values come from the spec or a worked example, never recomputed the
   way the code computes them.
-- **A new engine component appears in the scene-equivalence test** (`tests/scene_equivalence/`, see the
-  `create-module` skill) and `COMPONENT_COVERAGE.md`.
+- **A new authored engine component appears in the scene-equivalence test** (`tests/scene_equivalence/`, see the
+  `create-module` skill) and `COMPONENT_COVERAGE.md`. Authored means level JSON can set it. A runtime-only singleton
+  or component (`RngState`) needs neither.
 - **Engine tests register with `add_engine_test`**, a Game Target's with its own helper (`add_<game>_test`), so
   `ctest --preset desktop-test-release` runs them all.

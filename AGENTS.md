@@ -78,7 +78,8 @@ anything the engine isn't migrated to yet. Docs under `docs/research/` cite hist
 - Conventional commits.
 - **Commit before `/code-review`**: it reviews `<base>...HEAD`, so uncommitted and untracked files are invisible to it.
   Review fixes land as follow-up commits.
-- **Start each feature on its own branch from the latest `main`**, even when another feature branch is checked out,
+- **Be on this feature's branch before the first commit.** A skill that says "commit to the current branch" means this
+  branch. When the checked-out branch is `main` or belongs to other work, start one from the latest `main` first,
   unless told otherwise: `git fetch origin && git switch --no-track -c <type>/<slug> origin/main`. `--no-track`
   keeps a bare `git push` off `main`; push with `git push -u origin <branch>` and open a pull request to merge.
 - **Post-merge verification:** After merging an integration branch into your feature branch, rerun the verify steps
