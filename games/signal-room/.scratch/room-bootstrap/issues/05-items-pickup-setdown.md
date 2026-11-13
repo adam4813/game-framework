@@ -71,5 +71,5 @@ and an Item is never on the floor. This ticket closes spec 1: its exit check run
 - Friction: the screenshot tool takes ~1.7 s, longer than the 0.45 s puff, so seeing the dust meant stretching its
   lifetime live. The default 0.07 m particles read faintly, so the default size went to 0.1 m (a feel call for
   ticket 11/14-style review).
-- Friction: the local clang-format reflows lines it didn't touch (see [backlog 13](../../../../../.scratch/backlog/issues/13-format-check-before-done.md)).
+- Friction: the local clang-format reflows lines it didn't touch (see [backlog 13](https://github.com/adam4813/game-framework/issues/40)).
   The reflows were reverted by hand to keep this diff on the ticket.

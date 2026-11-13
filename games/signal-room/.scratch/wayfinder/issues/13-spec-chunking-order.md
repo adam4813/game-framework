@@ -26,8 +26,8 @@ outside the map. This ticket supplies the context for each one: the packets belo
 
 **Engine first.** Both framework pieces land on `feat/signal-room` (the project's base branch, which never merges into
 `main`) before any slice implementation starts:
-- [Dear ImGui on Raylib behind a debug UI interface](../../../../../.scratch/imgui-debug-ui/issues/01-imgui-raylib-backend.md)
-- [Synth stream behind Platform](../../../../../.scratch/synth-stream/issues/01-synth-stream-platform.md) (new; built from the audio
+- [Dear ImGui on Raylib behind a debug UI interface](https://github.com/adam4813/game-framework/pull/6)
+- [Synth stream behind Platform](https://github.com/adam4813/game-framework/pull/6) (new; built from the audio
   research)
 
 **Fog.** Two patches get their own tickets: [Shift 1 tutorial](14-shift1-tutorial.md) (grilling, gates spec 2) and

@@ -44,7 +44,7 @@ test than before (63), `cmake --build --preset desktop-release` and `cmake --bui
 - Smooth: every item was mechanical and the harness tests cover the real scene, so no runtime check was needed for
   a behaviour-preserving move.
 - Friction: ticket 03 landed code clang-format would have changed, and nothing caught it, so the reflow showed up as
-  noise in this diff. Filed as [13](../../../../../.scratch/backlog/issues/13-format-check-before-done.md).
+  noise in this diff. Filed as [13](https://github.com/adam4813/game-framework/issues/40).
 - Noted, not filed: OperatorInput-before-OperatorMovement rests on call order in `RoomScene::Load`, stated in both
   headers. Fine for two systems; if a third Operator system joins, make the order explicit (a phase or
   `depends_on`).
