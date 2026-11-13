@@ -4,13 +4,13 @@ Spec: [Signal Room spec 1: Room & bootstrap](../spec.md). Read: [Shift & Layout 
 Base branch: `feat/signal-room` (this game's main: branch off it, PR back into it, never into `main`)
 
 **What to build:** Launching the game shows Shift 1's 13×9 room as designed in
-[Room layout, movement & set-down](../../signal-room/issues/07-room-layout-movement.md), including its comments
+[Room layout, movement & set-down](../../wayfinder/issues/07-room-layout-movement.md), including its comments
 (three Radio placements, the Counter at (0,8) replacing the Vent, and which tarps are which machines). In-service
 Stations (Radio1, Decoder, Telex) stand as greybox machines on tables with idle lamps and risers. Every other Station
 (Radio2, Radio3, Keypunch) stands Tarped. Walls, the rug, the storm window, the foreground desk edge and the dressing
 tarps are in place. A designer can move a machine, list another Station as in service, or recolour something in JSON
 and see it after Reload. Shapes and colours follow
-[Greybox readability & juice](../../signal-room/issues/15-greybox-readability.md).
+[Greybox readability & juice](../../wayfinder/issues/15-greybox-readability.md).
 
 **Blocked by:** 01 (Game Target & headless Room harness).
 

@@ -47,7 +47,7 @@ grid. This ticket sets up that frame: a floor grid singleton and a camera author
   `config`.
 - The camera is orthographic (`ortho_size` 12.8, 55° pitch, looking north), framed like the greybox prototype. The
   engine orthographic Camera was cherry-picked from `feat/farm-preview-first-entry` at the user's request. See
-  [backlog 07](../../backlog/issues/07-reconcile-ortho-camera.md).
+  [backlog 07](https://github.com/adam4813/game-framework/issues/29).
 - The harness presses raw keys (`Hold`/`Release`/`Tap`). It disables `InputPoll` and writes `InputState` itself.
   Action-level helpers come with the bindings file in ticket 03.
 - The Room panel system is parented under the Room's root entity rather than tagged with `RoomSceneTag`. Tagging a
@@ -56,5 +56,5 @@ grid. This ticket sets up that frame: a floor grid singleton and a camera author
 - Runtime check: on desktop, `switch-scene Room` reloads the scene, and FloorGrid (13×9), RoomState and Camera are
   queryable over REST. The WASM build shows the floor in Chrome. `tools/flecs-api.js` now accepts any dotted module
   path, so `signal_room.*` components can be queried.
-- Follow-up: [backlog 06](../../backlog/issues/06-shared-game-entry-point.md) (the entry point and WASM flags are
+- Follow-up: [backlog 06](https://github.com/adam4813/game-framework/issues/28) (the entry point and WASM flags are
   copied from the sandbox).

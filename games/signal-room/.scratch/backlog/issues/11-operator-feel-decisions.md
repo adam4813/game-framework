@@ -1,7 +1,7 @@
 # Operator feel decisions: dash cooldown and collar contrast
 
 Status: needs-info
-Source: review of [03: Operator movement & collision](../../signal-room-room-bootstrap/issues/03-operator-movement-collision.md), 2026-10-18
+Source: review of [03: Operator movement & collision](../../room-bootstrap/issues/03-operator-movement-collision.md), 2026-10-18
 
 Two readings of spec 1 that ticket 03 settled one way and the designer should confirm. Each answer is a small change.
 

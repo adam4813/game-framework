@@ -1,5 +1,5 @@
 {
-	"comment": "Shift 1-2 Layout: 13x9 cells of 1 m, camera looking north from the open south edge. See .scratch/signal-room/issues/07-room-layout-movement.md.",
+	"comment": "Shift 1-2 Layout: 13x9 cells of 1 m, camera looking north from the open south edge. See games/signal-room/.scratch/wayfinder/issues/07-room-layout-movement.md.",
 	"singletons": {
 		"floor_grid": {"width": 13, "height": 9, "cell_size": 1.0, "origin": [0.0, 0.0, 0.0]},
 		"ambient_light": {"color": [150, 155, 170, 255], "intensity": 0.55}

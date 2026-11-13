@@ -1,7 +1,7 @@
 # Targeting feel decisions: corners, cone measure and the pulse
 
 Status: needs-info
-Source: review of [04: Targeting & the Target brighten](../../signal-room-room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
+Source: review of [04: Targeting & the Target brighten](../../room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
 
 Readings of spec 1's Target rule that ticket 04 settled one way and the designer should confirm. Each answer is a small
 change in `games/signal-room/src/room/operator_targeting.cpp` or `target_brighten.cpp`, plus a test that only the

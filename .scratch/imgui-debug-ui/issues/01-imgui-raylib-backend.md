@@ -1,7 +1,7 @@
 # Dear ImGui on Raylib behind a debug UI interface
 
 Status: done
-Source: raised during [AI Operator behaviour](../../signal-room/issues/08-ai-operator-behaviour.md), 2026-10-17
+Source: raised during [AI Operator behaviour](../../../games/signal-room/.scratch/wayfinder/issues/08-ai-operator-behaviour.md), 2026-10-17
 
 ## Context
 

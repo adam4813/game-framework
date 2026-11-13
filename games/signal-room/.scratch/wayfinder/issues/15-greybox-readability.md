@@ -74,7 +74,7 @@ camera stays dead still, and the shake offset from Operators & Swap is dropped. 
 beacon in view. Nothing in the slice Layout needed a cutaway.
 
 **Prototype (primary source):** branch `prototype/greybox-readability` (local, not merged; restacked with `feat/signal-room`), file
-`.scratch/signal-room/prototypes/greybox-readability.prototype.html`. Variant D is the locked synthesis; A–C are kept
+`games/signal-room/.scratch/wayfinder/prototypes/greybox-readability.prototype.html`. Variant D is the locked synthesis; A–C are kept
 for reference.
 
 Ripples: comments added to [Operators & Swap](02-operator-seats-coop-input.md) and

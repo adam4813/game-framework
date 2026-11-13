@@ -1,7 +1,7 @@
 # Check formatting before calling work done
 
 Status: needs-triage
-Source: retro of [12: Operator movement tidy-ups](12-operator-movement-tidy.md), 2026-10-18
+Source: retro of [12: Operator movement tidy-ups](../../../games/signal-room/.scratch/backlog/issues/12-operator-movement-tidy.md), 2026-10-18
 
 ## Context
 

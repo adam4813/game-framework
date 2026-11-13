@@ -1,7 +1,7 @@
 # Enhancement: Rattling tell before a Fault strikes
 
 Status: needs-triage
-Source: raised during [Decoder Faults & the Oil Can in Shift 2](../../signal-room/issues/06-condition-heat-overdrive.md), 2026-10-17
+Source: raised during [Decoder Faults & the Oil Can in Shift 2](../../wayfinder/issues/06-condition-heat-overdrive.md), 2026-10-17
 
 ## Idea
 

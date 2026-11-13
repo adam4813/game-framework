@@ -32,7 +32,7 @@ Part of [Signal Room spec 1: Room & bootstrap](../spec.md). The `games/signal-ro
 - **Engine modules imported:** level, render, input, particles, pathfinding, debug UI. **Not physics** (Jolt is not used
   in the slice, per issue 07). Every game component is pre-registered in the module constructor, as `CODING_STANDARDS.md` asks.
   The crash that rule guards against still has an unverified cause (see
-  [lazy component registration crash](../../backlog/issues/05-lazy-component-registration-crash.md)).
+  [lazy component registration crash](https://github.com/adam4813/game-framework/issues/27)).
 - **One game module** that registers the game's Level loaders, components (with reflection, so the Explorer shows
   them) and systems. **One Room scene**, tagged for pipeline filtering. Its `Load` order: load the palette, greybox,
   Item and tuning registries → register systems → load the Shift → build the Layout → spawn the Operator and starting

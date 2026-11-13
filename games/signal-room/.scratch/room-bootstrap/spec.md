@@ -1,11 +1,11 @@
 # Signal Room spec 1: Room & bootstrap
 
 Status: done
-Map: [Signal Room: Vertical Slice](../signal-room/map.md) (Spec 1 packet on
-[Spec chunking & hand-off order](../signal-room/issues/13-spec-chunking-order.md))
-Sources: [Room layout, movement & set-down](../signal-room/issues/07-room-layout-movement.md),
-[Operators & Swap](../signal-room/issues/02-operator-seats-coop-input.md) (camera only),
-[Greybox readability & juice](../signal-room/issues/15-greybox-readability.md)
+Map: [Signal Room: Vertical Slice](../wayfinder/map.md) (Spec 1 packet on
+[Spec chunking & hand-off order](../wayfinder/issues/13-spec-chunking-order.md))
+Sources: [Room layout, movement & set-down](../wayfinder/issues/07-room-layout-movement.md),
+[Operators & Swap](../wayfinder/issues/02-operator-seats-coop-input.md) (camera only),
+[Greybox readability & juice](../wayfinder/issues/15-greybox-readability.md)
 Base branch: `feat/signal-room` (branch off it, PR back into it; it never merges into `main`)
 
 ## Problem Statement
@@ -63,7 +63,7 @@ whole spec) next to its implementation decisions.
 ## Further Notes
 
 - Prerequisites are met: the Dear ImGui debug UI and the synth stream have both landed on `feat/signal-room`, and
-  [Greybox readability & juice](../signal-room/issues/15-greybox-readability.md) is resolved. Its three.js prototype
+  [Greybox readability & juice](../wayfinder/issues/15-greybox-readability.md) is resolved. Its three.js prototype
   (branch `prototype/greybox-readability`, variant D) is the visual reference for silhouettes, part placement and the
   Target brighten.
 - The engine's Level concept may be renamed later (out of scope on the map). Keep Layout loading behind the game's own

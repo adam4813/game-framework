@@ -1,7 +1,7 @@
 # Synth stream behind Platform
 
 Status: ready-for-human
-Source: raised during [Spec chunking & hand-off order](../../signal-room/issues/13-spec-chunking-order.md),
+Source: raised during [Spec chunking & hand-off order](../../../games/signal-room/.scratch/wayfinder/issues/13-spec-chunking-order.md),
 2026-10-17. Findings: `docs/research/procedural-audio.md`.
 
 ## Context

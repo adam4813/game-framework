@@ -29,6 +29,6 @@ star, on desktop and on web. Any feel or tuning question found while playing is 
 - [ ] Spec exit (runtime): on desktop, play Shift 1 through the Remote API (or by hand) from Briefing to results with
       ≥ 1★; screenshot the HUD mid-Shift and the results screen. In the WASM build in a browser, play at least the
       Orientation Ticket to Running and reach results (End Shift from the panel is fine for the last step).
-- [ ] Mark the spec index `Status: done` and add a comment on [Spec chunking & hand-off order](../../signal-room/issues/13-spec-chunking-order.md).
+- [ ] Mark the spec index `Status: done` and add a comment on [Spec chunking & hand-off order](../../wayfinder/issues/13-spec-chunking-order.md).
 
 ## Comments

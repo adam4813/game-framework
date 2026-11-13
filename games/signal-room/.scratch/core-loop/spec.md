@@ -1,15 +1,15 @@
 # Signal Room spec 2: Core loop (Shift 1 solo)
 
 Status: ready-for-agent
-Map: [Signal Room: Vertical Slice](../signal-room/map.md) (Spec 2 packet on
-[Spec chunking & hand-off order](../signal-room/issues/13-spec-chunking-order.md))
-Sources: [Routine Cable route & station verbs](../signal-room/issues/01-routine-cable-route.md),
-[Tickets, window & scoring](../signal-room/issues/05-tickets-window-scoring.md),
-[Room layout, movement & set-down](../signal-room/issues/07-room-layout-movement.md),
-[Radio presets & spectrum read](../signal-room/issues/12-radio-tuning-prototype.md),
-[Shift 1 tutorial](../signal-room/issues/14-shift1-tutorial.md),
-[Greybox readability & juice](../signal-room/issues/15-greybox-readability.md)
-Builds on: [Signal Room spec 1: Room & bootstrap](../signal-room-room-bootstrap/spec.md) (done)
+Map: [Signal Room: Vertical Slice](../wayfinder/map.md) (Spec 2 packet on
+[Spec chunking & hand-off order](../wayfinder/issues/13-spec-chunking-order.md))
+Sources: [Routine Cable route & station verbs](../wayfinder/issues/01-routine-cable-route.md),
+[Tickets, window & scoring](../wayfinder/issues/05-tickets-window-scoring.md),
+[Room layout, movement & set-down](../wayfinder/issues/07-room-layout-movement.md),
+[Radio presets & spectrum read](../wayfinder/issues/12-radio-tuning-prototype.md),
+[Shift 1 tutorial](../wayfinder/issues/14-shift1-tutorial.md),
+[Greybox readability & juice](../wayfinder/issues/15-greybox-readability.md)
+Builds on: [Signal Room spec 1: Room & bootstrap](../room-bootstrap/spec.md) (done)
 Base branch: `feat/signal-room` (branch off it, land per `games/signal-room/AGENTS.md`; it never merges into `main`)
 
 ## Problem Statement

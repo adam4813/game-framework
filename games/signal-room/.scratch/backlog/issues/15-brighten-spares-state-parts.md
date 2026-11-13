@@ -1,7 +1,7 @@
 # The Target brighten should spare lamps and riser bars
 
 Status: ready-for-agent
-Source: runtime check of [04: Targeting & the Target brighten](../../signal-room-room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
+Source: runtime check of [04: Targeting & the Target brighten](../../room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
 Blocked by:
 
 Land it before spec 2 drives lamp colours.

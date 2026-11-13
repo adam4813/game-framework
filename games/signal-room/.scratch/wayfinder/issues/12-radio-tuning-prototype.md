@@ -67,7 +67,7 @@ fractions ("7.215") were too confusing under pressure.
 - Web latency (+43 ms) was not re-judged for the receiver model.
 
 **Prototype (primary source):** branch `prototype/radio-spectrum` (local, not merged; restacked with `feat/signal-room`), file
-`.scratch/signal-room/prototypes/radio-spectrum.prototype.html`. It still shows the old preset/spectrum model.
+`games/signal-room/.scratch/wayfinder/prototypes/radio-spectrum.prototype.html`. It still shows the old preset/spectrum model.
 
 Ripples: comments added to [Routine Cable route & station verbs](01-routine-cable-route.md),
 [Tickets, window & scoring](05-tickets-window-scoring.md), [Room layout, movement & set-down](07-room-layout-movement.md),

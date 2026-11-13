@@ -1,7 +1,7 @@
 # Enhancement: Decoy Radio as a Shift gimmick
 
 Status: needs-triage
-Source: dropped from the slice in [Radio presets & spectrum read](../../signal-room/issues/12-radio-tuning-prototype.md), 2026-10-17
+Source: dropped from the slice in [Radio presets & spectrum read](../../wayfinder/issues/12-radio-tuning-prototype.md), 2026-10-17
 
 ## Idea
 

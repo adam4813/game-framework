@@ -1,7 +1,7 @@
 # Targeting tidy-ups
 
 Status: needs-triage
-Source: code review of [04: Targeting & the Target brighten](../../signal-room-room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
+Source: code review of [04: Targeting & the Target brighten](../../room-bootstrap/issues/04-targeting-brighten.md), 2026-10-18
 
 Judgement calls from the review that weren't fixed in ticket 04.
 

@@ -1,7 +1,7 @@
 # Enhancement: Ping a Station to steer the AI Operator
 
 Status: needs-triage
-Source: raised during [AI Operator behaviour](../../signal-room/issues/08-ai-operator-behaviour.md), 2026-10-17
+Source: raised during [AI Operator behaviour](../../wayfinder/issues/08-ai-operator-behaviour.md), 2026-10-17
 
 ## Idea
 

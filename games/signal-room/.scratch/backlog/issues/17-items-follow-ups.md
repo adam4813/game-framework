@@ -1,7 +1,7 @@
 # Follow-ups from the ticket 05 review (Items)
 
 Status: needs-triage
-Source: review of [05: Items: pick up, carry & set down](../../signal-room-room-bootstrap/issues/05-items-pickup-setdown.md), 2026-10-18
+Source: review of [05: Items: pick up, carry & set down](../../room-bootstrap/issues/05-items-pickup-setdown.md), 2026-10-18
 Base branch: `feat/signal-room` (branch off it; land per `games/signal-room/AGENTS.md`)
 
 Known limitations the ticket 05 review raised and the ticket left alone. Each is independent.

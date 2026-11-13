@@ -26,8 +26,8 @@ outside the map. This ticket supplies the context for each one: the packets belo
 
 **Engine first.** Both framework pieces land on `feat/signal-room` (the project's base branch, which never merges into
 `main`) before any slice implementation starts:
-- [Dear ImGui on Raylib behind a debug UI interface](../../imgui-debug-ui/issues/01-imgui-raylib-backend.md)
-- [Synth stream behind Platform](../../synth-stream/issues/01-synth-stream-platform.md) (new; built from the audio
+- [Dear ImGui on Raylib behind a debug UI interface](../../../../../.scratch/imgui-debug-ui/issues/01-imgui-raylib-backend.md)
+- [Synth stream behind Platform](../../../../../.scratch/synth-stream/issues/01-synth-stream-platform.md) (new; built from the audio
   research)
 
 **Fog.** Two patches get their own tickets: [Shift 1 tutorial](14-shift1-tutorial.md) (grilling, gates spec 2) and
@@ -49,7 +49,7 @@ of scope.
 - **Depends on:** both engine prerequisites landed; ticket 15 resolved.
 - **Exit:** walk, dash and collide through the Shift 1 Layout among in-service and Tarped machines, and carry and set
   down an Item with the target highlight showing.
-- **Prompt:** `Signal Room spec 1 (Room & bootstrap). Read .scratch/signal-room/map.md and issues 07, 02, 13, 15. Boundary as in issue 13's Spec 1 packet.`
+- **Prompt:** `Signal Room spec 1 (Room & bootstrap). Read games/signal-room/.scratch/wayfinder/map.md and issues 07, 02, 13, 15. Boundary as in issue 13's Spec 1 packet.`
 
 ### Spec 2: Core loop (Shift 1 solo)
 
@@ -66,7 +66,7 @@ of scope.
   and the Modifier override schema (`set` + layering under the dev toggle); in-play HUD; briefing and results.
 - **Depends on:** spec 1; ticket 14 resolved.
 - **Exit:** one human clears Shift 1 to a stars screen.
-- **Prompt:** `Signal Room spec 2 (Core loop). Read .scratch/signal-room/map.md and issues 01, 05, 07, 12, 13, 14, 15. Boundary as in issue 13's Spec 2 packet.`
+- **Prompt:** `Signal Room spec 2 (Core loop). Read games/signal-room/.scratch/wayfinder/map.md and issues 01, 05, 07, 12, 13, 14, 15. Boundary as in issue 13's Spec 2 packet.`
 
 ### Spec 3: Operators, Swap & AI
 
@@ -80,7 +80,7 @@ of scope.
 - **Settles:** the AI profile schema and the Roster in the Shift file; the Seat ring, chevron and intent icons.
 - **Depends on:** spec 2.
 - **Exit:** a human and an AI Operator clear Shift 1 together, and Swap works mid-Hold and mid-carry.
-- **Prompt:** `Signal Room spec 3 (Operators, Swap & AI). Read .scratch/signal-room/map.md and issues 02, 03, 08, 13, 14, 15. Boundary as in issue 13's Spec 3 packet.`
+- **Prompt:** `Signal Room spec 3 (Operators, Swap & AI). Read games/signal-room/.scratch/wayfinder/map.md and issues 02, 03, 08, 13, 14, 15. Boundary as in issue 13's Spec 3 packet.`
 
 ### Spec 4: Faults & Shift 2
 
@@ -93,7 +93,7 @@ of scope.
 - **Settles:** the Fault data schema (cooldown range, kind weights, pinned first Fault); Fault HUD reads.
 - **Depends on:** spec 3.
 - **Exit:** Shift 2 is playable with Faults, the pinned Seize fires, and the AI handles Faults.
-- **Prompt:** `Signal Room spec 4 (Faults & Shift 2). Read .scratch/signal-room/map.md and issues 05, 06, 07, 08, 12, 13, 14. Boundary as in issue 13's Spec 4 packet.`
+- **Prompt:** `Signal Room spec 4 (Faults & Shift 2). Read games/signal-room/.scratch/wayfinder/map.md and issues 05, 06, 07, 08, 12, 13, 14. Boundary as in issue 13's Spec 4 packet.`
 
 ### Spec 5: Meta
 
@@ -109,7 +109,7 @@ of scope.
   meta screens.
 - **Depends on:** spec 4 (Shift 2 must exist for the Shift picker and the Field Repair Kit).
 - **Exit:** Title → Slot → Shift picker → play → results → Requisitions, with progress persisting across restarts.
-- **Prompt:** `Signal Room spec 5 (Meta). Read .scratch/signal-room/map.md and issues 05, 09, 10, 11, 13, 14. Boundary as in issue 13's Spec 5 packet.`
+- **Prompt:** `Signal Room spec 5 (Meta). Read games/signal-room/.scratch/wayfinder/map.md and issues 05, 09, 10, 11, 13, 14. Boundary as in issue 13's Spec 5 packet.`
 
 ### Spec 6: Procedural audio
 
@@ -121,9 +121,9 @@ of scope.
 - **Settles:** the audio palette and the voice param schema.
 - **Depends on:** spec 2 and the synth stream. Sounds for Faults land once spec 4 exists.
 - **Exit:** every palette sound is synthesised in play, on both desktop and web.
-- **Prompt:** `Signal Room spec 6 (Procedural audio). Read .scratch/signal-room/map.md and issues 01, 04, 06, 12, 13 (and docs/research/procedural-audio.md). Boundary as in issue 13's Spec 6 packet.`
+- **Prompt:** `Signal Room spec 6 (Procedural audio). Read games/signal-room/.scratch/wayfinder/map.md and issues 01, 04, 06, 12, 13 (and docs/research/procedural-audio.md). Boundary as in issue 13's Spec 6 packet.`
 
 ## Comments
 
-- 2026-10-18: Spec 1 written: [Signal Room spec 1: Room & bootstrap](../../signal-room-room-bootstrap/spec.md) (`ready-for-agent`).
-- 2026-10-18: Spec 2 written: [Signal Room spec 2: Core loop](../../signal-room-core-loop/spec.md) (`ready-for-agent`, 12 tickets).
+- 2026-10-18: Spec 1 written: [Signal Room spec 1: Room & bootstrap](../../room-bootstrap/spec.md) (`ready-for-agent`).
+- 2026-10-18: Spec 2 written: [Signal Room spec 2: Core loop](../../core-loop/spec.md) (`ready-for-agent`, 12 tickets).
