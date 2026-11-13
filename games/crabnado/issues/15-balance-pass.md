@@ -1,7 +1,6 @@
 # 15: Balance pass
 
-Spec: [spec](../spec.md). Read: [The run](../spec/run.md) (spawn rate, enemy HP, shells and molting),
-[Content](../spec/content.md) (enemy types, upgrades).
+Spec: [GDD](../GDD.md). Read: The run (spawn rate, enemy HP, shells and molting), Enemies, Upgrades.
 
 **What to build:** The run's pacing gets tuned against the real game instead of the prototype's numbers. Three
 values are off today:
