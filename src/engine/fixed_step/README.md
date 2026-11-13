@@ -87,6 +87,9 @@ Pause is data (ADR 0004). With `scene::Paused` on the world, `RunFrame` runs no 
 (paused time isn't saved up for when the world resumes) and the counter stops. The sample and the Frame pipeline (the
 scene's paused pipeline) keep running, so the pause menu works.
 
+Pause gates the clock, not the caller: `RunTick` still runs and counts its Tick while paused. It's an explicit request
+(a correction's re-simulation, a debug single-step), so the caller decides whether a paused world should advance.
+
 ## Alpha
 
 After its Ticks a Frame sets `FixedStepState::alpha`, the fraction of a Tick left in the accumulator, in [0, 1). It's
