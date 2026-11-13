@@ -15,6 +15,9 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
   observers, reflection, scene `Load`/`Unload`) and before debugging a Flecs assert. It holds the Flecs 4 API patterns
   and the gotchas that have crashed this project.
 
+- **Game Targets carry their own rules.** Before working on a game in `games/<name>/`, read `games/<name>/AGENTS.md`
+  if it exists. Its rules take precedence over this file and `CODING_STANDARDS.md` for that game.
+
 ## Build
 
 - Configure the desktop build with:
