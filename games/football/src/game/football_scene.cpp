@@ -155,15 +155,8 @@ flecs::entity FootballScene::Btn(
 }
 
 void FootballScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::MenuScene>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::MenuScene>().build();
 }
 
 void FootballScene::Load(flecs::world& world) {

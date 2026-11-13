@@ -13,16 +13,8 @@ using namespace engine;
 namespace game {
 
 void TitleScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::GameScene>()
-					// Re-inject the built-in phase sorting logic:
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
-	// clang-format on
+	pipeline_ = ecs::FramePipeline(world).without<scene::GameScene>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::GameScene>().build();
 }
 
 void TitleScene::Load(flecs::world& world) {
