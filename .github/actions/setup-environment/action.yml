@@ -68,7 +68,41 @@ runs:
         [ -n "$commit" ] || { echo "no vcpkg commit: set the input or builtin-baseline in vcpkg.json" >&2; exit 1; }
         echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
-    - name: Restore artifacts, or run vcpkg, build and cache artifacts
+    # vcpkg-tool removed its "x-gha" backend, so run-vcpkg no longer caches built ports and every job rebuilt them
+    # (~600 s). Point vcpkg's binary cache at a fixed folder and restore it here. vcpkg reads it at configure time;
+    # run-vcpkg leaves a VCPKG_BINARY_SOURCES that is already set alone. The workflow saves the folder after its
+    # build with $/.github/actions/save-vcpkg-cache, only when vcpkg added archives.
+    #
+    # VCPKG_CACHE_KEY changes with the vcpkg commit, the manifest and the triplets. Saves append the run id, so
+    # each restore takes the newest matching set, and a manifest change rebuilds only the ports it touched.
+    - name: Point vcpkg's binary cache at a cacheable folder
+      shell: bash
+      run: |
+        dir="${RUNNER_TEMP}/vcpkg-archives"
+        mkdir -p "$dir"
+        echo "VCPKG_ARCHIVES=$dir" >> "$GITHUB_ENV"
+        echo "VCPKG_BINARY_SOURCES=clear;files,$dir,readwrite" >> "$GITHUB_ENV"
+        prefix="vcpkg-${RUNNER_OS}-${{ inputs.target }}-${{ inputs.em-version }}-${{ steps.vcpkg.outputs.commit }}"
+        echo "VCPKG_CACHE_PREFIX=$prefix" >> "$GITHUB_ENV"
+        echo "VCPKG_CACHE_KEY=$prefix-${{ hashFiles('vcpkg.json', 'triplets/**') }}" >> "$GITHUB_ENV"
+
+    - name: Restore vcpkg binary archives
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ env.VCPKG_ARCHIVES }}
+        key: ${{ env.VCPKG_CACHE_KEY }}
+        restore-keys: |
+          ${{ env.VCPKG_CACHE_KEY }}-
+          ${{ env.VCPKG_CACHE_PREFIX }}-
+
+    - name: Count restored vcpkg archives
+      shell: bash
+      run: |
+        count=$(find "$VCPKG_ARCHIVES" -type f -name '*.zip' | wc -l)
+        echo "Restored $count vcpkg archives"
+        echo "VCPKG_ARCHIVES_RESTORED=$count" >> "$GITHUB_ENV"
+
+    - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ steps.vcpkg.outputs.commit }}

@@ -1,0 +1,29 @@
+name: 'Save vcpkg binary cache'
+description: >-
+  Save the vcpkg binary archives that setup-environment restored, but only when this job's configure step added
+  new ones (a cold cache, a manifest change, or a runner image with a new compiler). Run it after the build.
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Count vcpkg archives
+      id: count
+      shell: bash
+      run: |
+        count=$(find "$VCPKG_ARCHIVES" -type f -name '*.zip' | wc -l)
+        echo "vcpkg archives: ${VCPKG_ARCHIVES_RESTORED:-0} restored, $count now"
+        if [ "$count" -gt "${VCPKG_ARCHIVES_RESTORED:-0}" ]; then
+          echo "save=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "save=false" >> "$GITHUB_OUTPUT"
+        fi
+        # Keys are immutable and matrix jobs in one run share the prefix, so each save gets its own suffix.
+        # Restores match on the prefix and take the newest.
+        echo "key=${VCPKG_CACHE_KEY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${RANDOM}" >> "$GITHUB_OUTPUT"
+
+    - name: Save vcpkg binary archives
+      if: steps.count.outputs.save == 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ env.VCPKG_ARCHIVES }}
+        key: ${{ steps.count.outputs.key }}

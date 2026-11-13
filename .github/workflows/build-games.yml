@@ -18,29 +18,23 @@ env:
   EM-VERSION: '4.0.10'
 
 jobs:
+  # Builds every game when the engine changed, only the changed games otherwise, and none for a docs-only
+  # change (see .github/actions/changed-targets). A manual run builds every game.
   discover:
-    name: Discover games
+    name: Discover changed games
     runs-on: ubuntu-latest
     outputs:
-      games: ${{ steps.list.outputs.games }}
+      games: ${{ steps.detect.outputs.games }}
     steps:
       - uses: actions/checkout@v7
-
-      # A game is any games/<name>/ with a CMakeLists.txt; its executable target shares the folder name.
-      - name: List Game Targets
-        id: list
-        shell: bash
-        run: |
-          mkdir -p games
-          games=$(find games -mindepth 2 -maxdepth 2 -name CMakeLists.txt -printf '%h\n' \
-            | xargs -r -n1 basename | sort | jq -R . | jq -cs .)
-          echo "Found games: $games"
-          echo "games=$games" >> "$GITHUB_OUTPUT"
+        with:
+          fetch-depth: 0
+      - id: detect
+        uses: $/.github/actions/changed-targets
 
   build:
     name: ${{ matrix.game }} (${{ matrix.platform }})
     needs: discover
-    # A ref with no games/ (main before any game lands) has nothing to build.
     if: needs.discover.outputs.games != '[]'
     runs-on: ${{ matrix.os }}
 
@@ -85,6 +79,11 @@ jobs:
 
       - name: Build ${{ matrix.game }}
         run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}
+
+      # Configure is where vcpkg builds ports, so save them even when the game's build fails.
+      - name: Save vcpkg binary cache
+        if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
+        uses: $/.github/actions/save-vcpkg-cache
 
       # Binary plus the assets folder copied next to it. Tarred so the executable bit survives
       # upload-artifact's zip.
