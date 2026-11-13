@@ -89,3 +89,8 @@ add_engine_test(headless_platform_test
 add_engine_test(rest_port_override_test
     rest_port_override_test.cpp
 )
+
+# World logger: a world's named logger shares the default sinks; a world without one uses the default logger
+add_engine_test(world_logger_test
+    world_logger_test.cpp
+)
