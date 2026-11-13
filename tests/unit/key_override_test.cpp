@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include "engine/engine.hpp"
-#include "null_platform.hpp"
 
 using engine::input::InputState;
 using engine::input::KeyCodeFromName;
@@ -22,10 +21,10 @@ TEST(KeyNames, KeyCodeConstantNamesResolveToTheirCodes) {
 	EXPECT_FALSE(KeyCodeFromName("Shift").has_value());
 }
 
-// The keyless NullPlatform never reports a key, so anything down came from the override.
+// The keyless HeadlessPlatform never reports a key, so anything down came from the override.
 struct OverrideWorld {
 	std::unique_ptr<engine::EngineContext> ctx =
-		std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>());
+		std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
 	flecs::world& world = *ctx->GetWorld();
 
 	// Read InputState mid-frame (as game logic does), after InputPoll and before the frame reset.

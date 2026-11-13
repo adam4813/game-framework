@@ -64,6 +64,42 @@ static bool JoltAssertFailedImpl(const char* expr, const char* msg, const char* 
 }
 #endif
 
+namespace {
+// Jolt's allocator hooks, Factory, type registration and default material are process-global, shared by every backend
+// (one per physics world). They're set up once, by the first Initialize, and torn down at process exit, never when a
+// world shuts down, so worlds come and go in any order and a later world reuses the registration. That's the usage
+// Jolt expects (register once per process), and registering again after UnregisterTypes crashes on WASM.
+class JoltGlobals {
+public:
+	JoltGlobals() {
+		JPH::RegisterDefaultAllocator();
+		JPH::Trace = JoltTraceImpl;
+#ifdef JPH_ENABLE_ASSERTS
+		JPH::AssertFailed = JoltAssertFailedImpl;
+#endif
+		JPH::Factory::sInstance = new JPH::Factory();
+		JPH::RegisterTypes();
+	}
+
+	// Runs during static destruction. Jolt's own statics that RegisterTypes creates finish constructing before this
+	// object does, so they're destroyed after it. On WASM the page closes without running it.
+	~JoltGlobals() {
+		JPH::UnregisterTypes();
+		delete JPH::Factory::sInstance;
+		JPH::Factory::sInstance = nullptr;
+	}
+
+	JoltGlobals(const JoltGlobals&) = delete;
+	JoltGlobals& operator=(const JoltGlobals&) = delete;
+	JoltGlobals(JoltGlobals&&) = delete;
+	JoltGlobals& operator=(JoltGlobals&&) = delete;
+};
+
+// Sets up the Jolt globals on the first call; later calls do nothing. A function-local static rather than a world
+// singleton because it outlives every world.
+void EnsureJoltGlobals() { static const JoltGlobals globals; }
+} // namespace
+
 // Layer configuration
 namespace {
 constexpr JPH::ObjectLayer LAYER_NON_MOVING = 0;
@@ -157,15 +193,7 @@ bool JoltBackend::Initialize() {
 		return true;
 	}
 
-	// Register Jolt allocators and callbacks
-	JPH::RegisterDefaultAllocator();
-	JPH::Trace = JoltTraceImpl;
-#ifdef JPH_ENABLE_ASSERTS
-	JPH::AssertFailed = JoltAssertFailedImpl;
-#endif
-
-	JPH::Factory::sInstance = new JPH::Factory();
-	JPH::RegisterTypes();
+	EnsureJoltGlobals();
 
 	temp_allocator_ = std::make_unique<JPH::TempAllocatorImpl>(10 * 1024 * 1024);
 
@@ -221,10 +249,6 @@ void JoltBackend::Shutdown() {
 	broad_phase_layer_interface_.reset();
 	job_system_.reset();
 	temp_allocator_.reset();
-
-	JPH::UnregisterTypes();
-	delete JPH::Factory::sInstance;
-	JPH::Factory::sInstance = nullptr;
 
 	spdlog::info("[Physics] Jolt shutdown");
 	initialized_ = false;
@@ -794,7 +818,7 @@ std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray) const {
 	return {};
 }
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 void JoltBackend::SetDebugRenderer(JPH::DebugRenderer* renderer) { debug_renderer_ = renderer; }
 
 void JoltBackend::DebugDrawBodies() const {

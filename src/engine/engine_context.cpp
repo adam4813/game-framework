@@ -14,6 +14,7 @@
 #include "engine/noise/noise.hpp"
 #include "engine/particles/particles.hpp"
 #include "engine/pathfinding/pathfinding.hpp"
+#include "engine/platform/headless_platform.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/profiling/profiling.hpp"
 #include "engine/spatial/spatial.hpp"
@@ -30,7 +31,8 @@
 
 namespace engine {
 
-EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) : platform_(std::move(platform)) {
+EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) :
+		platform_(platform ? std::move(platform) : std::make_unique<platform::HeadlessPlatform>()) {
 	world_.set<platform::PlatformRef>({platform_.get()});
 	world_.set<EngineContextRef>({this});
 	world_.set<ecs::RngState>({});

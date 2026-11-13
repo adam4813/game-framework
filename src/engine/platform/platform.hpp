@@ -17,8 +17,8 @@ class SynthSource;
 } // namespace engine::audio
 
 // Platform abstraction. All Raylib/ImGui calls live behind this interface so game logic stays engine-agnostic.
-// Implementations: RaylibBackend (platform/raylib/) and the headless NullPlatform used by the scene equivalence
-// test (tests/scene_equivalence/null_platform.hpp) — a new pure virtual here must be added to both.
+// Implementations: RaylibBackend (platform/raylib/) and HeadlessPlatform (platform/headless_platform.hpp, no window:
+// servers, tools, tests) — a new pure virtual here must be added to both.
 namespace engine::platform {
 
 class Platform;
@@ -154,6 +154,9 @@ public:
 	virtual void Init(int width, int height, std::string_view title) = 0;
 	[[nodiscard]] virtual bool ShouldClose() const = 0;
 	virtual void Shutdown() = 0;
+	// True when this Platform draws to a window. A headless Platform (a server world, the tests) returns false, so
+	// code that sets up rendering-only state can skip it.
+	[[nodiscard]] virtual bool HasWindow() const = 0;
 	// The logical canvas size the game draws on, fixed at Init. The window can be resized, maximized or made
 	// fullscreen; the backend scales the canvas to fit it (letterboxed) and maps the mouse back to canvas pixels.
 	[[nodiscard]] virtual int Width() const = 0;

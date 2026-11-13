@@ -8,7 +8,7 @@
 
 namespace engine::physics {
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 
 JoltDebugRendererAdapter::JoltDebugRendererAdapter(const flecs::world& world, platform::Platform* platform) :
 		world_(world), platform_(platform) {
@@ -83,6 +83,6 @@ void JoltDebugRendererAdapter::
 	platform_->DrawText(text, screen_pos.x, screen_pos.y, 16.0F, rgba);
 }
 
-#endif // JPH_DEBUG_RENDERER
+#endif // ENGINE_PHYSICS_DEBUG_RENDERER
 
 } // namespace engine::physics

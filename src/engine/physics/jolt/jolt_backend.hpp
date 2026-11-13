@@ -11,6 +11,7 @@
 
 #include "engine/physics/physics_components.hpp"
 #include "engine/physics/physics_types.hpp"
+#include "jolt_debug_config.hpp"
 
 // Forward declarations for Jolt
 namespace JPH {
@@ -127,7 +128,7 @@ public:
 	/// Check if initialized
 	[[nodiscard]] bool IsInitialized() const { return initialized_; }
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 	/// Set debug renderer for drawing physics bodies
 	void SetDebugRenderer(JPH::DebugRenderer* renderer);
 
@@ -157,7 +158,7 @@ private:
 	// Entity to Jolt body mapping
 	std::unordered_map<flecs::entity_t, uint32_t> entity_to_body_;
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 	JPH::DebugRenderer* debug_renderer_ = nullptr;
 #endif
 };

@@ -15,6 +15,10 @@ option(ENABLE_PROFILE_LOGGING "Auto-start JSONL system-stats telemetry on launch
 # Dear ImGui debug UI (toggle with backtick). OFF compiles ImGui out entirely: Platform::GetDebugUi()
 # then returns a no-op DebugUi, so game panel code builds unchanged. Works on desktop and WASM.
 option(ENABLE_DEBUG_UI "Build the Dear ImGui debug UI overlay" ON)
+# The engine's Jolt debug renderer (bodies drawn through the Platform). OFF compiles it out, so a headless program
+# (a server) carries no physics rendering code. Jolt's own JPH_DEBUG_RENDERER stays as vcpkg built it: it changes
+# Jolt's class layouts, so it must match the library (src/engine/physics/jolt/jolt_debug_config.hpp).
+option(ENABLE_PHYSICS_DEBUG_RENDERER "Build the engine's Jolt physics debug renderer" ON)
 
 include(cmake/Tracy.cmake)
 
@@ -54,6 +58,7 @@ set(GAME_COMPILE_DEFS
     GLM_EXT_INLINE_NAMESPACE
     GLM_GTX_INLINE_NAMESPACE
     $<$<BOOL:${ENABLE_DEBUG_UI}>:ENGINE_DEBUG_UI>
+    $<$<NOT:$<BOOL:${ENABLE_PHYSICS_DEBUG_RENDERER}>>:ENGINE_NO_PHYSICS_DEBUG_RENDERER>
 )
 
 set(GAME_COMPILE_OPTS
