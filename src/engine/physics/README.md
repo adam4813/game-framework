@@ -139,9 +139,11 @@ Out of scope: jump, pushing dynamic bodies, an inner body (raycasts don't hit a 
 Each Flecs world that imports `physics` gets its own `JoltBackend` (its own `PhysicsSystem`, bodies and characters),
 so a client can run a server world beside its own. Worlds can be created and destroyed in any order, on one thread.
 
-- **Jolt's process globals are reference-counted.** The `Factory`, type registration and default physics material are
-  global in Jolt. The first backend to `Initialize` creates them and the last to `Shutdown` destroys them, so tearing
-  down one world never pulls them out from under another.
+- **Jolt's process globals are set up once per process.** The allocator hooks, `Factory`, type registration and
+  default physics material are global in Jolt. The first backend to `Initialize` sets them up, and they're torn down
+  at process exit (a static guard's destructor), never when a world shuts down. So tearing down one world never pulls
+  them out from under another, and a world created after every other is gone reuses them. That's how Jolt expects
+  them used, and registering again after `UnregisterTypes` crashes on WASM.
 - **Only a world that draws installs the debug renderer.** Jolt has one global `DebugRenderer` (`sInstance`), so the
   module creates the adapter and the `PhysicsDebugRender` / `PhysicsDebugRenderSync` systems only when the world's
   Platform reports `HasWindow()`. A headless world (a server, the tests) never creates or clears it. Two worlds with

@@ -102,7 +102,8 @@ TEST_P(TwoPhysicsWorldsTeardown, DestroyingOneWorldLeavesTheOtherAndALaterWorldS
 
 	older.reset();
 	newer.reset();
-	EXPECT_EQ(JPH::Factory::sInstance, nullptr) << "the last world to shut down destroys the Factory";
+	// Registered once per process: the Factory outlives the last world, so a later world reuses it.
+	EXPECT_NE(JPH::Factory::sInstance, nullptr);
 
 	const PhysicsWorld later;
 	later.Step(kFramesToSettle);

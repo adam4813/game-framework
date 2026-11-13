@@ -65,28 +65,39 @@ static bool JoltAssertFailedImpl(const char* expr, const char* msg, const char* 
 #endif
 
 namespace {
-// Jolt's Factory and type registration are process-global, so they're shared by every backend in the process (one per
-// physics world): the first Initialize creates them and the last Shutdown destroys them, in any order, on one thread.
-// The count is a process global rather than a world singleton because it spans worlds, like the Jolt state it guards.
-int g_jolt_globals_users = 0;
-
-void AcquireJoltGlobals() {
-	if (g_jolt_globals_users++ > 0) return;
-	JPH::RegisterDefaultAllocator();
-	JPH::Trace = JoltTraceImpl;
+// Jolt's allocator hooks, Factory, type registration and default material are process-global, shared by every backend
+// (one per physics world). They're set up once, by the first Initialize, and torn down at process exit, never when a
+// world shuts down, so worlds come and go in any order and a later world reuses the registration. That's the usage
+// Jolt expects (register once per process), and registering again after UnregisterTypes crashes on WASM.
+class JoltGlobals {
+public:
+	JoltGlobals() {
+		JPH::RegisterDefaultAllocator();
+		JPH::Trace = JoltTraceImpl;
 #ifdef JPH_ENABLE_ASSERTS
-	JPH::AssertFailed = JoltAssertFailedImpl;
+		JPH::AssertFailed = JoltAssertFailedImpl;
 #endif
-	JPH::Factory::sInstance = new JPH::Factory();
-	JPH::RegisterTypes();
-}
+		JPH::Factory::sInstance = new JPH::Factory();
+		JPH::RegisterTypes();
+	}
 
-void ReleaseJoltGlobals() {
-	if (--g_jolt_globals_users > 0) return;
-	JPH::UnregisterTypes();
-	delete JPH::Factory::sInstance;
-	JPH::Factory::sInstance = nullptr;
-}
+	// Runs during static destruction. Jolt's own statics that RegisterTypes creates finish constructing before this
+	// object does, so they're destroyed after it. On WASM the page closes without running it.
+	~JoltGlobals() {
+		JPH::UnregisterTypes();
+		delete JPH::Factory::sInstance;
+		JPH::Factory::sInstance = nullptr;
+	}
+
+	JoltGlobals(const JoltGlobals&) = delete;
+	JoltGlobals& operator=(const JoltGlobals&) = delete;
+	JoltGlobals(JoltGlobals&&) = delete;
+	JoltGlobals& operator=(JoltGlobals&&) = delete;
+};
+
+// Sets up the Jolt globals on the first call; later calls do nothing. A function-local static rather than a world
+// singleton because it outlives every world.
+void EnsureJoltGlobals() { static const JoltGlobals globals; }
 } // namespace
 
 // Layer configuration
@@ -182,7 +193,7 @@ bool JoltBackend::Initialize() {
 		return true;
 	}
 
-	AcquireJoltGlobals();
+	EnsureJoltGlobals();
 
 	temp_allocator_ = std::make_unique<JPH::TempAllocatorImpl>(10 * 1024 * 1024);
 
@@ -238,8 +249,6 @@ void JoltBackend::Shutdown() {
 	broad_phase_layer_interface_.reset();
 	job_system_.reset();
 	temp_allocator_.reset();
-
-	ReleaseJoltGlobals();
 
 	spdlog::info("[Physics] Jolt shutdown");
 	initialized_ = false;
