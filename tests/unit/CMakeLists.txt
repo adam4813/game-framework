@@ -69,6 +69,11 @@ add_engine_test(character_body_test
     character_body_test.cpp
 )
 
+# Character replay: restoring a character's state and stepping it alone for one Tick, as a Tick would
+add_engine_test(character_replay_test
+    character_replay_test.cpp
+)
+
 # Path assets: an empty path keeps a runtime handle, a path acquires, and removal frees only what the registry loaded
 add_engine_test(path_asset_test
     path_asset_test.cpp

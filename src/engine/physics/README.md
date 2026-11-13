@@ -11,6 +11,8 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 - **physics_module.hpp/cpp** — Flecs system registration, ECS integration, and physics-world setup
 - **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping)
 - **jolt/jolt_module.hpp/cpp** — Jolt-specific Flecs systems (sync, step, collision events)
+- **jolt/character_step.hpp/cpp** — `StepCharacterTick` (one character, one Tick, for replay) and the input and
+  write-back helpers it shares with `PhysicsStep` and `CharacterSyncFromBackend`
 - **jolt/jolt_debug_renderer.cpp** — Debug visualization support
 - **physics.hpp** — Main public API header
 
@@ -132,8 +134,25 @@ After the step, `CharacterSyncFromBackend` (PostUpdate) writes the position to `
 **Teleport:** `CharacterTeleport` compares `Transform.position` to the position last written back; a difference moves
 the character there. Rotation is ignored, so a game can drive facing every frame.
 
+**Replay** (re-simulating a predicted character after a correction): restore its state through the `JoltBackend`
+singleton, then step it alone, one Tick per call, with `StepCharacterTick` (`jolt/character_step.hpp`). The call runs
+the same movement update and write-back as `PhysicsStep` and `CharacterSyncFromBackend` (they share
+`MakeCharacterStepInput` and `WriteCharacterBack`), so a replayed character lands where a Tick would put it. It steps
+no other character or body and doesn't advance the Tick counter.
+
+```cpp
+auto& physics = world.get_mut<engine::physics::JoltBackend>();
+physics.SetCharacterPosition(player.id(), server.position);
+physics.SetCharacterVelocity(player.id(), server.velocity); // the part along up survives the step
+physics.RefreshCharacterContacts(player.id());              // ground state for the new position
+for (const auto& input : inputs_since_server_tick) {
+    player.set<engine::physics::CharacterMove>({.velocity = input.move});
+    engine::physics::StepCharacterTick(player);
+}
+```
+
 Out of scope: jump, pushing dynamic bodies, an inner body (raycasts don't hit a character), and saving or restoring
-`CharacterVirtual` state.
+`CharacterVirtual` state beyond position and velocity.
 
 ## Several physics worlds in one process
 

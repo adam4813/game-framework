@@ -702,6 +702,24 @@ void JoltBackend::SetCharacterPosition(const flecs::entity_t entity, const glm::
 	record.written_position = position;
 }
 
+void JoltBackend::SetCharacterVelocity(const flecs::entity_t entity, const glm::vec3& velocity) {
+	if (const auto it = characters_.find(entity); it != characters_.end()) {
+		it->second->character->SetLinearVelocity(ToJolt(velocity));
+	}
+}
+
+void JoltBackend::RefreshCharacterContacts(const flecs::entity_t entity) {
+	const auto it = characters_.find(entity);
+	if (it == characters_.end()) return;
+	it->second->character->RefreshContacts(
+		physics_system_->GetDefaultBroadPhaseLayerFilter(LAYER_MOVING),
+		physics_system_->GetDefaultLayerFilter(LAYER_MOVING),
+		{},
+		{},
+		*temp_allocator_
+	);
+}
+
 void JoltBackend::StepCharacter(const flecs::entity_t entity, const float delta_time, const CharacterStepInput& input) {
 	const auto it = characters_.find(entity);
 	if (it == characters_.end()) return;

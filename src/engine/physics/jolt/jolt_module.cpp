@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include "../physics_components.hpp"
+#include "character_step.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/input/input.hpp"
 #include "engine/platform/platform.hpp"
@@ -235,13 +236,9 @@ JoltModule::JoltModule(const flecs::world& world) {
 				sys.SetGravity(cfg.gravity);
 
 				// Characters move first so the simulation step sees their new positions.
+				// StepCharacterTick steps a single character the same way.
 				characters.each([&](const flecs::entity e, const CharacterMove* move, const Gravity* gravity) {
-					sys.StepCharacter(
-						e.id(),
-						dt,
-						{.move_velocity = move ? move->velocity : glm::vec3{0.0F},
-						 .gravity = gravity ? gravity->acceleration : cfg.gravity}
-					);
+					sys.StepCharacter(e.id(), dt, MakeCharacterStepInput(move, gravity, cfg.gravity));
 				});
 				sys.StepSimulation(dt);
 
@@ -415,24 +412,13 @@ JoltModule::JoltModule(const flecs::world& world) {
 			.add<scene::GameScene>();
 
 	// Writes the character's position to its Transform (never the rotation, which the game owns) and fills
-	// CharacterState. In place, without modified<>: TransformPropagation recomputes WorldTransform every frame.
+	// CharacterState, the same write-back StepCharacterTick does.
 	std::ignore =
 		world.system<spatial::Transform, CharacterState>("CharacterSyncFromBackend")
 			.with<CharacterBody>()
 			.kind(flecs::PostUpdate)
 			.each([](const flecs::iter& it, const size_t i, spatial::Transform& local, CharacterState& state) {
-				auto& sys = it.world().get_mut<JoltBackend>();
-				const flecs::entity_t id = it.entity(i).id();
-				if (!sys.HasCharacter(id)) return;
-				const CharacterSyncResult result = sys.GetCharacterSyncResult(id);
-				local.position = result.position;
-				sys.SetCharacterWrittenPosition(id, result.position);
-				state = {
-					.grounded = result.grounded,
-					.ground_entity = result.ground_entity,
-					.ground_normal = result.ground_normal,
-					.velocity = result.velocity
-				};
+				WriteCharacterBack(it.world().get_mut<JoltBackend>(), it.entity(i).id(), local, state);
 			})
 			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
