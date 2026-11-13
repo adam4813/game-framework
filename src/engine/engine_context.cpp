@@ -36,6 +36,8 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) :
 	world_.set<platform::PlatformRef>({platform_.get()});
 	world_.set<EngineContextRef>({this});
 	world_.set<ecs::RngState>({});
+	// Registered up front because WorldLog looks it up from systems, even on a world never given a logger.
+	world_.component<ecs::WorldLogger>();
 
 	// ── Required modules ─────────────────────────────────────────────────────────────────────
 	// These are always imported; they form the foundation all other systems build on.

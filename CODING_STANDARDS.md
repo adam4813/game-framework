@@ -127,6 +127,14 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
   names, so it compiles on its own: one that relies on an earlier include of another module breaks the first time it
   is included first. Files inside a module include their siblings directly (`"dialog_components.hpp"`).
 
+## Logging
+
+- **Code holding a world logs through `ecs::WorldLog(world)`** (`it.world()` in a system), not `spdlog::info` and
+  friends, so with two worlds in one process each line says which world wrote it (the World Logger, see
+  `src/engine/ecs/README.md`). Only code with no world in reach (`main`, a free helper taking none) calls `spdlog::*`
+  directly; don't add a `flecs::world` parameter just to log. Older Framework code still calls `spdlog::*`: convert a
+  call when you touch it.
+
 ## Code style
 
 Formatting (tabs, braces, line length) is `.clang-format` and `.editorconfig`; run the formatter rather than reviewing
