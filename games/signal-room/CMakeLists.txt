@@ -64,7 +64,7 @@ if (BUILD_TESTING AND NOT EMSCRIPTEN AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAM
     # Mirrors add_engine_test: links the game library so tests exercise the code that ships.
     function(add_signal_room_test test_name)
         add_executable(${test_name} ${ARGN})
-        target_link_libraries(${test_name} PRIVATE GTest::gtest GTest::gtest_main signal_room_lib)
+        target_link_libraries(${test_name} PRIVATE GTest::gtest engine_test_main signal_room_lib)
         gtest_discover_tests(${test_name})
     endfunction()
 
