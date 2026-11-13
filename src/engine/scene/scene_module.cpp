@@ -122,7 +122,7 @@ void SceneManagementModule::RegisterSceneSystems(const flecs::world& world) {
 	// System to handle input for the active scene
 	world.system<SceneComponent, const input::InputState>("ActiveSceneInput")
 		.term_at<input::InputState>()
-		.singleton()
+		.src<input::InputState>()
 		.with<Active>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const SceneComponent& scene_comp, const input::InputState& input) {
@@ -145,7 +145,7 @@ void SceneManagementModule::RegisterSceneSystems(const flecs::world& world) {
 	// 2D elements always composite on top of 3D geometry regardless of module import order.
 	world.system<SceneComponent, const input::InputState>("ActiveSceneUI")
 		.term_at<input::InputState>()
-		.singleton()
+		.src<input::InputState>()
 		.with<Active>()
 		.kind<ecs::OnUI>()
 		.each([](const flecs::iter& it, size_t, const SceneComponent& scene_comp, const input::InputState& input) {

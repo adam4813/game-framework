@@ -40,7 +40,7 @@ void RegisterRun(const flecs::world& world) {
 
 	world.system<RunState>("RunClock")
 		.term_at(0)
-		.singleton()
+		.src<RunState>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, RunState& run) {
 			if (IsRunning(run.phase)) {
@@ -56,7 +56,7 @@ void RegisterRun(const flecs::world& world) {
 	// would swap in the wrong scene's pipeline.
 	world.system<RunState>("RunCountdown")
 		.term_at(0)
-		.singleton()
+		.src<RunState>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, RunState& run) {
 			if (run.countdown <= -constants::kGoTime) {
@@ -81,9 +81,9 @@ void RegisterRun(const flecs::world& world) {
 	// Not pausable: Esc has to resume the menu it opened.
 	world.system<const PlayerIntent, const RunState>("PauseToggle")
 		.term_at(0)
-		.singleton()
+		.src<PlayerIntent>()
 		.term_at(1)
-		.singleton()
+		.src<RunState>()
 		.kind(flecs::PreUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, const RunState& run) {
 			if (intent.pause) {

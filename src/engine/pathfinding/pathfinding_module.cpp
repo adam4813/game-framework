@@ -516,7 +516,7 @@ PathfindingModule::PathfindingModule(const flecs::world& world) {
 	std::ignore = world.system<const input::InputState>("PathDebugToggle")
 					  .kind(flecs::OnUpdate)
 					  .term_at<input::InputState>()
-					  .singleton()
+					  .src<input::InputState>()
 					  .each([debug_draw_sys](const flecs::iter&, size_t, const input::InputState& input) {
 						  if (!input.keys[input::kDebugRenderKey].pressed) return;
 						  if (debug_draw_sys.enabled()) {

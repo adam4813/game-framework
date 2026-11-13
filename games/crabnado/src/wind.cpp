@@ -76,7 +76,7 @@ void RegisterWind(const flecs::world& world) {
 
 	world.system<Wind>("WindBlow")
 		.term_at(0)
-		.singleton()
+		.src<Wind>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, Wind& wind) {
 			const float dt = it.delta_time();

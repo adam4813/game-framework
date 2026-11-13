@@ -48,9 +48,9 @@ void RegisterControls(const flecs::world& world) {
 
 	world.system<const input::InputState, PlayerIntent>("ReadControls")
 		.term_at(0)
-		.singleton()
+		.src<input::InputState>()
 		.term_at(1)
-		.singleton()
+		.src<PlayerIntent>()
 		.kind(flecs::PostLoad)
 		.each([](const input::InputState& input, PlayerIntent& intent) {
 			glm::vec2 move{0.0F};

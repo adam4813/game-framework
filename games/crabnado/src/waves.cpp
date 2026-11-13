@@ -202,7 +202,7 @@ void RegisterWaves(const flecs::world& world) {
 
 	world.system<WaveField>("WaveUpdate")
 		.term_at(0)
-		.singleton()
+		.src<WaveField>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, WaveField& field) { StepWaves(it.world(), field, it.delta_time()); })
 		.add<ecs::Pausable>()
