@@ -60,7 +60,7 @@ void InstallDebugRenderer(const flecs::world& world, JoltBackend& physics, platf
 	std::ignore = world.system<const input::InputState>("PhysicsDebugRenderSync")
 					  .kind(flecs::OnUpdate)
 					  .term_at<input::InputState>()
-					  .singleton()
+					  .src<input::InputState>()
 					  .each([debug_render_sys](const input::InputState& input_state) {
 						  if (input_state.keys[input::kDebugRenderKey].pressed) {
 							  if (debug_render_sys.enabled()) {
@@ -99,7 +99,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 		world.system<const PhysicsForce, JoltBackend>("PhysicsApplyForces")
 			.kind(flecs::OnUpdate)
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.each([](const flecs::entity& e, const PhysicsForce& force, JoltBackend& sys) {
 				if (sys.HasBody(e.id())) {
 					sys.ApplyForce(e.id(), force.force, force.torque);
@@ -119,7 +119,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 		world.system<const PhysicsImpulse, JoltBackend>("PhysicsApplyImpulses")
 			.kind(flecs::OnValidate)
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.each([](const flecs::entity& e, const PhysicsImpulse& impulse, JoltBackend& sys) {
 				if (sys.HasBody(e.id())) {
 					sys.ApplyImpulse(e.id(), impulse.impulse, impulse.point);
@@ -138,7 +138,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	std::ignore = world.system<const PhysicsVelocityOverride, JoltBackend>("PhysicsApplyVelocityOverrides")
 					  .kind(flecs::OnUpdate)
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .each([](const flecs::entity& e, const PhysicsVelocityOverride& vov, JoltBackend& sys) {
 						  if (sys.HasBody(e.id())) {
 							  sys.SetBodyVelocity(e.id(), vov.linear, vov.angular);
@@ -169,7 +169,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	std::ignore = world.observer<const CharacterBody, JoltBackend>("CharacterAdd")
 					  .event(flecs::OnSet)
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .run([](flecs::iter& it) {
 						  auto& sys = it.world().get_mut<JoltBackend>();
 						  while (it.next()) {
@@ -182,7 +182,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .event(flecs::OnSet)
 					  .with<CharacterBody>()
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .run([](flecs::iter& it) {
 						  auto& sys = it.world().get_mut<JoltBackend>();
 						  while (it.next()) {
@@ -197,7 +197,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 			.event(flecs::OnSet)
 			.with<CharacterBody>()
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.each([](const flecs::entity e, const RigidBody&, JoltBackend& sys) {
 				if (!sys.HasCharacter(e.id())) return;
 				spdlog::error("[Physics] Entity '{}': a character_body can't also be a rigid_body.", EntityLabel(e));
@@ -207,14 +207,14 @@ JoltModule::JoltModule(const flecs::world& world) {
 		world.observer<const CharacterBody, JoltBackend>("CharacterRemove")
 			.event(flecs::OnRemove)
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.each([](const flecs::entity& e, const CharacterBody&, JoltBackend& sys) { sys.RemoveCharacter(e.id()); });
 	std::ignore =
 		world.observer<const CollisionShape, JoltBackend>("CharacterRemoveOnCollisionShape")
 			.event(flecs::OnRemove)
 			.with<CharacterBody>()
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.each([](const flecs::entity& e, const CollisionShape&, JoltBackend& sys) { sys.RemoveCharacter(e.id()); });
 
 	auto characters = world.query_builder<const CharacterMove*, const Gravity*>().with<CharacterBody>().build();
@@ -225,9 +225,9 @@ JoltModule::JoltModule(const flecs::world& world) {
 		world.system<const JoltBackend, const PhysicsWorldConfig>("PhysicsStep")
 			.kind(flecs::OnUpdate)
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.term_at<PhysicsWorldConfig>()
-			.singleton()
+			.src<PhysicsWorldConfig>()
 			.run([characters](flecs::iter& it) {
 				auto& sys = it.world().get_mut<JoltBackend>();
 				const auto& cfg = it.world().get<PhysicsWorldConfig>();
@@ -260,7 +260,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 		world.observer<const RigidBody, JoltBackend>("PhysicsAddBody")
 			.event(flecs::OnSet)
 			.term_at<JoltBackend>()
-			.singleton()
+			.src<JoltBackend>()
 			.run([](flecs::iter& it) {
 				auto& sys = it.world().get_mut<JoltBackend>();
 
@@ -306,7 +306,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .event(flecs::OnSet)
 					  .with<RigidBody>()
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .run([](flecs::iter& it) {
 						  auto& sys = it.world().get_mut<JoltBackend>();
 
@@ -341,7 +341,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	std::ignore = world.observer<const RigidBody, JoltBackend>("PhysicsRemoveBody")
 					  .event(flecs::OnRemove)
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .each([](const flecs::entity& e, const RigidBody&, JoltBackend& sys) { sys.RemoveBody(e.id()); });
 
 	// Moves the body whenever its WorldTransform is set: the Transform seed (TransformSeedWorldTransform)
@@ -352,7 +352,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .event(flecs::OnSet)
 					  .with<RigidBody>()
 					  .term_at<JoltBackend>()
-					  .singleton()
+					  .src<JoltBackend>()
 					  .each([](const flecs::entity e, const spatial::WorldTransform& wt, JoltBackend& sys) {
 						  if (sys.HasBody(e.id())) {
 							  sys.SetBodyTransform(e.id(), PhysicsTransform::FromMatrix(wt.matrix));

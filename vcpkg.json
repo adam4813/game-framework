@@ -38,8 +38,13 @@
 			"platform": "emscripten"
 		}
 	],
-	"builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
+	"builtin-baseline": "3d22b64585ca026e881728fd87e541c23a611a43",
 	"overrides": [
+		{
+			"$comment": "2.39.0's upstream tag archive no longer matches the port's SHA512 (vcpkg PR #54979). Drop once vcpkg fixes the hash.",
+			"name": "angelscript",
+			"version": "2.38.0"
+		},
 		{
 			"name": "flecs",
 			"version": "4.1.0"

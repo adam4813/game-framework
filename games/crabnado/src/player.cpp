@@ -52,7 +52,7 @@ void RegisterPlayer(const flecs::world& world) {
 
 	world.system<const PlayerIntent, Stamina>("PlayerStamina")
 		.term_at(0)
-		.singleton()
+		.src<PlayerIntent>()
 		.with<Player>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, Stamina& stamina) {
@@ -77,7 +77,7 @@ void RegisterPlayer(const flecs::world& world) {
 
 	world.system<const PlayerIntent, const PlayerStats, const Stamina, SurfKnock, spatial::Transform>("PlayerMove")
 		.term_at(0)
-		.singleton()
+		.src<PlayerIntent>()
 		.with<Player>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent, const PlayerStats& stats,

@@ -228,7 +228,7 @@ void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 
 	world.system<RunState>("MoltCheck")
 		.term_at(0)
-		.singleton()
+		.src<RunState>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, RunState& run) {
 			if (IsRunning(run.phase) && run.shells >= run.shells_needed) {
@@ -240,7 +240,7 @@ void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 
 	world.system<const PlayerIntent>("MoltPick")
 		.term_at(0)
-		.singleton()
+		.src<PlayerIntent>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, const PlayerIntent& intent) {
 			if (intent.pick > 0) {
