@@ -53,12 +53,12 @@ void InstallDebugRenderer(const flecs::world& world, JoltBackend& physics, platf
 									  .each([](const JoltBackend& sys) { sys.DebugDrawBodies(); })
 									  .add<scene::GameScene>();
 
-	// Disable initially — GameData will control it
+	// Off until the debug render key turns it on.
 	if (!debug_render_sys.disable()) {
 		spdlog::warn("[JoltModule] Failed to disable debug render system");
 	}
 
-	// === SYSTEM: Sync debug render state from GameData ===
+	// === SYSTEM: Toggle debug rendering on the debug render key ===
 	// Captures the system handle directly instead of looking it up by string each frame
 	std::ignore = world.system<const input::InputState>("PhysicsDebugRenderSync")
 					  .kind(flecs::OnUpdate)

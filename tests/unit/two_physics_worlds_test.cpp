@@ -36,6 +36,7 @@ constexpr auto kCrateLevel = R"({"entities": [
 ]})";
 
 constexpr float kRestingCrateY = 0.5F;
+constexpr float kRestTolerance = 0.05F;
 constexpr int kFramesToSettle = 120;
 
 // A headless Platform that claims a window, so its world installs the debug renderer like a game's would.
@@ -73,8 +74,8 @@ TEST(TwoPhysicsWorlds, EachWorldLandsItsOwnCrate) {
 		b.Step(1);
 	}
 
-	EXPECT_NEAR(a.CrateY(), kRestingCrateY, 0.05F);
-	EXPECT_NEAR(b.CrateY(), kRestingCrateY, 0.05F);
+	EXPECT_NEAR(a.CrateY(), kRestingCrateY, kRestTolerance);
+	EXPECT_NEAR(b.CrateY(), kRestingCrateY, kRestTolerance);
 }
 
 // Which of the two worlds is destroyed first.
@@ -88,16 +89,16 @@ TEST_P(TwoPhysicsWorldsTeardown, DestroyingOneWorldLeavesTheOtherAndALaterWorldS
 	older->Step(10);
 	newer->Step(10);
 
-	auto& destroyed = GetParam() == FirstDestroyed::Older ? older : newer;
-	const auto& survivor = GetParam() == FirstDestroyed::Older ? newer : older;
-	destroyed.reset();
+	const bool olderFirst = GetParam() == FirstDestroyed::Older;
+	const auto& survivor = olderFirst ? newer : older;
+	(olderFirst ? older : newer).reset();
 
 	// Jolt's process-global Factory and default material, which the survivor's shapes and bodies read, outlive the
 	// first teardown.
 	EXPECT_NE(JPH::Factory::sInstance, nullptr);
 	EXPECT_NE(JPH::PhysicsMaterial::sDefault, nullptr);
 	survivor->Step(kFramesToSettle);
-	EXPECT_NEAR(survivor->CrateY(), kRestingCrateY, 0.05F);
+	EXPECT_NEAR(survivor->CrateY(), kRestingCrateY, kRestTolerance);
 
 	older.reset();
 	newer.reset();
@@ -105,7 +106,7 @@ TEST_P(TwoPhysicsWorldsTeardown, DestroyingOneWorldLeavesTheOtherAndALaterWorldS
 
 	const PhysicsWorld later;
 	later.Step(kFramesToSettle);
-	EXPECT_NEAR(later.CrateY(), kRestingCrateY, 0.05F);
+	EXPECT_NEAR(later.CrateY(), kRestingCrateY, kRestTolerance);
 }
 
 INSTANTIATE_TEST_SUITE_P(

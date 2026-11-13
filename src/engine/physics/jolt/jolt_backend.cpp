@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdarg>
-#include <mutex>
 #include <ranges>
 #include <string>
 #include <thread>
@@ -67,13 +66,11 @@ static bool JoltAssertFailedImpl(const char* expr, const char* msg, const char* 
 
 namespace {
 // Jolt's Factory and type registration are process-global, so they're shared by every backend in the process (one per
-// physics world): the first Initialize creates them and the last Shutdown destroys them, in any order. The mutex
-// only guards the count; the backends themselves are created and destroyed on one thread.
-std::mutex g_jolt_globals_mutex;
+// physics world): the first Initialize creates them and the last Shutdown destroys them, in any order, on one thread.
+// The count is a process global rather than a world singleton because it spans worlds, like the Jolt state it guards.
 int g_jolt_globals_users = 0;
 
 void AcquireJoltGlobals() {
-	const std::scoped_lock lock{g_jolt_globals_mutex};
 	if (g_jolt_globals_users++ > 0) return;
 	JPH::RegisterDefaultAllocator();
 	JPH::Trace = JoltTraceImpl;
@@ -85,7 +82,6 @@ void AcquireJoltGlobals() {
 }
 
 void ReleaseJoltGlobals() {
-	const std::scoped_lock lock{g_jolt_globals_mutex};
 	if (--g_jolt_globals_users > 0) return;
 	JPH::UnregisterTypes();
 	delete JPH::Factory::sInstance;
