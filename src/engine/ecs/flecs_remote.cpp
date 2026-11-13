@@ -48,8 +48,8 @@ int ResolveRestPort(const int fallback) {
 
 } // namespace
 
-void InitializeRemoteAPI(flecs::world& world, const int default_rest_port) {
-	const int rest_port = ResolveRestPort(default_rest_port);
+void InitializeRemoteAPI(flecs::world& world, const int default_rest_port, const RestPortEnv port_env) {
+	const int rest_port = port_env == RestPortEnv::Honor ? ResolveRestPort(default_rest_port) : default_rest_port;
 	spdlog::info("[FlecsRemote] REST API on port {}", rest_port);
 	world.import<flecs::stats>();
 
