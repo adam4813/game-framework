@@ -5,8 +5,8 @@ on a shore ringed by a magic barrier while a crabnado (a tornado of crabs) fling
 Your weapons fire on their own. You steer, read the wind, and use the waves it drives against the horde. A run lasts
 about 5–6 minutes and ends in a boss fight won with waves, not weapons.
 
-This document describes the game as built. The jam's spec and tickets are kept at the `crabnado-jam` tag. The
-three.js prototype that set the feel of the horde and weapons is `prototypes/crab-jam-prototype.html`.
+This document describes the game as built. The jam's spec, its tickets, and the three.js prototype that set the
+feel of the horde and weapons are kept at the `crabnado-jam` tag.
 
 ## Design pillars
 
