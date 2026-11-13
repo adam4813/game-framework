@@ -64,24 +64,10 @@ std::string JoinIds(const std::vector<std::string>& ids) {
 } // namespace
 
 void RoomScene::InitializePipeline(const flecs::world& world) {
-	// clang-format off
-	pipeline_ = world.pipeline()
-					.with(flecs::System)
-					.without<scene::MenuScene>()
-					.with(flecs::Phase).cascade(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::DependsOn)
-					.without(flecs::Disabled).up(flecs::ChildOf)
-					.build();
+	pipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().build();
 	// The Briefing and results screens hold the Room: the same systems minus the Pausable ones.
-	pausedPipeline_ = world.pipeline()
-						.with(flecs::System)
-						.without<scene::MenuScene>()
-						.without<ecs::Pausable>()
-						.with(flecs::Phase).cascade(flecs::DependsOn)
-						.without(flecs::Disabled).up(flecs::DependsOn)
-						.without(flecs::Disabled).up(flecs::ChildOf)
-						.build();
-	// clang-format on
+	pausedPipeline_ = ecs::FramePipeline(world).without<scene::MenuScene>().without<ecs::Pausable>().build();
+	fixedStepPipeline_ = ecs::FixedStepPipeline(world).without<scene::MenuScene>().build();
 }
 
 void RoomScene::Load(flecs::world& world) {

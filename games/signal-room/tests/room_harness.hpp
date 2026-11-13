@@ -19,8 +19,9 @@ namespace signal_room::test {
 // Fixed frame step used by Step() unless a test passes its own.
 inline constexpr float kFixedDelta = 1.0F / 60.0F;
 
-// Headless Room harness: the real EngineContext on a NullPlatform (no window or GPU) with the Signal
-// Room module imported. Tests load a Shift, press keys, step the world and query it.
+// Headless Room harness: the real EngineContext on a HeadlessPlatform (no window or GPU) with the Signal
+// Room module imported. Tests load a Shift, press keys, step the world and query it. Each Step is one
+// fixed_step::RunFrame, so FixedStep systems run on the Ticks that Frame's delta is worth.
 //
 // Input: InputPoll is disabled, and the harness writes the keys it holds straight into InputState
 // before each frame (with a rising-edge `pressed` on the first frame a key goes down).

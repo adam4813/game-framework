@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "engine/engine.hpp"
-#include "null_platform.hpp"
 #include "room/room_components.hpp"
 #include "room/room_scene.hpp"
 #include "room/ticket_simulation.hpp"
@@ -15,7 +14,9 @@
 namespace signal_room::test {
 
 RoomHarness::RoomHarness() :
-		ctx_(std::make_unique<engine::EngineContext>(std::make_unique<NullPlatform>(SIGNAL_ROOM_ASSET_DIR))) {
+		ctx_(std::make_unique<engine::EngineContext>(
+			std::make_unique<engine::platform::HeadlessPlatform>(SIGNAL_ROOM_ASSET_DIR)
+		)) {
 	auto& world = World();
 	world.import<SignalRoomModule>();
 
@@ -83,7 +84,7 @@ void RoomHarness::Tap(const int key) {
 void RoomHarness::Step(const int frames, const float deltaTime) {
 	for (int i = 0; i < frames; ++i) {
 		WriteKeys();
-		World().progress(deltaTime);
+		engine::fixed_step::RunFrame(World(), deltaTime);
 		ctx_->GetDeferredTaskQueue().ProcessTasks();
 
 		for (const int key : tapped_) {
