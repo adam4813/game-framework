@@ -33,7 +33,7 @@ void Raise(const flecs::world& world, const auto& event, const flecs::entity rad
 void RegisterCouplerReset(const flecs::world& world, const flecs::entity roomRoot) {
 	world.system<AntennaCoupler>("CouplerResetTick")
 		.term_at(0)
-		.singleton()
+		.src<AntennaCoupler>()
 		.kind(flecs::OnUpdate)
 		.each([](flecs::iter& it, size_t, AntennaCoupler& coupler) {
 			coupler.resetLeft = std::max(0.0F, coupler.resetLeft - it.delta_time());
