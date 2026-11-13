@@ -50,7 +50,7 @@ _Avoid_: global component, world component
 
 **World Logger**:
 A world's own named spdlog logger (`ecs::WorldLogger` Singleton, read through `ecs::WorldLog(world)`). It writes to the default logger's sinks, so two worlds in one process (a client and an integrated server) share one log, each line labeled with the world that wrote it. A world without one logs through the default logger.
-_Avoid_: world log, per-world sink
+_Avoid_: per-world sink (a World Logger shares the default sinks)
 
 **Tag**:
 A zero-size struct component used purely for filtering — carries no data. Examples: `ecs::Pausable` (marks a system as pausable), `scene::Active` (marks the one active scene), `scene::Paused` (switches the world into its paused pipeline). In this engine Tags are *always* zero-size; non-zero tags are Components.

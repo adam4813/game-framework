@@ -1,14 +1,16 @@
 #include "world_logger.hpp"
 
+#include <utility>
+
 #include <spdlog/spdlog.h>
 
 namespace engine::ecs {
 
 void SetWorldLogger(flecs::world& world, const std::string& name) {
-	const auto& defaultSinks = spdlog::default_logger_raw()->sinks();
-	auto logger = std::make_shared<spdlog::logger>(name, defaultSinks.begin(), defaultSinks.end());
-	logger->set_level(spdlog::default_logger_raw()->level());
-	logger->flush_on(spdlog::default_logger_raw()->flush_level());
+	const auto& fallback = *spdlog::default_logger_raw();
+	auto logger = std::make_shared<spdlog::logger>(name, fallback.sinks().begin(), fallback.sinks().end());
+	logger->set_level(fallback.level());
+	logger->flush_on(fallback.flush_level());
 	world.set<WorldLogger>({std::move(logger)});
 }
 
