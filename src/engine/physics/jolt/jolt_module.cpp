@@ -39,6 +39,49 @@ void CreateCharacter(JoltBackend& sys, const flecs::entity e) {
 	const auto* local = e.try_get<spatial::Transform>();
 	sys.AddCharacter(e.id(), EntityLabel(e), local ? local->position : glm::vec3{0.0F}, *body, *shape);
 }
+
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
+// Creates the debug renderer that draws bodies through `platform`, and the PhysicsDebugRender system (off until the
+// debug render key toggles it). Constructing the adapter makes it Jolt's global DebugRenderer::sInstance.
+void InstallDebugRenderer(const flecs::world& world, JoltBackend& physics, platform::Platform* platform) {
+	const auto debug_renderer = std::make_shared<JoltDebugRendererAdapter>(world, platform);
+	physics.SetDebugRenderer(debug_renderer.get());
+	world.set<std::shared_ptr<JoltDebugRendererAdapter>>(debug_renderer);
+
+	const auto debug_render_sys = world.system< const JoltBackend>("PhysicsDebugRender")
+									  .kind(flecs::OnStore)
+									  .each([](const JoltBackend& sys) { sys.DebugDrawBodies(); })
+									  .add<scene::GameScene>();
+
+	// Disable initially — GameData will control it
+	if (!debug_render_sys.disable()) {
+		spdlog::warn("[JoltModule] Failed to disable debug render system");
+	}
+
+	// === SYSTEM: Sync debug render state from GameData ===
+	// Captures the system handle directly instead of looking it up by string each frame
+	std::ignore = world.system<const input::InputState>("PhysicsDebugRenderSync")
+					  .kind(flecs::OnUpdate)
+					  .term_at<input::InputState>()
+					  .singleton()
+					  .each([debug_render_sys](const input::InputState& input_state) {
+						  if (input_state.keys[input::kDebugRenderKey].pressed) {
+							  if (debug_render_sys.enabled()) {
+								  if (!debug_render_sys.disable()) {
+									  spdlog::warn("[JoltModule] Failed to disable debug render system");
+								  }
+							  }
+							  else {
+								  if (!debug_render_sys.enable()) {
+									  spdlog::warn("[JoltModule] Failed to enable debug render system");
+								  }
+							  }
+						  }
+					  })
+					  .add<scene::GameScene>();
+}
+#endif
+
 } // namespace
 
 JoltModule::JoltModule(const flecs::world& world) {
@@ -436,46 +479,12 @@ JoltModule::JoltModule(const flecs::world& world) {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 
-	// === SYSTEM: Debug render physics bodies ===
-	// Controlled via GameData::debugPhysicsRender
-#ifdef JPH_DEBUG_RENDERER
-	auto& platform = world.get_mut<platform::PlatformRef>();
-	const auto debug_renderer = std::make_shared<JoltDebugRendererAdapter>(world, platform.ptr);
-	physics.SetDebugRenderer(debug_renderer.get());
-	world.set<std::shared_ptr<JoltDebugRendererAdapter>>(debug_renderer);
-
-	const auto debug_render_sys = world.system< const JoltBackend>("PhysicsDebugRender")
-									  .kind(flecs::OnStore)
-									  .each([](const JoltBackend& sys) { sys.DebugDrawBodies(); })
-									  .add<scene::GameScene>();
-
-	// Disable initially — GameData will control it
-	if (!debug_render_sys.disable()) {
-		spdlog::warn("[JoltModule] Failed to disable debug render system");
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
+	// Jolt's debug renderer is one process-global (DebugRenderer::sInstance), so only a world that draws installs it.
+	// A headless world (a server beside a client) never creates one, so it never clears the one another world set.
+	if (const auto* ref = world.try_get<platform::PlatformRef>(); ref && ref->ptr && ref->ptr->HasWindow()) {
+		InstallDebugRenderer(world, physics, ref->ptr);
 	}
-
-	// === SYSTEM: Sync debug render state from GameData ===
-	// Captures the system handle directly instead of looking it up by string each frame
-	std::ignore = world.system<const input::InputState>("PhysicsDebugRenderSync")
-					  .kind(flecs::OnUpdate)
-					  .term_at<input::InputState>()
-					  .singleton()
-					  .each([debug_render_sys](const input::InputState& input_state) {
-						  if (input_state.keys[input::kDebugRenderKey].pressed) {
-							  if (debug_render_sys.enabled()) {
-								  if (!debug_render_sys.disable()) {
-									  spdlog::warn("[JoltModule] Failed to disable debug render system");
-								  }
-							  }
-							  else {
-								  if (!debug_render_sys.enable()) {
-									  spdlog::warn("[JoltModule] Failed to enable debug render system");
-								  }
-							  }
-						  }
-					  })
-					  .add<scene::GameScene>();
-
 #endif
 
 	spdlog::info("[JoltModule] Initialized Jolt physics backend");

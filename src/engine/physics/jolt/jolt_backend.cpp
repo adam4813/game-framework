@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdarg>
+#include <mutex>
 #include <ranges>
 #include <string>
 #include <thread>
@@ -63,6 +64,34 @@ static bool JoltAssertFailedImpl(const char* expr, const char* msg, const char* 
 	return true;
 }
 #endif
+
+namespace {
+// Jolt's Factory and type registration are process-global, so they're shared by every backend in the process (one per
+// physics world): the first Initialize creates them and the last Shutdown destroys them, in any order. The mutex
+// only guards the count; the backends themselves are created and destroyed on one thread.
+std::mutex g_jolt_globals_mutex;
+int g_jolt_globals_users = 0;
+
+void AcquireJoltGlobals() {
+	const std::scoped_lock lock{g_jolt_globals_mutex};
+	if (g_jolt_globals_users++ > 0) return;
+	JPH::RegisterDefaultAllocator();
+	JPH::Trace = JoltTraceImpl;
+#ifdef JPH_ENABLE_ASSERTS
+	JPH::AssertFailed = JoltAssertFailedImpl;
+#endif
+	JPH::Factory::sInstance = new JPH::Factory();
+	JPH::RegisterTypes();
+}
+
+void ReleaseJoltGlobals() {
+	const std::scoped_lock lock{g_jolt_globals_mutex};
+	if (--g_jolt_globals_users > 0) return;
+	JPH::UnregisterTypes();
+	delete JPH::Factory::sInstance;
+	JPH::Factory::sInstance = nullptr;
+}
+} // namespace
 
 // Layer configuration
 namespace {
@@ -157,15 +186,7 @@ bool JoltBackend::Initialize() {
 		return true;
 	}
 
-	// Register Jolt allocators and callbacks
-	JPH::RegisterDefaultAllocator();
-	JPH::Trace = JoltTraceImpl;
-#ifdef JPH_ENABLE_ASSERTS
-	JPH::AssertFailed = JoltAssertFailedImpl;
-#endif
-
-	JPH::Factory::sInstance = new JPH::Factory();
-	JPH::RegisterTypes();
+	AcquireJoltGlobals();
 
 	temp_allocator_ = std::make_unique<JPH::TempAllocatorImpl>(10 * 1024 * 1024);
 
@@ -222,9 +243,7 @@ void JoltBackend::Shutdown() {
 	job_system_.reset();
 	temp_allocator_.reset();
 
-	JPH::UnregisterTypes();
-	delete JPH::Factory::sInstance;
-	JPH::Factory::sInstance = nullptr;
+	ReleaseJoltGlobals();
 
 	spdlog::info("[Physics] Jolt shutdown");
 	initialized_ = false;
@@ -794,7 +813,7 @@ std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray) const {
 	return {};
 }
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 void JoltBackend::SetDebugRenderer(JPH::DebugRenderer* renderer) { debug_renderer_ = renderer; }
 
 void JoltBackend::DebugDrawBodies() const {

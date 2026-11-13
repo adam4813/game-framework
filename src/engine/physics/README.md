@@ -134,6 +134,24 @@ the character there. Rotation is ignored, so a game can drive facing every frame
 Out of scope: jump, pushing dynamic bodies, an inner body (raycasts don't hit a character), and saving or restoring
 `CharacterVirtual` state.
 
+## Several physics worlds in one process
+
+Each Flecs world that imports `physics` gets its own `JoltBackend` (its own `PhysicsSystem`, bodies and characters),
+so a client can run a server world beside its own. Worlds can be created and destroyed in any order, on one thread.
+
+- **Jolt's process globals are reference-counted.** The `Factory`, type registration and default physics material are
+  global in Jolt. The first backend to `Initialize` creates them and the last to `Shutdown` destroys them, so tearing
+  down one world never pulls them out from under another.
+- **Only a world that draws installs the debug renderer.** Jolt has one global `DebugRenderer` (`sInstance`), so the
+  module creates the adapter and the `PhysicsDebugRender` / `PhysicsDebugRenderSync` systems only when the world's
+  Platform reports `HasWindow()`. A headless world (a server, the tests) never creates or clears it. Two worlds with
+  windows in one process aren't supported.
+- **`ENABLE_PHYSICS_DEBUG_RENDERER`** (CMake option, default ON) compiles the engine's debug renderer out when OFF, so a
+  headless program carries no physics rendering code. It strips the engine side only (gated by
+  `ENGINE_PHYSICS_DEBUG_RENDERER` in `jolt/jolt_debug_config.hpp`). Jolt's own `JPH_DEBUG_RENDERER` comes from how vcpkg
+  built the library (the `debugrenderer` feature, absent on Emscripten) and changes Jolt's class layouts, so it can't be
+  switched off from the engine's CMake.
+
 ## Flecs System Registration Patterns
 
 All systems follow Flecs 4.x best practices:

@@ -4,7 +4,9 @@
 
 #include <Jolt/Jolt.h>
 
-#ifdef JPH_DEBUG_RENDERER
+#include "jolt_debug_config.hpp"
+
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 #include <Jolt/Core/Color.h>
 #include <Jolt/Renderer/DebugRendererSimple.h>
 #endif
@@ -16,7 +18,7 @@
 
 namespace engine::physics {
 
-#ifdef JPH_DEBUG_RENDERER
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 
 /// Adapter that inherits Jolt's DebugRendererSimple and forwards draw calls to the platform layer
 class JoltDebugRendererAdapter : public JPH::DebugRendererSimple {
@@ -49,6 +51,6 @@ private:
 	[[nodiscard]] glm::vec2 ProjectToScreen(glm::vec3 world_pos) const;
 };
 
-#endif // JPH_DEBUG_RENDERER
+#endif // ENGINE_PHYSICS_DEBUG_RENDERER
 
 } // namespace engine::physics

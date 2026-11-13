@@ -85,6 +85,8 @@ once so entities always have both components.
 
 Fixed-timestep step with accumulation; per-entity request components (`Force`/`Impulse`/
 `VelocityOverride`) applied then consumed; Jolt kept in sync via `OnSet`/`OnRemove` observers.
+`PhysicsDebugRender` and `PhysicsDebugRenderSync` exist only in a world whose Platform has a window, and only when
+`ENABLE_PHYSICS_DEBUG_RENDERER` is ON.
 
 ## render (`src/engine/render/render_module.cpp`)
 

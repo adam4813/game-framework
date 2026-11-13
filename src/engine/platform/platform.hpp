@@ -154,6 +154,9 @@ public:
 	virtual void Init(int width, int height, std::string_view title) = 0;
 	[[nodiscard]] virtual bool ShouldClose() const = 0;
 	virtual void Shutdown() = 0;
+	// True when this Platform draws to a window. A headless Platform (a server world, the tests) returns false,
+	// and rendering-only global state, such as the physics debug renderer, is installed only when it's true.
+	[[nodiscard]] virtual bool HasWindow() const = 0;
 	// The logical canvas size the game draws on, fixed at Init. The window can be resized, maximized or made
 	// fullscreen; the backend scales the canvas to fit it (letterboxed) and maps the mouse back to canvas pixels.
 	[[nodiscard]] virtual int Width() const = 0;

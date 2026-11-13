@@ -15,6 +15,7 @@ public:
 
 	void Init(int, int, std::string_view) override {}
 	[[nodiscard]] bool ShouldClose() const override { return false; }
+	[[nodiscard]] bool HasWindow() const override { return false; }
 	void Shutdown() override {}
 	[[nodiscard]] int Width() const override { return 1280; }
 	[[nodiscard]] int Height() const override { return 720; }

@@ -10,6 +10,7 @@ class RaylibBackend final : public Platform {
 public:
 	void Init(int width, int height, std::string_view title) override;
 	[[nodiscard]] bool ShouldClose() const override;
+	[[nodiscard]] bool HasWindow() const override { return true; }
 	void Shutdown() override;
 	[[nodiscard]] int Width() const override;
 	[[nodiscard]] int Height() const override;

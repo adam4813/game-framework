@@ -77,3 +77,10 @@ add_engine_test(path_asset_test
     path_asset_test.cpp
 )
 target_include_directories(path_asset_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
+
+# Two physics worlds in one process: shared Jolt globals survive either teardown order; only a windowed world installs
+# the debug renderer
+add_engine_test(two_physics_worlds_test
+    two_physics_worlds_test.cpp
+)
+target_include_directories(two_physics_worlds_test PRIVATE "${CMAKE_SOURCE_DIR}/tests/scene_equivalence")
