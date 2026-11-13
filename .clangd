@@ -1,0 +1,9 @@
+# The presets write compile_commands.json under build/<preset>/, never at the root, so clangd needs pointing at one.
+# desktop-test builds the engine, every game and the tests, so it covers every source file. Build it once
+# (cmake --preset desktop-test) before clangd's diagnostics mean anything.
+CompileFlags:
+  CompilationDatabase: build/desktop-test
+
+# Code includes a module through its index header (CODING_STANDARDS.md), which IncludeCleaner flags as unused.
+Diagnostics:
+  UnusedIncludes: None
