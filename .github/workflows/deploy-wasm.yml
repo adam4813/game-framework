@@ -14,8 +14,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Deploys only when the Sandbox or the engine under it changed (see .github/actions/changed-targets).
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      games: ${{ steps.detect.outputs.games }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: detect
+        uses: $/.github/actions/changed-targets
+
   build-and-deploy:
     name: Build WASM and Deploy to Pages
+    needs: changes
+    if: contains(fromJson(needs.changes.outputs.games), 'sandbox')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -41,6 +56,10 @@ jobs:
         with:
           configurePreset: wasm
           buildPreset: wasm-release
+
+      - name: Save vcpkg binary cache
+        if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
+        uses: $/.github/actions/save-vcpkg-cache
 
       # Setup Pages
       - name: Setup Pages

@@ -1,0 +1,34 @@
+name: 'Changed targets'
+description: >-
+  Decide what this push or pull request has to build: the engine (src/, tests/, CMake, vcpkg, shared assets,
+  CI setup) and which Game Targets. Docs-only changes build nothing; a game-only change builds just that game.
+  Needs a checkout with full history (fetch-depth 0).
+
+outputs:
+  engine:
+    description: "'true' when the engine must be built and tested"
+    value: ${{ steps.detect.outputs.engine }}
+  games:
+    description: 'JSON array of the Game Targets to build (every game when the engine changed)'
+    value: ${{ steps.detect.outputs.games }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect changed targets
+      id: detect
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        PUSH_AFTER: ${{ github.sha }}
+      run: |
+        script="${{ github.action_path }}/changed-targets.sh"
+        case "$EVENT" in
+          pull_request) bash "$script" "$PR_BASE" "$PR_HEAD" ;;
+          # A new branch or a force push has no usable "before"; the script then builds everything.
+          push) bash "$script" "$PUSH_BEFORE" "$PUSH_AFTER" ;;
+          *) bash "$script" --all ;;
+        esac

@@ -36,6 +36,23 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
   `main`, so feature and game branches get no CI. Before calling work done, build the
   `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` yourself.
 
+- **CI builds only what changed** (`.github/actions/changed-targets/changed-targets.sh` decides):
+  - **Nothing:** docs, Markdown, `.scratch/` and `tools/`.
+  - **That game only:** a file under `games/<name>/` or `assets/<type>/<name>/`.
+  - **The engine and every game:** anything else, including `src/`, `tests/`, CMake, vcpkg, shared assets and
+    `.github/actions/`.
+
+  A new top-level folder that nothing builds from goes in that script's ignore list.
+
+- **vcpkg ports are cached by hand.** `setup-environment` restores them and `save-vcpkg-cache` saves them after the
+  build, because vcpkg-tool dropped the `x-gha` backend run-vcpkg relied on. A job that sets up the environment ends
+  with `save-vcpkg-cache`.
+
+- **Same-repo actions use `uses: $/<path>`**, e.g. `uses: $/.github/actions/setup-environment`. It's GitHub's
+  self-repository reference: the repo at the running commit, with no checkout needed. Don't "fix" it to `./`, which
+  resolves against the checked-out workspace instead. Not available on GitHub Enterprise Server.
+  [Workflow syntax: using an action in the same repository](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-an-action-in-the-same-repository-as-the-workflow)
+
 - **Scene equivalence output is committed.** After changing an authored component, run from the repo root
   `./build/desktop-test/tests/scene_equivalence/Release/scene_equivalence_test.exe scene_test_output` (`ctest` writes
   into the build directory instead) and commit the changed `scene_test_output/` files. See README, "Scene Equivalence

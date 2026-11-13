@@ -9,10 +9,26 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
+  # Docs-only and game-only changes skip the engine build (see .github/actions/changed-targets).
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      engine: ${{ steps.detect.outputs.engine }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: detect
+        uses: $/.github/actions/changed-targets
+
   build:
     name: Build on ${{ matrix.os }} (${{ matrix.target }})
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
 
     env:
@@ -70,6 +86,11 @@ jobs:
           buildPreset: ${{ matrix.preset_build }}
           testPreset: ${{ matrix.preset_test }}
           testPresetAdditionalArgs: "['--output-on-failure']"
+
+      # Configure is where vcpkg builds ports, so save them even when a later build or test fails.
+      - name: Save vcpkg binary cache
+        if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
+        uses: $/.github/actions/save-vcpkg-cache
 
       # Build and run scene equivalence test (desktop only)
       - name: Build Scene Equivalence Test
