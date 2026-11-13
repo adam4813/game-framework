@@ -14,6 +14,11 @@
 #include <spdlog/spdlog.h>
 
 #ifdef _WIN32
+// Without NOMINMAX, windows.h's min/max macros break std::numeric_limits<T>::min() in headers included after this one
+// (Flecs' Debug-only ecs_assert).
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <crtdbg.h>
 #include <windows.h>
 #endif
