@@ -17,7 +17,7 @@ You need:
 
 - **CMake** 3.30+
 - **Ninja** build system
-- **VCPKG** for dependency management (minimum version: `9eec002df1cd109f8f104cd966a763daf9751489`)
+- **VCPKG** for dependency management (minimum version: `3d22b64585ca026e881728fd87e541c23a611a43`)
 - **EMSDK** 4.0.10+ for WebAssembly builds (optional for desktop-only)
 
 ### Installation
@@ -36,7 +36,7 @@ cd vcpkg
 export VCPKG_ROOT=/path/to/vcpkg  # or setx VCPKG_ROOT on Windows
 ```
 
-The project uses VCPKG baseline hash `9eec002df1cd109f8f104cd966a763daf9751489`. The baseline is specified in
+The project uses VCPKG baseline hash `3d22b64585ca026e881728fd87e541c23a611a43`. The baseline is specified in
 `vcpkg.json` and ensures reproducible dependency versions across builds.
 
 #### 2. Set up EMSDK (for WebAssembly builds only)
