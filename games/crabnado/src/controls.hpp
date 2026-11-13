@@ -20,7 +20,7 @@ struct PlayerIntent {
 	bool confirm{false};
 };
 
-// Registers and reflects PlayerIntent and the ReadControls system (PreUpdate, not pausable).
+// Registers and reflects PlayerIntent and the ReadControls system (PostLoad, so every PreUpdate reader sees this frame's intent; not pausable).
 void RegisterControls(const flecs::world& world);
 
 } // namespace crabnado

@@ -51,7 +51,7 @@ void RegisterControls(const flecs::world& world) {
 		.singleton()
 		.term_at(1)
 		.singleton()
-		.kind(flecs::PreUpdate)
+		.kind(flecs::PostLoad)
 		.each([](const input::InputState& input, PlayerIntent& intent) {
 			glm::vec2 move{0.0F};
 			for (const auto& [key, direction] : kMoveBindings) {
