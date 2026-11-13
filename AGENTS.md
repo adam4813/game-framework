@@ -35,17 +35,14 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
 - **Test executables live under `build/desktop-test/`**, built by `cmake --build --preset desktop-test-release`. The
   `desktop` presets build the games only, so a test exe path under `build/desktop/` doesn't exist (exit 127).
 
-- **No guardrail runs for you.** There is no pre-commit hook, and CI (`.github/workflows/build.yml`) only runs for
-  `main`, so feature and game branches get no CI. Before calling work done, build the
-  `desktop` and `wasm` presets and run `ctest --preset desktop-test-release` yourself.
+- **Verify before calling work done.** No pre-commit hook runs, so run both builds yourself. Each line must finish
+  with no warnings and no failed tests:
+  - `cmake --preset desktop-test && cmake --build --preset desktop-test-release && ctest --preset desktop-test-release`
+    (one build covers the games and the tests)
+  - `cmake --preset wasm && cmake --build --preset wasm-release`
 
-- **CI builds only what changed** (`.github/actions/changed-targets/changed-targets.sh` decides):
-  - **Nothing:** docs, Markdown, `.scratch/` and `tools/`.
-  - **That game only:** a file under `games/<name>/` or `assets/<type>/<name>/`.
-  - **The engine and every game:** anything else, including `src/`, `tests/`, CMake, vcpkg, shared assets and
-    `.github/actions/`.
-
-  A new top-level folder that nothing builds from goes in that script's ignore list.
+- **CI skips what didn't change**: `.github/actions/changed-targets/changed-targets.sh` decides. A new top-level
+  folder that nothing builds from goes in that script's ignore list.
 
 - **vcpkg ports are cached by hand.** `setup-environment` restores them and `save-vcpkg-cache` saves them after the
   build, because vcpkg-tool dropped the `x-gha` backend run-vcpkg relied on. A job that sets up the environment ends
@@ -70,7 +67,7 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
 3. Find every other copy of the old commit (`git grep <old-sha>`) and update it. Expect `README.md`; the workflows and
    the `setup-environment` action should hold none, since they default to `vcpkg.json`. A copy there is an
    intentional override (e.g. a game needing a different commit), so keep it and say why in a comment.
-4. Rebuild and run `ctest --preset desktop-test-release`.
+4. Run the verify steps (Build).
 
 A bump can move other ports (flecs 4.1.0 → 4.1.6 dropped `singleton()`), so keep `overrides` in `vcpkg.json` for
 anything the engine isn't migrated to yet. Docs under `docs/research/` cite historical baselines on purpose; leave them.
@@ -79,9 +76,13 @@ anything the engine isn't migrated to yet. Docs under `docs/research/` cite hist
 
 - Use targeted commits — only stage files associated with the change, `git add <specific-file>` for each file.
 - Conventional commits.
-- **Always work on a branch** — never commit directly to `main`. Open a pull request to merge.
-- **Post-merge verification:** After merging an integration branch into your feature branch, rebuild and run
-  `ctest --preset desktop-test-release`. The test count must equal or exceed the pre-merge baseline — a drop
+- **Commit before `/code-review`**: it reviews `<base>...HEAD`, so uncommitted and untracked files are invisible to it.
+  Review fixes land as follow-up commits.
+- **Start each feature on its own branch from the latest `main`**, even when another feature branch is checked out,
+  unless told otherwise: `git fetch origin && git switch --no-track -c <type>/<slug> origin/main`. `--no-track`
+  keeps a bare `git push` off `main`; push with `git push -u origin <branch>` and open a pull request to merge.
+- **Post-merge verification:** After merging an integration branch into your feature branch, rerun the verify steps
+  (Build). The test count must equal or exceed the pre-merge baseline — a drop
   means conflict resolution silently discarded tests or source files.
 - **Multi-ticket worktrees:** Work only in your assigned worktree, not the main repo checkout. Never merge your
   branch into the integration branch yourself — the coordinator does that. Verify before starting:
