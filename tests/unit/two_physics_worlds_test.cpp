@@ -13,7 +13,7 @@
 #include "engine/physics/jolt/jolt_debug_config.hpp"
 #include "null_platform.hpp"
 
-#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
+#ifdef JPH_DEBUG_RENDERER
 #include <Jolt/Renderer/DebugRenderer.h>
 #endif
 
@@ -136,6 +136,14 @@ TEST(TwoPhysicsWorlds, AHeadlessWorldLeavesTheRenderingWorldsDebugRendererInstal
 	}
 
 	EXPECT_EQ(JPH::DebugRenderer::sInstance, installed);
+}
+
+#elif defined(JPH_DEBUG_RENDERER)
+
+// ENABLE_PHYSICS_DEBUG_RENDERER=OFF: Jolt still has its debug renderer, but the engine never installs one.
+TEST(TwoPhysicsWorlds, AWindowedWorldInstallsNoDebugRendererWhenTheEngineCompilesItOut) {
+	const PhysicsWorld rendering{std::make_unique<WindowedPlatform>()};
+	EXPECT_EQ(JPH::DebugRenderer::sInstance, nullptr);
 }
 
 #endif
