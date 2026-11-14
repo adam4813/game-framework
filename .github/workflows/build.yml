@@ -1,5 +1,9 @@
 name: Build Game Engine
 
+# The engine and its tests only. Game Targets, their tests and their artifacts belong to build-games.yml, so
+# this workflow builds named targets rather than ALL (the root CMakeLists.txt adds every game to ALL). Local
+# verify still builds ALL with desktop-test (AGENTS.md, "Build").
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -11,13 +15,18 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  EM-VERSION: '4.0.10'
+
 jobs:
-  # Docs-only and game-only changes skip the engine build (see .github/actions/changed-targets).
+  # Docs-only and game-only changes skip this workflow; a tests-only change runs the desktop tests but not the
+  # WASM link (see .github/actions/changed-targets).
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
       engine: ${{ steps.detect.outputs.engine }}
+      tests: ${{ steps.detect.outputs.tests }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -25,46 +34,19 @@ jobs:
       - id: detect
         uses: $/.github/actions/changed-targets
 
-  build:
-    name: Build on ${{ matrix.os }} (${{ matrix.target }})
+  # Engine unit tests and the scene equivalence test: the `engine_tests` target and the `engine` CTest label.
+  test:
+    name: Build on ${{ matrix.os }} (Desktop)
     needs: changes
-    if: needs.changes.outputs.engine == 'true'
+    if: needs.changes.outputs.tests == 'true'
     runs-on: ${{ matrix.os }}
-
-    env:
-      EM-VERSION: '4.0.10'
 
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Desktop builds use the -test presets: same tree as `desktop` plus BUILD_TESTING, so one
-          # compile covers the sandbox, the unit tests and the scene equivalence test.
-          # Windows Release build
-          - os: windows-latest
-            target: Desktop
-            preset_configure: desktop-test
-            preset_build: desktop-test-release
-            preset_test: desktop-test-release
-
-          # Linux Release build
-          - os: ubuntu-latest
-            target: Desktop
-            preset_configure: desktop-test
-            preset_build: desktop-test-release
-            preset_test: desktop-test-release
-
-          # WebAssembly Release build
-          - os: ubuntu-latest
-            target: WebAssembly
-            preset_configure: wasm
-            preset_build: wasm-release
-
-          # MacOS builds - disabled as the non-large is ARM based, and doesnt' compile at this time
-          # - os: macos-latest-large
-          #   target: Desktop
-          #   preset_configure: desktop
-          #   preset_build: desktop-release
+        os: [ windows-latest, ubuntu-latest ]
+        # MacOS builds - disabled as the non-large is ARM based, and doesnt' compile at this time
+        # os: macos-latest-large
 
     steps:
       - name: Checkout repository
@@ -76,33 +58,27 @@ jobs:
         uses: $/.github/actions/setup-environment
         with:
           em-version: ${{ env.EM-VERSION }}
-          target: ${{ matrix.target }}
+          target: Desktop
 
-      # Configure, build and (desktop only) run the GoogleTest unit suite. WASM has no preset_test.
       - name: Run CMake with Presets
         uses: lukka/run-cmake@v10
         with:
-          configurePreset: ${{ matrix.preset_configure }}
-          buildPreset: ${{ matrix.preset_build }}
-          testPreset: ${{ matrix.preset_test }}
-          testPresetAdditionalArgs: "['--output-on-failure']"
+          configurePreset: desktop-test
+          buildPreset: desktop-test-release
+          buildPresetAdditionalArgs: "['--target', 'engine_tests']"
+          testPreset: desktop-test-release
+          testPresetAdditionalArgs: "['--output-on-failure', '-L', '^engine$']"
 
       # Configure is where vcpkg builds ports, so save them even when a later build or test fails.
       - name: Save vcpkg binary cache
         if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
         uses: $/.github/actions/save-vcpkg-cache
 
-      # Build and run scene equivalence test (desktop only)
-      - name: Build Scene Equivalence Test
-        if: matrix.target != 'WebAssembly'
-        shell: bash
-        run: cmake --build --preset ${{ matrix.preset_build }} --target scene_equivalence_test
-
+      # ctest ran it already; this run writes scene_test_output/ at the repo root for the summary and artifact.
       - name: Run Scene Equivalence Test
-        if: matrix.target != 'WebAssembly'
         shell: bash
         run: |
-          TEST_EXE_PATH=$(find build/${{ matrix.preset_configure }}/tests/scene_equivalence/Release -name "scene_equivalence_test*" -type f | head -1)
+          TEST_EXE_PATH=$(find build/desktop-test/tests/scene_equivalence/Release -name "scene_equivalence_test*" -type f | head -1)
           if [ -z "$TEST_EXE_PATH" ]; then
             echo "scene_equivalence_test executable not found!"
             exit 1
@@ -134,7 +110,7 @@ jobs:
           exit $TEST_EXIT
 
       - name: Generate Scene Equivalence Status
-        if: matrix.target != 'WebAssembly' && always()
+        if: always()
         shell: bash
         run: |
           echo "### 🔍 Scene Equivalence Test Results" >> $GITHUB_STEP_SUMMARY
@@ -146,30 +122,41 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      # Verify build outputs for desktop builds
-      - name: List desktop build outputs
-        if: matrix.target != 'WebAssembly'
-        shell: bash
-        run: |
-          echo "=== Build output directory ==="
-          if [ -d "build/${{ matrix.preset_configure }}" ]; then
-            find build/${{ matrix.preset_configure }} -type f \( -name "sandbox*" -o -name "*.html" -o -name "*.wasm" \) | head -20
-          fi
-
-      # Upload test artifacts
       - name: Upload Scene Equivalence Test Artifacts
-        if: matrix.target != 'WebAssembly' && always()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: scene-equivalence-test-${{ matrix.os }}
           path: scene_test_output/
           if-no-files-found: warn
 
-      # Upload artifacts for desktop builds
-      - name: Upload Desktop Build Artifact
-        if: matrix.target != 'WebAssembly'
-        uses: actions/upload-artifact@v7
+  # Full Emscripten link of the engine through tests/wasm_link (engine_wasm_link): the games' link flags and
+  # the whole engine_lib archive. Link-only; build-games.yml builds and packages each game for the web.
+  wasm-link:
+    name: Build on ubuntu-latest (WebAssembly)
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
-          name: sandbox-${{ matrix.os }}-release
-          path: build/${{ matrix.preset_configure }}/games/sandbox/Release/sandbox*
-          if-no-files-found: warn
+          submodules: recursive
+
+      - name: Setup Engine Environment
+        uses: $/.github/actions/setup-environment
+        with:
+          em-version: ${{ env.EM-VERSION }}
+          target: WebAssembly
+
+      - name: Run CMake with Presets
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: wasm
+          buildPreset: wasm-release
+          buildPresetAdditionalArgs: "['--target', 'engine_wasm_link']"
+
+      - name: Save vcpkg binary cache
+        if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
+        uses: $/.github/actions/save-vcpkg-cache

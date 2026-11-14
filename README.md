@@ -80,7 +80,8 @@ Each Game Target under `games/` (the Sandbox is `games/sandbox`) builds to
 `build/desktop/games/<name>/Release/<name>`, e.g. `build/desktop/games/sandbox/Release/sandbox`. Swap `Release` for
 `Debug` in debug builds.
 
-Unit tests (engine and every Game Target) use the `desktop-test` preset:
+Unit tests (engine and every Game Target) use the `desktop-test` preset. Locally it builds and runs them all; CI splits
+them by label (`engine`, and each game's name):
 
 ```bash
 cmake --preset desktop-test
@@ -408,20 +409,22 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/ac
 
 ### Testing the Build Workflow
 
-Test the main build workflow that builds desktop (Windows/Linux/macOS) and WebAssembly:
+The engine workflow (`build.yml`) builds only the engine: its `test` job builds `engine_tests` and runs the `engine`
+CTest label on Windows and Linux, and its `wasm-link` job links `engine_wasm_link` (`tests/wasm_link/`) under
+Emscripten. Each Game Target, its own tests and its artifacts are `build-games.yml`'s.
 
 ```bash
-# Test on your current OS (simulates that OS's runner)
-act push -j build
+# Desktop engine tests on your current OS (simulates that OS's runner)
+act push -j test
 
 # Dry-run to see what would execute
-act push -j build --dry-run
+act push -j test --dry-run
 
-# Test a specific matrix job (e.g., Linux desktop)
-act push -j build --matrix os:ubuntu-latest --matrix target:"Desktop (Linux)"
+# Linux only
+act push -j test --matrix os:ubuntu-latest
 
-# Test WASM build specifically
-act push -j build --matrix os:ubuntu-latest --matrix target:"WebAssembly"
+# WASM link check
+act push -j wasm-link
 ```
 
 Multiple matrix jobs can be tested by specifying the `--matrix` flag multiple times.

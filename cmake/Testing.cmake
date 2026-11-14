@@ -19,10 +19,15 @@ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         target_include_directories(engine_test_main PUBLIC "${CMAKE_SOURCE_DIR}/tests/support")
         target_link_libraries(engine_test_main PUBLIC GTest::gtest spdlog::spdlog)
 
+        # CI builds `engine_tests` and runs `ctest -L engine` so the engine job compiles no Game Target;
+        # each game's helper does the same with a `<game>_tests` target and a `<game>` label.
+        add_custom_target(engine_tests)
+
         function(add_engine_test test_name)
             add_executable(${test_name} ${ARGN})
             target_link_libraries(${test_name} PRIVATE GTest::gtest engine_test_main engine_lib)
-            gtest_discover_tests(${test_name})
+            gtest_discover_tests(${test_name} PROPERTIES LABELS engine)
+            add_dependencies(engine_tests ${test_name})
         endfunction()
     else ()
         message(STATUS "Testing disabled")

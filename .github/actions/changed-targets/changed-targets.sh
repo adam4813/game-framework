@@ -5,11 +5,13 @@
 #        changed-targets.sh --all            build everything (manual runs, unknown base)
 #
 # Writes to $GITHUB_OUTPUT (or stdout when unset):
-#   engine=true|false   build and test the engine (src/, tests/, CMake, vcpkg, shared assets, CI setup)
-#   games=["a","b"]     Game Targets to build: every game when the engine changed, otherwise the games
-#                       whose own files changed (games/<name>/ or assets/<type>/<name>/)
+#   engine=true|false   build the engine (src/, CMake, vcpkg, shared assets, CI setup); implies tests
+#   tests=true|false    build and run the engine tests (tests/, or anything that sets engine)
+#   games=["a","b"]     Game Targets to build and test: every game when the engine or the shared test
+#                       support (tests/support/) changed, otherwise the games whose own files changed
+#                       (games/<name>/ or assets/<type>/<name>/)
 #
-# Files nothing builds from (docs, Markdown, .scratch/, tools/, editor config) change neither.
+# Files nothing builds from (docs, Markdown, .scratch/, tools/, editor config) change none of them.
 set -euo pipefail
 
 out="${GITHUB_OUTPUT:-/dev/stdout}"
@@ -27,18 +29,19 @@ is_game() {
 }
 
 emit() {
-	local engine="$1"
-	shift
+	local engine="$1" tests="$2"
+	shift 2
 	# Game names are folder names, so quoting each one is enough to make a JSON array.
 	local json
 	json="[$(printf '%s\n' "$@" | sed '/^$/d' | sort -u | sed 's/.*/"&"/' | paste -sd, -)]"
 	echo "engine=$engine" >> "$out"
+	echo "tests=$tests" >> "$out"
 	echo "games=$json" >> "$out"
-	echo "engine=$engine games=$json" >&2
+	echo "engine=$engine tests=$tests games=$json" >&2
 }
 
 if [ "${1:-}" = "--all" ]; then
-	emit true "${all_games[@]}"
+	emit true true "${all_games[@]}"
 	exit 0
 fi
 
@@ -46,11 +49,12 @@ base="$1"
 head="$2"
 if ! files=$(git diff --name-only "$base...$head" 2>/dev/null); then
 	echo "Can't diff $base...$head; building everything" >&2
-	emit true "${all_games[@]}"
+	emit true true "${all_games[@]}"
 	exit 0
 fi
 
 engine=false
+tests=false
 games=()
 while IFS= read -r file; do
 	[ -n "$file" ] || continue
@@ -75,13 +79,23 @@ while IFS= read -r file; do
 			name=$(cut -d/ -f3 <<< "$file")
 			if is_game "$name"; then games+=("$name"); else engine=true; fi
 			;;
+		# The shared test main and helpers: every game's tests link them too.
+		tests/support/*)
+			tests=true
+			games+=("${all_games[@]}")
+			;;
+		# The engine's WASM link check runs only with engine=true (build.yml's wasm-link job). It changes rarely,
+		# so a full engine run is simpler than another output.
+		tests/wasm_link/*) engine=true ;;
+		# Engine tests: compiled only by the engine workflow's desktop-test build, never by a game.
+		tests/*) tests=true ;;
 		# Engine source, tests, CMake, vcpkg, triplets, shared assets, CI actions, and anything unknown.
 		*) engine=true ;;
 	esac
 done <<< "$files"
 
 if [ "$engine" = true ]; then
-	emit true "${all_games[@]}"
+	emit true true "${all_games[@]}"
 else
-	emit false "${games[@]}"
+	emit false "$tests" "${games[@]}"
 fi
