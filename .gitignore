@@ -23,5 +23,11 @@ tools/node_modules/
 saves/
 build-headless/
 
+# Local planning: framework scratch notes, and Game Target tickets (prototypes).
+# Keep a game ticket for later with `git add -f`. See docs/agents/issue-tracker.md.
+/.scratch/
+games/*/issues/
+games/*/.scratch/
+
 # Dear ImGui window layout (written to the working directory)
 imgui.ini

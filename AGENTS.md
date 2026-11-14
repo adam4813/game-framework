@@ -132,7 +132,8 @@ For screenshots (desktop and browser), logs, the headless test harness, and find
 
 ### Issue tracker
 
-Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+Framework issues live on GitHub (`adam4813/game-framework`); Game Target tickets live as gitignored local markdown
+under `games/<name>/`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
