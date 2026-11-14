@@ -331,7 +331,9 @@ If you're starting a new game:
 2. **Familiarize with the ECS** — study `docs/ecs-components.md` and existing module READMEs
 3. **Add your Game Target** — create `games/<name>/` (`CMakeLists.txt` calling
    `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper,
-   optionally `assets/`); the root `CMakeLists.txt` picks up every `games/*/CMakeLists.txt` on its own
+   optionally `assets/`); the root `CMakeLists.txt` picks up every `games/*/CMakeLists.txt` on its own. A test
+   harness that presses keys sets the `KeyOverride` singleton (`src/engine/input/README.md`) rather than writing
+   `InputState`, which `InputPoll` overwrites every frame
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
 5. **Define your data** — game-specific content goes in JSON configs under `games/<name>/assets/`; content
    more than one game uses goes under the root `assets/`
