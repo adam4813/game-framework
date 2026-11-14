@@ -16,7 +16,7 @@ struct YardBucket {
 	float weight{1.0F};
 };
 
-// Immutable definition of a play, parsed from assets/data/football/plays/<id>.json. Plain data.
+// Immutable definition of a play, parsed from games/football/assets/data/plays/<id>.json. Plain data.
 struct PlayDef {
 	std::string name;              // display name ("Slant")
 	std::string category{"run"};   // "run" | "pass" | "trick" — drives odds flavour + the pick animation
@@ -28,7 +28,7 @@ struct PlayDef {
 
 // Immutable definition of a modifier card: a utility ("cheat") or a buff/debuff that is *played onto
 // the hand* to change the remaining plays' odds this down. Parsed from
-// assets/data/football/modifiers/<id>.json. The `effect` key selects how it changes the hand.
+// games/football/assets/data/modifiers/<id>.json. The `effect` key selects how it changes the hand.
 struct ModifierDef {
 	std::string name;
 	std::string category;    // "utility" | "buff" | "debuff" (display flavour)

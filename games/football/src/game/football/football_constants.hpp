@@ -5,7 +5,7 @@
 
 // Shared tuning constants for the football prototype. All balance values live here as constexpr so
 // tuning never requires touching gameplay logic (data-driven design; magic numbers stay out of
-// systems). Play definitions themselves live in JSON under assets/data/football/plays/.
+// systems). Play definitions themselves live in JSON under games/football/assets/data/plays/.
 namespace game::football::constants {
 
 // ── Drive / segment rules ──
@@ -43,12 +43,12 @@ inline constexpr int kHandSize = 3; // cards drawn from the deck each down (plus
 inline constexpr std::string_view kBasicRun = "basic_run";
 inline constexpr std::string_view kBasicPass = "basic_pass";
 
-// Starting deck (the "playbook" the player can inspect). Ids reference assets/data/football/plays/.
+// Starting deck (the "playbook" the player can inspect). Ids reference games/football/assets/data/plays/.
 inline constexpr std::array<std::string_view, 9> kStartingPlays{
 	"run_dive", "run_dive", "off_tackle", "short_pass", "short_pass", "slant", "deep_pass", "screen", "qb_sneak",
 };
 
-// Modifier cards the player starts with in the deck (ids into assets/data/football/modifiers/).
+// Modifier cards the player starts with in the deck (ids into games/football/assets/data/modifiers/).
 inline constexpr std::array<std::string_view, 2> kStartingModifiers{
 	"pay_off_ref",
 	"playbook_boost",

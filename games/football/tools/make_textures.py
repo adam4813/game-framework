@@ -2,18 +2,18 @@
 """Generate simple, tileable N64-era textures for the football prototype.
 
 Low-res, limited-palette, dithered/noisy art meant to be tiled at native resolution by the engine's
-DrawTexturedRect (source rect = destination size, wrapping via REPEAT). Run from the repo root:
+DrawTexturedRect (source rect = destination size, wrapping via REPEAT). Run from anywhere:
 
-    python tools/gen_football_textures.py
+    python games/football/tools/make_textures.py
 
-Outputs PNGs under assets/textures/football/.
+Outputs PNGs under games/football/assets/textures/.
 """
 import os
 import random
 from PIL import Image
 
 random.seed(64)  # deterministic output
-OUT = os.path.join("assets", "textures", "football")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "textures")
 os.makedirs(OUT, exist_ok=True)
 
 

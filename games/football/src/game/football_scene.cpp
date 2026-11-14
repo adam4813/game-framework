@@ -167,11 +167,11 @@ void FootballScene::Load(flecs::world& world) {
 	football::LoadContent(world);
 	football::InitRun(world);
 
-	texField_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/field.png"));
-	texPanel_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/panel.png"));
-	texButton_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/button.png"));
-	texBoard_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/scoreboard.png"));
-	texMenu_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/menu_bg.png"));
+	texField_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/field.png"));
+	texPanel_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/panel.png"));
+	texButton_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/button.png"));
+	texBoard_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/scoreboard.png"));
+	texMenu_ = platform->LoadTexture(assets::ResolveAsset(world, "textures/menu_bg.png"));
 
 	uiRoot_ = world.entity("FootballUI");
 	uiRoot_.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = w, .h = h}});

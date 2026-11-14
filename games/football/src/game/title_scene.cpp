@@ -21,8 +21,8 @@ void TitleScene::Load(flecs::world& world) {
 	auto* platform = world.get<platform::PlatformRef>().ptr;
 	const auto w = static_cast<float>(platform->Width());
 	const auto h = static_cast<float>(platform->Height());
-	const int texMenu = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/menu_bg.png"));
-	const int texButton = platform->LoadTexture(assets::ResolveAsset(world, "textures/football/button.png"));
+	const int texMenu = platform->LoadTexture(assets::ResolveAsset(world, "textures/menu_bg.png"));
+	const int texButton = platform->LoadTexture(assets::ResolveAsset(world, "textures/button.png"));
 
 	// Root container spanning the screen; children are positioned in absolute screen coordinates.
 	uiRoot_ = world.entity("TitleUI");

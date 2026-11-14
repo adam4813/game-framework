@@ -56,12 +56,12 @@ std::optional<ModifierDef> ParseModifier(const std::string_view id, const nlohma
 } // namespace
 
 int LoadContent(const flecs::world& world) {
-	const std::string plays_dir = engine::assets::ResolveAsset(world, "data/football/plays");
+	const std::string plays_dir = engine::assets::ResolveAsset(world, "data/plays");
 	PlayRegistry plays;
 	const int loaded_plays = engine::core::LoadRegistryFromDirectory<PlayDef>(plays_dir, "Football", plays, ParsePlay);
 	world.set<PlayRegistry>(std::move(plays));
 
-	const std::string mods_dir = engine::assets::ResolveAsset(world, "data/football/modifiers");
+	const std::string mods_dir = engine::assets::ResolveAsset(world, "data/modifiers");
 	ModifierRegistry modifiers;
 	const int loaded_mods =
 		engine::core::LoadRegistryFromDirectory<ModifierDef>(mods_dir, "Football", modifiers, ParseModifier);

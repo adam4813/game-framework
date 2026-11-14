@@ -4,7 +4,7 @@
 
 namespace game::football {
 
-// Load all play + consumable definitions from assets/data/football/ into their registries and set
+// Load all play + consumable definitions from games/football/assets/data/ into their registries and set
 // them on the world as singletons. Returns the number of plays loaded.
 int LoadContent(const flecs::world& world);
 
