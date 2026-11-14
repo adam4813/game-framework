@@ -24,8 +24,11 @@ promoted to `src/engine/` rather than duplicated.
 ## Consequences
 
 - `src/game/` narrows to the `sandbox` demo executable (CubeScene, NoiseScene, TilemapScene,
-  TitleScene) used for engine feature development.
-- Every new game starts in `games/<name>/` with its own CMakeLists.txt, `src/`, and `tests/`; it
-  adds itself via `add_subdirectory` from the root.
+  TitleScene) used for engine feature development. It has since become a Game Target itself, at
+  `games/sandbox/`.
+- Every new game starts in `games/<name>/` with its own CMakeLists.txt, `src/`, and `tests/`. The
+  root CMakeLists.txt discovers every `games/*/CMakeLists.txt` by glob, and the game's CMakeLists.txt
+  calls `setup_game_target()` (`cmake/GameTarget.cmake`) for the engine link, asset copy and WASM
+  link flags. README, "Building from Scratch", lists the steps.
 - `engine_testable` is retired; its role is replaced by `engine_lib` (tests link the same target
   as production code).
