@@ -1,0 +1,8 @@
+{
+	"name": "Clean Game",
+	"category": "buff",
+	"effect": "reduce_flag",
+	"description": "-10% penalty flag chance on your play",
+	"amount": 10,
+	"cost": 7
+}

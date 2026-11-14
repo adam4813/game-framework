@@ -1,0 +1,8 @@
+{
+	"name": "Slant",
+	"category": "pass",
+	"yards": [[0, 1], [5, 2], [8, 3], [12, 2]],
+	"turnoverChance": 0.06,
+	"flagChance": 0.06,
+	"cost": 11
+}

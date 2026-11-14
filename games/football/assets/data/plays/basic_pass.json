@@ -1,0 +1,7 @@
+{
+	"name": "Basic Pass",
+	"category": "pass",
+	"yards": [[0, 3], [4, 3], [7, 2], [10, 1]],
+	"turnoverChance": 0.05,
+	"cost": 0
+}

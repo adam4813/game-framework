@@ -1,0 +1,8 @@
+{
+	"name": "Hail Mary",
+	"category": "trick",
+	"yards": [[0, 6], [40, 1], [60, 1]],
+	"turnoverChance": 0.25,
+	"flagChance": 0.15,
+	"cost": 14
+}
