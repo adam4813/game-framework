@@ -1,15 +1,19 @@
 name: 'Changed targets'
 description: >-
-  Decide what this push or pull request has to build: the engine (src/, tests/, CMake, vcpkg, shared assets,
-  CI setup) and which Game Targets. Docs-only changes build nothing; a game-only change builds just that game.
+  Decide what this push or pull request has to build: the engine (src/, CMake, vcpkg, shared assets, CI
+  setup), the engine tests (tests/) and which Game Targets. Docs-only changes build nothing; a game-only change
+  builds and tests just that game; a tests-only change runs only the engine tests.
   Needs a checkout with full history (fetch-depth 0).
 
 outputs:
   engine:
-    description: "'true' when the engine must be built and tested"
+    description: "'true' when the engine must be built (implies tests)"
     value: ${{ steps.detect.outputs.engine }}
+  tests:
+    description: "'true' when the engine tests must be built and run"
+    value: ${{ steps.detect.outputs.tests }}
   games:
-    description: 'JSON array of the Game Targets to build (every game when the engine changed)'
+    description: 'JSON array of the Game Targets to build and test (every game when the engine changed)'
     value: ${{ steps.detect.outputs.games }}
 
 runs:

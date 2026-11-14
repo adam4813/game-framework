@@ -17,3 +17,7 @@ target_link_libraries(scene_equivalence_test PRIVATE engine_lib)
 
 # JSON, AngelScript and C++ authoring must build the same world (known open mismatches excepted).
 add_test(NAME scene_equivalence COMMAND scene_equivalence_test "${CMAKE_CURRENT_BINARY_DIR}/scene_test_output")
+set_tests_properties(scene_equivalence PROPERTIES LABELS engine)
+if (TARGET engine_tests)
+    add_dependencies(engine_tests scene_equivalence_test)
+endif ()

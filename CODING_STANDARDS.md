@@ -171,4 +171,6 @@ it by eye.
   `create-module` skill) and `COMPONENT_COVERAGE.md`. Authored means level JSON can set it. A runtime-only singleton
   or component (`RngState`) needs neither.
 - **Engine tests register with `add_engine_test`**, a Game Target's with its own helper (`add_<game>_test`), so
-  `ctest --preset desktop-test-release` runs them all.
+  `ctest --preset desktop-test-release` runs them all. The game's helper adds each test to a `<game>_tests` target
+  and labels it `<game>` (`games/crabnado/tests/CMakeLists.txt`): CI's Build Games workflow builds and runs only
+  that, and the engine workflow only `engine_tests` / label `engine`.

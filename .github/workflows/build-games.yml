@@ -1,7 +1,7 @@
 name: Build Games
 
-# Builds every Game Target under games/ (ADR-0006) for each platform and uploads one artifact per
-# game per platform. The WASM artifact is laid out for itch.io: unzip-and-upload, index.html at the root.
+# Builds every Game Target under games/ (ADR-0006) for each platform, runs its own tests on desktop, and
+# uploads one artifact per game per platform. The WASM artifact is laid out for itch.io: unzip-and-upload, index.html at the root.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -43,15 +43,16 @@ jobs:
       matrix:
         game: ${{ fromJson(needs.discover.outputs.games) }}
         platform: [ linux, windows, wasm ]
+        # Desktop legs use desktop-test (desktop plus BUILD_TESTING) so the game's own tests build and run here.
         include:
           - platform: linux
             os: ubuntu-latest
             target: Desktop
-            preset: desktop
+            preset: desktop-test
           - platform: windows
             os: windows-latest
             target: Desktop
-            preset: desktop
+            preset: desktop-test
           - platform: wasm
             os: ubuntu-latest
             target: WebAssembly
@@ -80,7 +81,29 @@ jobs:
       - name: Build ${{ matrix.game }}
         run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}
 
-      # Configure is where vcpkg builds ports, so save them even when the game's build fails.
+      # A game with tests has games/<game>/tests/, which defines a <game>_tests target and labels its tests
+      # <game> (see games/crabnado/tests/CMakeLists.txt). Tests are desktop-only.
+      - name: Detect ${{ matrix.game }} tests
+        id: game-tests
+        if: matrix.platform != 'wasm'
+        shell: bash
+        run: |
+          if [ -f "games/${{ matrix.game }}/tests/CMakeLists.txt" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "${{ matrix.game }} has no tests"
+          fi
+
+      - name: Build ${{ matrix.game }} tests
+        if: steps.game-tests.outputs.present == 'true'
+        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}_tests
+
+      - name: Run ${{ matrix.game }} tests
+        if: steps.game-tests.outputs.present == 'true'
+        run: ctest --preset ${{ matrix.preset }}-release --output-on-failure -L "^${{ matrix.game }}$"
+
+      # Configure is where vcpkg builds ports, so save them even when the game's build or tests fail.
       - name: Save vcpkg binary cache
         if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
         uses: $/.github/actions/save-vcpkg-cache
