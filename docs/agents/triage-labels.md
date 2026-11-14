@@ -13,11 +13,16 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+On GitHub (framework tickets) the role is a label, and the category labels are `bug`, `enhancement` and
+`documentation`. In a local Game Target ticket it is the `Status:` line. See `issue-tracker.md`.
 
 ## Closing a ticket (`done`)
 
-A ticket is `done` when:
+**GitHub:** `done` is a closed issue, not a label. The merging PR's `Closes #NN` closes it. Before merging, tick the
+issue's checkboxes, adjust any acceptance criteria that changed (and say why in a comment), and let the PR carry the
+branch, commits and files.
+
+**Local Game Target ticket:** it is `done` when:
 
 1. Every `- [ ]` checkbox is flipped to `- [x]`.
 2. `**Status:** done` replaces the previous status line.
