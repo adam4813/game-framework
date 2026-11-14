@@ -1,0 +1,64 @@
+{
+  "creatures": [
+    {
+      "kind": "cow",
+      "sprite": "villager",
+      "biomes": ["Plains"],
+      "nearTown": true,
+      "wilderness": false,
+      "wanderRadius": 3,
+      "height": 1.5,
+      "weight": 4
+    },
+    {
+      "kind": "sheep",
+      "sprite": "villager",
+      "biomes": ["Plains"],
+      "nearTown": true,
+      "wilderness": false,
+      "wanderRadius": 3,
+      "height": 1.2,
+      "weight": 4
+    },
+    {
+      "kind": "chicken",
+      "sprite": "villager",
+      "biomes": ["Plains"],
+      "nearTown": true,
+      "wilderness": false,
+      "wanderRadius": 2,
+      "height": 0.8,
+      "weight": 3
+    },
+    {
+      "kind": "deer",
+      "sprite": "villager",
+      "biomes": ["Plains"],
+      "nearTown": false,
+      "wilderness": true,
+      "wanderRadius": 5,
+      "height": 1.6,
+      "weight": 3
+    },
+    {
+      "kind": "rabbit",
+      "sprite": "villager",
+      "biomes": ["Plains", "Beach"],
+      "nearTown": false,
+      "wilderness": true,
+      "wanderRadius": 4,
+      "height": 0.7,
+      "weight": 4
+    },
+    {
+      "kind": "fox",
+      "sprite": "villager",
+      "biomes": ["Plains"],
+      "nearTown": false,
+      "wilderness": true,
+      "wanderRadius": 5,
+      "height": 1.0,
+      "weight": 2
+    }
+  ]
+}

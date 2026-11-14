@@ -1,0 +1,12 @@
+{
+	"treeSpecies": {
+		"forest": [
+			{ "kind": "tree_oak", "sprite": "tree_oak", "minHeight": 1.5, "maxHeight": 2.0 },
+			{ "kind": "tree_birch", "sprite": "tree_birch", "minHeight": 1.5, "maxHeight": 2.0 }
+		],
+		"deep_forest": [
+			{ "kind": "tree_pine", "sprite": "tree_pine_dark", "minHeight": 2.5, "maxHeight": 3.0 },
+			{ "kind": "tree_fir", "sprite": "tree_fir_dark", "minHeight": 3.5, "maxHeight": 4.0 }
+		]
+	}
+}

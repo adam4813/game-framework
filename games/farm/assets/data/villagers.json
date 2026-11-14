@@ -1,0 +1,161 @@
+{
+  "villagers": [
+    {
+      "id": "farmer_oswald",
+      "name": "Oswald",
+      "archetype": "farmer",
+      "schedule": [
+        { "startHour": 6,  "offset": [2, 3] },
+        { "startHour": 12, "offset": [3, 5] },
+        { "startHour": 20, "offset": [2, 4] }
+      ],
+      "dialog": {
+        "speaker": "Oswald",
+        "greeting": "Good morning! Hard work feeds the village."
+      }
+    },
+    {
+      "id": "shopkeeper_mira",
+      "name": "Mira",
+      "archetype": "shopkeeper",
+      "schedule": [
+        { "startHour": 8,  "offset": [4, 2] },
+        { "startHour": 20, "offset": [4, 1] }
+      ],
+      "dialog": {
+        "speaker": "Mira",
+        "greeting": "Welcome to Mira's! What can I do for you?"
+      },
+      "shop": {
+        "sell_items": [
+          { "typeId": "wheat_seed",  "price": 10, "count": 5 },
+          { "typeId": "tomato_seed", "price": 15, "count": 5 },
+          { "typeId": "carrot_seed", "price": 12, "count": 5 }
+        ],
+        "buy_items": [
+          { "typeId": "wheat",  "price": 8 },
+          { "typeId": "tomato", "price": 12 },
+          { "typeId": "carrot", "price": 10 }
+        ]
+      }
+    },
+    {
+      "id": "elder_aldric",
+      "name": "Aldric",
+      "archetype": "elder",
+      "schedule": [
+        { "startHour": 9,  "offset": [-2, 2] },
+        { "startHour": 16, "offset": [-3, 1] },
+        { "startHour": 21, "offset": [-1, -1] }
+      ],
+      "dialog": {
+        "speaker": "Aldric",
+        "greeting": "This village has stood for generations. May it stand for many more."
+      }
+    }
+  ],
+  "name_pool": [
+    "Rowan", "Mabel", "Cedric", "Odette", "Garrick", "Linnea", "Tobias", "Wrenna",
+    "Alden", "Peony", "Harlow", "Isolde", "Bram", "Fenna", "Osric", "Greta",
+    "Caddock", "Nessa", "Dorian", "Maren", "Edric", "Sorrel", "Perrin", "Yara",
+    "Hollis", "Ingrid", "Merrick", "Dahlia", "Corin", "Elspeth", "Rafe", "Wyn"
+  ],
+  "town_villagers": {
+    "perCapita": 0.04,
+    "min": 1,
+    "max": 8
+  },
+  "archetypes": [
+    {
+      "id": "farmer",
+      "weight": 5,
+      "buildingKind": "",
+      "dialog": { "greeting": "The fields keep us all fed. Fair weather to you." },
+      "schedule": [
+        { "startHour": 6,  "place": "work" },
+        { "startHour": 13, "place": "work" },
+        { "startHour": 20, "place": "home" }
+      ]
+    },
+    {
+      "id": "shopkeeper",
+      "weight": 2,
+      "buildingKind": "shop",
+      "dialog": { "greeting": "Looking to trade? You've come to the right counter." },
+      "schedule": [
+        { "startHour": 8,  "place": "work" },
+        { "startHour": 20, "place": "home" }
+      ],
+      "shop": {
+        "sell_items": [
+          { "typeId": "wheat_seed",  "price": 10, "count": 5 },
+          { "typeId": "carrot_seed", "price": 12, "count": 5 }
+        ],
+        "buy_items": [
+          { "typeId": "wheat",  "price": 8 },
+          { "typeId": "carrot", "price": 10 }
+        ]
+      }
+    },
+    {
+      "id": "elder",
+      "weight": 1,
+      "buildingKind": "hall",
+      "dialog": { "greeting": "Every town has a story. Ours is still being written." },
+      "schedule": [
+        { "startHour": 9,  "place": "work" },
+        { "startHour": 18, "place": "home" }
+      ]
+    },
+    {
+      "id": "barkeep",
+      "weight": 2,
+      "buildingKind": "tavern",
+      "dialog": { "greeting": "Pull up a stool. The ale's cold and the gossip's hot." },
+      "schedule": [
+        { "startHour": 11, "place": "work" },
+        { "startHour": 23, "place": "home" }
+      ]
+    },
+    {
+      "id": "blacksmith",
+      "weight": 2,
+      "buildingKind": "smithy",
+      "dialog": { "greeting": "Mind the sparks. Need a blade mended or a shoe cast?" },
+      "schedule": [
+        { "startHour": 7,  "place": "work" },
+        { "startHour": 19, "place": "home" }
+      ]
+    },
+    {
+      "id": "priest",
+      "weight": 1,
+      "buildingKind": "chapel",
+      "dialog": { "greeting": "Peace be with you, traveller. Rest a while." },
+      "schedule": [
+        { "startHour": 8,  "place": "work" },
+        { "startHour": 20, "place": "home" }
+      ]
+    },
+    {
+      "id": "merchant",
+      "weight": 2,
+      "buildingKind": "market",
+      "dialog": { "greeting": "Finest wares from across the realm! Come, have a look." },
+      "schedule": [
+        { "startHour": 8,  "place": "work" },
+        { "startHour": 18, "place": "home" }
+      ]
+    },
+    {
+      "id": "guard",
+      "weight": 1,
+      "buildingKind": "guardhouse",
+      "dialog": { "greeting": "Keep the peace and we'll have no trouble, you and I." },
+      "schedule": [
+        { "startHour": 6,  "place": "work" },
+        { "startHour": 18, "place": "work" }
+      ]
+    }
+  ]
+}

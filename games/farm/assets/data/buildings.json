@@ -1,0 +1,17 @@
+{
+  "buildings": [
+    { "kind": "cottage",   "width": 2, "length": 2, "wallHeight": 2.5, "weight": 5, "occupancy": 2 },
+    { "kind": "house",     "width": 3, "length": 3, "wallHeight": 3.0, "weight": 6, "occupancy": 4 },
+    { "kind": "longhouse", "width": 3, "length": 4, "wallHeight": 3.0, "weight": 2, "occupancy": 6 },
+
+    { "kind": "barn",       "width": 4, "length": 4, "wallHeight": 4.0, "farm": true, "minTier": "hamlet",  "maxCount": 2 },
+    { "kind": "shop",       "width": 4, "length": 3, "wallHeight": 3.0, "villagerArchetype": "shopkeeper", "minTier": "village", "maxCount": 4, "perCapita": 0.02 },
+    { "kind": "tavern",     "width": 4, "length": 4, "wallHeight": 3.5, "villagerArchetype": "barkeep",    "minTier": "village", "maxCount": 1 },
+    { "kind": "smithy",     "width": 3, "length": 3, "wallHeight": 3.0, "villagerArchetype": "blacksmith", "minTier": "town",    "maxCount": 1 },
+    { "kind": "hall",       "width": 5, "length": 4, "wallHeight": 5.0, "villagerArchetype": "elder",      "minTier": "town",    "maxCount": 1 },
+    { "kind": "chapel",     "width": 4, "length": 5, "wallHeight": 4.5, "villagerArchetype": "priest",     "minTier": "town",    "maxCount": 1 },
+    { "kind": "market",     "width": 4, "length": 4, "wallHeight": 2.5, "villagerArchetype": "merchant",   "minTier": "city",    "maxCount": 3, "perCapita": 0.03 },
+    { "kind": "temple",     "width": 5, "length": 5, "wallHeight": 6.0, "villagerArchetype": "priest",     "minTier": "city",    "maxCount": 1 },
+    { "kind": "guardhouse", "width": 3, "length": 3, "wallHeight": 3.5, "villagerArchetype": "guard",      "minTier": "city",    "maxCount": 1 }
+  ]
+}
