@@ -107,12 +107,14 @@ public:
 	/// Teleport a character to an entity position.
 	void SetCharacterPosition(flecs::entity_t entity, const glm::vec3& position);
 
-	/// Set a character's linear velocity, e.g. to restore a server-given state before re-simulating. The next step
-	/// keeps its part along up (unless grounded and not leaving the ground); `CharacterMove` replaces the planar part.
+	/// Set a character's linear velocity. The next step keeps its part along up (unless grounded and not leaving the
+	/// ground); `CharacterMove` replaces the planar part. ECS code restores a character for replay through
+	/// `RestoreCharacter` (character_step.hpp), which also writes the state to its components.
 	void SetCharacterVelocity(flecs::entity_t entity, const glm::vec3& velocity);
 
 	/// Re-detect a character's contacts at its current position, so its ground state matches a position just set.
-	/// Uses the step's temp allocator, so call it outside `progress()`.
+	/// Uses the step's temp allocator, so never call it while another thread is in the backend (character_step.hpp,
+	/// "Where to call them").
 	void RefreshCharacterContacts(flecs::entity_t entity);
 
 	/// Advance one character by `delta_time`: planar velocity, gravity along up, grounding, slopes, steps. Call before

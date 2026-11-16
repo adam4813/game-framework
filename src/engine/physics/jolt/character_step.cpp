@@ -31,6 +31,29 @@ void WriteCharacterBack(
 	};
 }
 
+namespace {
+
+// WriteCharacterBack onto the entity's own components, when it has both.
+void WriteBackToComponents(JoltBackend& backend, const flecs::entity character) {
+	auto* local = character.try_get_mut<spatial::Transform>();
+	auto* state = character.try_get_mut<CharacterState>();
+	if (local && state) {
+		WriteCharacterBack(backend, character.id(), *local, *state);
+	}
+}
+
+} // namespace
+
+void RestoreCharacter(const flecs::entity character, const glm::vec3& position, const glm::vec3& velocity) {
+	auto& backend = character.world().get_mut<JoltBackend>();
+	if (!backend.HasCharacter(character.id())) return;
+
+	backend.SetCharacterPosition(character.id(), position);
+	backend.SetCharacterVelocity(character.id(), velocity);
+	backend.RefreshCharacterContacts(character.id());
+	WriteBackToComponents(backend, character);
+}
+
 void StepCharacterTick(const flecs::entity character) {
 	const flecs::world world = character.world();
 	auto& backend = world.get_mut<JoltBackend>();
@@ -44,12 +67,7 @@ void StepCharacterTick(const flecs::entity character) {
 		dt,
 		MakeCharacterStepInput(character.try_get<CharacterMove>(), character.try_get<Gravity>(), world_gravity)
 	);
-
-	auto* local = character.try_get_mut<spatial::Transform>();
-	auto* state = character.try_get_mut<CharacterState>();
-	if (local && state) {
-		WriteCharacterBack(backend, character.id(), *local, *state);
-	}
+	WriteBackToComponents(backend, character);
 }
 
 } // namespace engine::physics

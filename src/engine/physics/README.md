@@ -13,8 +13,9 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
 - **physics_script_bindings.hpp/cpp** — the queries' AngelScript bindings and `Layer_*` constants
 - **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping, queries)
 - **jolt/jolt_module.hpp/cpp** — Jolt-specific Flecs systems (sync, step, collision events)
-- **jolt/character_step.hpp/cpp** — `StepCharacterTick` (one character, one Tick, for replay) and the input and
-  write-back helpers it shares with `PhysicsStep` and `CharacterSyncFromBackend`
+- **jolt/character_step.hpp/cpp** — `RestoreCharacter` and `StepCharacterTick` (put one character back to a given
+  state, then step it one Tick at a time, for replay) and the input and write-back helpers they share with
+  `PhysicsStep` and `CharacterSyncFromBackend`
 - **jolt/jolt_debug_renderer.cpp** — Debug visualization support
 - **physics.hpp** — Main public API header
 
@@ -137,22 +138,32 @@ After the step, `CharacterSyncFromBackend` (PostUpdate) writes the position to `
 **Teleport:** `CharacterTeleport` compares `Transform.position` to the position last written back; a difference moves
 the character there. Rotation is ignored, so a game can drive facing every frame.
 
-**Replay** (re-simulating a predicted character after a correction): restore its state through the `JoltBackend`
-singleton, then step it alone, one Tick per call, with `StepCharacterTick` (`jolt/character_step.hpp`). The call runs
-the same movement update and write-back as `PhysicsStep` and `CharacterSyncFromBackend` (they share
-`MakeCharacterStepInput` and `WriteCharacterBack`), so a replayed character lands where a Tick would put it. It steps
-no other character or body and doesn't advance the Tick counter.
+**Replay** (re-simulating a predicted character after a correction): put it back to the Server's state with
+`RestoreCharacter`, then step it alone, one Tick per call, with `StepCharacterTick` (both in `jolt/character_step.hpp`,
+exported by `engine/engine.hpp`).
+
+- `RestoreCharacter(character, position, velocity)` moves the character, re-detects its ground contacts, and writes the
+  position to `Transform` and the ground state and velocity to `CharacterState`. Writing `Transform` is what keeps the
+  next Tick's `CharacterTeleport` from moving it back to where it was. The part of the velocity along up survives the
+  next step; `CharacterMove` replaces the planar part.
+- `StepCharacterTick(character)` runs the same movement update and write-back as `PhysicsStep` and
+  `CharacterSyncFromBackend` (they share `MakeCharacterStepInput` and `WriteCharacterBack`), so a replayed character
+  lands where a Tick would put it. It steps no other character or body and doesn't advance the Tick counter.
 
 ```cpp
-auto& physics = world.get_mut<engine::physics::JoltBackend>();
-physics.SetCharacterPosition(player.id(), server.position);
-physics.SetCharacterVelocity(player.id(), server.velocity); // the part along up survives the step
-physics.RefreshCharacterContacts(player.id());              // ground state for the new position
+engine::physics::RestoreCharacter(player, server.position, server.velocity);
 for (const auto& input : inputs_since_server_tick) {
     player.set<engine::physics::CharacterMove>({.velocity = input.move});
     engine::physics::StepCharacterTick(player);
 }
 ```
+
+Call the pair outside `progress()`, or from an immediate system in the Tick before `PhysicsStep` (e.g. a FixedStep
+system with `.kind(flecs::OnLoad).immediate()`); that Tick's `PhysicsStep` then steps the character once more from where
+the replay left it. Inside the system, wrap the replay in `it.world().defer_suspend()` / `defer_resume()`: an immediate
+system's commands are still deferred, so without it each `set<CharacterMove>` waits in the command queue and the steps
+replay the old input. Never call them from a `multi_threaded` system: they share the physics step's temp allocator,
+which is only safe while no other thread is in the backend.
 
 **Inner body:** with `inner_body` (the default), the character also gets a kinematic body in the physics system: the
 same capsule and offset as its `CollisionShape`, on `CharacterBody.layer`, carrying the entity as user data. It gives

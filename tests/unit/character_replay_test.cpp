@@ -1,4 +1,5 @@
 #include <memory>
+#include <tuple>
 
 #include <gtest/gtest.h>
 
@@ -66,9 +67,7 @@ TEST(CharacterReplay, RestoredPositionAndVelocityDriveTheNextStep) {
 	const auto walker = w.Walker();
 	ASSERT_TRUE(walker.get<CharacterState>().grounded);
 
-	w.Backend().SetCharacterPosition(walker.id(), {0.0F, 2.0F, 0.0F});
-	w.Backend().SetCharacterVelocity(walker.id(), {0.0F, -2.0F, 0.0F});
-	w.Backend().RefreshCharacterContacts(walker.id());
+	engine::physics::RestoreCharacter(walker, {0.0F, 2.0F, 0.0F}, {0.0F, -2.0F, 0.0F});
 	EXPECT_FALSE(w.Backend().GetCharacterSyncResult(walker.id()).grounded);
 
 	engine::physics::StepCharacterTick(walker);
@@ -78,6 +77,75 @@ TEST(CharacterReplay, RestoredPositionAndVelocityDriveTheNextStep) {
 	EXPECT_NEAR(walker.get<Transform>().position.y, expected_y, 1e-3F);
 	EXPECT_FALSE(walker.get<CharacterState>().grounded);
 	EXPECT_NEAR(walker.get<CharacterState>().velocity.y, -2.0F + kGravity * kTickDt, 1e-3F);
+}
+
+// The components match the restored state at once, before any step writes them.
+TEST(CharacterReplay, RestoringWritesTheStateToTheCharactersComponents) {
+	const ReplayWorld w;
+	const auto walker = w.Walker();
+	ASSERT_TRUE(walker.get<CharacterState>().grounded);
+
+	engine::physics::RestoreCharacter(walker, {4.0F, 2.0F, -1.0F}, {1.0F, -2.0F, 0.5F});
+
+	EXPECT_NEAR(walker.get<Transform>().position.x, 4.0F, 1e-5F);
+	EXPECT_NEAR(walker.get<Transform>().position.y, 2.0F, 1e-5F);
+	EXPECT_NEAR(walker.get<Transform>().position.z, -1.0F, 1e-5F);
+	const auto& state = walker.get<CharacterState>();
+	EXPECT_FALSE(state.grounded); // 2 m above the floor
+	EXPECT_NEAR(state.velocity.x, 1.0F, 1e-5F);
+	EXPECT_NEAR(state.velocity.y, -2.0F, 1e-5F);
+	EXPECT_NEAR(state.velocity.z, 0.5F, 1e-5F);
+}
+
+// A restored character isn't taken for a teleport: the next Tick steps it from where it was put, not from where the
+// Transform held it before the restore.
+TEST(CharacterReplay, TheTickAfterARestoreStepsFromTheRestoredPosition) {
+	const ReplayWorld w;
+	const auto walker = w.Walker();
+	ASSERT_NEAR(walker.get<Transform>().position.x, 0.0F, 1e-3F);
+
+	engine::physics::RestoreCharacter(walker, {10.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F});
+	engine::fixed_step::RunTick(w.World());
+
+	const glm::vec3 feet = walker.get<Transform>().position;
+	EXPECT_NEAR(feet.x, 10.0F, 1e-3F);
+	EXPECT_NEAR(feet.y, 0.0F, 0.01F);
+	EXPECT_TRUE(walker.get<CharacterState>().grounded);
+}
+
+// The supported in-Tick replay: an immediate system at the start of the Tick, deferral suspended so the new
+// CharacterMove reaches the step, restores and replays; then PhysicsStep steps the character once more from where the
+// replay left it.
+TEST(CharacterReplay, AnImmediateSystemBeforePhysicsStepCanRestoreAndReplay) {
+	const ReplayWorld w;
+	const auto walker = w.Walker();
+	int runs = 0;
+	std::ignore = w.World()
+					  .system("ReplayAtTickStart")
+					  .kind(flecs::OnLoad)
+					  .immediate()
+					  .run([walker, &runs](flecs::iter& it) {
+						  while (it.next()) {}
+						  if (runs++ > 0) return;
+						  it.world().defer_suspend();
+						  engine::physics::RestoreCharacter(walker, {0.0F, 2.0F, 0.0F}, {0.0F, -2.0F, 0.0F});
+						  walker.set<CharacterMove>({.velocity = {3.0F, 0.0F, 0.0F}});
+						  engine::physics::StepCharacterTick(walker);
+						  it.world().defer_resume();
+					  })
+					  .add<engine::ecs::FixedStep>();
+
+	engine::fixed_step::RunTick(w.World());
+
+	// Two Ticks of falling from 2 m at -2 m/s (the replayed one, then PhysicsStep's), and two of moving at 3 m/s:
+	// v1 = -2 + g dt, v2 = v1 + g dt, y = 2 + (v1 + v2) dt.
+	const float v1 = -2.0F + kGravity * kTickDt;
+	const float v2 = v1 + kGravity * kTickDt;
+	const glm::vec3 feet = walker.get<Transform>().position;
+	EXPECT_EQ(runs, 1);
+	EXPECT_NEAR(feet.x, 2.0F * 3.0F * kTickDt, 1e-3F);
+	EXPECT_NEAR(feet.y, 2.0F + (v1 + v2) * kTickDt, 1e-3F);
+	EXPECT_NEAR(walker.get<CharacterState>().velocity.y, v2, 1e-3F);
 }
 
 TEST(CharacterReplay, SteppingOneCharacterLeavesTheRestOfTheWorldAlone) {
@@ -105,9 +173,7 @@ TEST(CharacterReplay, RaycastsHitAReplayedCharacterAtItsCorrectedPosition) {
 	const auto walker = w.Walker();
 	ASSERT_TRUE(walker.get<CharacterState>().grounded);
 
-	w.Backend().SetCharacterPosition(walker.id(), {10.0F, 0.0F, 0.0F});
-	w.Backend().SetCharacterVelocity(walker.id(), {0.0F, 0.0F, 0.0F});
-	w.Backend().RefreshCharacterContacts(walker.id());
+	engine::physics::RestoreCharacter(walker, {10.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F});
 	walker.set<CharacterMove>({.velocity = {0.0F, 0.0F, 3.0F}});
 	for (int i = 0; i < 20; ++i) {
 		engine::physics::StepCharacterTick(walker);
