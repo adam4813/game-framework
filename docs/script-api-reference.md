@@ -201,6 +201,12 @@ A `RaycastFilter.layer_mask` bit is `1 << Layer_<Name>`.
 `AmbientLight`, `DirectionalLight`, `PointLight`, `Material`, `SpriteAtlas`, `AlbedoMap`, `SkeletalAnimationSet`,
 `AnimationPlayer`
 
+### Globals
+
+| Global                                                         | Returns | Description                                                                                                          |
+|----------------------------------------------------------------|---------|----------------------------------------------------------------------------------------------------------------------|
+| `DrawLine3D(const vec3 &in from, const vec3 &in to, const Rgba &in color)` | `void`  | Draws a one-pixel world-space line this frame, depth-tested so geometry in front hides it. Call it every `Tick` to keep it shown. |
+
 ---
 
 ## UI (`ui_module.cpp`)

@@ -129,6 +129,26 @@ variant for WebGL).
   it; setting over the existing component would never release the file's reference. Sandbox example: the
   `RuntimeAlbedoQuad` in `CubeScene` (`games/sandbox/src/game/cube_scene.cpp`).
 
+## 3D lines
+
+To draw a line between two world points (a link between buildings, a laser, a debug ray), push a `Line3D` onto the
+`LineQueue` singleton from a scene's `Tick`, or from a per-Frame, single-threaded system that runs before `OnStore`.
+Not from a FixedStep system: a Frame runs zero or several Ticks, so its line would flicker or draw twice. Not from a
+`multi_threaded` system: the push is unsynchronized. Scripts call `DrawLine3D(from, to, color)`, which pushes for
+them (`docs/script-api-reference.md`, "Render").
+
+```cpp
+world.get_mut<render::LineQueue>().lines.push_back(
+    {.from = a.position, .to = b.position, .color = {40, 220, 255, 255}});
+```
+
+`Render3DLines` draws the queue inside the 3D pass through `Platform::DrawLine3D`, depth-tested against the scene, so
+geometry in front of a line hides it. It runs before `Render3DFlush` and the lines write depth like opaque geometry,
+so a faded (transparent-pass) wall in front of a line blends over it. It then clears the queue: a line shows for one frame, so push it every frame you
+want it seen. With no camera there's no 3D pass and the queue is cleared undrawn. Lines are one pixel wide and unlit on
+desktop and WebGL alike; there's no thickness (`engine/platform/README.md`, "Lines"). Sandbox example: `CubeScene`
+draws a line behind the falling cube and one that slopes through the floor (`games/sandbox/src/game/cube_scene.cpp`).
+
 ## Structure
 
 - **render_components.hpp** — plain-data components: shape primitives, `Material`, `AlbedoMap`, `ShaderMap`,

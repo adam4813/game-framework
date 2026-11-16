@@ -18,6 +18,21 @@ struct RenderQueue {
 	std::vector<platform::RenderCommand> commands;
 };
 
+// One world-space line segment for the 3D pass.
+struct Line3D {
+	glm::vec3 from{0.0F};
+	glm::vec3 to{0.0F};
+	core::Rgba color{.r = 255, .g = 255, .b = 255, .a = 255};
+};
+
+// Singleton: the lines to draw this frame. Any system before the render phase (or a scene's Tick) pushes onto
+// `lines`; the render module draws them inside the 3D pass through Platform::DrawLine3D, depth-tested against the
+// scene, then clears the list, so a line shows for the one frame it was pushed in. Push it again every frame to keep
+// it on screen. Cleared even when no camera opens a 3D pass, so the list never grows.
+struct LineQueue {
+	std::vector<Line3D> lines;
+};
+
 // Singleton: render statistics for the on-screen overlay, refreshed each frame.
 struct RenderStats {
 	int queued{0};          // commands enqueued this frame (after culling)

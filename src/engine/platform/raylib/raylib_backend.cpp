@@ -1537,6 +1537,13 @@ void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, c
 	rlPopMatrix();
 }
 
+// raylib's BeginMode3D turns the depth test on, and the line joins rlgl's batch, which is flushed with depth test and
+// depth write on (by EndMode3D, or by a later depth-write-off draw before it turns writes off), so the line is
+// hidden wherever drawn geometry is nearer the camera.
+void RaylibBackend::DrawLine3D(const glm::vec3 from, const glm::vec3 to, const Rgba color) {
+	::DrawLine3D(ToRay(from), ToRay(to), ToRay(color));
+}
+
 void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, const DrawMaterial& material) {
 	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
 	if (DrawCustomMesh(g_lit.sphere, model, material)) {
@@ -1577,10 +1584,10 @@ void RaylibBackend::DrawQuad(const glm::mat4& transform, const glm::vec2 size, c
 		const Vector3 b{.x = hx, .y = 0.0F, .z = -hz};
 		const Vector3 d{.x = hx, .y = 0.0F, .z = hz};
 		const Vector3 e{.x = -hx, .y = 0.0F, .z = hz};
-		DrawLine3D(a, b, ToRay(material.tint));
-		DrawLine3D(b, d, ToRay(material.tint));
-		DrawLine3D(d, e, ToRay(material.tint));
-		DrawLine3D(e, a, ToRay(material.tint));
+		::DrawLine3D(a, b, ToRay(material.tint));
+		::DrawLine3D(b, d, ToRay(material.tint));
+		::DrawLine3D(d, e, ToRay(material.tint));
+		::DrawLine3D(e, a, ToRay(material.tint));
 	}
 	else {
 		DrawPlane(Vector3{.x = 0.0F, .y = 0.0F, .z = 0.0F}, Vector2{.x = size.x, .y = size.y}, ToRay(material.tint));
