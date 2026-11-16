@@ -79,7 +79,8 @@ add_engine_test(path_asset_test
     path_asset_test.cpp
 )
 
-# Line queue: a pushed 3D line is drawn through the Platform in that frame's 3D pass, once, and never piles up
+# Line queue: a 3D line pushed from C++ or a script (DrawLine3D) is drawn in that frame's 3D pass, once, and never
+# piles up
 add_engine_test(line_queue_test
     line_queue_test.cpp
 )

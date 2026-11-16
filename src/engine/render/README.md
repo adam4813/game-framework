@@ -132,7 +132,10 @@ variant for WebGL).
 ## 3D lines
 
 To draw a line between two world points (a link between buildings, a laser, a debug ray), push a `Line3D` onto the
-`LineQueue` singleton from any system before `OnStore`, or from a scene's `Tick`:
+`LineQueue` singleton from a scene's `Tick`, or from a per-Frame, single-threaded system that runs before `OnStore`.
+Not from a FixedStep system: a Frame runs zero or several Ticks, so its line would flicker or draw twice. Not from a
+`multi_threaded` system: the push is unsynchronized. Scripts call `DrawLine3D(from, to, color)`, which pushes for
+them (`docs/script-api-reference.md`, "Render").
 
 ```cpp
 world.get_mut<render::LineQueue>().lines.push_back(
@@ -140,7 +143,8 @@ world.get_mut<render::LineQueue>().lines.push_back(
 ```
 
 `Render3DLines` draws the queue inside the 3D pass through `Platform::DrawLine3D`, depth-tested against the scene, so
-geometry in front of a line hides it. It then clears the queue: a line shows for one frame, so push it every frame you
+geometry in front of a line hides it. It runs before `Render3DFlush` and the lines write depth like opaque geometry,
+so a faded (transparent-pass) wall in front of a line blends over it. It then clears the queue: a line shows for one frame, so push it every frame you
 want it seen. With no camera there's no 3D pass and the queue is cleared undrawn. Lines are one pixel wide and unlit on
 desktop and WebGL alike; there's no thickness (`engine/platform/README.md`, "Lines"). Sandbox example: `CubeScene`
 draws a line behind the falling cube and one that slopes through the floor (`games/sandbox/src/game/cube_scene.cpp`).

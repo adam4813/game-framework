@@ -16,8 +16,8 @@ constexpr Rgba kLinkColor{.r = 40, .g = 220, .b = 255, .a = 255};
 // Records every 3D line the render module draws.
 class LineRecordingPlatform final : public engine::platform::HeadlessPlatform {
 public:
-	void DrawLine3D(const glm::vec3 from, const glm::vec3 to, const Rgba c) override {
-		drawn->push_back({.from = from, .to = to, .color = c});
+	void DrawLine3D(const glm::vec3 from, const glm::vec3 to, const Rgba color) override {
+		drawn->push_back({.from = from, .to = to, .color = color});
 	}
 
 	std::shared_ptr<std::vector<Line3D>> drawn = std::make_shared<std::vector<Line3D>>();
@@ -85,6 +85,28 @@ TEST(LineQueue, WithNoCameraLinesAreDroppedUndrawn) {
 
 	EXPECT_TRUE(w.drawn->empty());
 	EXPECT_TRUE(w.World().get<LineQueue>().lines.empty());
+}
+
+TEST(LineQueue, AScriptsDrawLine3DIsDrawnThatFrame) {
+	const LineWorld w;
+	w.AddCamera();
+	// A script runs on a child of its host entity.
+	const auto linker = w.World().entity("Linker");
+	w.World().entity().child_of(linker).set<engine::scripting::ScriptComponent>({.inline_source = R"(
+		void Tick(Entity self, float dt) {
+			Rgba cyan;
+			cyan.r = 40;
+			cyan.g = 220;
+			cyan.b = 255;
+			cyan.a = 255;
+			DrawLine3D(vec3(-2, 1, 0), vec3(2, 1, 0), cyan);
+		}
+	)"});
+
+	w.RunFrame();
+
+	ASSERT_EQ(w.drawn->size(), 1U);
+	EXPECT_TRUE(SameLine(w.drawn->front(), {.from = {-2.0F, 1.0F, 0.0F}, .to = {2.0F, 1.0F, 0.0F}, .color = kLinkColor}));
 }
 
 } // namespace

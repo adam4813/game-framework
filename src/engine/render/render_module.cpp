@@ -508,6 +508,30 @@ RenderModule::RenderModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<SpriteAtlas>());
 	scripting::RegisterComponentForScripts(world, world.component<AlbedoMap>());
 
+	// === Script global: DrawLine3D(const vec3 &in from, const vec3 &in to, const Rgba &in color) ===
+	// Pushes onto the LineQueue, so a script's Tick draws a depth-tested line this frame (see LineQueue).
+	const auto vec3_type = scripting::ScriptValueType::MakeObject(world.component<glm::vec3>());
+	scripting::RegisterGlobalFunctionForScripts(
+		world,
+		scripting::ScriptMethodSignature{
+			.name = "DrawLine3D",
+			.return_type = scripting::ScriptValueType::MakeVoid(),
+			.params =
+				{{.type = vec3_type, .by_reference = true, .name = "from"},
+				 {.type = vec3_type, .by_reference = true, .name = "to"},
+				 {.type = scripting::ScriptValueType::MakeObject(world.component<core::Rgba>()),
+				  .by_reference = true,
+				  .name = "color"}},
+		},
+		[](const scripting::ScriptCallContext& ctx, const flecs::world& w) {
+			w.get_mut<LineQueue>().lines.push_back({
+				.from = *static_cast<const glm::vec3*>(ctx.GetArgObject(0)),
+				.to = *static_cast<const glm::vec3*>(ctx.GetArgObject(1)),
+				.color = *static_cast<const core::Rgba*>(ctx.GetArgObject(2)),
+			});
+		}
+	);
+
 	// === Level loader ===
 	RegisterRenderLevelLoaders(world);
 
@@ -869,6 +893,24 @@ RenderModule::RenderModule(const flecs::world& world) {
 		}
 	);
 
+	// === SYSTEM: Draw the frame's queued 3D lines ===
+	// Inside the open pass, with the opaque geometry and before Render3DFlush's transparent ghost pass: lines write
+	// depth like any opaque draw, so a faded wall in front blends over a line behind it instead of the line drawing
+	// over the wall. The depth test hides the parts behind drawn geometry whatever the draw order. Not scoped to
+	// GameScene: it must clear the queue in every scene, or lines pushed while no pass opens pile up.
+	std::ignore = world.system("Render3DLines")
+					  .kind(flecs::OnStore)
+					  .run([](const flecs::iter& it) {
+						  auto& queue = it.world().get_mut<LineQueue>();
+						  if (it.world().get<Render3DState>().active) {
+							  auto& platform = *it.world().get<platform::PlatformRef>().ptr;
+							  for (const Line3D& line : queue.lines) {
+								  platform.DrawLine3D(line.from, line.to, line.color);
+							  }
+						  }
+						  queue.lines.clear();
+					  });
+
 	// === SYSTEM: Flush the render queue as GPU-instanced batches ===
 	// Query for the transparent occluder-ghost pass: the TransparentPass-tagged upright cutout quads.
 	// They were already drawn opaque by RenderDynamicMeshes (which DISCARDED the fragments covering
@@ -938,22 +980,6 @@ RenderModule::RenderModule(const flecs::world& world) {
 						  }
 					  })
 					  .add<scene::GameScene>();
-
-	// === SYSTEM: Draw the frame's queued 3D lines ===
-	// After the flush so it runs inside the open pass; the depth test hides the parts behind drawn geometry. Not
-	// scoped to GameScene: it must clear the queue in every scene, or lines pushed while no pass opens pile up.
-	std::ignore = world.system("Render3DLines")
-					  .kind(flecs::OnStore)
-					  .run([](const flecs::iter& it) {
-						  auto& queue = it.world().get_mut<LineQueue>();
-						  if (it.world().get<Render3DState>().active) {
-							  auto& platform = *it.world().get<platform::PlatformRef>().ptr;
-							  for (const Line3D& line : queue.lines) {
-								  platform.DrawLine3D(line.from, line.to, line.color);
-							  }
-						  }
-						  queue.lines.clear();
-					  });
 
 	// === SYSTEM: Close the 3D pass ===
 	std::ignore = world.system("Render3DEnd")
