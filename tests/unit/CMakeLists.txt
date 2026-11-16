@@ -79,6 +79,11 @@ add_engine_test(path_asset_test
     path_asset_test.cpp
 )
 
+# Line queue: a pushed 3D line is drawn through the Platform in that frame's 3D pass, once, and never piles up
+add_engine_test(line_queue_test
+    line_queue_test.cpp
+)
+
 # Two physics worlds in one process: shared Jolt globals survive either teardown order; only a windowed world installs
 # the debug renderer
 add_engine_test(two_physics_worlds_test

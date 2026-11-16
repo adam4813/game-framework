@@ -429,6 +429,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 RenderModule::RenderModule(const flecs::world& world) {
 	world.set<Render3DState>({});
 	world.set<RenderQueue>({});
+	world.set<LineQueue>({});
 	world.set<RenderStats>({});
 	world.set<CameraFrustum>({});
 
@@ -937,6 +938,22 @@ RenderModule::RenderModule(const flecs::world& world) {
 						  }
 					  })
 					  .add<scene::GameScene>();
+
+	// === SYSTEM: Draw the frame's queued 3D lines ===
+	// After the flush so it runs inside the open pass; the depth test hides the parts behind drawn geometry. Not
+	// scoped to GameScene: it must clear the queue in every scene, or lines pushed while no pass opens pile up.
+	std::ignore = world.system("Render3DLines")
+					  .kind(flecs::OnStore)
+					  .run([](const flecs::iter& it) {
+						  auto& queue = it.world().get_mut<LineQueue>();
+						  if (it.world().get<Render3DState>().active) {
+							  auto& platform = *it.world().get<platform::PlatformRef>().ptr;
+							  for (const Line3D& line : queue.lines) {
+								  platform.DrawLine3D(line.from, line.to, line.color);
+							  }
+						  }
+						  queue.lines.clear();
+					  });
 
 	// === SYSTEM: Close the 3D pass ===
 	std::ignore = world.system("Render3DEnd")
