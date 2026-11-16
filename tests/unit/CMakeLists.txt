@@ -90,6 +90,11 @@ add_engine_test(headless_platform_test
     headless_platform_test.cpp
 )
 
+# File References: "@file:" strings resolve relative to their own file; missing files and cycles fail cleanly
+add_engine_test(json_file_ref_test
+    json_file_ref_test.cpp
+)
+
 # REST port: FLECS_REST_PORT overrides a world's given port unless the world is initialized to ignore it
 add_engine_test(rest_port_override_test
     rest_port_override_test.cpp
