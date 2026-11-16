@@ -30,8 +30,7 @@ public:
 	explicit HeadlessPlatform(
 		std::string assetDirectory = ".",
 		std::optional<std::filesystem::path> saveDirectory = DefaultSaveDirectory()
-	) :
-		assetDirectory_(std::move(assetDirectory)) {
+	) : assetDirectory_(std::move(assetDirectory)) {
 		if (saveDirectory) {
 			saves_.emplace(std::move(*saveDirectory));
 		}

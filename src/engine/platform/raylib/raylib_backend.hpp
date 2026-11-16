@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/platform/file_save_store.hpp"
 #include "engine/platform/platform.hpp"
 
 namespace engine::platform {
@@ -124,6 +125,11 @@ public:
 	[[nodiscard]] bool HasSave(std::string_view name) const override;
 	void DeleteSave(std::string_view name) override;
 	[[nodiscard]] std::vector<std::string> ListSaves() const override;
+
+private:
+#if !defined(__EMSCRIPTEN__)
+	FileSaveStore saves_{DefaultSaveDirectory()}; // the web build saves to localStorage instead
+#endif
 };
 
 } // namespace engine::platform

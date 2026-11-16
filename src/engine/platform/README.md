@@ -56,13 +56,20 @@ Desktop and headless keep saves the same way, through `FileSaveStore`: each slot
 slot name must not be empty or hold `/`, `\` or `..` (an invalid name writes nothing and reads as missing), and
 `ListSaves` returns the slot names sorted. The directory is created on the first write.
 
-A write is atomic: the data goes to `<name>.json.tmp`, which is then renamed over the slot, so a crash mid-write
-leaves the previous save intact. A leftover `.tmp` file isn't a slot; the next write to that slot replaces it.
+A write is atomic and durable: the data goes to `<name>.json.tmp`, is flushed to the disk (`_commit` on Windows,
+`fsync` elsewhere, which also flushes the directory after the rename), and is then renamed over the slot. A crash or
+power loss mid-write leaves the previous save intact. A leftover `.tmp` file isn't a slot; the next write to that
+slot replaces it. The web game's `localStorage` save is a single `setItem`, atomic in the browser but with no
+durability promise beyond what the browser gives.
 
 `HeadlessPlatform` takes its save directory as its second argument. It defaults to `DefaultSaveDirectory()`,
 where desktop saves (`<exe dir>/saves`), so a dedicated server and the game it ships beside share their slots.
 A test points it at a temporary directory, and `HeadlessPlatform::kNoSaves` turns persistence off: writes are
 dropped and every slot reads as missing.
+
+On the web, `DefaultSaveDirectory()` is `/saves` in Emscripten's in-memory filesystem. A headless Platform there
+keeps its slots in memory for the page's lifetime; they are not the web game's `localStorage` slots, and neither
+side sees the other's.
 
 ```cpp
 auto server = std::make_unique<engine::platform::HeadlessPlatform>(assetDirectory, "/var/lib/mygame/saves");

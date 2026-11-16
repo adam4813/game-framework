@@ -1,38 +1,24 @@
 #include <filesystem>
-#include <vector>
-#include <fstream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "engine/engine.hpp"
+#include "temp_directory.hpp"
 
 using engine::platform::HeadlessPlatform;
 using engine::platform::PlatformRef;
+using test_support::TempDirectory;
 
 namespace {
 
-// An asset directory under the temp directory holding levels/beacon.json, removed when the test ends.
-class AssetDirectory {
-public:
-	AssetDirectory() : root_(std::filesystem::temp_directory_path() / "headless_platform_test_assets") {
-		std::filesystem::create_directories(root_ / "levels");
-		std::ofstream(root_ / "levels" / "beacon.json")
-			<< R"({"entities": [{"name": "Beacon", "components": {"transform": {"position": [1.0, 2.0, 3.0]}}}]})";
-	}
-	~AssetDirectory() { std::filesystem::remove_all(root_); }
-
-	AssetDirectory(const AssetDirectory&) = delete;
-	AssetDirectory& operator=(const AssetDirectory&) = delete;
-	AssetDirectory(AssetDirectory&&) = delete;
-	AssetDirectory& operator=(AssetDirectory&&) = delete;
-
-	[[nodiscard]] std::string Path() const { return root_.generic_string(); }
-
-private:
-	std::filesystem::path root_;
-};
+#if defined(_WIN32)
+constexpr const char* kTestExecutable = "headless_platform_test.exe";
+#else
+constexpr const char* kTestExecutable = "headless_platform_test";
+#endif
 
 TEST(HeadlessPlatform, AnAssetPathResolvesAgainstTheGivenDirectory) {
 	const engine::EngineContext ctx{std::make_unique<HeadlessPlatform>("/srv/game/assets")};
@@ -41,8 +27,12 @@ TEST(HeadlessPlatform, AnAssetPathResolvesAgainstTheGivenDirectory) {
 }
 
 TEST(HeadlessPlatform, AWorldLoadsALevelFileByAssetPath) {
-	const AssetDirectory assets;
-	engine::EngineContext ctx{std::make_unique<HeadlessPlatform>(assets.Path())};
+	const TempDirectory assets{"headless_platform_test_assets"};
+	assets.Write(
+		"levels/beacon.json",
+		R"({"entities": [{"name": "Beacon", "components": {"transform": {"position": [1.0, 2.0, 3.0]}}}]})"
+	);
+	engine::EngineContext ctx{std::make_unique<HeadlessPlatform>(assets.Path().generic_string())};
 	auto& world = *ctx.GetWorld();
 
 	ASSERT_EQ(engine::level::LoadLevel(world, engine::assets::ResolveAsset(world, "levels/beacon.json")), 1);
@@ -61,27 +51,8 @@ TEST(HeadlessPlatform, AWorldCreatedWithoutAPlatformRunsOnAHeadlessOne) {
 	EXPECT_EQ(platform->AssetDirectory(), ".");
 }
 
-// A save directory under the temp directory, empty at the start and removed when the test ends.
-class TempSaves {
-public:
-	explicit TempSaves(const std::string& name) : root_(std::filesystem::temp_directory_path() / name) {
-		std::filesystem::remove_all(root_);
-	}
-	~TempSaves() { std::filesystem::remove_all(root_); }
-
-	TempSaves(const TempSaves&) = delete;
-	TempSaves& operator=(const TempSaves&) = delete;
-	TempSaves(TempSaves&&) = delete;
-	TempSaves& operator=(TempSaves&&) = delete;
-
-	[[nodiscard]] const std::filesystem::path& Path() const { return root_; }
-
-private:
-	std::filesystem::path root_;
-};
-
 TEST(HeadlessPlatform, ASaveWrittenIsReadBack) {
-	const TempSaves dir{"headless_platform_test_saves_write"};
+	const TempDirectory dir{"headless_platform_test_saves_write"};
 	HeadlessPlatform platform{".", dir.Path()};
 
 	platform.WriteSave("world", R"({"day": 3})");
@@ -92,7 +63,7 @@ TEST(HeadlessPlatform, ASaveWrittenIsReadBack) {
 }
 
 TEST(HeadlessPlatform, ASaveOutlivesThePlatformThatWroteIt) {
-	const TempSaves dir{"headless_platform_test_saves_restart"};
+	const TempDirectory dir{"headless_platform_test_saves_restart"};
 	HeadlessPlatform{".", dir.Path()}.WriteSave("world", "v1");
 
 	const HeadlessPlatform restarted{".", dir.Path()};
@@ -101,7 +72,7 @@ TEST(HeadlessPlatform, ASaveOutlivesThePlatformThatWroteIt) {
 }
 
 TEST(HeadlessPlatform, AMissingSlotReadsAsEmpty) {
-	const TempSaves dir{"headless_platform_test_saves_missing"};
+	const TempDirectory dir{"headless_platform_test_saves_missing"};
 	const HeadlessPlatform platform{".", dir.Path()};
 
 	EXPECT_FALSE(platform.HasSave("nothing"));
@@ -110,7 +81,7 @@ TEST(HeadlessPlatform, AMissingSlotReadsAsEmpty) {
 }
 
 TEST(HeadlessPlatform, ADeletedSaveIsGone) {
-	const TempSaves dir{"headless_platform_test_saves_delete"};
+	const TempDirectory dir{"headless_platform_test_saves_delete"};
 	HeadlessPlatform platform{".", dir.Path()};
 	platform.WriteSave("world", "v1");
 
@@ -121,7 +92,7 @@ TEST(HeadlessPlatform, ADeletedSaveIsGone) {
 }
 
 TEST(HeadlessPlatform, ListSavesReturnsSlotNamesSorted) {
-	const TempSaves dir{"headless_platform_test_saves_list"};
+	const TempDirectory dir{"headless_platform_test_saves_list"};
 	HeadlessPlatform platform{".", dir.Path()};
 	platform.WriteSave("zeta", "1");
 	platform.WriteSave("alpha", "2");
@@ -131,7 +102,7 @@ TEST(HeadlessPlatform, ListSavesReturnsSlotNamesSorted) {
 }
 
 TEST(HeadlessPlatform, AnInvalidSlotNameWritesNothing) {
-	const TempSaves dir{"headless_platform_test_saves_invalid"};
+	const TempDirectory dir{"headless_platform_test_saves_invalid"};
 	HeadlessPlatform platform{".", dir.Path()};
 
 	platform.WriteSave("../escape", "x");
@@ -141,11 +112,11 @@ TEST(HeadlessPlatform, AnInvalidSlotNameWritesNothing) {
 }
 
 TEST(HeadlessPlatform, ThePreviousSaveSurvivesAnInterruptedWrite) {
-	const TempSaves dir{"headless_platform_test_saves_interrupted"};
+	const TempDirectory dir{"headless_platform_test_saves_interrupted"};
 	HeadlessPlatform platform{".", dir.Path()};
 	platform.WriteSave("world", "v1");
 	// A crash mid-write leaves the temporary file half written beside the slot.
-	std::ofstream(dir.Path() / "world.json.tmp") << "{\"da";
+	dir.Write("world.json.tmp", "{\"da");
 
 	const HeadlessPlatform restarted{".", dir.Path()};
 
@@ -154,10 +125,10 @@ TEST(HeadlessPlatform, ThePreviousSaveSurvivesAnInterruptedWrite) {
 }
 
 TEST(HeadlessPlatform, AWriteReplacesALeftoverTemporaryFile) {
-	const TempSaves dir{"headless_platform_test_saves_leftover"};
+	const TempDirectory dir{"headless_platform_test_saves_leftover"};
 	HeadlessPlatform platform{".", dir.Path()};
 	platform.WriteSave("world", "v1");
-	std::ofstream(dir.Path() / "world.json.tmp") << "{\"da";
+	dir.Write("world.json.tmp", "{\"da");
 
 	platform.WriteSave("world", "v2");
 
@@ -176,10 +147,14 @@ TEST(HeadlessPlatform, WithNoSavesWritesAreDropped) {
 	EXPECT_TRUE(platform.ListSaves().empty());
 }
 
-TEST(HeadlessPlatform, SavesDefaultToTheDesktopLocation) {
+TEST(HeadlessPlatform, SavesDefaultToASavesFolderBesideTheExecutable) {
 	const HeadlessPlatform platform;
 
-	EXPECT_EQ(platform.SaveDirectory(), engine::platform::DefaultSaveDirectory());
+	const auto dir = platform.SaveDirectory();
+	ASSERT_TRUE(dir.has_value());
+	EXPECT_TRUE(dir->is_absolute());
+	EXPECT_EQ(dir->filename(), "saves");
+	EXPECT_TRUE(std::filesystem::is_regular_file(dir->parent_path() / kTestExecutable));
 }
 
 } // namespace

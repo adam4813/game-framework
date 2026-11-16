@@ -11,16 +11,17 @@ namespace engine::platform {
 // True for a slot name that can't escape the save directory: not empty, no path separators, no "..".
 [[nodiscard]] bool IsValidSaveName(std::string_view name);
 
-// The directory the desktop Platform keeps its saves in, `<exe dir>/saves`. Defined by the raylib backend, which owns
-// the call that finds the executable's directory.
+// The directory the desktop Platform keeps its saves in: `<exe dir>/saves`. On the web it is `/saves` in the in-memory
+// filesystem, used only by a headless Platform (the web game saves to localStorage).
 [[nodiscard]] std::filesystem::path DefaultSaveDirectory();
 
 // The Platform save API (platform.hpp, "Persistence") backed by files: each slot is `<directory>/<name>.json`. Both
 // the desktop and the headless Platform use it. The directory is created on the first write, so a store that is never
 // written leaves nothing on disk. An invalid slot name (IsValidSaveName) writes nothing and reads as missing.
 //
-// A write is atomic: the data goes to `<name>.json.tmp`, which is then renamed over the slot, so a crash mid-write
-// leaves the previous save intact. A leftover `.tmp` file is not a slot: reads, HasSave and ListSaves ignore it.
+// A write is atomic and durable: the data goes to `<name>.json.tmp`, is flushed to the disk, and is then renamed over
+// the slot, so a crash or power loss mid-write leaves the previous save intact. A leftover `.tmp` file is not a slot:
+// Read, Has and List ignore it, and the next write to that slot replaces it.
 class FileSaveStore {
 public:
 	explicit FileSaveStore(std::filesystem::path directory) : directory_(std::move(directory)) {}

@@ -2367,15 +2367,6 @@ void RaylibBackend::StopSynth() {
 
 // ── Persistence ──
 
-std::filesystem::path DefaultSaveDirectory() {
-#if defined(__EMSCRIPTEN__)
-	// The web Platform keeps its saves in localStorage; this is where a headless Platform's files go in the virtual FS.
-	return "/saves";
-#else
-	return std::filesystem::path(GetApplicationDirectory()) / "saves";
-#endif
-}
-
 #if defined(__EMSCRIPTEN__)
 
 void RaylibBackend::WriteSave(const std::string_view name, const std::string_view data) {
@@ -2433,26 +2424,26 @@ std::vector<std::string> RaylibBackend::ListSaves() const {
 
 #else
 
-// Desktop: the shared file-backed store (file_save_store.hpp) under DefaultSaveDirectory().
+// Desktop: the shared file-backed store (file_save_store.hpp), saves_, under DefaultSaveDirectory().
 
 void RaylibBackend::WriteSave(const std::string_view name, const std::string_view data) {
-	FileSaveStore{DefaultSaveDirectory()}.Write(name, data);
+	saves_.Write(name, data);
 }
 
 std::string RaylibBackend::ReadSave(const std::string_view name) const {
-	return FileSaveStore{DefaultSaveDirectory()}.Read(name);
+	return saves_.Read(name);
 }
 
 bool RaylibBackend::HasSave(const std::string_view name) const {
-	return FileSaveStore{DefaultSaveDirectory()}.Has(name);
+	return saves_.Has(name);
 }
 
 void RaylibBackend::DeleteSave(const std::string_view name) {
-	FileSaveStore{DefaultSaveDirectory()}.Delete(name);
+	saves_.Delete(name);
 }
 
 std::vector<std::string> RaylibBackend::ListSaves() const {
-	return FileSaveStore{DefaultSaveDirectory()}.List();
+	return saves_.List();
 }
 
 #endif
