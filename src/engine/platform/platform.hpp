@@ -262,7 +262,7 @@ public:
 	virtual void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) = 0;
 	// Draws a one-pixel line between two world-space points, unlit and depth-tested against the scene, so geometry
 	// in front of it hides it. No thickness: desktop GL core profiles and WebGL only guarantee 1-pixel lines.
-	virtual void DrawLine3D(glm::vec3 from, glm::vec3 to, Rgba c) = 0;
+	virtual void DrawLine3D(glm::vec3 from, glm::vec3 to, Rgba color) = 0;
 
 	// ── Batched instanced drawing ──
 	// Returns a batchable mesh handle for a built-in unit primitive. Stable for the process

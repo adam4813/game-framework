@@ -1537,10 +1537,11 @@ void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, c
 	rlPopMatrix();
 }
 
-// raylib's BeginMode3D turns the depth test on, and the line joins rlgl's batch, which EndMode3D flushes while the
-// test is still on, so the line is hidden wherever drawn geometry is nearer the camera.
-void RaylibBackend::DrawLine3D(const glm::vec3 from, const glm::vec3 to, const Rgba c) {
-	::DrawLine3D(ToRay(from), ToRay(to), ToRay(c));
+// raylib's BeginMode3D turns the depth test on, and the line joins rlgl's batch, which is flushed with depth test and
+// depth write on (by EndMode3D, or by a later depth-write-off draw before it turns writes off), so the line is
+// hidden wherever drawn geometry is nearer the camera.
+void RaylibBackend::DrawLine3D(const glm::vec3 from, const glm::vec3 to, const Rgba color) {
+	::DrawLine3D(ToRay(from), ToRay(to), ToRay(color));
 }
 
 void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, const DrawMaterial& material) {
