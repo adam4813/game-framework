@@ -43,7 +43,7 @@ engine::physics::PhysicsModule physics_module(world);
 - `CollisionShape` **must** be present when `RigidBody` is added, **or** added immediately after in the same
   deferred command batch.
 - If `RigidBody` is added without a `CollisionShape`, a warning is logged and body creation is **deferred** until
-  `CollisionShape` is set (handled by `PhysicsAddBodyOnCollisionShape`).
+  `CollisionShape` is set (handled by `PhysicsSyncBodyOnCollisionShape`).
 - `CollisionShape` *can* exist without `RigidBody` (e.g. trigger volumes or shapes awaiting attachment).
 
 In JSON level files, always author both components on the same entity:
@@ -63,13 +63,14 @@ Setting `RigidBody` or `CollisionShape` again (from C++, a script or the REST AP
 
 - **Same values as last applied:** nothing happens. Repeated sets during a scene load are free.
 - **In place** (the body keeps its identity, position and velocity): `motion_type` among dynamic, kinematic and
-  static (except leaving static, below), `layer`, `friction`, `restitution`, `linear_damping`, `angular_damping`,
-  `use_gravity` / `gravity_scale`, `enable_ccd` and `mass` (inertia is recomputed from the shape, as at creation).
-  `collision_mask` is stored only, so it changes nothing yet.
+  static (a body created kinematic or dynamic can go static and back), `layer`, `friction`, `restitution`,
+  `linear_damping`, `angular_damping`, `use_gravity` / `gravity_scale`, `enable_ccd` and `mass` (inertia is
+  recomputed from the shape, as at creation). `collision_mask` is stored only, so it changes nothing yet.
 - **Recreated** at its current position, keeping its linear and angular velocity: any `CollisionShape` change, and a
-  static body becoming kinematic or dynamic (Jolt creates static bodies without the motion data that needs).
+  body created static becoming kinematic or dynamic (Jolt creates static bodies without the motion data that needs).
 - If the recreated body's shape can't be built (e.g. a mesh collider on a body set to dynamic), the error is logged
-  and the old body stays as it was.
+  once and the old body keeps its shape, and stays static if it was created static, but takes the rest of the change.
+  Setting the same values again doesn't retry; a different shape does.
 - A dynamic body gets `PhysicsVelocity` if it lacks one. A body set to static stops where it is.
 - Moving a body is a `Transform` set (a teleport), not a `RigidBody` set.
 
@@ -279,9 +280,9 @@ All systems follow Flecs 4.x best practices:
 
 3. **Observers** (event-based):
 
-- PhysicsAddBody (OnSet RigidBody — creates the body if CollisionShape is already present, or updates an existing one;
+- PhysicsSyncBody (OnSet RigidBody — creates the body if CollisionShape is already present, or updates an existing one;
   see "Changing a body after creation")
-- PhysicsAddBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates the body, or recreates it with a
+- PhysicsSyncBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates the body, or recreates it with a
   changed shape)
 - PhysicsSetBodyTransform (OnSet WorldTransform + has RigidBody — moves the body to the seeded transform; setting a
   rigid body's `Transform` teleports it)

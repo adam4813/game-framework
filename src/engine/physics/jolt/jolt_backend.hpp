@@ -61,9 +61,11 @@ public:
 	/// - No body yet: creates one at `transform`. A shape that cannot be built (an unreadable mesh file, a mesh on a
 	///   non-static body, a convex hull with no vertices) logs an error naming the entity and creates no body.
 	/// - Same `body` and `shape` as last applied: does nothing, so repeated sets during a scene load are free.
-	/// - A changed `shape`, or a static body becoming kinematic or dynamic: recreates the body where it is now, keeping
-	///   its velocity. If the new shape cannot be built, the error is logged and the old body stays as it was.
-	/// - Any other `body` change: updates the body in place.
+	/// - A changed `shape`, or a body created static becoming kinematic or dynamic: recreates the body where it is now,
+	///   keeping its velocity. If the new shape cannot be built, the error is logged once and the old body keeps its
+	///   shape (and stays static if it was created static) but takes the rest of `body`.
+	/// - Any other `body` change, including a body created kinematic or dynamic going static and back: updates the body
+	///   in place.
 	/// `transform` is ignored once the body exists; a teleport goes through `SetBodyTransform`.
 	void SyncBodyToBackend(
 		flecs::entity_t entity,
@@ -185,6 +187,16 @@ private:
 		RigidBody body;
 		CollisionShape shape;
 	};
+
+	// Replaces the record's body with one built from `body` and `shape` at the old body's position and velocity, and
+	// points the record at it. False (logged) when the shape can't be built or Jolt refuses; the old body then stays.
+	bool RecreateBody(
+		flecs::entity_t entity,
+		std::string_view entity_name,
+		BodyRecord& record,
+		const RigidBody& body,
+		const CollisionShape& shape
+	);
 
 	// Entity to Jolt body mapping
 	std::unordered_map<flecs::entity_t, BodyRecord> entity_to_body_;

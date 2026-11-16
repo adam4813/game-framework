@@ -100,6 +100,57 @@ TEST(RigidBodyUpdate, AStaticBodySetToDynamicStartsFalling) {
 	EXPECT_LT(w.Height("Ledge"), 49.0F);
 }
 
+TEST(RigidBodyUpdate, ADynamicBodySetToKinematicStopsAcceleratingAndResumesWhenDynamicAgain) {
+	const UpdateWorld w;
+	const auto fall_speed = [&w] { return w.Get("Faller").get<PhysicsVelocity>().linear.y; };
+
+	w.Edit("Faller", [](RigidBody& rb) { rb.motion_type = MotionType::Kinematic; });
+	const float coasting = fall_speed();
+	w.Ticks(30);
+	EXPECT_NEAR(fall_speed(), coasting, kTolerance); // a kinematic body keeps its velocity; gravity no longer acts
+
+	w.Edit("Faller", [](RigidBody& rb) { rb.motion_type = MotionType::Dynamic; });
+	w.Ticks(30);
+	// 0.5 s of gravity adds about 4.9 m/s downward.
+	EXPECT_LT(fall_speed(), coasting - 4.0F);
+}
+
+TEST(RigidBodyUpdate, ADynamicBodySetToStaticAndBackFallsAgain) {
+	const UpdateWorld w;
+	w.Edit("Faller", [](RigidBody& rb) { rb.motion_type = MotionType::Static; });
+	w.Ticks(5);
+	w.Edit("Faller", [](RigidBody& rb) { rb.motion_type = MotionType::Dynamic; });
+	const float resumed_at = w.Height("Faller");
+	w.Ticks(30);
+	EXPECT_LT(w.Height("Faller"), resumed_at - 1.0F);
+}
+
+TEST(RigidBodyUpdate, AChangedLinearDampingSlowsAMovingBody) {
+	const UpdateWorld w;
+	w.Get("Floater").set<engine::physics::PhysicsVelocityOverride>({.linear = {10.0F, 0.0F, 0.0F}});
+	w.Ticks(30);
+	EXPECT_NEAR(w.Get("Floater").get<PhysicsVelocity>().linear.x, 10.0F, kTolerance); // no damping authored
+
+	w.Edit("Floater", [](RigidBody& rb) { rb.linear_damping = 5.0F; });
+	w.Ticks(60);
+	// Jolt scales the velocity by (1 - 5 dt) each Tick: 10 m/s falls to about 0.05 m/s in one second.
+	EXPECT_LT(w.Get("Floater").get<PhysicsVelocity>().linear.x, 0.5F);
+}
+
+TEST(RigidBodyUpdate, AShapeThatCannotBeBuiltKeepsTheOldBodyAndLaterChangesStillReachIt) {
+	const UpdateWorld w;
+	auto shape = w.Get("Wall").get<CollisionShape>();
+	shape.type = engine::physics::ShapeType::ConvexHull; // no vertex source yet, so it never builds
+	w.Get("Wall").set<CollisionShape>(shape);
+
+	const auto hit = engine::physics::Raycast(w.World(), kAtWall);
+	ASSERT_TRUE(hit.has_value());
+	EXPECT_NEAR(hit->distance, 3.5F, kTolerance); // still the old 1 m box
+
+	w.Edit("Wall", [](RigidBody& rb) { rb.layer = CollisionLayer::Enemy; });
+	EXPECT_TRUE(engine::physics::Raycast(w.World(), kAtWall, {.layer_mask = LayerBit(CollisionLayer::Enemy)}));
+}
+
 TEST(RigidBodyUpdate, AChangedMassChangesTheResponseToAnImpulse) {
 	const UpdateWorld w;
 	w.Edit("Floater", [](RigidBody& rb) { rb.mass = 4.0F; });
