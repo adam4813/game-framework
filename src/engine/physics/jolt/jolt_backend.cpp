@@ -108,6 +108,9 @@ void EnsureJoltGlobals() { static const JoltGlobals globals; }
 // CollisionLayer has a non-moving and a moving object layer on the two broad-phase layers. Contacts look only at the
 // moving bit (non-moving never meets non-moving); queries filter on the CollisionLayer.
 namespace {
+// A query ray shorter than this has no direction and hits nothing.
+constexpr float kMinRayDirectionLength = 1e-6F;
+
 constexpr JPH::BroadPhaseLayer BP_LAYER_NON_MOVING(0);
 constexpr JPH::BroadPhaseLayer BP_LAYER_MOVING(1);
 
@@ -867,8 +870,6 @@ bool JoltBackend::RejectQueryWhileStepping() const {
 }
 
 namespace {
-constexpr float kMinRayDirectionLength = 1e-6F;
-
 // The Jolt ray for a query: a normalized direction scaled by max_distance, so a hit's fraction times max_distance is
 // its distance. Empty for a ray that can hit nothing.
 std::optional<JPH::RRayCast> MakeJoltRay(const Ray& ray) {

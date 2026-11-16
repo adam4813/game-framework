@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -20,7 +21,22 @@ enum class ShapeType { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compoun
 /// don't. The default `int` underlying type keeps it reflectable (see the flecs-systems skill).
 enum class CollisionLayer { Default = 0, Player = 1, Enemy = 2, Obstacle = 3, Trigger = 4 };
 
-inline constexpr uint32_t kCollisionLayerCount = 5;
+/// Every layer with its names: `json` in level files, `reflected` for the Explorer (and `Layer_<reflected>` in scripts).
+/// The one list the loader, reflection and script constants read, so a new layer is one entry here.
+struct CollisionLayerName {
+	const char* json;
+	const char* reflected;
+	CollisionLayer layer;
+};
+inline constexpr std::array kCollisionLayerNames{
+	CollisionLayerName{.json = "default", .reflected = "Default", .layer = CollisionLayer::Default},
+	CollisionLayerName{.json = "player", .reflected = "Player", .layer = CollisionLayer::Player},
+	CollisionLayerName{.json = "enemy", .reflected = "Enemy", .layer = CollisionLayer::Enemy},
+	CollisionLayerName{.json = "obstacle", .reflected = "Obstacle", .layer = CollisionLayer::Obstacle},
+	CollisionLayerName{.json = "trigger", .reflected = "Trigger", .layer = CollisionLayer::Trigger},
+};
+
+inline constexpr auto kCollisionLayerCount = static_cast<uint32_t>(kCollisionLayerNames.size());
 
 /// The `RaycastFilter::layer_mask` bit for one layer.
 constexpr uint32_t LayerBit(const CollisionLayer layer) { return 1U << static_cast<uint32_t>(layer); }

@@ -54,7 +54,8 @@ struct CharacterBody {
 	float step_height{0.4F};
 	float stick_to_floor{0.5F};
 	float mass{70.0F};
-	/// The layer of the character's inner body, which raycasts filter on.
+	/// The layer of the character's inner body, which raycasts filter on. Like every field here, read once, when the
+	/// character is created; changing it later has no effect.
 	CollisionLayer layer{CollisionLayer::Player};
 	/// Give the character a kinematic inner body (the same capsule, on `layer`), so raycasts hit it, dynamic bodies
 	/// bounce off it and other characters are blocked by it. Off: rays and characters pass through.

@@ -5,7 +5,9 @@
 #include <angelscript/scriptarray/scriptarray.h>
 #include <angelscript/scriptstdstring/scriptstdstring.h>
 #include <glm/glm.hpp>
+
 #include <spdlog/spdlog.h>
+#include "engine/ecs/ecs.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -103,7 +105,8 @@ public:
 		asITypeInfo* array_type =
 			element_name ? engine->GetTypeInfoByDecl(("array<" + std::string{element_name} + ">").c_str()) : nullptr;
 		if (!array_type || !type_info) {
-			spdlog::error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
+			auto& log = world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+			log.error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
 			return;
 		}
 		CScriptArray* array = CScriptArray::Create(array_type, static_cast<asUINT>(count));

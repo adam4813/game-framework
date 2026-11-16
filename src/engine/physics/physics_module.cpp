@@ -39,11 +39,9 @@ ShapeType ParseShapeType(const std::string& s) {
 
 // A layer's JSON name, or `fallback` when it names none.
 CollisionLayer ParseCollisionLayer(const std::string& s, const CollisionLayer fallback) {
-	if (s == "default") return CollisionLayer::Default;
-	if (s == "player") return CollisionLayer::Player;
-	if (s == "enemy") return CollisionLayer::Enemy;
-	if (s == "obstacle") return CollisionLayer::Obstacle;
-	if (s == "trigger") return CollisionLayer::Trigger;
+	for (const auto& [json, reflected, layer] : kCollisionLayerNames) {
+		if (s == json) return layer;
+	}
 	return fallback;
 }
 
@@ -115,12 +113,10 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 
 	// === Reflection ===
 	world.component<PhysicsImpulse>().member<glm::vec3>("impulse").member<glm::vec3>("point");
-	world.component<CollisionLayer>()
-		.constant("Default", CollisionLayer::Default)
-		.constant("Player", CollisionLayer::Player)
-		.constant("Enemy", CollisionLayer::Enemy)
-		.constant("Obstacle", CollisionLayer::Obstacle)
-		.constant("Trigger", CollisionLayer::Trigger);
+	auto collision_layer = world.component<CollisionLayer>();
+	for (const auto& [json, reflected, layer] : kCollisionLayerNames) {
+		collision_layer.constant(reflected, layer);
+	}
 	world.component<RigidBody>()
 		.member("mass", &RigidBody::mass)
 		.member("friction", &RigidBody::friction)

@@ -165,7 +165,9 @@ the character presence:
   `StepCharacterTick`.
 - Contacts with it reach `CollisionEvents` like any body's.
 
-Set `"inner_body": false` to let rays and other characters pass through a character.
+Set `"inner_body": false` to let rays and other characters pass through a character. `CharacterBody` is read once,
+when the character is created (it has both `CharacterBody` and its `CollisionShape`), so changing `layer` or
+`inner_body` afterwards does nothing.
 
 Out of scope: jump, a character pushing or being pushed by dynamic bodies, and saving or restoring `CharacterVirtual`
 state beyond position and velocity.

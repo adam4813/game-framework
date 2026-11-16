@@ -77,17 +77,12 @@ std::vector<ScriptMethodParam> QueryParams(const flecs::world& world) {
 }
 
 void RegisterLayerConstants(const flecs::world& world) {
-	constexpr std::pair<const char*, CollisionLayer> k_layers[] = {
-		{"Layer_Default", CollisionLayer::Default},
-		{"Layer_Player", CollisionLayer::Player},
-		{"Layer_Enemy", CollisionLayer::Enemy},
-		{"Layer_Obstacle", CollisionLayer::Obstacle},
-		{"Layer_Trigger", CollisionLayer::Trigger},
-	};
 	std::vector<scripting::ScriptConstant> constants;
-	for (const auto& [name, layer] : k_layers) {
+	for (const auto& [json, reflected, layer] : kCollisionLayerNames) {
 		constants.push_back(
-			{.name = name, .type = ScriptValueType::MakeInt(), .value_str = std::to_string(static_cast<int>(layer))}
+			{.name = std::string{"Layer_"} + reflected,
+			 .type = ScriptValueType::MakeInt(),
+			 .value_str = std::to_string(static_cast<int>(layer))}
 		);
 	}
 	scripting::RegisterGlobalConstantsForScripts(world, std::move(constants));
