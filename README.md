@@ -94,7 +94,8 @@ ctest --preset desktop-test-release
 Apple's Command Line Tools compiler (Apple clang 14) and the macOS 13.2 system libc++ are too old for the C++23 features
 the engine uses (`std::format`, `std::source_location`, `std::views::values`). The working setup is:
 
-- **Compiler:** LLVM 20 from MacPorts. The official LLVM GitHub releases we checked (16 to 18) didn't include Intel macOS builds.
+- **Compiler:** LLVM 20 from MacPorts. The official LLVM GitHub releases we checked (16 to 18) didn't include Intel
+  macOS builds.
   ```bash
   sudo port install clang-20
   ```
@@ -106,7 +107,8 @@ the engine uses (`std::format`, `std::source_location`, `std::views::values`). T
   exec /opt/local/bin/clang++-mp-20 -D_LIBCPP_DISABLE_AVAILABILITY -nostdlib++ "$@" -L$L/libc++ -lc++ \
     -Wl,-rpath,$L/libc++ -Wl,-rpath,$L/libunwind -Wl,-rpath,$L/libc++abi
   ```
-- **Other tools:** `pkg-config` (glfw3 needs it; build it from source or install it), plus CMake and Ninja (`pip install --user cmake ninja`).
+- **Other tools:** `pkg-config` (glfw3 needs it; build it from source or install it), plus CMake and Ninja
+  (`pip install --user cmake ninja`).
 - **Archiver:** link `ar` and `ranlib` in `~/.local/bin` to `llvm-ar-mp-20` and `llvm-ranlib-mp-20`, so CMake finds
   LLVM 20's archive tools.
 
@@ -123,12 +125,12 @@ ctest --preset macos-intel-test-release
 
 The presets (only listed on macOS) set this environment and cache variable:
 
-| Setting | Value | Why |
-|---|---|---|
-| `VCPKG_ROOT` | `$HOME/vcpkg` | Where vcpkg is cloned. |
-| `CC` / `CXX` | `/opt/local/bin/clang-mp-20` / `$HOME/.local/bin/clang++-llvm20` | LLVM 20 and the libc++ wrapper above. vcpkg builds the dependencies with the same compilers. |
-| `CXXFLAGS` | `-DAS_MAX_PORTABILITY` | AngelScript skips the x64 inline-asm call path that clang 20 rejects. It must be an environment variable so vcpkg's angelscript port sees it. Script-to-C++ calls get slower, and the AngelScript API is unchanged. |
-| `CMAKE_CXX_SCAN_FOR_MODULES` | `OFF` | CMake's module scan doesn't use the wrapper's libc++ headers. |
+| Setting                      | Value                                                            | Why                                                                                                                                                                                                                 |
+|------------------------------|------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `VCPKG_ROOT`                 | `$HOME/vcpkg`                                                    | Where vcpkg is cloned.                                                                                                                                                                                              |
+| `CC` / `CXX`                 | `/opt/local/bin/clang-mp-20` / `$HOME/.local/bin/clang++-llvm20` | LLVM 20 and the libc++ wrapper above. vcpkg builds the dependencies with the same compilers.                                                                                                                        |
+| `CXXFLAGS`                   | `-DAS_MAX_PORTABILITY`                                           | AngelScript skips the x64 inline-asm call path that clang 20 rejects. It must be an environment variable so vcpkg's angelscript port sees it. Script-to-C++ calls get slower, and the AngelScript API is unchanged. |
+| `CMAKE_CXX_SCAN_FOR_MODULES` | `OFF`                                                            | CMake's module scan doesn't use the wrapper's libc++ headers.                                                                                                                                                       |
 
 - Plain `desktop` presets in a shell without these variables pick up whatever `CC`/`CXX` the shell has, and the engine
   fails to compile with errors like `no type named 'sort' in namespace 'std::ranges'`. Use the `macos-intel` presets.
@@ -159,7 +161,8 @@ cmake --build --preset wasm-debug
 3. A header-only port with no CMake package (`cgltf`) is just `#include`d: vcpkg's include directory is already on the
    path. Define its `*_IMPLEMENTATION` macro in exactly one engine `.cpp`. Raylib compiles its own copy of cgltf, and
    the two clashed at link time in the **wasm** build only (desktop linked fine), so build the `wasm` preset before
-   calling a header-only dependency done. `src/engine/platform/cgltf_prefixed.hpp` holds the symbol-prefix workaround: include it, not `<cgltf.h>`
+   calling a header-only dependency done. `src/engine/platform/cgltf_prefixed.hpp` holds the symbol-prefix workaround:
+   include it, not `<cgltf.h>`
    (`gltf_geometry.cpp` defines the implementation).
 
 ### Running
@@ -647,4 +650,4 @@ VCPKG downloads and builds dependencies on first configure. If a build stalls or
 
 ---
 
-**Last updated**: November 2026 **Framework version**: 0.8.1
+**Last updated**: November 2026 **Framework version**: 0.9.0
