@@ -22,8 +22,9 @@ class JoltBackend;
 
 /// Puts a character back to `position` (the entity's, at its feet) and `velocity`, as a Server correction gives them:
 /// moves it there, re-detects its ground contacts, and writes the position to its `Transform` (never the rotation) and
-/// the ground state and velocity to its `CharacterState`, so the components match the restored state at once and the
-/// next Tick's `CharacterTeleport` doesn't move it back. Does nothing for an entity without a character.
+/// the ground state and velocity to its `CharacterState` (when it has both, as `StepCharacterTick` does), so the
+/// components match the restored state at once and the next Tick's `CharacterTeleport` doesn't move it back. Does
+/// nothing for an entity without a character.
 void RestoreCharacter(flecs::entity character, const glm::vec3& position, const glm::vec3& velocity);
 
 /// Steps one character for one Tick, with the fixed dt, exactly as the fixed step's `PhysicsStep` steps it (its
