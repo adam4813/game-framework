@@ -261,7 +261,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 			.add<ecs::FixedStep>()
 			.add<scene::GameScene>();
 
-	// === OBSERVER: Create or update the physics body when RigidBody is set ===
+	// === OBSERVER: Create, update or recreate the physics body when RigidBody is set ===
 	// Reacts to OnSet, not OnAdd: inside a defer_suspend()ed region (a scene's own level load) `set<RigidBody>` adds the
 	// component default-constructed and fires OnAdd before copying the value in, so an OnAdd observer would see
 	// MotionType::Dynamic and build the wrong body. A set after the body exists updates it (in place where Jolt
@@ -269,15 +269,15 @@ JoltModule::JoltModule(const flecs::world& world) {
 	// scene load are free.
 	// CollisionShape MUST already be present — RigidBody without CollisionShape is an authoring
 	// error and will NOT create a body. If CollisionShape arrives after RigidBody (e.g. component
-	// order in a level file), PhysicsAddBodyOnCollisionShape below handles that case.
-	std::ignore = world.observer<const RigidBody, JoltBackend>("PhysicsAddBody")
+	// order in a level file), PhysicsSyncBodyOnCollisionShape below handles that case.
+	std::ignore = world.observer<const RigidBody, JoltBackend>("PhysicsSyncBody")
 					  .event(flecs::OnSet)
 					  .term_at<JoltBackend>()
 					  .src<JoltBackend>()
 					  .each([](const flecs::entity e, const RigidBody& rb, JoltBackend& sys) {
 						  const auto* cs = e.try_get<CollisionShape>();
 						  if (!cs) {
-							  spdlog::warn(
+							  ecs::WorldLog(e.world()).warn(
 								  "[Physics] Entity '{}' has RigidBody but no CollisionShape — body creation "
 								  "deferred until CollisionShape is added.",
 								  EntityLabel(e)
@@ -290,7 +290,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	// === OBSERVER: Create or rebuild the physics body when CollisionShape is set on an entity with RigidBody ===
 	// Covers CollisionShape authored after RigidBody (JSON component order), and a shape changed after creation, which
 	// recreates the body.
-	std::ignore = world.observer<const CollisionShape, JoltBackend>("PhysicsAddBodyOnCollisionShape")
+	std::ignore = world.observer<const CollisionShape, JoltBackend>("PhysicsSyncBodyOnCollisionShape")
 					  .event(flecs::OnSet)
 					  .with<RigidBody>()
 					  .term_at<JoltBackend>()

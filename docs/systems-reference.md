@@ -84,7 +84,7 @@ once so entities always have both components.
 | `PhysicsSyncFromBackend`        | system `.run()`  | `PostUpdate`  | GameScene | Tick     |
 | `CharacterSyncFromBackend`      | system `.each()` | `PostUpdate`  | GameScene | Tick     |
 | `PhysicsCollisionEvents`        | system `.run()`  | `PostFrame`   | GameScene | ✔       |
-| `PhysicsAddBody`, `PhysicsAddBodyOnCollisionShape`, `PhysicsSetBodyTransform` | observer | `OnSet` | — | — |
+| `PhysicsSyncBody`, `PhysicsSyncBodyOnCollisionShape`, `PhysicsSetBodyTransform` | observer | `OnSet` | — | — |
 | `PhysicsRemoveBody`             | observer         | `OnRemove`    | —         | —        |
 | `PhysicsDebugRender`            | system           | `OnStore`     | GameScene | ✘       |
 | `PhysicsDebugRenderSync`        | system           | `OnUpdate`    | GameScene | —        |
