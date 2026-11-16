@@ -1,47 +1,21 @@
-#include <filesystem>
-#include <fstream>
 #include <string>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
 #include "engine/core/core.hpp"
+#include "temp_directory.hpp"
 
 using engine::core::IsFileRef;
 using engine::core::kFileRefSigil;
 using engine::core::LoadJsonFileResolved;
 using nlohmann::json;
+using test_support::TempDirectory;
 
 namespace {
 
-// A scratch directory under the temp directory, removed when the test ends. Write() puts a file at a relative path.
-class JsonTree {
-public:
-	explicit JsonTree(const std::string& name) : root_(std::filesystem::temp_directory_path() / name) {
-		std::filesystem::remove_all(root_);
-		std::filesystem::create_directories(root_);
-	}
-	~JsonTree() { std::filesystem::remove_all(root_); }
-
-	JsonTree(const JsonTree&) = delete;
-	JsonTree& operator=(const JsonTree&) = delete;
-	JsonTree(JsonTree&&) = delete;
-	JsonTree& operator=(JsonTree&&) = delete;
-
-	void Write(const std::string& relative, const std::string& text) const {
-		const auto path = root_ / relative;
-		std::filesystem::create_directories(path.parent_path());
-		std::ofstream(path) << text;
-	}
-
-	[[nodiscard]] std::string Path(const std::string& relative) const { return (root_ / relative).string(); }
-
-private:
-	std::filesystem::path root_;
-};
-
 TEST(JsonFileRef, ANestedReferenceResolvesRelativeToItsOwnFile) {
-	const JsonTree tree{"json_file_ref_nested"};
+	const TempDirectory tree{"json_file_ref_nested"};
 	tree.Write("save.json", R"({"player": "@file:actors/player.json"})");
 	// The player file's reference is relative to actors/, not to save.json's folder.
 	tree.Write("actors/player.json", R"({"hp": 7, "inventory": "@file:items/bag.json"})");
@@ -54,7 +28,7 @@ TEST(JsonFileRef, ANestedReferenceResolvesRelativeToItsOwnFile) {
 }
 
 TEST(JsonFileRef, AReferenceInsideAnArrayAndOneAsAComponentValueBothResolve) {
-	const JsonTree tree{"json_file_ref_array"};
+	const TempDirectory tree{"json_file_ref_array"};
 	tree.Write(
 		"level.json",
 		R"({"entities": ["@file:npc.json", {"name": "Box", "components": {"material": "@file:red.json"}}]})"
@@ -74,14 +48,14 @@ TEST(JsonFileRef, AReferenceInsideAnArrayAndOneAsAComponentValueBothResolve) {
 }
 
 TEST(JsonFileRef, AMissingReferencedFileFailsTheLoad) {
-	const JsonTree tree{"json_file_ref_missing"};
+	const TempDirectory tree{"json_file_ref_missing"};
 	tree.Write("save.json", R"({"player": "@file:nowhere.json"})");
 
 	EXPECT_FALSE(LoadJsonFileResolved(tree.Path("save.json"), "Test").has_value());
 }
 
 TEST(JsonFileRef, AnUnparsableReferencedFileFailsTheLoad) {
-	const JsonTree tree{"json_file_ref_unparsable"};
+	const TempDirectory tree{"json_file_ref_unparsable"};
 	tree.Write("save.json", R"({"player": "@file:broken.json"})");
 	tree.Write("broken.json", R"({"hp": )");
 
@@ -89,15 +63,27 @@ TEST(JsonFileRef, AnUnparsableReferencedFileFailsTheLoad) {
 }
 
 TEST(JsonFileRef, AReferenceCycleFailsInsteadOfRecursingForever) {
-	const JsonTree tree{"json_file_ref_cycle"};
+	const TempDirectory tree{"json_file_ref_cycle"};
 	tree.Write("a.json", R"({"next": "@file:sub/b.json"})");
 	tree.Write("sub/b.json", R"({"next": "@file:../a.json"})");
 
 	EXPECT_FALSE(LoadJsonFileResolved(tree.Path("a.json"), "Test").has_value());
 }
 
+TEST(JsonFileRef, ACycleThroughAnotherSpellingOfTheSameFileFails) {
+	const TempDirectory tree{"json_file_ref_alias_cycle"};
+	// On a case-insensitive filesystem "A.json" is a.json itself; elsewhere it is missing. Either way the load fails
+	// rather than recursing until the stack runs out.
+	tree.Write("a.json", R"({"self": "@file:A.json"})");
+	tree.Write("sub/b.json", R"({"back": "@file:./../sub/../a.json"})");
+	tree.Write("root.json", R"({"start": "@file:sub/b.json"})");
+
+	EXPECT_FALSE(LoadJsonFileResolved(tree.Path("a.json"), "Test").has_value());
+	EXPECT_FALSE(LoadJsonFileResolved(tree.Path("root.json"), "Test").has_value());
+}
+
 TEST(JsonFileRef, TheSameFileReferencedTwiceSideBySideIsNotACycle) {
-	const JsonTree tree{"json_file_ref_diamond"};
+	const TempDirectory tree{"json_file_ref_diamond"};
 	tree.Write("save.json", R"({"left": "@file:part.json", "right": "@file:part.json"})");
 	tree.Write("part.json", R"(1)");
 
@@ -108,7 +94,7 @@ TEST(JsonFileRef, TheSameFileReferencedTwiceSideBySideIsNotACycle) {
 }
 
 TEST(JsonFileRef, ABareStringIsLeftAlone) {
-	const JsonTree tree{"json_file_ref_bare"};
+	const TempDirectory tree{"json_file_ref_bare"};
 	tree.Write("save.json", R"({"name": "part.json", "list": ["part.json"], "@file:key.json": 3})");
 	tree.Write("part.json", R"(1)");
 

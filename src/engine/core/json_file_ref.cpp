@@ -16,18 +16,29 @@ namespace {
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-// The path a reference names, made absolute and normal so two spellings of one file compare equal for cycle checks.
+// The path a reference names, resolved against `base_dir`.
 [[nodiscard]] fs::path RefPath(const std::string_view ref, const fs::path& base_dir) {
 	return (base_dir / ref.substr(kFileRefSigil.size())).lexically_normal();
 }
 
+// The file `path` really is, for cycle checks: canonical, so a case alias on a case-insensitive filesystem, a symlink or
+// a junction compares equal to the file it names.
 [[nodiscard]] fs::path Identity(const fs::path& path) {
 	std::error_code ec;
-	auto absolute = fs::absolute(path, ec);
+	auto canonical = fs::weakly_canonical(path, ec);
 	if (ec) {
-		return path.lexically_normal();
+		return fs::absolute(path, ec).lexically_normal();
 	}
-	return absolute.lexically_normal();
+	return canonical;
+}
+
+// Load the file at `path` (a reference already resolved by RefPath).
+[[nodiscard]] std::optional<FileRefDocument> LoadRefPath(const fs::path& path, const std::string_view log_tag) {
+	auto doc = LoadJsonFile(path.string(), log_tag);
+	if (!doc) {
+		return std::nullopt;
+	}
+	return FileRefDocument{.doc = std::move(*doc), .dir = path.parent_path()};
 }
 
 // Replace every reference under `node` in place. `open_files` holds the files currently being resolved, outermost
@@ -35,13 +46,13 @@ using json = nlohmann::json;
 [[nodiscard]] bool
 ResolveInPlace(json& node, const fs::path& dir, std::vector<fs::path>& open_files, const std::string_view log_tag) {
 	if (IsFileRef(node)) {
-		const auto ref = node.get<std::string>();
-		const auto identity = Identity(RefPath(ref, dir));
+		const auto path = RefPath(node.get_ref<const std::string&>(), dir);
+		const auto identity = Identity(path);
 		if (std::ranges::find(open_files, identity) != open_files.end()) {
 			spdlog::error("[{}] File reference cycle: '{}' is already being loaded", log_tag, identity.string());
 			return false;
 		}
-		auto loaded = LoadFileRef(ref, dir, log_tag);
+		auto loaded = LoadRefPath(path, log_tag);
 		if (!loaded) {
 			return false;
 		}
@@ -72,12 +83,7 @@ bool IsFileRef(const json& value) {
 
 std::optional<FileRefDocument>
 LoadFileRef(const std::string_view ref, const fs::path& base_dir, const std::string_view log_tag) {
-	const auto path = RefPath(ref, base_dir);
-	auto doc = LoadJsonFile(path.string(), log_tag);
-	if (!doc) {
-		return std::nullopt;
-	}
-	return FileRefDocument{.doc = std::move(*doc), .dir = path.parent_path()};
+	return LoadRefPath(RefPath(ref, base_dir), log_tag);
 }
 
 std::optional<json> LoadJsonFileResolved(const std::string_view path, const std::string_view log_tag) {

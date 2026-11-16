@@ -2,9 +2,9 @@
 
 #include <filesystem>
 #include <set>
-#include <utility>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -28,8 +28,6 @@ namespace fs = std::filesystem;
 //   - Component values:       "component_name": "@file:data/material.json"
 // Bare strings in arrays are reserved for future entity-by-name references and are NOT treated
 // as file refs; the sigil is always required to trigger file loading.
-using core::IsFileRef;
-
 constexpr std::string_view kFileRefLogTag = "Level:FileRef";
 
 // Builds entities from a JSON definition tree using the factories registered in LevelRegistry
@@ -47,7 +45,7 @@ public:
 	// Build an entity from `def` under `parent`. `cur_dir` is used to resolve any "@file:" references.
 	// If `def` is an "@file:" string, the referenced file is loaded and built in its own directory.
 	flecs::entity Build(const json& def, const flecs::entity parent, const fs::path& cur_dir) {
-		if (IsFileRef(def)) {
+		if (core::IsFileRef(def)) {
 			return BuildFromFile(def.get<std::string>(), parent, cur_dir);
 		}
 
@@ -148,7 +146,7 @@ private:
 				continue;
 			}
 			// A "@file:" string component value loads the JSON from disk and substitutes it.
-			if (IsFileRef(value)) {
+			if (core::IsFileRef(value)) {
 				const auto file_data = core::LoadFileRef(value.get<std::string>(), cur_dir, kFileRefLogTag);
 				if (!file_data) {
 					continue;
