@@ -90,6 +90,8 @@ struct ChildShape {
 	float capsule_height{1.0F};
 	float cylinder_radius{0.5F};
 	float cylinder_height{1.0F};
+
+	bool operator==(const ChildShape&) const = default;
 };
 
 struct ShapeConfig {

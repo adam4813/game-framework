@@ -57,6 +57,22 @@ A rigid body's shape sits at `CollisionShape.offset` (and `rotation`, C++ only) 
 type; the body's position stays the entity's. A character's capsule uses `offset` too, to put its origin at the feet
 (see below).
 
+### Changing a body after creation
+
+Setting `RigidBody` or `CollisionShape` again (from C++, a script or the REST API) reaches the existing body:
+
+- **Same values as last applied:** nothing happens. Repeated sets during a scene load are free.
+- **In place** (the body keeps its identity, position and velocity): `motion_type` among dynamic, kinematic and
+  static (except leaving static, below), `layer`, `friction`, `restitution`, `linear_damping`, `angular_damping`,
+  `use_gravity` / `gravity_scale`, `enable_ccd` and `mass` (inertia is recomputed from the shape, as at creation).
+  `collision_mask` is stored only, so it changes nothing yet.
+- **Recreated** at its current position, keeping its linear and angular velocity: any `CollisionShape` change, and a
+  static body becoming kinematic or dynamic (Jolt creates static bodies without the motion data that needs).
+- If the recreated body's shape can't be built (e.g. a mesh collider on a body set to dynamic), the error is logged
+  and the old body stays as it was.
+- A dynamic body gets `PhysicsVelocity` if it lacks one. A body set to static stops where it is.
+- Moving a body is a `Transform` set (a teleport), not a `RigidBody` set.
+
 ### Mesh colliders
 
 A `mesh` shape makes a loaded model solid. It collides against every triangle of every mesh in the file, with each
@@ -263,8 +279,10 @@ All systems follow Flecs 4.x best practices:
 
 3. **Observers** (event-based):
 
-- PhysicsAddBody (OnSet RigidBody — creates body if CollisionShape already present)
-- PhysicsAddBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates body if not yet created)
+- PhysicsAddBody (OnSet RigidBody — creates the body if CollisionShape is already present, or updates an existing one;
+  see "Changing a body after creation")
+- PhysicsAddBodyOnCollisionShape (OnSet CollisionShape + has RigidBody — creates the body, or recreates it with a
+  changed shape)
 - PhysicsSetBodyTransform (OnSet WorldTransform + has RigidBody — moves the body to the seeded transform; setting a
   rigid body's `Transform` teleports it)
 - PhysicsSyncToBackend (OnSet — syncs ECS transform changes to Jolt)

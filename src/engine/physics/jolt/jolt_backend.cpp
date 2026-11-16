@@ -277,8 +277,8 @@ void JoltBackend::Shutdown() {
 	if (!initialized_) return;
 
 	auto& body_interface = physics_system_->GetBodyInterface();
-	for (const auto body_index : entity_to_body_ | std::views::values) {
-		JPH::BodyID bid(body_index);
+	for (const auto& record : entity_to_body_ | std::views::values) {
+		JPH::BodyID bid(record.id);
 		body_interface.RemoveBody(bid);
 		body_interface.DestroyBody(bid);
 	}
@@ -492,8 +492,79 @@ static JPH::ShapeRefC PlaceShape(const JPH::ShapeRefC& shape_ref, const Collisio
 		.Get();
 }
 
+// Builds a rigid body's placed Jolt shape, or logs an error naming the entity and returns null.
+static JPH::ShapeRefC BuildBodyShape(
+	MeshShapeCache& cache,
+	const std::string_view entity_name,
+	const RigidBody& body,
+	const CollisionShape& shape
+) {
+	JPH::ShapeRefC jolt_shape;
+	if (shape.type == ShapeType::Mesh) {
+		jolt_shape = BuildMeshShape(cache, entity_name, body, shape);
+		if (!jolt_shape) return nullptr;
+	}
+	else if (shape.type == ShapeType::ConvexHull) {
+		spdlog::error("[Physics] Entity '{}': a convex hull collider has no vertices to build from.", entity_name);
+		return nullptr;
+	}
+	else {
+		jolt_shape = CreateShape(MakeShapeConfig(shape));
+		if (!jolt_shape) {
+			spdlog::error("[Physics] Entity '{}': failed to create shape.", entity_name);
+			return nullptr;
+		}
+	}
+	return PlaceShape(jolt_shape, shape);
+}
+
+// Creates and adds a body; an invalid BodyID (logged) when Jolt refuses.
+static JPH::BodyID CreateJoltBody(
+	JPH::BodyInterface& body_interface,
+	const flecs::entity_t entity,
+	const JPH::ShapeRefC& jolt_shape,
+	const PhysicsTransform& transform,
+	const RigidBody& body
+) {
+	JPH::BodyCreationSettings settings(
+		jolt_shape,
+		{transform.position.x, transform.position.y, transform.position.z},
+		{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
+		ToJoltMotionType(body.motion_type),
+		GetObjectLayer(body)
+	);
+	settings.mFriction = body.friction;
+	settings.mRestitution = body.restitution;
+	settings.mLinearDamping = body.linear_damping;
+	settings.mAngularDamping = body.angular_damping;
+	settings.mGravityFactor = body.use_gravity ? body.gravity_scale : 0.0F;
+	settings.mAllowSleeping = true;
+
+	if (body.motion_type == MotionType::Dynamic) {
+		settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		settings.mMassPropertiesOverride.mMass = body.mass;
+	}
+
+	if (body.enable_ccd) {
+		settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
+	}
+
+	settings.mUserData = entity;
+
+	const JPH::BodyID bid = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+	if (bid.IsInvalid()) {
+		spdlog::error("[Physics] Failed to create body for entity {}", entity);
+	}
+	return bid;
+}
+
+// Jolt can only turn a static body kinematic or dynamic if it was created with motion properties, which ours aren't.
+static bool NeedsRecreate(const RigidBody& old_body, const RigidBody& new_body) {
+	return old_body.motion_type == MotionType::Static && new_body.motion_type != MotionType::Static;
+}
+
 void JoltBackend::SyncBodyToBackend(
-	flecs::entity_t entity,
+	const flecs::entity_t entity,
 	const std::string_view entity_name,
 	const PhysicsTransform& transform,
 	const RigidBody& body,
@@ -504,85 +575,84 @@ void JoltBackend::SyncBodyToBackend(
 		return;
 	}
 
-	JPH::ShapeRefC jolt_shape;
-	if (shape.type == ShapeType::Mesh) {
-		jolt_shape = BuildMeshShape(*mesh_shape_cache_, entity_name, body, shape);
+	auto& body_interface = physics_system_->GetBodyInterface();
+	const auto existing = entity_to_body_.find(entity);
+
+	if (existing == entity_to_body_.end()) {
+		const JPH::ShapeRefC jolt_shape = BuildBodyShape(*mesh_shape_cache_, entity_name, body, shape);
 		if (!jolt_shape) return;
-	}
-	else if (shape.type == ShapeType::ConvexHull) {
-		spdlog::error("[Physics] Entity '{}': a convex hull collider has no vertices to build from.", entity_name);
+		if (const JPH::BodyID bid = CreateJoltBody(body_interface, entity, jolt_shape, transform, body);
+			!bid.IsInvalid()) {
+			entity_to_body_[entity] = {.id = bid.GetIndexAndSequenceNumber(), .body = body, .shape = shape};
+		}
 		return;
 	}
-	else {
-		jolt_shape = CreateShape(MakeShapeConfig(shape));
-		if (!jolt_shape) {
-			spdlog::error("[Physics] Entity '{}': failed to create shape.", entity_name);
-			return;
+
+	BodyRecord& record = existing->second;
+	if (record.body == body && record.shape == shape) return;
+
+	const JPH::BodyID bid(record.id);
+
+	if (record.shape != shape || NeedsRecreate(record.body, body)) {
+		const JPH::ShapeRefC jolt_shape = BuildBodyShape(*mesh_shape_cache_, entity_name, body, shape);
+		if (!jolt_shape) return; // logged; the old body stays
+
+		JPH::RVec3 position;
+		JPH::Quat rotation;
+		body_interface.GetPositionAndRotation(bid, position, rotation);
+		const JPH::Vec3 linear_velocity = body_interface.GetLinearVelocity(bid);
+		const JPH::Vec3 angular_velocity = body_interface.GetAngularVelocity(bid);
+
+		const PhysicsTransform current{
+			.position = {position.GetX(), position.GetY(), position.GetZ()},
+			.rotation = {rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()}
+		};
+		const JPH::BodyID new_bid = CreateJoltBody(body_interface, entity, jolt_shape, current, body);
+		if (new_bid.IsInvalid()) return; // logged; the old body stays
+
+		body_interface.RemoveBody(bid);
+		body_interface.DestroyBody(bid);
+		if (body.motion_type != MotionType::Static) {
+			body_interface.SetLinearAndAngularVelocity(new_bid, linear_velocity, angular_velocity);
 		}
+		record = {.id = new_bid.GetIndexAndSequenceNumber(), .body = body, .shape = shape};
+		return;
 	}
-	jolt_shape = PlaceShape(jolt_shape, shape);
 
-	auto& body_interface = physics_system_->GetBodyInterface();
+	// In place. Motion type first: it moves the body between the moving and non-moving object layers.
+	body_interface.SetMotionType(bid, ToJoltMotionType(body.motion_type), JPH::EActivation::Activate);
+	body_interface.SetObjectLayer(bid, GetObjectLayer(body));
+	body_interface.SetFriction(bid, body.friction);
+	body_interface.SetRestitution(bid, body.restitution);
 
-	if (auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
-		// Update existing body
-		JPH::BodyID bid(it->second);
-		body_interface.SetShape(bid, jolt_shape, true, JPH::EActivation::Activate);
-		body_interface.SetPositionAndRotation(
-			bid,
-			{transform.position.x, transform.position.y, transform.position.z},
-			{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
-			JPH::EActivation::Activate
-		);
-		body_interface.SetObjectLayer(bid, GetObjectLayer(body));
-		body_interface.SetFriction(bid, body.friction);
-		body_interface.SetRestitution(bid, body.restitution);
+	if (body.motion_type != MotionType::Static) {
 		body_interface.SetGravityFactor(bid, body.use_gravity ? body.gravity_scale : 0.0F);
 		body_interface.SetMotionQuality(
 			bid,
 			body.enable_ccd ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete
 		);
-	}
-	else {
-		// Create new body
-		JPH::BodyCreationSettings settings(
-			jolt_shape,
-			{transform.position.x, transform.position.y, transform.position.z},
-			{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
-			ToJoltMotionType(body.motion_type),
-			GetObjectLayer(body)
-		);
-		settings.mFriction = body.friction;
-		settings.mRestitution = body.restitution;
-		settings.mLinearDamping = body.linear_damping;
-		settings.mAngularDamping = body.angular_damping;
-		settings.mGravityFactor = body.use_gravity ? body.gravity_scale : 0.0F;
-		settings.mAllowSleeping = true;
 
-		if (body.motion_type == MotionType::Dynamic) {
-			settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-			settings.mMassPropertiesOverride.mMass = body.mass;
-		}
-
-		if (body.enable_ccd) {
-			settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
-		}
-
-		settings.mUserData = entity;
-
-		if (JPH::BodyID bid = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate); !bid.IsInvalid()) {
-			entity_to_body_[entity] = bid.GetIndexAndSequenceNumber();
-		}
-		else {
-			spdlog::error("[Physics] Failed to create body for entity {}", entity);
+		const JPH::BodyLockWrite lock(physics_system_->GetBodyLockInterface(), bid);
+		if (lock.Succeeded()) {
+			JPH::Body& jolt_body = lock.GetBody();
+			JPH::MotionProperties* motion = jolt_body.GetMotionProperties();
+			motion->SetLinearDamping(body.linear_damping);
+			motion->SetAngularDamping(body.angular_damping);
+			if (body.motion_type == MotionType::Dynamic) {
+				// What EOverrideMassProperties::CalculateInertia does at creation: the shape's inertia, scaled to the mass.
+				JPH::MassProperties mass_properties = jolt_body.GetShape()->GetMassProperties();
+				mass_properties.ScaleToMass(body.mass);
+				motion->SetMassProperties(JPH::EAllowedDOFs::All, mass_properties);
+			}
 		}
 	}
+	record.body = body;
 }
 void JoltBackend::SetBodyTransform(const flecs::entity_t entity, const PhysicsTransform& transform) {
 	auto& body_interface = physics_system_->GetBodyInterface();
 
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		const JPH::Vec3 linear_vel = body_interface.GetLinearVelocity(bid);
 		const JPH::Vec3 angular_vel = body_interface.GetAngularVelocity(bid);
 		body_interface.SetPositionAndRotationWhenChanged(
@@ -602,7 +672,7 @@ PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const flecs::entity_t entity
 
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		const auto& body_interface = physics_system_->GetBodyInterface();
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		JPH::RVec3 pos;
 		JPH::Quat rot{};
 		body_interface.GetPositionAndRotation(bid, pos, rot);
@@ -623,7 +693,7 @@ PhysicsSyncResult JoltBackend::GetPhysicsSyncResult(const flecs::entity_t entity
 void JoltBackend::RemoveBody(const flecs::entity_t entity) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		if (!bid.IsInvalid() && body_interface.IsAdded(bid)) {
 			body_interface.RemoveBody(bid);
 		}
@@ -639,7 +709,7 @@ bool JoltBackend::HasBody(const flecs::entity_t entity) const { return entity_to
 void JoltBackend::ApplyForce(const flecs::entity_t entity, const glm::vec3& force, const glm::vec3& torque) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		if (glm::length(force) > 0.0F) {
 			body_interface.AddForce(bid, {force.x, force.y, force.z});
 		}
@@ -652,7 +722,7 @@ void JoltBackend::ApplyForce(const flecs::entity_t entity, const glm::vec3& forc
 void JoltBackend::ApplyImpulse(const flecs::entity_t entity, const glm::vec3& impulse, const glm::vec3& point) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		const JPH::Vec3 jolt_impulse{impulse.x, impulse.y, impulse.z};
 		if (glm::length(point) > 0.0F) {
 			body_interface.AddImpulse(bid, jolt_impulse, JPH::RVec3(point.x, point.y, point.z));
@@ -666,7 +736,7 @@ void JoltBackend::ApplyImpulse(const flecs::entity_t entity, const glm::vec3& im
 void JoltBackend::SetBodyVelocity(const flecs::entity_t entity, const glm::vec3& linear, const glm::vec3& angular) {
 	if (const auto it = entity_to_body_.find(entity); it != entity_to_body_.end()) {
 		auto& body_interface = physics_system_->GetBodyInterface();
-		const JPH::BodyID bid(it->second);
+		const JPH::BodyID bid(it->second.id);
 		body_interface.SetLinearAndAngularVelocity(
 			bid,
 			{linear.x, linear.y, linear.z},

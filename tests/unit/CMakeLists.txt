@@ -114,3 +114,9 @@ add_engine_test(physics_raycast_test
 add_engine_test(raycast_script_test
     raycast_script_test.cpp
 )
+
+# RigidBody / CollisionShape set after the body exists: motion type, mass and layer update in place, a static body
+# turned dynamic or a new shape recreates it, and a repeated set changes nothing
+add_engine_test(rigid_body_update_test
+    rigid_body_update_test.cpp
+)
