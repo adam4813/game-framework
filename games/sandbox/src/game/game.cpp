@@ -13,6 +13,7 @@
 #include "synth_scene.hpp"
 #include "tilemap_scene.hpp"
 #include "title_scene.hpp"
+#include "translucent_scene.hpp"
 
 using namespace engine;
 
@@ -64,6 +65,8 @@ GameModule::GameModule(flecs::world& world) {
 		synthScene->onBackPressed = [w = &world]() { scene::ActivateScene<TitleSceneTag>(*w); };
 		scene::RegisterScene<SynthSceneTag>(world, synthScene);
 	}
+
+	scene::RegisterScene<TranslucentSceneTag>(world, std::make_shared<TranslucentScene>());
 
 	scene::ActivateScene<TitleSceneTag>(world);
 
