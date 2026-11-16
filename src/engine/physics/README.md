@@ -9,7 +9,9 @@ Concise Jolt Physics integration with Flecs ECS using standard C++ headers/sourc
   engine's prefixed cgltf copy (`engine/platform/cgltf_prefixed.hpp`)
 - **physics_components.hpp** — ECS components (RigidBody, CollisionShape, PhysicsVelocity, etc.)
 - **physics_module.hpp/cpp** — Flecs system registration, ECS integration, and physics-world setup
-- **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping)
+- **physics_queries.hpp/cpp** — `Raycast` and `RaycastAll` (see Queries); no Jolt types in the API
+- **physics_script_bindings.hpp/cpp** — the queries' AngelScript bindings and `Layer_*` constants
+- **jolt/jolt_backend.hpp/cpp** — Low-level Jolt API wrapper (physics shape/body creation, stepping, queries)
 - **jolt/jolt_module.hpp/cpp** — Jolt-specific Flecs systems (sync, step, collision events)
 - **jolt/character_step.hpp/cpp** — `StepCharacterTick` (one character, one Tick, for replay) and the input and
   write-back helpers it shares with `PhysicsStep` and `CharacterSyncFromBackend`
@@ -105,7 +107,8 @@ not a rigid body: pairing it with a `rigid_body`, or with a non-capsule shape, l
 
 ```json
 {"name": "Player", "components": {
-  "character_body": {"max_slope_deg": 50, "step_height": 0.4, "stick_to_floor": 0.5, "mass": 70},
+  "character_body": {"max_slope_deg": 50, "step_height": 0.4, "stick_to_floor": 0.5, "mass": 70,
+                     "layer": "player", "inner_body": true},
   "collision_shape": {"type": "capsule", "capsule_radius": 0.4, "capsule_height": 1.0, "offset": [0, 0.9, 0]},
   "gravity": {"acceleration": [0, -9.81, 0]},
   "transform": {"position": [0, 1, 0]}
@@ -114,7 +117,7 @@ not a rigid body: pairing it with a `rigid_body`, or with a non-capsule shape, l
 
 | Component | Role |
 |---|---|
-| `CharacterBody` | Authored: max slope (degrees), step height, stick-to-floor distance, mass, layer. Defaults are Jolt's. `layer` is stored only; the backend has just moving and non-moving object layers. |
+| `CharacterBody` | Authored: max slope (degrees), step height, stick-to-floor distance, mass (defaults are Jolt's), `layer` (default `player`) and `inner_body` (default `true`). |
 | `CharacterMove` | Runtime input. The game writes `velocity` each frame; only the part perpendicular to up is used. Absent means zero. |
 | `Gravity` | Authored. The one acceleration an entity feels; up is `-normalize(acceleration)`. Absent means `PhysicsWorldConfig.gravity`. Only characters read it. |
 | `CharacterState` | Runtime, added with `CharacterBody`: `grounded`, `ground_entity`, `ground_normal`, `velocity`. |
@@ -151,8 +154,59 @@ for (const auto& input : inputs_since_server_tick) {
 }
 ```
 
-Out of scope: jump, pushing dynamic bodies, an inner body (raycasts don't hit a character), and saving or restoring
-`CharacterVirtual` state beyond position and velocity.
+**Inner body:** with `inner_body` (the default), the character also gets a kinematic body in the physics system: the
+same capsule and offset as its `CollisionShape`, on `CharacterBody.layer`, carrying the entity as user data. It gives
+the character presence:
+
+- Raycasts hit it (see Queries) and report the character's entity.
+- Dynamic bodies bounce off it, and characters block each other (each character collides with the others' inner
+  bodies; Jolt keeps a character from colliding with its own).
+- It follows every move: each step, a teleport (`CharacterTeleport` / `SetCharacterPosition`) and a replayed
+  `StepCharacterTick`.
+- Contacts with it reach `CollisionEvents` like any body's.
+
+Set `"inner_body": false` to let rays and other characters pass through a character.
+
+Out of scope: jump, a character pushing or being pushed by dynamic bodies, and saving or restoring `CharacterVirtual`
+state beyond position and velocity.
+
+## Collision layers
+
+`RigidBody.layer` and `CharacterBody.layer` put a body on a `CollisionLayer`: `default`, `player`, `enemy`, `obstacle`
+or `trigger` in level JSON (`"layer": "enemy"`). A rigid body defaults to `default`, a character to `player`.
+
+The backend encodes each Jolt object layer as (layer, moving bit), giving 10 object layers on the 2 broad-phase layers
+(non-moving and moving). **Contacts look only at the moving bit**, as before: layers don't change which bodies collide.
+Queries filter on the layer (`RaycastFilter::layer_mask`). `RigidBody.collision_mask` is stored only; nothing filters
+contacts on it yet.
+
+## Queries
+
+`physics_queries.hpp` (included by `physics.hpp`) casts rays against the bodies and character inner bodies of a world:
+
+```cpp
+using namespace engine::physics;
+const Ray aim{.origin = eye, .direction = forward, .max_distance = 50.0F};
+
+if (const auto hit = Raycast(world, aim, {.ignore = std::span{&self, 1}})) {
+    // hit->entity, hit->hit_point, hit->normal, hit->distance
+}
+for (const RaycastResult& hit : RaycastAll(world, aim, {.layer_mask = LayerBit(CollisionLayer::Enemy)})) { ... }
+```
+
+- **`Raycast`** returns the closest hit, or `std::nullopt`. **`RaycastAll`** returns every hit, sorted by distance, one
+  per body (the nearest, for a mesh or compound the ray crosses more than once).
+- **`RaycastResult`**: `entity`, `hit_point`, the surface `normal` there, and `distance` along the ray.
+- **The ray:** `direction` is normalized for you. A zero-length direction or `max_distance <= 0` hits nothing. A ray
+  starting inside a convex shape hits it at distance 0 (Jolt's default), with the normal facing back along the ray.
+- **`RaycastFilter`**: `layer_mask` (`LayerBit`s, default every layer but `Trigger`, i.e. `kDefaultRaycastMask`) and
+  `ignore`, a span of entities to pass through. Nothing is ignored implicitly, not even the caller.
+- **Timing:** a query sees the bodies as of the last finished Tick, with no interpolation (a body teleported since,
+  by setting its `Transform`, is seen where it was moved). Call it from any system or from outside `progress()`; a
+  query made while `PhysicsStep` steps the world logs an error and hits nothing.
+- A world without physics hits nothing.
+
+Scripts call the same queries (`Raycast`, `RaycastAll`); see `docs/script-api-reference.md`.
 
 ## Several physics worlds in one process
 

@@ -9,6 +9,7 @@ namespace engine::scripting {
 uint64_t ScriptEntityRef::GetId() const { return entity_.id(); }
 
 std::string ScriptEntityRef::GetName() const {
+	if (!entity_) return ""; // a null Entity, e.g. a RaycastHit that missed
 	const char* name = entity_.name();
 	return name ? name : "";
 }

@@ -104,3 +104,13 @@ add_engine_test(world_logger_test
 add_engine_test(fixed_step_test
     fixed_step_test.cpp
 )
+
+# Raycast queries: closest hit and normal, sorted RaycastAll, layer masks, ignore lists, degenerate rays, inner bodies
+add_engine_test(physics_raycast_test
+    physics_raycast_test.cpp
+)
+
+# Raycast script bindings, headless: Raycast, RaycastFilter (ignore, layer mask) and RaycastAll's array of hits
+add_engine_test(raycast_script_test
+    raycast_script_test.cpp
+)

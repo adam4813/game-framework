@@ -2,6 +2,7 @@
 
 #include <flecs.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -26,6 +27,7 @@ namespace engine::scripting {
 // The set of value kinds a method signature can reference.
 //   Object — a flecs-meta-reflected value type (identified by its component/type id).
 //   String — std::string.
+//   Array  — a script-owned array of a reflected value type (return values only; see SetReturnArray).
 enum class ScriptValueKind : uint8_t {
 	Void,
 	Bool,
@@ -33,12 +35,13 @@ enum class ScriptValueKind : uint8_t {
 	Float, // 32-bit float
 	String,
 	Object,
+	Array,
 };
 
 // A single type slot in a method signature (return type or a parameter type).
 struct ScriptValueType {
 	ScriptValueKind kind{ScriptValueKind::Void};
-	flecs::entity_t object_type{0}; // flecs component/type id, only used when kind == Object
+	flecs::entity_t object_type{0}; // flecs component/type id: the type (Object) or the element type (Array)
 	bool is_handle{false};          // Object only: exposed as a reference handle (`T@`) rather than a value
 
 	[[nodiscard]] static ScriptValueType MakeVoid() { return {.kind = ScriptValueKind::Void, .object_type = 0}; }
@@ -52,6 +55,10 @@ struct ScriptValueType {
 	// A reference-type handle (`T@`) — used to return/pass a non-owning view into C++ storage.
 	[[nodiscard]] static ScriptValueType MakeObjectHandle(const flecs::entity_t type_id) {
 		return {.kind = ScriptValueKind::Object, .object_type = type_id, .is_handle = true};
+	}
+	// A new array of a reflected value type, handed to the script (AngelScript: `array<T>@`). Return type only.
+	[[nodiscard]] static ScriptValueType MakeArray(const flecs::entity_t element_type_id) {
+		return {.kind = ScriptValueKind::Array, .object_type = element_type_id};
 	}
 };
 
@@ -97,6 +104,10 @@ public:
 	// Return a non-owning reference-type handle (`T@`) — e.g. a view into C++ storage the script
 	// then mutates in place. The pointed-to object must outlive the script's use of the handle.
 	virtual void SetReturnObjectHandle(void* ptr) = 0;
+
+	// Return a new script-owned array (a `ScriptValueType::MakeArray` return) holding copies of `count` contiguous
+	// values of the reflected value type `element_type`, which must already be registered with the backend.
+	virtual void SetReturnArray(flecs::entity_t element_type, const void* elements, size_t count) = 0;
 };
 
 // A compile-time-generated thunk that marshals one component method through a ScriptCallContext.

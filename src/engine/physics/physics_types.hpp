@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
+#include <flecs.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -14,7 +16,18 @@ enum class MotionType : uint8_t { Static, Kinematic, Dynamic };
 
 enum class ShapeType { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compound };
 
-enum class CollisionLayer : uint8_t { Default = 0, Player = 1, Enemy = 2, Obstacle = 3, Trigger = 4 };
+/// The layer a body or character sits on. Raycasts filter on it (RaycastFilter::layer_mask); body-vs-body contacts
+/// don't. The default `int` underlying type keeps it reflectable (see the flecs-systems skill).
+enum class CollisionLayer { Default = 0, Player = 1, Enemy = 2, Obstacle = 3, Trigger = 4 };
+
+inline constexpr uint32_t kCollisionLayerCount = 5;
+
+/// The `RaycastFilter::layer_mask` bit for one layer.
+constexpr uint32_t LayerBit(const CollisionLayer layer) { return 1U << static_cast<uint32_t>(layer); }
+
+inline constexpr uint32_t kAllLayersMask = (1U << kCollisionLayerCount) - 1U;
+/// What a query hits when it doesn't say: every layer but `Trigger`.
+inline constexpr uint32_t kDefaultRaycastMask = kAllLayersMask & ~LayerBit(CollisionLayer::Trigger);
 
 enum class ConstraintType : uint8_t { Fixed, Hinge, Slider, Ball, Distance };
 
@@ -117,16 +130,26 @@ struct CharacterSyncResult {
 	glm::vec3 velocity{0.0F};
 };
 
-// Raycast
+/// A ray for a query. `direction` need not be normalized; a zero direction or `max_distance <= 0` hits nothing.
 struct Ray {
 	glm::vec3 origin{0.0F};
 	glm::vec3 direction{0.0F, 0.0F, 1.0F};
 	float max_distance{100.0F};
 };
 
+/// What a query may hit. Nothing is ignored implicitly, not even the caller: pass its entity in `ignore`.
+struct RaycastFilter {
+	/// `LayerBit`s of the layers to hit.
+	uint32_t layer_mask{kDefaultRaycastMask};
+	/// Entities whose bodies (or character inner bodies) the ray passes through. Viewed, not copied.
+	std::span<const flecs::entity_t> ignore{};
+};
+
+/// One hit: the entity whose body was hit, where, the surface normal there, and how far along the ray.
 struct RaycastResult {
 	flecs::entity_t entity{0};
 	glm::vec3 hit_point{0.0F};
+	glm::vec3 normal{0.0F};
 	float distance{0.0F};
 };
 

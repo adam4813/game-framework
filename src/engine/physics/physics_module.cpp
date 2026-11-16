@@ -16,6 +16,7 @@
 #include "engine/level/level.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "physics_components.hpp"
+#include "physics_script_bindings.hpp"
 
 namespace engine::physics {
 
@@ -36,12 +37,14 @@ ShapeType ParseShapeType(const std::string& s) {
 	return ShapeType::Box;
 }
 
-CollisionLayer ParseCollisionLayer(const std::string& s) {
+// A layer's JSON name, or `fallback` when it names none.
+CollisionLayer ParseCollisionLayer(const std::string& s, const CollisionLayer fallback) {
 	if (s == "default") return CollisionLayer::Default;
+	if (s == "player") return CollisionLayer::Player;
 	if (s == "enemy") return CollisionLayer::Enemy;
 	if (s == "obstacle") return CollisionLayer::Obstacle;
 	if (s == "trigger") return CollisionLayer::Trigger;
-	return CollisionLayer::Player;
+	return fallback;
 }
 
 // Registers the level-loader factories for the physics components this module owns.
@@ -59,6 +62,7 @@ void RegisterPhysicsLevelLoaders(const flecs::world& world) {
 		rb.enable_ccd = j.value("enable_ccd", rb.enable_ccd);
 		rb.use_gravity = j.value("use_gravity", rb.use_gravity);
 		rb.gravity_scale = j.value("gravity_scale", rb.gravity_scale);
+		rb.layer = ParseCollisionLayer(j.value("layer", std::string{}), rb.layer);
 		e.set<RigidBody>(rb);
 	});
 	level::RegisterComponentLoader(world, "collision_shape", [](const flecs::entity e, const json& j) {
@@ -78,7 +82,8 @@ void RegisterPhysicsLevelLoaders(const flecs::world& world) {
 		body.step_height = j.value("step_height", body.step_height);
 		body.stick_to_floor = j.value("stick_to_floor", body.stick_to_floor);
 		body.mass = j.value("mass", body.mass);
-		body.layer = ParseCollisionLayer(j.value("layer", std::string{"player"}));
+		body.layer = ParseCollisionLayer(j.value("layer", std::string{}), body.layer);
+		body.inner_body = j.value("inner_body", body.inner_body);
 		e.set<CharacterBody>(body);
 	});
 	level::RegisterComponentLoader(world, "gravity", [](const flecs::entity e, const json& j) {
@@ -110,12 +115,19 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 
 	// === Reflection ===
 	world.component<PhysicsImpulse>().member<glm::vec3>("impulse").member<glm::vec3>("point");
+	world.component<CollisionLayer>()
+		.constant("Default", CollisionLayer::Default)
+		.constant("Player", CollisionLayer::Player)
+		.constant("Enemy", CollisionLayer::Enemy)
+		.constant("Obstacle", CollisionLayer::Obstacle)
+		.constant("Trigger", CollisionLayer::Trigger);
 	world.component<RigidBody>()
 		.member("mass", &RigidBody::mass)
 		.member("friction", &RigidBody::friction)
 		.member("restitution", &RigidBody::restitution)
 		.member("use_gravity", &RigidBody::use_gravity)
-		.member("gravity_scale", &RigidBody::gravity_scale);
+		.member("gravity_scale", &RigidBody::gravity_scale)
+		.member("layer", &RigidBody::layer);
 	world.component<ShapeType>()
 		.constant("Box", ShapeType::Box)
 		.constant("Sphere", ShapeType::Sphere)
@@ -132,7 +144,9 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 		.member("max_slope_deg", &CharacterBody::max_slope_deg)
 		.member("step_height", &CharacterBody::step_height)
 		.member("stick_to_floor", &CharacterBody::stick_to_floor)
-		.member("mass", &CharacterBody::mass);
+		.member("mass", &CharacterBody::mass)
+		.member("layer", &CharacterBody::layer)
+		.member("inner_body", &CharacterBody::inner_body);
 	// CharacterState comes with every CharacterBody, so no observer has to add it mid-iteration.
 	world.component<CharacterBody>().add(flecs::With, world.component<CharacterState>());
 	world.component<CharacterMove>().member("velocity", &CharacterMove::velocity);
@@ -189,6 +203,7 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 		);
 	}
 	scripting::RegisterGlobalConstantsForScripts(world, std::move(shape_constants));
+	RegisterPhysicsScriptBindings(world);
 
 	// === Level loader ===
 	RegisterPhysicsLevelLoaders(world);

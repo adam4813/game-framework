@@ -61,10 +61,10 @@ Legend:
 
 | Component                 | Meta fields                                             | Status | Notes                                                                 |
 |---------------------------|---------------------------------------------------------|--------|-----------------------------------------------------------------------|
-| `RigidBody`               | mass, friction, restitution, use_gravity, gravity_scale | ✅     | Partial — motion_type, layer, etc. not in meta                        |
+| `RigidBody`               | mass, friction, restitution, use_gravity, gravity_scale, layer(enum) | ✅     | Partial — motion_type, damping, enable_ccd, collision_mask not in meta |
 | `CollisionShape`          | type(enum), offset(vec3), mesh_path(string)             | ✅     | Partial — box_half_extents etc. not in meta; mesh_path only stored    |
 | `PhysicsVelocity`         | linear(vec3), angular(vec3)                             | ✅     |                                                                       |
-| `CharacterBody`           | max_slope_deg, step_height, stick_to_floor, mass        | ✅     | Partial — layer not in meta                                           |
+| `CharacterBody`           | max_slope_deg, step_height, stick_to_floor, mass, layer(enum), inner_body | ✅     |                                                       |
 | `Gravity`                 | acceleration(vec3)                                      | ✅     |                                                                       |
 | `CharacterMove`           | velocity(vec3)                                          | 🚫     | Runtime input; the game writes it every frame                         |
 | `CharacterState`          | grounded, ground_entity, ground_normal, velocity        | 🚫     | Derived each frame by the physics module; excluded from diff           |

@@ -30,6 +30,14 @@ inline std::string ScriptTypeName(const flecs::world& world, const ScriptValueTy
 		}
 		return type.is_handle ? std::string{name} + "@" : std::string{name};
 	}
+	case ScriptValueKind::Array:
+	{
+		const char* name = world.entity(type.object_type).name();
+		if (!name || *name == '\0') {
+			return {};
+		}
+		return "array<" + std::string{name} + ">@";
+	}
 	}
 	return {};
 }

@@ -111,6 +111,23 @@ InputState input = GetInputState();
 bool jump = input.WasKeyPressed(Key_Space);
 ```
 
+## Arrays
+
+The AngelScript backend registers the `scriptarray` add-on as the default array, so `T[]` and `array<T>` both work, for
+script-built arrays and for arrays the engine returns. A global function returns one by declaring
+`ScriptValueType::MakeArray(element_type)` as its return type and calling `ctx.SetReturnArray(element_type, data,
+count)` in its thunk; the element type must be a registered value type. The physics queries do this:
+
+```angelscript
+RaycastHit[]@ hits = RaycastAll(origin, direction, 50.0f, RaycastFilter());
+for (uint i = 0; i < hits.length(); ++i) { Print(hits[i].entity.GetName()); }
+```
+
+## Physics queries
+
+`Raycast` and `RaycastAll` cast rays from scripts; `RaycastHit` and `RaycastFilter` are value types and `Layer_*`
+constants build a layer mask. See `docs/script-api-reference.md` ("Raycasts").
+
 ## Script-assignable callbacks
 
 Two backend primitives let scripts supply callbacks; both wrap the script function in a

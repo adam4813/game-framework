@@ -29,6 +29,7 @@
 | TestBox#PhysicsVelocity.linear.z                | 0                       | N/A                     | 0                       | [KNOWN #13] |
 | TestBox#RigidBody.friction                      | 0.500000                | 0.500000                | 0.500000                | [MATCH]     |
 | TestBox#RigidBody.gravity_scale                 | 1                       | 1                       | 1                       | [MATCH]     |
+| TestBox#RigidBody.layer                         | Obstacle                | Obstacle                | Obstacle                | [MATCH]     |
 | TestBox#RigidBody.mass                          | 1                       | 1                       | 1                       | [MATCH]     |
 | TestBox#RigidBody.restitution                   | 0.300000                | 0.300000                | 0.300000                | [MATCH]     |
 | TestBox#RigidBody.use_gravity                   | true                    | true                    | true                    | [MATCH]     |
@@ -70,6 +71,8 @@
 | TestCapsule#Transform.scale.x                   | 1                       | 1                       | 1                       | [MATCH]     |
 | TestCapsule#Transform.scale.y                   | 1                       | 1                       | 1                       | [MATCH]     |
 | TestCapsule#Transform.scale.z                   | 1                       | 1                       | 1                       | [MATCH]     |
+| TestCharacter#CharacterBody.inner_body          | false                   | false                   | false                   | [MATCH]     |
+| TestCharacter#CharacterBody.layer               | Enemy                   | Enemy                   | Enemy                   | [MATCH]     |
 | TestCharacter#CharacterBody.mass                | 60                      | 60                      | 60                      | [MATCH]     |
 | TestCharacter#CharacterBody.max_slope_deg       | 40                      | 40                      | 40                      | [MATCH]     |
 | TestCharacter#CharacterBody.step_height         | 0.300000                | 0.300000                | 0.300000                | [MATCH]     |

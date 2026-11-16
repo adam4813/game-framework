@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdarg>
 #include <ranges>
+#include <span>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -32,6 +33,8 @@
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Body/BodyLock.h>
 // clang-format on
 
 namespace engine::physics {
@@ -101,21 +104,25 @@ public:
 void EnsureJoltGlobals() { static const JoltGlobals globals; }
 } // namespace
 
-// Layer configuration
+// Layer configuration. A Jolt ObjectLayer encodes (CollisionLayer, moving bit) as layer * 2 + moving, so each
+// CollisionLayer has a non-moving and a moving object layer on the two broad-phase layers. Contacts look only at the
+// moving bit (non-moving never meets non-moving); queries filter on the CollisionLayer.
 namespace {
-constexpr JPH::ObjectLayer LAYER_NON_MOVING = 0;
-constexpr JPH::ObjectLayer LAYER_MOVING = 1;
-[[maybe_unused]] constexpr JPH::ObjectLayer NUM_OBJECT_LAYERS = 2;
-
 constexpr JPH::BroadPhaseLayer BP_LAYER_NON_MOVING(0);
 constexpr JPH::BroadPhaseLayer BP_LAYER_MOVING(1);
+
+constexpr JPH::ObjectLayer ToObjectLayer(const CollisionLayer layer, const bool moving) {
+	return static_cast<JPH::ObjectLayer>(static_cast<uint32_t>(layer) * 2U + (moving ? 1U : 0U));
+}
+constexpr bool IsMoving(const JPH::ObjectLayer layer) { return (layer & 1U) != 0U; }
+constexpr uint32_t CollisionLayerIndex(const JPH::ObjectLayer layer) { return static_cast<uint32_t>(layer) >> 1U; }
 
 class BroadPhaseLayerInterfaceImpl : public JPH::BroadPhaseLayerInterface {
 public:
 	[[nodiscard]] uint32_t GetNumBroadPhaseLayers() const override { return 2; }
 
 	[[nodiscard]] JPH::BroadPhaseLayer GetBroadPhaseLayer(const JPH::ObjectLayer layer) const override {
-		return layer == LAYER_NON_MOVING ? BP_LAYER_NON_MOVING : BP_LAYER_MOVING;
+		return IsMoving(layer) ? BP_LAYER_MOVING : BP_LAYER_NON_MOVING;
 	}
 
 #ifdef JPH_EXTERNAL_PROFILE
@@ -128,18 +135,53 @@ public:
 class ObjectVsBroadPhaseLayerFilterImpl : public JPH::ObjectVsBroadPhaseLayerFilter {
 public:
 	[[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer layer, const JPH::BroadPhaseLayer bp_layer) const override {
-		if (layer == LAYER_NON_MOVING) {
-			return static_cast<JPH::BroadPhaseLayer::Type>(bp_layer) == 1; // Only collide with MOVING
-		}
-		return true;
+		// Non-moving only collides with moving.
+		return IsMoving(layer) || bp_layer == BP_LAYER_MOVING;
 	}
 };
 
 class ObjectLayerPairFilterImpl : public JPH::ObjectLayerPairFilter {
 public:
 	[[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer layer1, const JPH::ObjectLayer layer2) const override {
-		return layer1 == LAYER_NON_MOVING ? layer2 == LAYER_MOVING : true;
+		return IsMoving(layer1) || IsMoving(layer2);
 	}
+};
+
+// Query filters for RaycastFilter: a layer mask on the CollisionLayer, and entities to pass through.
+class LayerMaskFilter final : public JPH::ObjectLayerFilter {
+public:
+	explicit LayerMaskFilter(const uint32_t mask) : mask_(mask) {}
+	[[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer layer) const override {
+		return ((mask_ >> CollisionLayerIndex(layer)) & 1U) != 0U;
+	}
+
+private:
+	uint32_t mask_;
+};
+
+class IgnoreEntitiesFilter final : public JPH::BodyFilter {
+public:
+	explicit IgnoreEntitiesFilter(const std::span<const flecs::entity_t> ignore) : ignore_(ignore) {}
+	[[nodiscard]] bool ShouldCollideLocked(const JPH::Body& body) const override {
+		return std::ranges::find(ignore_, body.GetUserData()) == ignore_.end();
+	}
+
+private:
+	std::span<const flecs::entity_t> ignore_;
+};
+
+// Sets a flag for a scope, so queries made while the world steps can refuse.
+class ScopedFlag {
+public:
+	explicit ScopedFlag(bool& flag) : flag_(flag) { flag_ = true; }
+	~ScopedFlag() { flag_ = false; }
+	ScopedFlag(const ScopedFlag&) = delete;
+	ScopedFlag& operator=(const ScopedFlag&) = delete;
+	ScopedFlag(ScopedFlag&&) = delete;
+	ScopedFlag& operator=(ScopedFlag&&) = delete;
+
+private:
+	bool& flag_;
 };
 
 class ContactListenerImpl : public JPH::ContactListener {
@@ -270,6 +312,7 @@ glm::vec3 JoltBackend::GetGravity() const {
 void JoltBackend::StepSimulation(const float delta_time) const {
 	if (!initialized_ || !physics_system_) return;
 
+	const ScopedFlag stepping(stepping_);
 	physics_system_->Update(delta_time, config_.collision_steps, temp_allocator_.get(), job_system_.get());
 }
 
@@ -282,8 +325,8 @@ static JPH::EMotionType ToJoltMotionType(const MotionType type) {
 	return JPH::EMotionType::Dynamic;
 }
 
-static JPH::ObjectLayer GetObjectLayer(const MotionType type) {
-	return type == MotionType::Static ? LAYER_NON_MOVING : LAYER_MOVING;
+static JPH::ObjectLayer GetObjectLayer(const RigidBody& body) {
+	return ToObjectLayer(body.layer, body.motion_type != MotionType::Static);
 }
 
 static JPH::ShapeRefC CreateShape(const ShapeConfig& cfg) {
@@ -488,6 +531,7 @@ void JoltBackend::SyncBodyToBackend(
 			{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
 			JPH::EActivation::Activate
 		);
+		body_interface.SetObjectLayer(bid, GetObjectLayer(body));
 		body_interface.SetFriction(bid, body.friction);
 		body_interface.SetRestitution(bid, body.restitution);
 		body_interface.SetGravityFactor(bid, body.use_gravity ? body.gravity_scale : 0.0F);
@@ -503,7 +547,7 @@ void JoltBackend::SyncBodyToBackend(
 			{transform.position.x, transform.position.y, transform.position.z},
 			{transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w},
 			ToJoltMotionType(body.motion_type),
-			GetObjectLayer(body.motion_type)
+			GetObjectLayer(body)
 		);
 		settings.mFriction = body.friction;
 		settings.mRestitution = body.restitution;
@@ -644,6 +688,9 @@ JPH::Vec3 UpFromGravity(const glm::vec3& gravity) {
 
 // Rotates the capsule's Y axis onto up.
 JPH::Quat AlignToUp(const JPH::Vec3 up) { return JPH::Quat::sFromTo(JPH::Vec3::sAxisY(), up); }
+
+// A character always moves, so its inner body (and the filters for its own collision checks) use the moving layer.
+JPH::ObjectLayer CharacterObjectLayer(const CharacterBody& body) { return ToObjectLayer(body.layer, true); }
 } // namespace
 
 void JoltBackend::AddCharacter(
@@ -674,6 +721,12 @@ void JoltBackend::AddCharacter(
 	settings.mMass = body.mass;
 	// Only contacts below the capsule's bottom hemisphere count as support (Jolt's character sample does the same).
 	settings.mSupportingVolume = JPH::Plane(up, -shape.capsule_radius);
+	if (body.inner_body) {
+		// Jolt places the inner body at the character's position (the capsule center) with its rotation, so the same
+		// unplaced capsule lines up with the character's own, and gives it the character's user data (the entity).
+		settings.mInnerBodyShape = capsule;
+		settings.mInnerBodyLayer = CharacterObjectLayer(body);
+	}
 
 	auto record = std::make_unique<CharacterRecord>();
 	record->settings = body;
@@ -711,9 +764,10 @@ void JoltBackend::SetCharacterVelocity(const flecs::entity_t entity, const glm::
 void JoltBackend::RefreshCharacterContacts(const flecs::entity_t entity) {
 	const auto it = characters_.find(entity);
 	if (it == characters_.end()) return;
+	const JPH::ObjectLayer layer = CharacterObjectLayer(it->second->settings);
 	it->second->character->RefreshContacts(
-		physics_system_->GetDefaultBroadPhaseLayerFilter(LAYER_MOVING),
-		physics_system_->GetDefaultLayerFilter(LAYER_MOVING),
+		physics_system_->GetDefaultBroadPhaseLayerFilter(layer),
+		physics_system_->GetDefaultLayerFilter(layer),
 		{},
 		{},
 		*temp_allocator_
@@ -749,12 +803,14 @@ void JoltBackend::StepCharacter(const flecs::entity_t entity, const float delta_
 	JPH::CharacterVirtual::ExtendedUpdateSettings update_settings;
 	update_settings.mStickToFloorStepDown = -up * record.settings.stick_to_floor;
 	update_settings.mWalkStairsStepUp = up * record.settings.step_height;
+	const JPH::ObjectLayer layer = CharacterObjectLayer(record.settings);
+	const ScopedFlag stepping(stepping_);
 	character.ExtendedUpdate(
 		delta_time,
 		gravity,
 		update_settings,
-		physics_system_->GetDefaultBroadPhaseLayerFilter(LAYER_MOVING),
-		physics_system_->GetDefaultLayerFilter(LAYER_MOVING),
+		physics_system_->GetDefaultBroadPhaseLayerFilter(layer),
+		physics_system_->GetDefaultLayerFilter(layer),
 		{},
 		{},
 		*temp_allocator_
@@ -802,33 +858,83 @@ std::vector<CollisionInfo> JoltBackend::TakeCollisionEvents() {
 	return {};
 }
 
-std::optional<RaycastResult> JoltBackend::Raycast(const Ray& ray) const {
-	if (!physics_system_) return std::nullopt;
-
-	const JPH::RRayCast jolt_ray(
-		{ray.origin.x, ray.origin.y, ray.origin.z},
-		{ray.direction.x * ray.max_distance, ray.direction.y * ray.max_distance, ray.direction.z * ray.max_distance}
+bool JoltBackend::RejectQueryWhileStepping() const {
+	if (!stepping_) return false;
+	spdlog::error(
+		"[Physics] A raycast was made while the physics world steps; it hits nothing. Query outside PhysicsStep."
 	);
-
-	if (JPH::RayCastResult hit; physics_system_->GetNarrowPhaseQuery().CastRay(jolt_ray, hit)) {
-		RaycastResult result;
-		const auto hit_pt = jolt_ray.GetPointOnRay(hit.mFraction);
-		result.hit_point = {hit_pt.GetX(), hit_pt.GetY(), hit_pt.GetZ()};
-		result.distance = hit.mFraction * ray.max_distance;
-		if (const auto* body = physics_system_->GetBodyLockInterface().TryGetBody(hit.mBodyID)) {
-			result.entity = body->GetUserData();
-		}
-		return result;
-	}
-
-	return std::nullopt;
+	return true;
 }
 
-std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray) const {
-	if (auto hit = Raycast(ray)) {
-		return {*hit};
+namespace {
+constexpr float kMinRayDirectionLength = 1e-6F;
+
+// The Jolt ray for a query: a normalized direction scaled by max_distance, so a hit's fraction times max_distance is
+// its distance. Empty for a ray that can hit nothing.
+std::optional<JPH::RRayCast> MakeJoltRay(const Ray& ray) {
+	const float length = glm::length(ray.direction);
+	if (length < kMinRayDirectionLength || ray.max_distance <= 0.0F) return std::nullopt;
+	return JPH::RRayCast(ToJolt(ray.origin), ToJolt(ray.direction / length * ray.max_distance));
+}
+
+// Fills a hit from Jolt's result. Inside a convex shape (fraction 0) there is no surface at the hit point, so the
+// normal faces back along the ray.
+RaycastResult MakeRaycastResult(
+	const JPH::PhysicsSystem& system,
+	const JPH::RRayCast& jolt_ray,
+	const JPH::RayCastResult& hit,
+	const float max_distance
+) {
+	RaycastResult result;
+	const JPH::RVec3 point = jolt_ray.GetPointOnRay(hit.mFraction);
+	result.hit_point = FromJolt(JPH::Vec3(point));
+	result.distance = hit.mFraction * max_distance;
+	result.normal = FromJolt(-jolt_ray.mDirection.Normalized());
+	const JPH::BodyLockRead lock(system.GetBodyLockInterface(), hit.mBodyID);
+	if (!lock.Succeeded()) return result;
+	const JPH::Body& body = lock.GetBody();
+	result.entity = body.GetUserData();
+	if (hit.mFraction > 0.0F) {
+		result.normal = FromJolt(body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, point));
 	}
-	return {};
+	return result;
+}
+} // namespace
+
+std::optional<RaycastResult> JoltBackend::Raycast(const Ray& ray, const RaycastFilter& filter) const {
+	if (!physics_system_ || RejectQueryWhileStepping()) return std::nullopt;
+	const auto jolt_ray = MakeJoltRay(ray);
+	if (!jolt_ray) return std::nullopt;
+
+	const LayerMaskFilter layer_filter(filter.layer_mask);
+	const IgnoreEntitiesFilter body_filter(filter.ignore);
+	JPH::RayCastResult hit;
+	if (!physics_system_->GetNarrowPhaseQuery().CastRay(*jolt_ray, hit, {}, layer_filter, body_filter)) {
+		return std::nullopt;
+	}
+	return MakeRaycastResult(*physics_system_, *jolt_ray, hit, ray.max_distance);
+}
+
+std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray, const RaycastFilter& filter) const {
+	if (!physics_system_ || RejectQueryWhileStepping()) return {};
+	const auto jolt_ray = MakeJoltRay(ray);
+	if (!jolt_ray) return {};
+
+	// Jolt reports a hit per sub-shape (each triangle of a mesh, each child of a compound); keep each body's nearest.
+	const LayerMaskFilter layer_filter(filter.layer_mask);
+	const IgnoreEntitiesFilter body_filter(filter.ignore);
+	JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
+	physics_system_->GetNarrowPhaseQuery().CastRay(*jolt_ray, {}, collector, {}, layer_filter, body_filter);
+	collector.Sort();
+
+	std::vector<RaycastResult> results;
+	std::vector<JPH::BodyID> seen;
+	for (const JPH::RayCastResult& hit : collector.mHits) {
+		if (std::ranges::find(seen, hit.mBodyID) != seen.end()) continue;
+		seen.push_back(hit.mBodyID);
+		results.push_back(MakeRaycastResult(*physics_system_, *jolt_ray, hit, ray.max_distance));
+	}
+	return results;
 }
 
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER

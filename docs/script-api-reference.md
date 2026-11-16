@@ -99,6 +99,48 @@ REST API. `CharacterMove.velocity` is the field a script writes each frame to wa
 
 `CollisionShape` fields scripts can set: `type` (an int, use the constants below), `offset`, `mesh_path`.
 
+`RigidBody.layer` and `CharacterBody.layer` are ints (use the `Layer_*` constants); `CharacterBody.inner_body` is a
+`bool`.
+
+### Raycasts (`physics_script_bindings.cpp`)
+
+| Global | Returns | Description |
+|---|---|---|
+| `Raycast(const vec3 &in origin, const vec3 &in direction, float max_distance, const RaycastFilter &in filter)` | `RaycastHit` | The closest hit; `hit` is `false` on a miss. |
+| `RaycastAll(const vec3 &in origin, const vec3 &in direction, float max_distance, const RaycastFilter &in filter)` | `array<RaycastHit>@` | Every hit, one per body, sorted by distance; empty on a miss. |
+
+| Value type | Fields |
+|---|---|
+| `RaycastHit` | `bool hit`, `Entity entity`, `vec3 point`, `vec3 normal`, `float distance` |
+| `RaycastFilter` | `uint layer_mask` (default: every layer but `Trigger`), `Entity ignore` (default: the null Entity, ignoring nothing) |
+
+`direction` need not be normalized; a zero direction or `max_distance <= 0` hits nothing. On a miss, `entity` is the
+null Entity (`GetName()` returns `""`). Nothing is ignored implicitly: set `ignore` to the host to cast from inside its
+own body. The queries see the bodies as of the last finished Tick. See `src/engine/physics/README.md`, "Queries".
+
+```angelscript
+RaycastFilter filter;
+filter.ignore = self;
+filter.layer_mask = (1 << Layer_Enemy) | (1 << Layer_Obstacle);
+RaycastHit hit = Raycast(eye, forward, 50.0f, filter);
+if (hit.hit) { Print("aiming at " + hit.entity.GetName()); }
+
+RaycastHit[]@ hits = RaycastAll(eye, forward, 50.0f, RaycastFilter());
+for (uint i = 0; i < hits.length(); ++i) { Print(hits[i].entity.GetName()); }
+```
+
+### Layer constants
+
+A `RaycastFilter.layer_mask` bit is `1 << Layer_<Name>`.
+
+| Constant         | Value |
+|------------------|-------|
+| `Layer_Default`  | 0     |
+| `Layer_Player`   | 1     |
+| `Layer_Enemy`    | 2     |
+| `Layer_Obstacle` | 3     |
+| `Layer_Trigger`  | 4     |
+
 ### Shape constants
 
 | Constant           | Value |

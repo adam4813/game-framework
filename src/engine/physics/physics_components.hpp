@@ -24,7 +24,9 @@ struct RigidBody {
 	bool enable_ccd{false};
 	bool use_gravity{true};
 	float gravity_scale{1.0F};
+	/// The layer raycasts filter on.
 	CollisionLayer layer{CollisionLayer::Default};
+	/// Stored only: body-vs-body contacts don't filter on it yet.
 	uint32_t collision_mask{0xFFFFFFFF};
 };
 
@@ -52,8 +54,11 @@ struct CharacterBody {
 	float step_height{0.4F};
 	float stick_to_floor{0.5F};
 	float mass{70.0F};
-	/// Stored for authors; the backend has only moving and non-moving object layers, so it doesn't filter on this yet.
+	/// The layer of the character's inner body, which raycasts filter on.
 	CollisionLayer layer{CollisionLayer::Player};
+	/// Give the character a kinematic inner body (the same capsule, on `layer`), so raycasts hit it, dynamic bodies
+	/// bounce off it and other characters are blocked by it. Off: rays and characters pass through.
+	bool inner_body{true};
 };
 
 /// Desired velocity, written by the game each frame. Only the part perpendicular to the character's up is used.

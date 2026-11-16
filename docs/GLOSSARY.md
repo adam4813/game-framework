@@ -112,6 +112,14 @@ _Avoid_: animator, animation controller, animation state
 An entity's physical presence as a walking character: a capsule that moves at the velocity the game asks for, falls under its Gravity, stays on the ground, climbs slopes and steps, and slides along walls. It goes where the game wants it to, but it doesn't know about input. It's distinct from a rigid body, which the simulation pushes around.
 _Avoid_: character controller, player controller, kinematic body
 
+**Inner Body**:
+The rigid body that gives a Character Body presence to everything else: the same capsule, following the character, so rays hit it, rigid bodies bounce off it and other characters are blocked by it. A character can go without one, and then rays and other characters pass through it.
+_Avoid_: hitbox, proxy body
+
+**Collision Layer**:
+The category a body or character sits on (default, player, enemy, obstacle, trigger). Raycasts choose which layers they hit; contacts between bodies ignore it.
+_Avoid_: collision group, physics layer
+
 **Gravity**:
 The single acceleration an entity is subject to, which also defines its up. An entity without its own Gravity uses the world's. There's no blending between sources: something else decides which source applies and sets it.
 _Avoid_: gravity source, gravity field, gravity well
