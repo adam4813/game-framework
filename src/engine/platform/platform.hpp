@@ -351,8 +351,8 @@ public:
 	virtual void StopSynth() = 0;
 
 	// ── Persistence (save data) ──
-	// A minimal key-value blob store for save data, keyed by slot name. Desktop stores each slot as
-	// a file under a saves directory; web uses browser localStorage. `name` should be a simple
+	// A minimal key-value blob store for save data, keyed by slot name. Desktop and headless store each
+	// slot as a file under a saves directory (FileSaveStore, written atomically); web uses browser localStorage. `name` should be a simple
 	// identifier (letters/digits/-/_) with no path separators. ReadSave returns "" for a missing
 	// slot; ListSaves returns the slot names (without extension), sorted.
 	virtual void WriteSave(std::string_view name, std::string_view data) = 0;

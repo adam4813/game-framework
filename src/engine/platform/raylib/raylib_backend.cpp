@@ -25,6 +25,7 @@
 #include "engine/audio/synth_source.hpp"
 #include "engine/core/core.hpp"
 #include "engine/input/input.hpp"
+#include "engine/platform/file_save_store.hpp"
 #include "engine/platform/gltf_materials.hpp"
 #include "engine/platform/imgui/imgui_debug_ui.hpp"
 #include "engine/platform/raylib/rl_imgui.hpp"
@@ -2366,15 +2367,14 @@ void RaylibBackend::StopSynth() {
 
 // ── Persistence ──
 
-namespace {
-// Reject names that could escape the save directory / storage namespace.
-bool IsValidSaveName(const std::string_view name) {
-	return !name.empty()
-		   && name.find('/') == std::string_view::npos
-		   && name.find('\\') == std::string_view::npos
-		   && name.find("..") == std::string_view::npos;
+std::filesystem::path DefaultSaveDirectory() {
+#if defined(__EMSCRIPTEN__)
+	// The web Platform keeps its saves in localStorage; this is where a headless Platform's files go in the virtual FS.
+	return "/saves";
+#else
+	return std::filesystem::path(GetApplicationDirectory()) / "saves";
+#endif
 }
-} // namespace
 
 #if defined(__EMSCRIPTEN__)
 
@@ -2433,64 +2433,26 @@ std::vector<std::string> RaylibBackend::ListSaves() const {
 
 #else
 
-namespace {
-// Directory holding save-slot files (created on demand), next to the executable.
-std::filesystem::path SaveDir() {
-	const std::filesystem::path dir = std::filesystem::path(GetApplicationDirectory()) / "saves";
-	std::error_code ec;
-	std::filesystem::create_directories(dir, ec);
-	return dir;
-}
-} // namespace
+// Desktop: the shared file-backed store (file_save_store.hpp) under DefaultSaveDirectory().
 
 void RaylibBackend::WriteSave(const std::string_view name, const std::string_view data) {
-	if (!IsValidSaveName(name)) {
-		return;
-	}
-	const std::filesystem::path path = SaveDir() / (std::string(name) + ".json");
-	if (std::ofstream out(path, std::ios::binary | std::ios::trunc); out) {
-		out.write(data.data(), static_cast<std::streamsize>(data.size()));
-	}
+	FileSaveStore{DefaultSaveDirectory()}.Write(name, data);
 }
 
 std::string RaylibBackend::ReadSave(const std::string_view name) const {
-	if (!IsValidSaveName(name)) {
-		return {};
-	}
-	const std::ifstream in(SaveDir() / (std::string(name) + ".json"), std::ios::binary);
-	if (!in) {
-		return {};
-	}
-	std::ostringstream ss;
-	ss << in.rdbuf();
-	return ss.str();
+	return FileSaveStore{DefaultSaveDirectory()}.Read(name);
 }
 
 bool RaylibBackend::HasSave(const std::string_view name) const {
-	if (!IsValidSaveName(name)) {
-		return false;
-	}
-	std::error_code ec;
-	return std::filesystem::exists(SaveDir() / (std::string(name) + ".json"), ec);
+	return FileSaveStore{DefaultSaveDirectory()}.Has(name);
 }
 
 void RaylibBackend::DeleteSave(const std::string_view name) {
-	if (!IsValidSaveName(name)) {
-		return;
-	}
-	std::error_code ec;
-	std::filesystem::remove(SaveDir() / (std::string(name) + ".json"), ec);
+	FileSaveStore{DefaultSaveDirectory()}.Delete(name);
 }
 
 std::vector<std::string> RaylibBackend::ListSaves() const {
-	std::vector<std::string> names;
-	for (std::error_code ec; const auto& entry : std::filesystem::directory_iterator(SaveDir(), ec)) {
-		if (entry.is_regular_file() && entry.path().extension() == ".json") {
-			names.push_back(entry.path().stem().string());
-		}
-	}
-	std::ranges::sort(names);
-	return names;
+	return FileSaveStore{DefaultSaveDirectory()}.List();
 }
 
 #endif

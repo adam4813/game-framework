@@ -85,7 +85,8 @@ add_engine_test(two_physics_worlds_test
     two_physics_worlds_test.cpp
 )
 
-# HeadlessPlatform: asset paths resolve against its directory, and a world created without a Platform gets one
+# HeadlessPlatform: asset paths resolve against its directory, a world created without a Platform gets one, and
+# saves are files in its save directory, written atomically
 add_engine_test(headless_platform_test
     headless_platform_test.cpp
 )

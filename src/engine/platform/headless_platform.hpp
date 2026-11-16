@@ -1,9 +1,13 @@
 #pragma once
 
+#include <filesystem>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include "engine/platform/file_save_store.hpp"
 #include "engine/platform/platform.hpp"
 
 namespace engine::platform {
@@ -13,10 +17,25 @@ namespace engine::platform {
 // value (no keys down, mouse at the origin), and every load returns -1. Asset paths resolve against the directory
 // given at construction, as the desktop Platform resolves them against its own, so a headless world can load
 // colliders, ROMs and level files by asset path. An EngineContext created without a Platform gets one of these.
+//
+// Saves are files, as on desktop (FileSaveStore): each slot is `<saveDirectory>/<name>.json`, written atomically.
 class HeadlessPlatform : public Platform {
 public:
+	// Pass as `saveDirectory` for no persistence: writes are dropped and every slot reads as missing.
+	static constexpr std::nullopt_t kNoSaves = std::nullopt;
+
 	// `assetDirectory` is what AssetDirectory() reports; relative paths are against the working directory.
-	explicit HeadlessPlatform(std::string assetDirectory = ".") : assetDirectory_(std::move(assetDirectory)) {}
+	// `saveDirectory` holds the save slots, created on the first write; it defaults to the desktop location,
+	// `<exe dir>/saves`. kNoSaves turns persistence off.
+	explicit HeadlessPlatform(
+		std::string assetDirectory = ".",
+		std::optional<std::filesystem::path> saveDirectory = DefaultSaveDirectory()
+	) :
+		assetDirectory_(std::move(assetDirectory)) {
+		if (saveDirectory) {
+			saves_.emplace(std::move(*saveDirectory));
+		}
+	}
 
 	// Init records the canvas size Width() and Height() report (1280 x 720 until called); there is no window.
 	void Init(const int width, const int height, std::string_view) override {
@@ -132,15 +151,31 @@ public:
 	void StartSynth(audio::SynthSource*) override {}
 	void StopSynth() override {}
 
-	// No save storage: writes are dropped and every slot reads as missing.
-	void WriteSave(std::string_view, std::string_view) override {}
-	[[nodiscard]] std::string ReadSave(std::string_view) const override { return {}; }
-	[[nodiscard]] bool HasSave(std::string_view) const override { return false; }
-	void DeleteSave(std::string_view) override {}
-	[[nodiscard]] std::vector<std::string> ListSaves() const override { return {}; }
+	void WriteSave(const std::string_view name, const std::string_view data) override {
+		if (saves_) {
+			saves_->Write(name, data);
+		}
+	}
+	[[nodiscard]] std::string ReadSave(const std::string_view name) const override {
+		return saves_ ? saves_->Read(name) : std::string{};
+	}
+	[[nodiscard]] bool HasSave(const std::string_view name) const override { return saves_ && saves_->Has(name); }
+	void DeleteSave(const std::string_view name) override {
+		if (saves_) {
+			saves_->Delete(name);
+		}
+	}
+	[[nodiscard]] std::vector<std::string> ListSaves() const override {
+		return saves_ ? saves_->List() : std::vector<std::string>{};
+	}
+	// Where the save slots live; empty with kNoSaves.
+	[[nodiscard]] std::optional<std::filesystem::path> SaveDirectory() const {
+		return saves_ ? std::optional{saves_->Directory()} : std::nullopt;
+	}
 
 private:
 	std::string assetDirectory_;
+	std::optional<FileSaveStore> saves_; // empty with kNoSaves
 	int width_ = 1280;
 	int height_ = 720;
 	bool cursorLocked_ = false;
