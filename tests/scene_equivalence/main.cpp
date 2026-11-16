@@ -432,7 +432,7 @@ json BuildCppWorld() {
 			.enable_ccd = false,
 			.use_gravity = true,
 			.gravity_scale = 1.0F,
-			.layer = engine::physics::CollisionLayer::Default,
+			.layer = engine::physics::CollisionLayer::Obstacle,
 			.collision_mask = 0xFFFFFFFFu,
 		});
 
@@ -651,6 +651,8 @@ json BuildCppWorld() {
 			.step_height = 0.3F,
 			.stick_to_floor = 0.4F,
 			.mass = 60.0F,
+			.layer = engine::physics::CollisionLayer::Enemy,
+			.inner_body = false,
 		})
 		.set<engine::physics::Gravity>({.acceleration = {0.0F, -5.0F, 0.0F}});
 

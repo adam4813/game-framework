@@ -99,6 +99,43 @@ TEST(CharacterReplay, SteppingOneCharacterLeavesTheRestOfTheWorldAlone) {
 	EXPECT_EQ(w.World().get<engine::fixed_step::FixedStepState>().tick, tick_before);
 }
 
+// A correction moves the character's inner body with it, so rays find the character where the replay left it.
+TEST(CharacterReplay, RaycastsHitAReplayedCharacterAtItsCorrectedPosition) {
+	const ReplayWorld w;
+	const auto walker = w.Walker();
+	ASSERT_TRUE(walker.get<CharacterState>().grounded);
+
+	w.Backend().SetCharacterPosition(walker.id(), {10.0F, 0.0F, 0.0F});
+	w.Backend().SetCharacterVelocity(walker.id(), {0.0F, 0.0F, 0.0F});
+	w.Backend().RefreshCharacterContacts(walker.id());
+	walker.set<CharacterMove>({.velocity = {0.0F, 0.0F, 3.0F}});
+	for (int i = 0; i < 20; ++i) {
+		engine::physics::StepCharacterTick(walker);
+	}
+
+	// A third of a second at 3 m/s along z: the capsule (radius 0.5, center 1 m above the feet) is near z = 1.
+	const glm::vec3 feet = walker.get<Transform>().position;
+	ASSERT_NEAR(feet.x, 10.0F, 1e-3F);
+	ASSERT_NEAR(feet.z, 1.0F, 0.05F);
+	const engine::physics::Ray across{
+		.origin = {5.0F, feet.y + 1.0F, feet.z},
+		.direction = {1.0F, 0.0F, 0.0F},
+		.max_distance = 10.0F
+	};
+	const auto hit = engine::physics::Raycast(w.World(), across);
+	ASSERT_TRUE(hit.has_value());
+	EXPECT_EQ(hit->entity, walker.id());
+	EXPECT_NEAR(hit->distance, 4.5F, 0.01F);
+
+	// Nothing is left where the walker stood before the correction.
+	EXPECT_FALSE(
+		engine::physics::Raycast(
+			w.World(),
+			{.origin = {-5.0F, 1.0F, 0.0F}, .direction = {1.0F, 0.0F, 0.0F}, .max_distance = 10.0F}
+		)
+	);
+}
+
 // Replaying a character must land where the Tick put it, or a prediction drifts from what the fixed step would do.
 TEST(CharacterReplay, AStepLandsWhereATickWould) {
 	const ReplayWorld ticked;

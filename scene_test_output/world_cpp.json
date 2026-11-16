@@ -83,6 +83,7 @@
         "RigidBody": {
           "friction": 0.5,
           "gravity_scale": 1,
+          "layer": "Obstacle",
           "mass": 1,
           "restitution": 0.3000000119,
           "use_gravity": true
@@ -225,6 +226,8 @@
     "TestCharacter": {
       "components": {
         "CharacterBody": {
+          "inner_body": false,
+          "layer": "Enemy",
           "mass": 60,
           "max_slope_deg": 40,
           "step_height": 0.3000000119,

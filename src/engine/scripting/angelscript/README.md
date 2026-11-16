@@ -8,6 +8,18 @@ AngelScript type registrations and generic-calling-convention dispatchers.
 AngelScript's native calling conventions (`asCALL_THISCALL`, `asCALL_CDECL`) are unsupported on WebAssembly. Every
 method and global function is registered via `asCALL_GENERIC` so the build works identically on desktop and WASM.
 
+## Add-ons
+
+The vcpkg `addons` feature installs every AngelScript add-on as source. The engine compiles and registers only the
+add-ons a binding needs: each one goes in `as_addons.cpp` (compiled) and `AngelScriptBackend` (registered) in the
+change that first uses it, with a script test exercising it. `as_addons.cpp` is the list of what scripts have:
+`scriptstdstring` (`string`) and `scriptarray` (registered as the default array, so `T[]` works; it backs
+`ScriptValueType::MakeArray` returns such as `RaycastAll`, tested in `tests/unit/raycast_script_test.cpp`).
+
+Scripts are level content, so registration is a sandbox decision: `scriptfile` and `scriptsocket` would give any
+level's script disk and network access (and sockets don't exist on WASM), and `contextmgr` changes how scripts
+execute rather than adding types. Each of those needs its own design decision before it's registered.
+
 ## Component type registration
 
 Components registered via `RegisterComponentForScripts` are registered as
@@ -21,7 +33,8 @@ Components registered via `RegisterComponentForScripts` are registered as
   type) is accessible from scripts.
 
 Value types (math primitives: `vec2`, `vec3`, `Rgba`) stay `asOBJ_VALUE | asOBJ_POD` and are registered via
-`RegisterValueTypeForScripts`.
+`RegisterValueTypeForScripts`. `Entity` (`ScriptEntityRef`) is reflected as an opaque type serialized as its entity, so
+a reflected value type can hold one as a field (`RaycastHit.entity`, `RaycastFilter.ignore`).
 
 ## Component access variants: `GetT()`, `MutT()`, and const access
 

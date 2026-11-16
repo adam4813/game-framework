@@ -61,6 +61,9 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **A reflected enum on a scriptable component gets `<Enum>_*` script constants.** Scripts bind an enum member as an
   `int`, so register its values with `RegisterGlobalConstantsForScripts` (`Easing_*`, `BTStatus_*`, `Shape_*`) and list
   them in `docs/script-api-reference.md`; a script never writes a bare number.
+- **A gameplay-facing engine API ships with its script binding** in the same change: a function or query a game calls
+  (a physics raycast, a spawn helper) gets its AngelScript binding, a headless script test, and an entry in
+  `docs/script-api-reference.md`. Scripts are first-class gameplay code, so they reach the same API C++ does.
 - **Components the Explorer should show are reflected**, including the gameplay state a developer will inspect
   (positions, velocities, timers, relationships).
 

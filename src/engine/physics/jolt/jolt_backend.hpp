@@ -90,6 +90,8 @@ public:
 
 	/// Create a character from a capsule `CollisionShape`. Logs an error naming `entity_name` and creates nothing when
 	/// the shape isn't a capsule. `position` is the entity's position (the capsule sits at position + shape offset).
+	/// With `CharacterBody::inner_body`, Jolt also adds a kinematic inner body (the same capsule, on the character's
+	/// layer, user data = entity) that follows every move, teleport and replayed step.
 	void AddCharacter(
 		flecs::entity_t entity,
 		std::string_view entity_name,
@@ -129,11 +131,11 @@ public:
 	/// several Ticks delivers them all and a Frame that ran none delivers nothing twice.
 	[[nodiscard]] std::vector<CollisionInfo> TakeCollisionEvents();
 
-	/// Raycast query
-	[[nodiscard]] std::optional<RaycastResult> Raycast(const Ray& ray) const;
+	/// The closest hit; see `engine::physics::Raycast` (physics_queries.hpp), the public entry point, for the contract.
+	[[nodiscard]] std::optional<RaycastResult> Raycast(const Ray& ray, const RaycastFilter& filter = {}) const;
 
-	/// Raycast all hits
-	[[nodiscard]] std::vector<RaycastResult> RaycastAll(const Ray& ray) const;
+	/// Every hit, one per body, sorted by distance; see `engine::physics::RaycastAll`.
+	[[nodiscard]] std::vector<RaycastResult> RaycastAll(const Ray& ray, const RaycastFilter& filter = {}) const;
 
 	/// Check if initialized
 	[[nodiscard]] bool IsInitialized() const { return initialized_; }
@@ -147,8 +149,12 @@ public:
 #endif
 
 private:
+	// True while a character or the world steps; a query made then hits nothing (Jolt's state is mid-update).
+	[[nodiscard]] bool RejectQueryWhileStepping() const;
+
 	PhysicsConfig config_;
 	bool initialized_{false};
+	mutable bool stepping_{false};
 
 	// Jolt objects
 	std::unique_ptr<JPH::TempAllocatorImpl> temp_allocator_;

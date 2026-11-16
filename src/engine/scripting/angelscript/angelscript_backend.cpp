@@ -2,14 +2,17 @@
 #include "angelscript_helpers.hpp"
 
 #include <angelscript/autowrapper/aswrappedcall.h>
+#include <angelscript/scriptarray/scriptarray.h>
 #include <angelscript/scriptstdstring/scriptstdstring.h>
 #include <glm/glm.hpp>
-#include <spdlog/spdlog.h>
 
+#include <spdlog/spdlog.h>
+#include "engine/ecs/ecs.hpp"
+
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <cstring>
 
 namespace engine::scripting::angelscript {
 
@@ -93,6 +96,31 @@ public:
 	[[nodiscard]] void* GetReturnObjectLocation() override { return gen_->GetAddressOfReturnLocation(); }
 
 	void SetReturnObjectHandle(void* ptr) override { gen_->SetReturnAddress(ptr); }
+
+	void SetReturnArray(const flecs::entity_t element_type, const void* elements, const size_t count) override {
+		asIScriptEngine* engine = gen_->GetEngine();
+		const auto* world = static_cast<flecs::world*>(engine->GetUserData(1));
+		const char* element_name = world ? world->entity(element_type).name().c_str() : nullptr;
+		const ecs_type_info_t* type_info = world ? ecs_get_type_info(*world, element_type) : nullptr;
+		asITypeInfo* array_type =
+			element_name ? engine->GetTypeInfoByDecl(("array<" + std::string{element_name} + ">").c_str()) : nullptr;
+		if (!array_type || !type_info) {
+			auto& log = world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+			log.error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
+			return;
+		}
+		CScriptArray* array = CScriptArray::Create(array_type, static_cast<asUINT>(count));
+		const auto* bytes = static_cast<const std::byte*>(elements);
+		for (size_t i = 0; i < count; ++i) {
+			array->SetValue(
+				static_cast<asUINT>(i),
+				const_cast<std::byte*>(bytes + i * static_cast<size_t>(type_info->size))
+			);
+		}
+		// SetReturnObject takes its own reference to a handle return; drop the one Create gave us.
+		gen_->SetReturnObject(array);
+		array->Release();
+	}
 
 private:
 	asIScriptGeneric* gen_;
@@ -214,13 +242,21 @@ bool AngelScriptBackend::Init(flecs::world& world) {
 	engine_->SetMessageCallback(asFUNCTION(MessageCallback), nullptr, asCALL_CDECL);
 	engine_->SetUserData(world_, 1);
 	RegisterStdString(engine_);
+	// Default array: scripts can write `T[]` for `array<T>`. Query results (RaycastAll) come back as arrays.
+	RegisterScriptArray(engine_, true);
 	RegisterEntityType();
 	RegisterGlobalFunctions();
 
 	// Register ScriptEntityRef with Flecs meta under the "Entity" name so that callback
 	// parameter types can reference it via ScriptValueType::MakeObject(world.component<ScriptEntityRef>())
-	// and ScriptTypeName() resolves it to the "Entity" string AngelScript expects.
-	world.component<ScriptEntityRef>("Entity");
+	// and ScriptTypeName() resolves it to the "Entity" string AngelScript expects. As an opaque type
+	// (serialized as its entity) it can also be a member of a reflected value type (RaycastHit.entity).
+	world.component<ScriptEntityRef>("Entity")
+		.opaque(flecs::Entity)
+		.serialize([](const flecs::serializer* s, const ScriptEntityRef* data) {
+			const flecs::entity_t id = data->GetEntity().id();
+			return s->value(flecs::Entity, &id);
+		});
 
 	spdlog::info("[AngelScript] Engine initialized");
 	return true;

@@ -83,7 +83,8 @@ inline constexpr std::string_view kTestSceneJson = R"json(
           "restitution": 0.3,
           "enable_ccd": false,
           "use_gravity": true,
-          "gravity_scale": 1.0
+          "gravity_scale": 1.0,
+          "layer": "obstacle"
         }
       }
     },
@@ -302,7 +303,9 @@ inline constexpr std::string_view kTestSceneJson = R"json(
           "max_slope_deg": 40.0,
           "step_height": 0.3,
           "stick_to_floor": 0.4,
-          "mass": 60.0
+          "mass": 60.0,
+          "layer": "enemy",
+          "inner_body": false
         },
         "gravity": {
           "acceleration": [0.0, -5.0, 0.0]
@@ -615,6 +618,7 @@ void OnInit(Entity self) {
     br.restitution = 0.3f;
     br.use_gravity = true;
     br.gravity_scale = 1.0f;
+    br.layer = Layer_Obstacle;
 
     Entity sphere = CreateNamedEntity("TestSphere");
     Transform@ st = sphere.AddTransform();
@@ -757,6 +761,8 @@ void OnInit(Entity self) {
     cb.step_height = 0.3f;
     cb.stick_to_floor = 0.4f;
     cb.mass = 60.0f;
+    cb.layer = Layer_Enemy;
+    cb.inner_body = false;
     Gravity@ grav = character.AddGravity();
     grav.acceleration = vec3(0.0f, -5.0f, 0.0f);
 

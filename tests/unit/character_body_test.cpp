@@ -1,4 +1,5 @@
 #include <memory>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -106,6 +107,67 @@ TEST(CharacterBody, RotatingTheTransformNeverTeleportsButMovingItDoes) {
 	w.Step(1);
 	EXPECT_NEAR(walker.get<Transform>().position.x, 5.0F, 0.05F);
 	EXPECT_GT(walker.get<Transform>().position.y, 1.0F);
+}
+
+// A floor whose top face is at y = 0, a walker at the origin and a second character three meters along +x whose
+// `inner_body` is `blocker_inner_body`.
+std::string InnerBodyLevel(const bool blocker_inner_body) {
+	return std::string{R"({"entities": [
+		{"name": "Floor", "components": {
+			"rigid_body": {"motion_type": "static"},
+			"collision_shape": {"type": "box", "box_half_extents": [20.0, 0.25, 20.0]},
+			"transform": {"position": [0.0, -0.25, 0.0]}
+		}},
+		{"name": "Walker", "components": {
+			"character_body": {},
+			"collision_shape": {"type": "capsule", "capsule_radius": 0.5, "capsule_height": 1.0, "offset": [0.0, 1.0, 0.0]},
+			"transform": {"position": [0.0, 0.0, 0.0]}
+		}},
+		{"name": "Blocker", "components": {
+			"character_body": {"inner_body": )"}
+		   + (blocker_inner_body ? "true" : "false")
+		   + R"(},
+			"collision_shape": {"type": "capsule", "capsule_radius": 0.5, "capsule_height": 1.0, "offset": [0.0, 1.0, 0.0]},
+			"transform": {"position": [3.0, 0.0, 0.0]}
+		}}
+	]})";
+}
+
+struct InnerBodyWorld {
+	std::unique_ptr<engine::EngineContext> ctx;
+
+	explicit InnerBodyWorld(const bool blocker_inner_body) {
+		ctx = std::make_unique<engine::EngineContext>(std::make_unique<engine::platform::HeadlessPlatform>());
+		ctx->GetModuleRegistry().Import(World(), {"physics"});
+		engine::level::LoadLevelFromSource(World(), InnerBodyLevel(blocker_inner_body));
+	}
+
+	[[nodiscard]] flecs::world& World() const { return *ctx->GetWorld(); }
+
+	void Step(const int frames) const {
+		for (int i = 0; i < frames; ++i) {
+			engine::fixed_step::RunFrame(World(), 1.0F / 60.0F);
+		}
+	}
+};
+
+// Walking into another character stops at touching capsules: centers one capsule diameter (1 m) apart.
+TEST(CharacterBody, CharactersBlockEachOther) {
+	const InnerBodyWorld w(true);
+	const auto walker = w.World().lookup("Walker");
+	walker.set<CharacterMove>({.velocity = {2.0F, 0.0F, 0.0F}});
+	w.Step(120);
+
+	EXPECT_NEAR(walker.get<Transform>().position.x, 2.0F, 0.1F);
+}
+
+TEST(CharacterBody, ACharacterWithoutAnInnerBodyIsWalkedThrough) {
+	const InnerBodyWorld w(false);
+	const auto walker = w.World().lookup("Walker");
+	walker.set<CharacterMove>({.velocity = {2.0F, 0.0F, 0.0F}});
+	w.Step(120);
+
+	EXPECT_NEAR(walker.get<Transform>().position.x, 4.0F, 0.2F); // two seconds at 2 m/s, nothing in the way
 }
 
 } // namespace
