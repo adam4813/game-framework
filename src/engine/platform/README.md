@@ -20,6 +20,18 @@ reaches it with `world.get<platform::PlatformRef>().ptr`.
 
 A new pure virtual on `Platform` must be implemented by both `RaylibBackend` and `HeadlessPlatform`.
 
+## Lines
+
+| Call | Space | Depth | Thickness |
+|---|---|---|---|
+| `DrawLine(a, b, thickness, color)` | screen pixels (2D) | drawn over everything | yes |
+| `DrawLine3D(from, to, color)` | world, between `BeginMode3D` and `EndMode3D` | depth-tested: geometry in front hides it | none: one pixel on every target |
+
+`DrawLine3D` takes no thickness because no target honors one: desktop GL core profiles ignore `glLineWidth` above 1,
+and WebGL implementations cap it at 1. It's unlit and ignores the material and lighting state. Game code usually
+pushes onto the render module's `LineQueue` instead of calling it directly (`engine/render/README.md`, "3D lines"),
+since a game's own `OnStore` system runs after the 3D pass has closed.
+
 ## Two Platforms
 
 | | `RaylibBackend` | `HeadlessPlatform` |

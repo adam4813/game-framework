@@ -81,6 +81,7 @@ public:
 	void DrawQuad(const glm::mat4&, glm::vec2, const DrawMaterial&) override {}
 	void DrawCapsule(const glm::mat4&, float, float, const DrawMaterial&) override {}
 	void DrawMesh(int, const glm::mat4&, const DrawMaterial&) override {}
+	void DrawLine3D(glm::vec3, glm::vec3, Rgba) override {}
 
 	[[nodiscard]] int PrimitiveMesh(PrimitiveShape) const override { return -1; }
 	BatchStats SubmitBatch(std::span<const RenderCommand>) override { return {}; }
