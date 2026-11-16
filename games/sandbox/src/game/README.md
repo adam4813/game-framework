@@ -14,6 +14,7 @@ the working reference for a few engine features. Find the feature you need below
 | A continuous particle emitter (`particle_emitter` in JSON) | `assets/levels/demo.level.json`, `src/engine/particles/README.md` |
 | Timers, cooldowns and tweens (a pulse, a fade) | `assets/scripts/timer_tween_demo.as`, `src/engine/timer/README.md` |
 | Building a `GridNavGraph` and sending path requests | `tilemap_scene.cpp` (`SetupPathfindingAgent`), `src/engine/pathfinding/README.md` |
+| A depth-tested 3D line between world points, hidden by geometry in front (`LineQueue`) | `cube_scene.cpp` (`kOccludedLines`, `Tick`), `src/engine/render/README.md` ("3D lines") |
 | A 3D debug overlay: project world points to screen and draw lines in `OnUI`, toggled by F3 | `PathDebugDrawSystem` in `src/engine/pathfinding/pathfinding_module.cpp` |
 | An ImGui panel | `EngineDebugPanel` in `src/engine/debug/debug_ui_module.cpp` |
 | Retained 2D UI (labels, buttons, sliders, prompts, pause modal) | `synth_scene.cpp`, `cube_scene.cpp` (`BuildUI`) |

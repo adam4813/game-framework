@@ -28,7 +28,9 @@ constexpr std::array<core::Rgba, 4> kRuntimeTexturePalette{{
 }};
 
 // Depth-tested 3D lines: one runs behind the resting FallingCube, so its middle is hidden by the cube; the other
-// slopes down through the floor, so the part below the floor's top is hidden.
+// slopes down through the floor, so the part below the floor's top is hidden. The points depend on
+// assets/levels/demo.level.json: the Camera at (0, 5, 5) looking at the origin, the 1 m FallingCube resting on the
+// Floor at the origin, and the Floor's top face at y = 0.25. Move those and these lines no longer pass behind them.
 constexpr std::array<render::Line3D, 2> kOccludedLines{{
 	{.from = {-3.0F, 0.75F, -1.0F}, .to = {3.0F, 0.75F, -1.0F}, .color = {.r = 40, .g = 220, .b = 255, .a = 255}},
 	{.from = {-4.0F, -1.5F, 1.5F}, .to = {4.0F, 1.5F, 1.5F}, .color = {.r = 255, .g = 60, .b = 200, .a = 255}},
@@ -175,8 +177,10 @@ void CubeScene::Tick(const flecs::world& world, const float deltaTime) {
 		TickRuntimeAlbedo(world, deltaTime);
 	}
 	// The LineQueue is cleared after each draw, so the lines are pushed every frame.
-	auto& lines = world.get_mut<render::LineQueue>().lines;
-	lines.insert(lines.end(), kOccludedLines.begin(), kOccludedLines.end());
+	if (world.has<render::LineQueue>()) {
+		auto& lines = world.get_mut<render::LineQueue>().lines;
+		lines.insert(lines.end(), kOccludedLines.begin(), kOccludedLines.end());
+	}
 	if (hud_ && hud_.has<ui::UIElement>()) {
 		hud_.get_mut<ui::UIElement>().visible = !paused;
 	}
