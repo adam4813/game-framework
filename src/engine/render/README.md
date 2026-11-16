@@ -144,16 +144,64 @@ world.get_mut<render::LineQueue>().lines.push_back(
 
 `Render3DLines` draws the queue inside the 3D pass through `Platform::DrawLine3D`, depth-tested against the scene, so
 geometry in front of a line hides it. It runs before `Render3DFlush` and the lines write depth like opaque geometry,
-so a faded (transparent-pass) wall in front of a line blends over it. It then clears the queue: a line shows for one frame, so push it every frame you
-want it seen. With no camera there's no 3D pass and the queue is cleared undrawn. Lines are one pixel wide and unlit on
-desktop and WebGL alike; there's no thickness (`engine/platform/README.md`, "Lines"). Sandbox example: `CubeScene`
-draws a line behind the falling cube and one that slopes through the floor (`games/sandbox/src/game/cube_scene.cpp`).
+so an occluder-fade ghost or a `Translucent` entity in front of a line blends over it. It then clears the queue: a line
+shows for one frame, so push it every frame you want it seen. With no camera there's no 3D pass and the queue is
+cleared undrawn. Lines are one pixel wide and unlit on desktop and WebGL alike; there's no thickness
+(`engine/platform/README.md`, "Lines"). Sandbox example: `CubeScene` draws a line behind the falling cube and one that
+slopes through the floor (`games/sandbox/src/game/cube_scene.cpp`).
+
+## Translucent pass
+
+Add the `Translucent` tag (`"translucent": {}` in level JSON) to draw an entity see-through, by the alpha of its
+`Material.color`. It works on every shape: cube, sphere, quad, capsule, `MeshPrimitive` models (skinned ones too) and
+`DynamicMesh`. Use it for placement previews (a translucent copy of a model), glass, ghosts and force fields.
+
+```json
+{
+  "name": "PlacementPreview",
+  "components": {
+    "transform": {"position": [2.0, 0.0, 0.0]},
+    "mesh": {"path": "models/robot.glb"},
+    "material": {"color": [120, 200, 255, 110], "unlit": true},
+    "translucent": {}
+  }
+}
+```
+
+A `Translucent` entity skips the opaque passes (the instanced batch, `RenderMeshes`, `RenderSkinnedMeshes`,
+`RenderDynamicMeshes`, `RenderCapsules`). `Render3DTranslucent` draws it after all opaque geometry and the occluder
+ghost, alpha-blended, with depth test on and depth write off, so it never hides what draws after it. The pass sorts its
+entities back to front by the distance from the camera to each entity's `WorldTransform` position, so overlapping
+translucent objects composite in the right order. `Material.unlit` gives the flat color a preview usually wants; a tint
+and an albedo work as on the opaque path. Removing the tag returns the entity to the opaque passes.
+
+Limits:
+
+- **Per-object sort, not per-triangle.** Two translucent objects that intersect, or whose centers sort the wrong way
+  round (a long object beside a small one), can blend in the wrong order where they overlap. One concave model seen
+  through itself can show its far faces over its near ones; a capsule's body and caps blend over each other at the
+  seams.
+- **No instancing.** Each translucent entity is its own draw call, so keep the count small (tens, not thousands).
+- **No frustum cull** except an entity's own `FrustumCullRadius`.
+- **Shadows** still draw for a translucent object with `cast_shadow`, as solid as an opaque one's; turn `cast_shadow`
+  off for a ghostly preview.
+
+Sandbox example: `TranslucentScene` (`games/sandbox/src/game/translucent_scene.cpp`,
+`assets/levels/translucent_demo.level.json`).
+
+### Occluder fade
+
+`TransparentPass` is a different thing: the occluder-fade ghost for a `DynamicMesh` drawn with the fade-aware
+`cutout.fs`. Set an `OcclusionFade` singleton and the cutout punches a hole where it covers the camera's `LookAt` target
+in the opaque pass, then `Render3DFlush` redraws the covering fragments as a faint, depth-write-off ghost. The
+`TranslucentScene` wall shows it.
 
 ## Structure
 
 - **render_components.hpp** — plain-data components: shape primitives, `Material`, `AlbedoMap`, `ShaderMap`,
-  `RenderWith` (relationship tag), `LookAt` (relationship tag), lights (`AmbientLight`, `DirectionalLight`, `PointLight`), and
-  `Camera`.
+  `RenderWith` (relationship tag), `LookAt` (relationship tag), lights (`AmbientLight`, `DirectionalLight`, `PointLight`),
+  `Camera`, and the `Translucent` and `TransparentPass` tags.
+- **translucent_pass.hpp** — the translucent pass's draw record and its back-to-front sort.
 - **render_module.hpp/cpp** — reflection, scripting registration (`ScriptTraversal` tagging), observers, systems.
 - **render.hpp** — public umbrella header.
 

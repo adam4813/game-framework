@@ -442,6 +442,33 @@ private:
 	bool flush;
 };
 
+// Turns depth writes off for the draws inside its scope when `material.depth_write` is false (the translucent pass
+// and the occluder ghost): they still test depth but leave it untouched, so a blended surface neither hides what
+// draws after it nor disturbs the opaque depth. It flushes rlgl's queued geometry on entry and exit so the toggle
+// brackets exactly these draws. With depth writes on it does nothing.
+class DepthWriteScope {
+public:
+	explicit DepthWriteScope(const DrawMaterial& material) : off(!material.depth_write) {
+		if (!off) {
+			return;
+		}
+		rlDrawRenderBatchActive();
+		rlDisableDepthMask();
+	}
+	~DepthWriteScope() {
+		if (!off) {
+			return;
+		}
+		rlDrawRenderBatchActive();
+		rlEnableDepthMask();
+	}
+	DepthWriteScope(const DepthWriteScope&) = delete;
+	DepthWriteScope& operator=(const DepthWriteScope&) = delete;
+
+private:
+	bool off;
+};
+
 void DrawMeshWithMaterial(
 	const Mesh& mesh,
 	const Material& material,
@@ -784,7 +811,9 @@ void DrawLitMeshWithFallbackTexture(
 		rlDisableDepthMask(); // shadows blend without fighting the receiver's depth
 		// Culled even for a double-sided material: the flattened shadow needs no back faces, and both would double-blend.
 		DrawMeshWithMaterial(mesh, lit.material, shadow_model, false, false);
-		rlEnableDepthMask();
+		if (material.depth_write) {
+			rlEnableDepthMask(); // a translucent draw's DepthWriteScope restores it instead, after its last mesh
+		}
 		SetShaderValue(lit.shader, lit.loc_shadow_pass, &kOff, SHADER_UNIFORM_FLOAT);
 	}
 }
@@ -1518,6 +1547,7 @@ void RaylibBackend::SetLighting(const LightParams& lighting) {
 }
 
 void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, const DrawMaterial& material) {
+	const DepthWriteScope depth{material};
 	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), size);
 	if (DrawCustomMesh(g_lit.cube, model, material)) {
 		return;
@@ -1546,6 +1576,7 @@ void RaylibBackend::DrawLine3D(const glm::vec3 from, const glm::vec3 to, const R
 }
 
 void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, const DrawMaterial& material) {
+	const DepthWriteScope depth{material};
 	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
 	if (DrawCustomMesh(g_lit.sphere, model, material)) {
 		return;
@@ -1567,6 +1598,7 @@ void RaylibBackend::DrawSphere(const glm::mat4& transform, const float radius, c
 }
 
 void RaylibBackend::DrawQuad(const glm::mat4& transform, const glm::vec2 size, const DrawMaterial& material) {
+	const DepthWriteScope depth{material};
 	const glm::mat4 model = transform * glm::scale(glm::mat4(1.0f), glm::vec3(size.x, 1.0f, size.y));
 	if (DrawCustomMesh(g_lit.plane, model, material)) {
 		return;
@@ -1602,6 +1634,7 @@ void RaylibBackend::DrawCapsule(
 	const float height,
 	const DrawMaterial& material
 ) {
+	const DepthWriteScope depth{material};
 	const float half = height * 0.5F;
 	// Cylinder body: unit cylinder (base at y=0) scaled and shifted so it spans [-half, +half].
 	const glm::mat4 body = transform
@@ -1644,6 +1677,7 @@ void RaylibBackend::DrawMesh(const int handle, const glm::mat4& transform, const
 		return;
 	}
 	Model& model = g_models[static_cast<size_t>(handle)];
+	const DepthWriteScope depth{material};
 
 	if (ResolveCustomShaderEntry(material.shader) != nullptr || g_lit.ready) {
 		auto draw_meshes = [&](auto&& draw_fn) {
@@ -1889,23 +1923,12 @@ void RaylibBackend::DrawDynamicMesh(const int handle, const glm::mat4& transform
 	const Mesh& mesh = g_dynamic_meshes[static_cast<size_t>(handle)];
 	if (mesh.vertexCount == 0) return;
 
-	// Transparent pass: test depth but don't write it, so the alpha-blended ghost neither hides the
-	// player nor disturbs the opaque z-sort. rlDrawRenderBatchActive() flushes raylib's queued
-	// geometry so the depth-mask toggle brackets exactly this mesh's draw.
-	const bool restore_depth_mask = !material.depth_write;
-	if (restore_depth_mask) {
-		rlDrawRenderBatchActive();
-		rlDisableDepthMask();
-	}
+	// The occluder ghost and the translucent pass test depth without writing it.
+	const DepthWriteScope depth{material};
 
 	const bool drawn = DrawCustomMesh(mesh, transform, material);
 	if (!drawn && g_lit.ready) {
 		DrawLitMesh(mesh, transform, material);
-	}
-
-	if (restore_depth_mask) {
-		rlDrawRenderBatchActive();
-		rlEnableDepthMask();
 	}
 	if (drawn || g_lit.ready) {
 		return;
@@ -2228,6 +2251,7 @@ void RaylibBackend::DrawSkinnedMesh(
 	const int frame = ((static_cast<int>(std::floor(pose.time * 1000.0f / 17.0f)) % frame_count) + frame_count) % frame_count;
 	UpdateModelAnimationBones(model, clip, frame);
 
+	const DepthWriteScope depth{material}; // after the bind-pose fallback: DrawMesh opens its own
 	for (int i = 0; i < model.meshCount; ++i) {
 		const Mesh& m = model.meshes[i];
 		// A mesh with no bones (a static node in the same file) draws through the ordinary lit program.

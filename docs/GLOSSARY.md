@@ -104,6 +104,10 @@ _Avoid_: include, file ref sigil (the sigil is `kFileRefSigil`, the string is th
 An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, `AlbedoMap`, and `ShaderMap`. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`, `GetAlbedoMap()`) do the same transparently.
 _Avoid_: material reference, material link
 
+**Translucent Pass**:
+The render pass that draws `Translucent`-tagged entities after all opaque geometry: alpha-blended by their `Material` alpha, depth test on and depth write off, sorted back to front per object. Distinct from the *occluder fade* ghost (`TransparentPass`), which redraws only the faded fragments of a cutout occluder.
+_Avoid_: transparent pass (that names the occluder-fade tag), alpha pass, blend pass
+
 **Animation Kind**:
 A family of animation that supplies its own clips and decides how a clip at a given time changes what's drawn: skeletal mesh, 2D sprite, spline, and so on. Every kind shares the same Animation Player; only its clips and how they take effect differ.
 _Avoid_: animation type, animator
