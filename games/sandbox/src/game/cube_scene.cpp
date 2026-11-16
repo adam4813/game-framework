@@ -27,6 +27,13 @@ constexpr std::array<core::Rgba, 4> kRuntimeTexturePalette{{
 	{.r = 60, .g = 110, .b = 220, .a = 255},
 }};
 
+// Depth-tested 3D lines: one runs behind the resting FallingCube, so its middle is hidden by the cube; the other
+// slopes down through the floor, so the part below the floor's top is hidden.
+constexpr std::array<render::Line3D, 2> kOccludedLines{{
+	{.from = {-3.0F, 0.75F, -1.0F}, .to = {3.0F, 0.75F, -1.0F}, .color = {.r = 40, .g = 220, .b = 255, .a = 255}},
+	{.from = {-4.0F, -1.5F, 1.5F}, .to = {4.0F, 1.5F, 1.5F}, .color = {.r = 255, .g = 60, .b = 200, .a = 255}},
+}};
+
 // RGBA8 checkerboard for the runtime albedo demo. Each step picks the next pair of palette colors and shifts the
 // checker by one cell, so every refill is visibly different.
 std::vector<uint8_t> FillRuntimeTexture(const int step) {
@@ -167,6 +174,9 @@ void CubeScene::Tick(const flecs::world& world, const float deltaTime) {
 	if (!paused) {
 		TickRuntimeAlbedo(world, deltaTime);
 	}
+	// The LineQueue is cleared after each draw, so the lines are pushed every frame.
+	auto& lines = world.get_mut<render::LineQueue>().lines;
+	lines.insert(lines.end(), kOccludedLines.begin(), kOccludedLines.end());
 	if (hud_ && hud_.has<ui::UIElement>()) {
 		hud_.get_mut<ui::UIElement>().visible = !paused;
 	}
