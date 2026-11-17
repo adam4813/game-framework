@@ -37,6 +37,8 @@
 #include <Jolt/Physics/Body/BodyLock.h>
 // clang-format on
 
+#include "jolt_debug_renderer.hpp"
+
 namespace engine::physics {
 
 // A Jolt character plus what the backend needs to place it. Not a body: the physics system never sees it.
@@ -1000,10 +1002,12 @@ std::optional<RaycastResult> JoltBackend::Raycast(const Ray& ray, const RaycastF
 	const LayerMaskFilter layer_filter(filter.layer_mask);
 	const IgnoreEntitiesFilter body_filter(filter.ignore);
 	JPH::RayCastResult hit;
-	if (!physics_system_->GetNarrowPhaseQuery().CastRay(*jolt_ray, hit, {}, layer_filter, body_filter)) {
-		return std::nullopt;
+	std::optional<RaycastResult> result;
+	if (physics_system_->GetNarrowPhaseQuery().CastRay(*jolt_ray, hit, {}, layer_filter, body_filter)) {
+		result = MakeRaycastResult(*physics_system_, *jolt_ray, hit, ray.max_distance);
 	}
-	return MakeRaycastResult(*physics_system_, *jolt_ray, hit, ray.max_distance);
+	DebugRecordRay(ray, result ? std::span<const RaycastResult>(&*result, 1) : std::span<const RaycastResult>{});
+	return result;
 }
 
 std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray, const RaycastFilter& filter) const {
@@ -1025,11 +1029,23 @@ std::vector<RaycastResult> JoltBackend::RaycastAll(const Ray& ray, const Raycast
 		seen.push_back(hit.mBodyID);
 		results.push_back(MakeRaycastResult(*physics_system_, *jolt_ray, hit, ray.max_distance));
 	}
+	DebugRecordRay(ray, results);
 	return results;
 }
 
+void JoltBackend::DebugRecordRay(
+	[[maybe_unused]] const Ray& ray,
+	[[maybe_unused]] const std::span<const RaycastResult> hits
+) const {
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
-void JoltBackend::SetDebugRenderer(JPH::DebugRenderer* renderer) { debug_renderer_ = renderer; }
+	if (debug_renderer_ == nullptr || !debug_renderer_->Enabled()) return;
+	const float length = glm::length(ray.direction);
+	debug_renderer_->RecordRay(ray.origin, ray.origin + ray.direction / length * ray.max_distance, hits);
+#endif
+}
+
+#ifdef ENGINE_PHYSICS_DEBUG_RENDERER
+void JoltBackend::SetDebugRenderer(JoltDebugRendererAdapter* renderer) { debug_renderer_ = renderer; }
 
 void JoltBackend::DebugDrawBodies() const {
 	if (!physics_system_ || !debug_renderer_) return;

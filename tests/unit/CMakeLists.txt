@@ -127,6 +127,11 @@ add_engine_test(physics_raycast_test
     physics_raycast_test.cpp
 )
 
+# Raycast debug drawing: a hit's ray, hit marker and normal, a miss, RaycastAll's hits, persistence, disabled
+add_engine_test(physics_ray_debug_test
+    physics_ray_debug_test.cpp
+)
+
 # Raycast script bindings, headless: Raycast, RaycastFilter (ignore, layer mask) and RaycastAll's array of hits
 add_engine_test(raycast_script_test
     raycast_script_test.cpp

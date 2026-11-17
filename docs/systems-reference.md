@@ -86,7 +86,7 @@ once so entities always have both components.
 | `PhysicsCollisionEvents`        | system `.run()`  | `PostFrame`   | GameScene | ✔       |
 | `PhysicsSyncBody`, `PhysicsSyncBodyOnCollisionShape`, `PhysicsSetBodyTransform` | observer | `OnSet` | — | — |
 | `PhysicsRemoveBody`             | observer         | `OnRemove`    | —         | —        |
-| `PhysicsDebugRender`            | system           | `OnStore`     | GameScene | ✘       |
+| `PhysicsDebugRender`            | system           | `PreStore`    | —         | ✘       |
 | `PhysicsDebugRenderSync`        | system           | `OnUpdate`    | GameScene | —        |
 
 The simulation runs on the Tick: each Tick applies the per-entity request components (`Force`/`VelocityOverride`,
