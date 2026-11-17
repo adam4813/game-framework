@@ -57,7 +57,9 @@ struct DrawMaterial {
 	bool cast_shadow{true};
 	bool unlit{false};            // draw the tint as-is, skipping the scene lighting
 	bool double_sided{false};     // no back-face culling; the lit shaders flip a back face's normal
-	bool depth_write{true};       // when false, the draw tests depth but doesn't write it (transparent pass)
+	// When false, the draw tests depth but doesn't write it (the translucent pass, the occluder ghost). Honored by the
+	// direct draw calls (DrawCube ... DrawSkinnedMesh, DrawDynamicMesh); SubmitBatch ignores it.
+	bool depth_write{true};
 	bool fade_transparent{false}; // selects the occluder-fade shader's transparent (ghost) pass
 };
 

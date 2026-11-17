@@ -5,6 +5,7 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -27,6 +28,7 @@
 #include "point_light_packing.hpp"
 #include "render_components.hpp"
 #include "render_queue.hpp"
+#include "translucent_pass.hpp"
 
 namespace engine::render {
 
@@ -38,6 +40,7 @@ using json = nlohmann::json;
 // exists.
 struct Render3DState {
 	bool active{false};
+	glm::vec3 eye{0.0F}; // the active camera's world position, which the translucent pass sorts by
 };
 
 // Timestamp captured when the 3D pass opens, used to measure how long the primitive enqueue systems
@@ -96,10 +99,9 @@ platform::DrawMaterial ResolveDrawMaterial(const flecs::entity e) {
 
 // The shared gate of the direct per-entity draw systems: nothing when 3D rendering is inactive, the entity has
 // no material source, or the opt-in frustum cull rejects it; otherwise the entity's draw material.
-std::optional<platform::DrawMaterial>
-ResolveDrawable(const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt) {
-	if (!it.world().get<Render3DState>().active) return std::nullopt;
-	const auto entity = it.entity(i);
+std::optional<platform::DrawMaterial> ResolveDrawable(const flecs::entity entity, const spatial::WorldTransform& wt) {
+	const flecs::world world = entity.world();
+	if (!world.get<Render3DState>().active) return std::nullopt;
 	// Entities must have a material source: inline Material, a direct (RenderWith,*) pair,
 	// or a parent with (RenderWith,*) — the latter covers overflow chunk children whose
 	// atlas/material is inherited from the carrier entity.
@@ -112,15 +114,104 @@ ResolveDrawable(const flecs::iter& it, const size_t i, const spatial::WorldTrans
 	// (e.g. per-entity creature/NPC sprites). Static or streaming meshes omit this
 	// component and are never position-culled.
 	if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
-		const auto& cull = it.world().get<CameraFrustum>();
+		const auto& cull = world.get<CameraFrustum>();
 		if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) return std::nullopt;
 	}
 	return ResolveDrawMaterial(entity);
 }
 
+// The skinned-model pose an entity's AnimationPlayer selects: clip 0 at time 0 without a player, and the first clip
+// for an unbound player (clip_index -1).
+platform::SkeletalPose PoseOf(const flecs::entity entity) {
+	if (const auto* player = entity.try_get<animation::AnimationPlayer>(); player != nullptr) {
+		return {.clip = std::max(player->clip_index, 0), .time = player->time};
+	}
+	return {};
+}
+
+// The translucent pass's draw for a Translucent entity, or nothing when it has no drawable shape, its model or mesh
+// isn't loaded yet, or ResolveDrawable rejects it. The material keeps depth testing but drops depth writes, so a
+// translucent object never hides what draws after it.
+std::optional<TranslucentDraw> CollectTranslucentDraw(const flecs::entity e, const spatial::WorldTransform& wt) {
+	auto material = ResolveDrawable(e, wt);
+	if (!material) return std::nullopt;
+	material->depth_write = false;
+	TranslucentDraw draw{.center = glm::vec3(wt.matrix[3]), .transform = wt.matrix, .material = *material};
+
+	if (const auto* cube = e.try_get<CubePrimitive>()) {
+		draw.shape = TranslucentShape::Cube;
+		draw.size = cube->size;
+		return draw;
+	}
+	if (const auto* sphere = e.try_get<SpherePrimitive>()) {
+		draw.shape = TranslucentShape::Sphere;
+		draw.size = glm::vec3(sphere->radius);
+		return draw;
+	}
+	if (const auto* quad = e.try_get<QuadPrimitive>()) {
+		draw.shape = TranslucentShape::Quad;
+		draw.size = {quad->size.x, quad->size.y, 0.0F};
+		return draw;
+	}
+	if (const auto* capsule = e.try_get<CapsulePrimitive>()) {
+		draw.shape = TranslucentShape::Capsule;
+		draw.size = {capsule->radius, capsule->height, 0.0F};
+		return draw;
+	}
+	if (const auto* mesh = e.try_get<MeshPrimitive>()) {
+		if (mesh->handle < 0) return std::nullopt;
+		draw.handle = mesh->handle;
+		const auto* set = e.try_get<animation::SkeletalAnimationSet>();
+		if (set == nullptr) {
+			draw.shape = TranslucentShape::Mesh;
+			return draw;
+		}
+		if (set->handle < 0) return std::nullopt;
+		draw.shape = TranslucentShape::SkinnedMesh;
+		draw.skeletal_set = set->handle;
+		draw.pose = PoseOf(e);
+		return draw;
+	}
+	if (const auto* dynamic = e.try_get<DynamicMesh>()) {
+		if (dynamic->handle < 0) return std::nullopt;
+		draw.shape = TranslucentShape::DynamicMesh;
+		draw.handle = dynamic->handle;
+		return draw;
+	}
+	return std::nullopt;
+}
+
+// Issues one translucent draw through the same platform call its opaque counterpart uses.
+void DrawTranslucent(platform::Platform& p, const TranslucentDraw& d) {
+	switch (d.shape) {
+	case TranslucentShape::Cube:
+		p.DrawCube(d.transform, d.size, d.material);
+		break;
+	case TranslucentShape::Sphere:
+		p.DrawSphere(d.transform, d.size.x, d.material);
+		break;
+	case TranslucentShape::Quad:
+		p.DrawQuad(d.transform, {d.size.x, d.size.y}, d.material);
+		break;
+	case TranslucentShape::Capsule:
+		p.DrawCapsule(d.transform, d.size.x, d.size.y, d.material);
+		break;
+	case TranslucentShape::Mesh:
+		p.DrawMesh(d.handle, d.transform, d.material);
+		break;
+	case TranslucentShape::SkinnedMesh:
+		p.DrawSkinnedMesh(d.handle, d.skeletal_set, d.pose, d.transform, d.material);
+		break;
+	case TranslucentShape::DynamicMesh:
+		p.DrawDynamicMesh(d.handle, d.transform, d.material);
+		break;
+	}
+}
+
 // Registers a draw system for primitive component TPrim. The per-primitive draw calls differ, so it is
 // passed as a callable: draw(platform, worldMatrix, primitive, material). RenderWith is optional so
-// entities carrying an inline Material (no relationship) are still drawn.
+// entities carrying an inline Material (no relationship) are still drawn. Translucent entities are left
+// to the translucent pass.
 template<typename TPrim, typename Draw>
 void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw draw) {
 	world.system<const spatial::WorldTransform, const TPrim>(name)
@@ -129,8 +220,9 @@ void RegisterPrimitiveRenderer(const flecs::world& world, const char* name, Draw
 		.optional()
 		.self()
 		.up()
+		.template without<Translucent>()
 		.each([draw](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const TPrim& prim) {
-			const auto material = ResolveDrawable(it, i, wt);
+			const auto material = ResolveDrawable(it.entity(i), wt);
 			if (!material) return;
 			draw(*it.world().get<platform::PlatformRef>().ptr, wt.matrix, prim, *material);
 		})
@@ -187,6 +279,7 @@ platform::DrawMaterial MaterialFromColumns(const Material* mat, const AlbedoMap*
 
 // Registers an OnStore system that enqueues primitive TPrim into the render queue (culled), mapping
 // its component to a built-in mesh + model matrix via `to_model`. Batched/instanced at flush time.
+// Translucent entities are skipped: the batch reorders by state, so they draw in the sorted pass.
 //
 // Performance: this is the hot path for scenes with tens of thousands of primitives, so it is
 // written the idiomatic ECS way. It uses .run to fetch the per-frame singletons (Render3DState,
@@ -219,6 +312,7 @@ void RegisterPrimitiveEnqueuer(
 		.template with<const ShaderMap>()
 		.self()
 		.optional() // field 4
+		.template without<Translucent>() // drawn by the translucent pass instead
 		.multi_threaded(true)
 		.run([shape, unit_radius, to_model, zone_name, type_counter](flecs::iter& it) {
 			profiling::Zone _zone{zone_name}; // per-primitive dynamic zone name
@@ -346,6 +440,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 	level::RegisterComponentLoader(world, "mesh", [](const flecs::entity e, const json& j) {
 		e.set<MeshPrimitive>({.path = assets::ResolveAsset(e.world(), j.value("path", std::string{}))});
 	});
+	level::RegisterTag<Translucent>(world, "translucent");
 	level::RegisterComponentLoader(world, "material", [](const flecs::entity e, const json& j) {
 		Material m{};
 		m.color = JRgba(j, "color", m.color);
@@ -465,6 +560,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<float>("strength")
 		.member<bool>("enabled");
 	world.component<TransparentPass>();
+	world.component<Translucent>();
 	world.component<DirectionalLight>()
 		.member<glm::vec3>("direction")
 		.member<core::Rgba>("color")
@@ -660,6 +756,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 					.ortho_size = cam.ortho_size,
 				});
 				state.active = true;
+				state.eye = eye.position;
 
 				// Build the cull frustum from the same view/projection the backend will use.
 				const glm::mat4 view = glm::lookAt(eye.position, aim, cam.up);
@@ -816,6 +913,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 			.optional()
 			.self()
 			.up()
+			.without<Translucent>()
 			.each([](const flecs::iter& it,
 					 const size_t i,
 					 const spatial::WorldTransform& wt,
@@ -856,9 +954,10 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.optional()
 		.self()
 		.up()
+		.without<Translucent>()
 		.each([](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const MeshPrimitive& mesh) {
 			if (mesh.handle < 0) return;
-			const auto material = ResolveDrawable(it, i, wt);
+			const auto material = ResolveDrawable(it.entity(i), wt);
 			if (!material) return;
 			it.world().get<platform::PlatformRef>().ptr->DrawMesh(mesh.handle, wt.matrix, *material);
 		})
@@ -869,18 +968,16 @@ RenderModule::RenderModule(const flecs::world& world) {
 			  "RenderSkinnedMeshes"
 	)
 		.kind(flecs::OnStore)
+		.without<Translucent>()
 		.each([](const flecs::iter& it,
 				 const size_t i,
 				 const spatial::WorldTransform& wt,
 				 const MeshPrimitive& mesh,
 				 const animation::SkeletalAnimationSet& set) {
 			if (mesh.handle < 0 || set.handle < 0) return;
-			const auto material = ResolveDrawable(it, i, wt);
+			const auto material = ResolveDrawable(it.entity(i), wt);
 			if (!material) return;
-			platform::SkeletalPose pose{};
-			if (const auto* player = it.entity(i).try_get<animation::AnimationPlayer>(); player != nullptr) {
-				pose = {.clip = std::max(player->clip_index, 0), .time = player->time};
-			}
+			const platform::SkeletalPose pose = PoseOf(it.entity(i));
 			it.world().get<platform::PlatformRef>().ptr->DrawSkinnedMesh(mesh.handle, set.handle, pose, wt.matrix, *material);
 		})
 		.add<scene::GameScene>();
@@ -894,9 +991,9 @@ RenderModule::RenderModule(const flecs::world& world) {
 	);
 
 	// === SYSTEM: Draw the frame's queued 3D lines ===
-	// Inside the open pass, with the opaque geometry and before Render3DFlush's transparent ghost pass: lines write
-	// depth like any opaque draw, so a faded wall in front blends over a line behind it instead of the line drawing
-	// over the wall. The depth test hides the parts behind drawn geometry whatever the draw order. Not scoped to
+	// Inside the open pass, with the opaque geometry and before Render3DFlush's occluder ghost and Render3DTranslucent:
+	// lines write depth like any opaque draw, so a faded wall or a Translucent entity in front blends over a line
+	// behind it instead of the line drawing over it. The depth test hides the parts behind drawn geometry whatever the draw order. Not scoped to
 	// GameScene: it must clear the queue in every scene, or lines pushed while no pass opens pile up.
 	std::ignore = world.system("Render3DLines")
 					  .kind(flecs::OnStore)
@@ -977,6 +1074,30 @@ RenderModule::RenderModule(const flecs::world& world) {
 								  ghost.fade_transparent = true; // shader renders only the faded (covering) fragments
 								  platform.DrawDynamicMesh(mesh.handle, wt.matrix, ghost);
 							  });
+						  }
+					  })
+					  .add<scene::GameScene>();
+
+	// === SYSTEM: Translucent pass ===
+	// Draws every Translucent entity after all opaque geometry (registered after Render3DFlush, so it runs after the
+	// batch and the occluder ghost), farthest from the camera first, with depth writes off. Translucent entities are
+	// few, so each is a direct draw: the instanced batch groups by state and would lose the order.
+	const auto translucent_query = world.query_builder<const spatial::WorldTransform>().with<Translucent>().build();
+	std::ignore = world.system("Render3DTranslucent")
+					  .kind(flecs::OnStore)
+					  .run([translucent_query](const flecs::iter& it) {
+						  const auto& state = it.world().get<Render3DState>();
+						  if (!state.active) return;
+						  std::vector<TranslucentDraw> draws;
+						  translucent_query.each([&draws](const flecs::entity e, const spatial::WorldTransform& wt) {
+							  if (auto draw = CollectTranslucentDraw(e, wt)) {
+								  draws.push_back(*draw);
+							  }
+						  });
+						  SortBackToFront(draws, state.eye);
+						  auto& platform = *it.world().get<platform::PlatformRef>().ptr;
+						  for (const auto& draw : draws) {
+							  DrawTranslucent(platform, draw);
 						  }
 					  })
 					  .add<scene::GameScene>();

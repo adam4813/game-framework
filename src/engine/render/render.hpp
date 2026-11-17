@@ -4,3 +4,4 @@
 #include "render_helpers.hpp"
 #include "render_module.hpp"
 #include "render_queue.hpp"
+#include "translucent_pass.hpp"

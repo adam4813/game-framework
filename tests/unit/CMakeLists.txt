@@ -43,6 +43,11 @@ add_engine_test(render_batch_test
     render_batch_test.cpp
 )
 
+# Translucent pass: back-to-front sort, and Translucent entities leaving the opaque passes for a depth-write-off pass
+add_engine_test(translucent_pass_test
+    translucent_pass_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp

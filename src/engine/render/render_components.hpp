@@ -172,10 +172,20 @@ struct OcclusionFade {
 	bool  enabled{true};
 };
 
-// Tag: draw this entity's DynamicMesh in the post-opaque transparent pass (alpha-blended) that runs
-// after the player and other opaque geometry, instead of the normal opaque dynamic-mesh pass. Lets
-// occluder-fade shaders reveal what is already in the framebuffer behind the quad (the player).
+// Tag: the occluder-fade ghost for a DynamicMesh drawn with a fade-aware shader (cutout.fs). The mesh
+// still draws in the opaque pass, which punches a hole where it covers the focus; this tag adds a
+// second, alpha-blended draw after the opaque geometry that fills the hole with a faint ghost, so the
+// player shows through. For an ordinary see-through object, use Translucent instead.
 struct TransparentPass {};
+
+// Tag: draw this entity translucent. It skips the opaque passes and draws after all opaque geometry,
+// alpha-blended by its Material color's alpha, with depth test on and depth write off. Translucent
+// entities are sorted back to front by their distance from the camera, so overlapping ones composite
+// correctly per object. Works on every shape: the primitives, MeshPrimitive models (skinned too) and
+// DynamicMesh. Limits: the sort is per object, not per triangle, so two intersecting translucent
+// objects (or one concave model seen through itself) can blend in the wrong order where they overlap.
+// Level JSON key: "translucent" (value ignored).
+struct Translucent {};
 
 // A sprite atlas (texture sheet with uniform or irregular tile layout).
 // Carries the atlas image path and its pixel dimensions. Entities that ARE a sprite atlas also
