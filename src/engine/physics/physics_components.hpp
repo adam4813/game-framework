@@ -13,7 +13,8 @@ namespace engine::physics {
 
 // === PHYSICS COMPONENTS ===
 
-/// Rigid body definition and behavior
+/// Rigid body definition and behavior. Setting it again after the body exists updates the body (see the physics
+/// README, "Changing a body after creation").
 struct RigidBody {
 	MotionType motion_type{MotionType::Dynamic};
 	float mass{1.0F};
@@ -28,9 +29,11 @@ struct RigidBody {
 	CollisionLayer layer{CollisionLayer::Default};
 	/// Stored only: body-vs-body contacts don't filter on it yet.
 	uint32_t collision_mask{0xFFFFFFFF};
+
+	bool operator==(const RigidBody&) const = default;
 };
 
-/// Collision shape for physics body
+/// Collision shape for physics body. Setting a different one after the body exists recreates the body.
 struct CollisionShape {
 	ShapeType type{ShapeType::Box};
 	glm::vec3 box_half_extents{0.5F, 0.5F, 0.5F};
@@ -45,6 +48,8 @@ struct CollisionShape {
 	/// Model file (.glb/.gltf) whose triangles make a static `Mesh` shape. Read only when `type == Mesh`.
 	/// Level JSON resolves it against the asset directory; C++ and script authors pass a resolved path.
 	std::string mesh_path;
+
+	bool operator==(const CollisionShape&) const = default;
 };
 
 /// Marks an entity as a walking character, paired with a capsule `CollisionShape` (an error without one, or with a

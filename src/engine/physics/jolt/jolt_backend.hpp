@@ -57,9 +57,16 @@ public:
 	/// Step the physics simulation
 	void StepSimulation(float delta_time) const;
 
-	/// Sync body from ECS to physics backend. `entity_name` only labels errors. A shape that cannot be built (an
-	/// unreadable mesh file, a mesh on a non-static body, a convex hull with no vertices) logs an error naming the
-	/// entity and creates no body.
+	/// Create the entity's body, or bring an existing one up to date. `entity_name` only labels errors.
+	/// - No body yet: creates one at `transform`. A shape that cannot be built (an unreadable mesh file, a mesh on a
+	///   non-static body, a convex hull with no vertices) logs an error naming the entity and creates no body.
+	/// - Same `body` and `shape` as last applied: does nothing, so repeated sets during a scene load are free.
+	/// - A changed `shape`, or a body created static becoming kinematic or dynamic: recreates the body where it is now,
+	///   keeping its velocity. If the new shape cannot be built, the error is logged once and the old body keeps its
+	///   shape (and stays static if it was created static) but takes the rest of `body`.
+	/// - Any other `body` change, including a body created kinematic or dynamic going static and back: updates the body
+	///   in place.
+	/// `transform` is ignored once the body exists; a teleport goes through `SetBodyTransform`.
 	void SyncBodyToBackend(
 		flecs::entity_t entity,
 		std::string_view entity_name,
@@ -173,8 +180,26 @@ private:
 	// Entity to character mapping; characters are not bodies in the physics system.
 	std::unordered_map<flecs::entity_t, std::unique_ptr<CharacterRecord>> characters_;
 
+	// A Jolt body (its BodyID's index and sequence number) and the components it was last built or updated from, so a
+	// repeated set is told apart from a change.
+	struct BodyRecord {
+		uint32_t id{};
+		RigidBody body;
+		CollisionShape shape;
+	};
+
+	// Replaces the record's body with one built from `body` and `shape` at the old body's position and velocity, and
+	// points the record at it. False (logged) when the shape can't be built or Jolt refuses; the old body then stays.
+	bool RecreateBody(
+		flecs::entity_t entity,
+		std::string_view entity_name,
+		BodyRecord& record,
+		const RigidBody& body,
+		const CollisionShape& shape
+	);
+
 	// Entity to Jolt body mapping
-	std::unordered_map<flecs::entity_t, uint32_t> entity_to_body_;
+	std::unordered_map<flecs::entity_t, BodyRecord> entity_to_body_;
 
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 	JPH::DebugRenderer* debug_renderer_ = nullptr;
