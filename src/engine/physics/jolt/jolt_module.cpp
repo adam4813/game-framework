@@ -11,6 +11,7 @@
 #include "engine/ecs/ecs.hpp"
 #include "engine/input/input.hpp"
 #include "engine/platform/platform.hpp"
+#include "engine/render/render.hpp"
 #include "engine/scene/scene.hpp"
 #include "engine/spatial/spatial.hpp"
 #include "jolt_backend.hpp"
@@ -51,41 +52,37 @@ void SyncRigidBody(JoltBackend& sys, const flecs::entity e, const RigidBody& rb,
 }
 
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
-// Creates the debug renderer that draws bodies through `platform`, and the PhysicsDebugRender system (off until the
-// debug render key toggles it). Constructing the adapter makes it Jolt's global DebugRenderer::sInstance.
-void InstallDebugRenderer(const flecs::world& world, JoltBackend& physics, platform::Platform* platform) {
-	const auto debug_renderer = std::make_shared<JoltDebugRendererAdapter>(world, platform);
+// Creates the debug renderer (off until the debug render key toggles it) and its systems. Constructing the adapter
+// makes it Jolt's global DebugRenderer::sInstance. The adapter lives as long as the world (its singleton), so the
+// systems hold a plain pointer.
+void InstallDebugRenderer(const flecs::world& world, JoltBackend& physics) {
+	const auto debug_renderer = std::make_shared<JoltDebugRendererAdapter>();
 	physics.SetDebugRenderer(debug_renderer.get());
 	world.set<std::shared_ptr<JoltDebugRendererAdapter>>(debug_renderer);
+	JoltDebugRendererAdapter* adapter = debug_renderer.get();
 
-	const auto debug_render_sys = world.system< const JoltBackend>("PhysicsDebugRender")
-									  .kind(flecs::OnStore)
-									  .each([](const JoltBackend& sys) { sys.DebugDrawBodies(); })
-									  .add<scene::GameScene>();
-
-	// Off until the debug render key turns it on.
-	if (!debug_render_sys.disable()) {
-		spdlog::warn("[JoltModule] Failed to disable debug render system");
-	}
+	// === SYSTEM: Queue the physics debug lines ===
+	// Body wireframes and recorded raycasts go onto the LineQueue as depth-tested lines. PreStore: once per Frame and
+	// single-threaded, before Render3DLines draws the queue in OnStore. Not scoped to GameScene: it must also drain
+	// the rays a menu scene casts while debug drawing is on.
+	std::ignore = world.system<const JoltBackend>("PhysicsDebugRender")
+					  .kind(flecs::PreStore)
+					  .term_at<JoltBackend>()
+					  .src<JoltBackend>()
+					  .each([adapter](flecs::iter& it, size_t, const JoltBackend& sys) {
+						  if (!adapter->Enabled()) return;
+						  sys.DebugDrawBodies();
+						  adapter->Flush(it.world().get_mut<render::LineQueue>().lines);
+					  });
 
 	// === SYSTEM: Toggle debug rendering on the debug render key ===
-	// Captures the system handle directly instead of looking it up by string each frame
 	std::ignore = world.system<const input::InputState>("PhysicsDebugRenderSync")
 					  .kind(flecs::OnUpdate)
 					  .term_at<input::InputState>()
 					  .src<input::InputState>()
-					  .each([debug_render_sys](const input::InputState& input_state) {
+					  .each([adapter](const input::InputState& input_state) {
 						  if (input_state.keys[input::kDebugRenderKey].pressed) {
-							  if (debug_render_sys.enabled()) {
-								  if (!debug_render_sys.disable()) {
-									  spdlog::warn("[JoltModule] Failed to disable debug render system");
-								  }
-							  }
-							  else {
-								  if (!debug_render_sys.enable()) {
-									  spdlog::warn("[JoltModule] Failed to enable debug render system");
-								  }
-							  }
+							  adapter->SetEnabled(!adapter->Enabled());
 						  }
 					  })
 					  .add<scene::GameScene>();
@@ -413,8 +410,8 @@ JoltModule::JoltModule(const flecs::world& world) {
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
 	// Jolt's debug renderer is one process-global (DebugRenderer::sInstance), so only a world that draws installs it.
 	// A headless world (a server beside a client) never creates one, so it never clears the one another world set.
-	if (auto* host = world.get<platform::PlatformRef>().ptr; host->HasWindow()) {
-		InstallDebugRenderer(world, physics, host);
+	if (world.get<platform::PlatformRef>().ptr->HasWindow()) {
+		InstallDebugRenderer(world, physics);
 	}
 #endif
 

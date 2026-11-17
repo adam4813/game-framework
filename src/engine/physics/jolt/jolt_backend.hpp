@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -23,11 +24,11 @@ class ObjectVsBroadPhaseLayerFilter;
 class ObjectLayerPairFilter;
 class BodyID;
 class ContactListener;
-class DebugRenderer;
 } // namespace JPH
 
 namespace engine::physics {
 
+class JoltDebugRendererAdapter;
 struct CharacterRecord; // defined in jolt_backend.cpp
 struct MeshShapeCache;  // defined in jolt_backend.cpp so this header needs no Jolt shape types
 
@@ -150,8 +151,8 @@ public:
 	[[nodiscard]] bool IsInitialized() const { return initialized_; }
 
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
-	/// Set debug renderer for drawing physics bodies
-	void SetDebugRenderer(JPH::DebugRenderer* renderer);
+	/// Set the debug renderer that draws the bodies and records each raycast while it's enabled.
+	void SetDebugRenderer(JoltDebugRendererAdapter* renderer);
 
 	/// Draw all bodies using the debug renderer
 	void DebugDrawBodies() const;
@@ -160,6 +161,9 @@ public:
 private:
 	// True while a character or the world steps; a query made then hits nothing (Jolt's state is mid-update).
 	[[nodiscard]] bool RejectQueryWhileStepping() const;
+
+	// Hands a cast ray (one MakeJoltRay accepted) and its hits to the debug renderer, if one is installed and enabled.
+	void DebugRecordRay(const Ray& ray, std::span<const RaycastResult> hits) const;
 
 	PhysicsConfig config_;
 	bool initialized_{false};
@@ -202,7 +206,7 @@ private:
 	std::unordered_map<flecs::entity_t, BodyRecord> entity_to_body_;
 
 #ifdef ENGINE_PHYSICS_DEBUG_RENDERER
-	JPH::DebugRenderer* debug_renderer_ = nullptr;
+	JoltDebugRendererAdapter* debug_renderer_ = nullptr;
 #endif
 };
 

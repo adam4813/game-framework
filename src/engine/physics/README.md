@@ -238,6 +238,20 @@ for (const RaycastResult& hit : RaycastAll(world, aim, {.layer_mask = LayerBit(C
 
 Scripts call the same queries (`Raycast`, `RaycastAll`); see `docs/script-api-reference.md`.
 
+## Debug drawing
+
+The debug render key (`input::kDebugRenderKey`) toggles physics debug drawing in a world with a window. While it's on,
+every body draws as a wireframe, and every `Raycast` / `RaycastAll` (C++ or script) draws:
+
+- the ray from its origin to the nearest hit in green, and on past it to `max_distance` in gray; a miss draws its
+  whole length in yellow;
+- a small red cross at each hit point, and the surface normal there as a cyan line, 0.5 m long.
+
+The lines are depth-tested 3D lines (the render module's `LineQueue`, see `engine/render/README.md`, "3D lines"), so
+geometry in front hides them. `PhysicsDebugRender` queues them in `PreStore`, once per Frame. A frame shows the rays cast
+since the previous frame; when none were, it keeps showing the last ones, so a one-off cast (a click, a single Tick)
+stays visible until the next cast. Turning debug drawing off drops them.
+
 ## Several physics worlds in one process
 
 Each Flecs world that imports `physics` gets its own `JoltBackend` (its own `PhysicsSystem`, bodies and characters),

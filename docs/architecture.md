@@ -69,7 +69,7 @@ orders it within the Tick's own pipeline; the table names the Tick's systems in 
 | `flecs::OnLoad`        | Sample inputs (before the Ticks) | `InputPoll` (FrameSample)                                                                                                                |
 | `flecs::PreUpdate`     | Lay out UI                     | `UILayout`, `ScriptPreTick`                                                                                                                |
 | `flecs::OnUpdate`      | Simulation + interaction/logic | physics step (on the Tick), `TimerAdvance`, `ParticleEmit/Update`, UI interaction, `SoundEffectPlayback`, `ActiveSceneTick/Input`, `ScriptOnTick` |
-| `flecs::OnStore`       | 3D rendering, debug draw       | `Render3DBegin` → lighting → primitives → `Render3DEnd`, `PhysicsDebugRender`                                                              |
+| `flecs::OnStore`       | 3D rendering, debug draw       | `Render3DBegin` → lighting → primitives → `Render3DLines` (incl. `PhysicsDebugRender`'s, queued in `PreStore`) → `Render3DEnd`              |
 | `ecs::OnUI` *(custom)* | 2D overlays on top of 3D       | `UIBuildDrawList`, `UIRenderDrawList`, `ActiveSceneDebugUI`, `ActiveSceneUI`                                                               |
 | `ecs::OnDebugUI` *(custom)* | ImGui debug UI on top of all | `DebugUiDraw` (panels themselves run in `OnUpdate`, e.g. `EngineDebugPanel`)                                                       |
 | `flecs::PostUpdate`    | Clear per-frame state          | `InputResetFrameState`, `ScriptPostTick`                                                                                                   |
