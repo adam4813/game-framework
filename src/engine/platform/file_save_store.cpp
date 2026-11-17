@@ -38,8 +38,9 @@ namespace fs = std::filesystem;
 constexpr std::string_view kSlotExtension = ".json";
 constexpr std::string_view kTempSuffix = ".tmp";
 
+#if !defined(__EMSCRIPTEN__)
 // The running executable's directory (what the desktop Platform's assets sit beside), or the working directory when
-// the OS won't say.
+// the OS won't say. The web has no executable directory; DefaultSaveDirectory() names one instead.
 [[nodiscard]] fs::path ExecutableDirectory() {
 #if defined(_WIN32)
 	std::wstring buffer(MAX_PATH, L'\0');
@@ -64,7 +65,7 @@ constexpr std::string_view kTempSuffix = ".tmp";
 		const auto resolved = fs::weakly_canonical(exe, ec);
 		return (ec ? exe : resolved).parent_path();
 	}
-#elif !defined(__EMSCRIPTEN__)
+#else
 	std::error_code ec;
 	const auto exe = fs::read_symlink("/proc/self/exe", ec);
 	if (!ec) {
@@ -74,6 +75,7 @@ constexpr std::string_view kTempSuffix = ".tmp";
 	std::error_code cwd_ec;
 	return fs::current_path(cwd_ec);
 }
+#endif
 
 // Write `data` to `path`, replacing it, and flush it to the disk before returning, so the rename that follows can't
 // expose a slot whose contents the OS hadn't stored yet. Returns false (with a log line) on any failure.
