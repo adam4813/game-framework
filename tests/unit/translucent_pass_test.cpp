@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 #include <span>
 #include <string_view>
@@ -71,6 +72,9 @@ public:
 		calls.push_back(
 			{.call = "mesh", .handle = handle, .z = transform[3].z, .depth_write = m.depth_write, .alpha = m.tint.a}
 		);
+	}
+	void DrawLine3D(const glm::vec3 from, glm::vec3, const engine::core::Rgba color) override {
+		calls.push_back({.call = "line", .z = from.z, .alpha = color.a});
 	}
 	BatchStats SubmitBatch(const std::span<const RenderCommand> commands) override {
 		for (const auto& c : commands) {
@@ -205,6 +209,22 @@ TEST(TranslucentPass, RemovingTheTagReturnsTheEntityToTheOpaquePass) {
 		EXPECT_NE(c.call, "cube") << "the cube left the translucent pass";
 	}
 	EXPECT_EQ(batched, 2);
+}
+
+// Through the real pipeline, not RenderFrame's list: lines write depth like opaque geometry, so they must draw before
+// the translucent pass, or a translucent object in front of a line couldn't blend over it.
+TEST(TranslucentPass, QueuedLinesDrawBeforeTheTranslucentPass) {
+	const MixedScene scene;
+	scene.World().get_mut<engine::render::LineQueue>().lines.push_back({.from = {-1, 0, -8}, .to = {1, 0, -8}});
+
+	engine::fixed_step::RunFrame(scene.World(), 1.0F / 60.0F);
+
+	const auto& calls = scene.platform->calls;
+	const auto line = std::ranges::find(calls, std::string_view{"line"}, &DrawCall::call);
+	const auto first_translucent = std::ranges::find(calls, false, &DrawCall::depth_write);
+	ASSERT_NE(line, calls.end());
+	ASSERT_NE(first_translucent, calls.end());
+	EXPECT_LT(line, first_translucent);
 }
 
 } // namespace

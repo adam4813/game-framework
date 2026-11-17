@@ -991,9 +991,9 @@ RenderModule::RenderModule(const flecs::world& world) {
 	);
 
 	// === SYSTEM: Draw the frame's queued 3D lines ===
-	// Inside the open pass, with the opaque geometry and before Render3DFlush's transparent ghost pass: lines write
-	// depth like any opaque draw, so a faded wall in front blends over a line behind it instead of the line drawing
-	// over the wall. The depth test hides the parts behind drawn geometry whatever the draw order. Not scoped to
+	// Inside the open pass, with the opaque geometry and before Render3DFlush's occluder ghost and Render3DTranslucent:
+	// lines write depth like any opaque draw, so a faded wall or a Translucent entity in front blends over a line
+	// behind it instead of the line drawing over it. The depth test hides the parts behind drawn geometry whatever the draw order. Not scoped to
 	// GameScene: it must clear the queue in every scene, or lines pushed while no pass opens pile up.
 	std::ignore = world.system("Render3DLines")
 					  .kind(flecs::OnStore)
