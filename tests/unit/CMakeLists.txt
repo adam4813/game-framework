@@ -91,9 +91,15 @@ add_engine_test(two_physics_worlds_test
     two_physics_worlds_test.cpp
 )
 
-# HeadlessPlatform: asset paths resolve against its directory, and a world created without a Platform gets one
+# HeadlessPlatform: asset paths resolve against its directory, a world created without a Platform gets one, and
+# saves are files in its save directory, written atomically
 add_engine_test(headless_platform_test
     headless_platform_test.cpp
+)
+
+# File References: "@file:" strings resolve relative to their own file; missing files and cycles fail cleanly
+add_engine_test(json_file_ref_test
+    json_file_ref_test.cpp
 )
 
 # REST port: FLECS_REST_PORT overrides a world's given port unless the world is initialized to ignore it

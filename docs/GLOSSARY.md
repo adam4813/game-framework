@@ -96,6 +96,10 @@ _Avoid_: parent reference, relationship link
 In a level JSON, an entry in the `"refs"` object that maps a relationship name to a *named entity* resolved after the full entity tree is built (e.g. `"refs": { "look_at": "Player" }` wires `LookAt(camera, PlayerEntity)`). Enables cross-entity relationships without authoring-order constraints.
 _Avoid_: entity reference, named reference
 
+**File Reference**:
+A JSON string `"@file:<path>"` that stands in for the whole JSON document at `<path>`, resolved against the directory of the file holding it. Levels use them to split entity trees across files; `core::LoadJsonFileResolved` resolves them in any JSON (a save, a config). Distinct from a **Ref**, which names an entity.
+_Avoid_: include, file ref sigil (the sigil is `kFileRefSigil`, the string is the reference)
+
 **RenderWith**:
 An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, `AlbedoMap`, and `ShaderMap`. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`, `GetAlbedoMap()`) do the same transparently.
 _Avoid_: material reference, material link

@@ -8,7 +8,36 @@ Flecs module registering foundational types, math types, and value types used th
 - **core_module.hpp** — `CoreModule` class declaration (Flecs module entry point).
 - **core_module.cpp** — Constructor: reflects core types and math types for the Flecs Explorer, registers value types
   and components with the scripting backend, and registers constructors and global constants.
+- **json_util.hpp** — `LoadJsonFile`, `LoadJsonDirectory` and the `J*` field parsers (`JVec3`, `JRgba`, ...).
+- **json_file_ref.hpp/.cpp** — File References: `kFileRefSigil`, `IsFileRef`, `LoadFileRef`, `LoadJsonFileResolved`.
 - **core.hpp** — Umbrella header; included by `engine.hpp`.
+
+## File References
+
+A JSON document can be split across files: the string `"@file:<path>"` stands in for the whole document at `<path>`.
+Levels use them (`docs/architecture.md`, "File references in levels"), and so can any other JSON a game stores in
+pieces, such as a save or a config.
+
+- **Path rule**: `<path>` resolves against the directory of the file that holds the reference, not the working
+  directory or the root file, so a nested file's own references keep working when its folder moves.
+- **Only the sigil makes a reference.** A bare string, even one that names a file, is a plain value. Object keys are
+  never references.
+- `LoadJsonFileResolved(path, log_tag)` loads a file and replaces every reference in it, at any depth (an object
+  member, an array element, inside a referenced file). It returns `std::nullopt` and logs when a file is missing or
+  unparsable, or when a reference cycles back to a file it is already inside.
+- `IsFileRef(value)` and `kFileRefSigil` let a writer emit references the reader resolves:
+  `std::string{core::kFileRefSigil} + "world/chunks.json"`.
+- `LoadFileRef(ref, base_dir, log_tag)` loads one reference without resolving inside it, and returns the directory its
+  own references resolve against. The level loader builds on it, since it resolves references as it builds entities
+  (only in entity arrays and component values) and skips one bad reference instead of failing the whole level.
+
+```cpp
+// save/world.json: {"player": "@file:player.json", "chunks": ["@file:chunks/0.json"]}
+const auto save = engine::core::LoadJsonFileResolved("save/world.json", "Save");
+if (save) {
+    const int hp = (*save)["player"]["hp"].get<int>();
+}
+```
 
 ## Usage
 

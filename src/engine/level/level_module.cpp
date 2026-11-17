@@ -2,9 +2,9 @@
 
 #include <filesystem>
 #include <set>
-#include <utility>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -22,26 +22,13 @@ namespace {
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-// Sigil prefix for file references inside JSON level files.
-// Use "@file:path/to/file.json" to load JSON from a file and substitute it in place.
-// Valid anywhere a JSON value or entity definition is expected:
+// File References ("@file:path/to/file.json", see core/json_file_ref.hpp) are resolved here as the tree is built,
+// in two places:
 //   - Entity/child arrays:    "entities": [ "@file:npcs/player.json", { ... } ]
 //   - Component values:       "component_name": "@file:data/material.json"
 // Bare strings in arrays are reserved for future entity-by-name references and are NOT treated
 // as file refs; the sigil is always required to trigger file loading.
-constexpr std::string_view kFileRefSigil = "@file:";
-
-// Strip the file-ref sigil and resolve the path relative to `base_dir`. Returns a null optional
-// and logs on failure (file not found, parse error, etc.).
-[[nodiscard]] std::optional<json> LoadFileRef(const std::string_view ref, const fs::path& base_dir) {
-	const auto path = ref.substr(kFileRefSigil.size());
-	const auto full = (base_dir / path).lexically_normal();
-	return core::LoadJsonFile(full.string(), "Level:FileRef");
-}
-
-[[nodiscard]] bool IsFileRef(const json& val) {
-	return val.is_string() && val.get_ref<const std::string&>().starts_with(kFileRefSigil);
-}
+constexpr std::string_view kFileRefLogTag = "Level:FileRef";
 
 // Builds entities from a JSON definition tree using the factories registered in LevelRegistry
 // (Builder pattern). For each entity it assembles the components, wires the link to its parent (a
@@ -58,7 +45,7 @@ public:
 	// Build an entity from `def` under `parent`. `cur_dir` is used to resolve any "@file:" references.
 	// If `def` is an "@file:" string, the referenced file is loaded and built in its own directory.
 	flecs::entity Build(const json& def, const flecs::entity parent, const fs::path& cur_dir) {
-		if (IsFileRef(def)) {
+		if (core::IsFileRef(def)) {
 			return BuildFromFile(def.get<std::string>(), parent, cur_dir);
 		}
 
@@ -140,13 +127,11 @@ private:
 	// Load an entity definition from a "@file:" reference and build it under `parent`.
 	// The loaded file's own directory becomes the base for any nested "@file:" refs inside it.
 	flecs::entity BuildFromFile(const std::string& ref, const flecs::entity parent, const fs::path& cur_dir) {
-		const auto doc_opt = LoadFileRef(ref, cur_dir);
-		if (!doc_opt) {
+		const auto loaded = core::LoadFileRef(ref, cur_dir, kFileRefLogTag);
+		if (!loaded) {
 			return {};
 		}
-		const auto rel_path = ref.substr(kFileRefSigil.size());
-		const auto file_dir = (cur_dir / rel_path).lexically_normal().parent_path();
-		return Build(*doc_opt, parent, file_dir);
+		return Build(loaded->doc, parent, loaded->dir);
 	}
 
 	void ApplyComponents(const flecs::entity e, const json& def, const fs::path& cur_dir) const {
@@ -161,12 +146,12 @@ private:
 				continue;
 			}
 			// A "@file:" string component value loads the JSON from disk and substitutes it.
-			if (IsFileRef(value)) {
-				const auto file_data = LoadFileRef(value.get<std::string>(), cur_dir);
+			if (core::IsFileRef(value)) {
+				const auto file_data = core::LoadFileRef(value.get<std::string>(), cur_dir, kFileRefLogTag);
 				if (!file_data) {
 					continue;
 				}
-				ApplyComponent(it->second, e, key, *file_data);
+				ApplyComponent(it->second, e, key, file_data->doc);
 				continue;
 			}
 			ApplyComponent(it->second, e, key, value);

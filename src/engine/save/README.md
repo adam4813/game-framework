@@ -110,5 +110,7 @@ platform->DeleteSave("slot1");
 ```
 
 The Raylib backend implements this as `saves/<name>.json` files next to the executable on desktop, and browser
-`localStorage` (via `EM_JS`) under a `game_save_` key prefix on WebAssembly.
+`localStorage` (via `EM_JS`) under a `game_save_` key prefix on WebAssembly. `HeadlessPlatform` uses the same
+file store as desktop, in a directory set when it is created (`engine/platform/README.md`, "Save store"), so a
+dedicated server or tool saves through this API too.
 

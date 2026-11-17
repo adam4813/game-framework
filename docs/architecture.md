@@ -192,6 +192,9 @@ self-contained and portable: an entity file in `entities/player.json` can load i
 Bare strings in entity/children arrays (without the `@file:` sigil) are reserved for future entity-by-name references
 and are not treated as file paths.
 
+The sigil, the path rule and a general resolver for other JSON (saves, configs) live in `engine::core`
+(`src/engine/core/README.md`, "File References"); the level loader is built on the same primitives.
+
 ## The pause model
 
 Pausing is **data**, not a branch in every system. A system that advances the simulation carries the zero-size tag
