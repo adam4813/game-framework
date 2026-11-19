@@ -29,6 +29,7 @@ also [systems-reference.md](systems-reference.md#ui-srcengineuiui_modulecpp) for
 | `TextArea`       | Multi-line editable text; Enter inserts a newline; click-to-focus, caret.                         |
 | `Dropdown`       | Selector with an expandable option list; fires `on_change(index)`.                                |
 | `Stack`          | Auto-layout: positions direct UI children vertically/horizontally.                                |
+| `UIAnchor`       | Places the element against its parent's rect (or the canvas); see below.                          |
 | `ScrollRect`     | Clipped, scrollable viewport with a scrollbar.                                                    |
 | `Modal`          | Dialog over a full-screen backdrop; blocks input to non-modal UI while open.                      |
 | `OnClick`        | `std::function<void(flecs::entity)>` run on a completed click.                                    |
@@ -66,11 +67,36 @@ for (int i = 0; i < 10; ++i)
 `ui::SetDefaultClickSound(world, path)` makes every `CreateButton` auto-attach a click
 `SoundEffect`.
 
+## Anchoring
+
+`UIAnchor { anchor, pivot, offset }` places an element without a game-side system. `UILayout` resolves it first, before
+Stack layout, against a reference rect: the parent's `UIRect` when it has one, otherwise the canvas (fixed logical size,
+so a window resize never moves it). The element's size is untouched.
+
+```
+x = ref.x + anchor.x * ref.w + inward(anchor.x) * offset.x - pivot.x * rect.w     (same for y)
+```
+
+- `anchor` and `pivot` are fractions of the reference rect and of the element. A negative `pivot` component (default
+  `-1`) means "same as the anchor" on that axis.
+- `offset` is in pixels and moves **inward** from the anchored edge: `inward(a)` is `-1` when `a > 0.5` and `+1`
+  otherwise, so `anchor {1, 1}, offset {12, 12}` sits 12 px in from the right and bottom edges.
+- A Stack child ignores its `UIAnchor` (the Stack owns its position). An anchored Stack is placed first, then lays out
+  its children.
+
+```json
+"ui_rect": [0, 0, 400, 60],
+"ui_anchor": {"anchor": [0.5, 1.0], "offset": [0, 20]}
+```
+
+Hotbar centered at the bottom: `anchor {0.5, 1}, offset {0, 20}`. Top-left row: `offset {10, 10}`. Top-center label:
+`anchor {0.5, 0}`. Left-edge column: `anchor {0, 0.5}`. Bottom-right label: `anchor {1, 1}`.
+
 ## Phases
 
 UI is treated like ordinary simulation, split across phases so there is no one-frame input lag:
 
-- **Layout** — `UILayout` in `PreUpdate` positions each `Stack`'s children (recursing into nested stacks) before
+- **Layout** — `UILayout` in `PreUpdate` resolves `UIAnchor` placements, then positions each `Stack`'s children (recursing into nested stacks) before
   anything hit-tests.
 - **Interaction/logic** — `OnUpdate` reads input sampled in `PreUpdate` (before `PostUpdate` clears it):
   `UIScrollRectUpdate`, `UISpinnerAnimate`, `UIModalInteraction`, `UIButtonInteraction`,

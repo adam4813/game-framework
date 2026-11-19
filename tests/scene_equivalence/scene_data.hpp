@@ -488,6 +488,13 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestUIAnchor",
+      "components": {
+        "ui_rect": [0.0, 0.0, 120.0, 30.0],
+        "ui_anchor": {"anchor": [1.0, 1.0], "pivot": [-1.0, -1.0], "offset": [12.0, 12.0]}
+      }
+    },
+    {
       "name": "TestUIScrollRect",
       "components": {
         "ui_rect": [10.0, 420.0, 200.0, 150.0],
@@ -891,6 +898,16 @@ void OnInit(Entity self) {
     stack.spacing = 8.0f;
     stack.padding = 4.0f;
     stack.stretch = true;
+
+    Entity ui_anchor = CreateNamedEntity("TestUIAnchor");
+    UIRect@ anchor_rect = ui_anchor.AddUIRect();
+    anchor_rect.rect.w = 120.0f;
+    anchor_rect.rect.h = 30.0f;
+    UIAnchor@ anchor = ui_anchor.AddUIAnchor();
+    anchor.anchor.x = 1.0f;
+    anchor.anchor.y = 1.0f;
+    anchor.offset.x = 12.0f;
+    anchor.offset.y = 12.0f;
 
     Entity ui_scroll = CreateNamedEntity("TestUIScrollRect");
     UIRect@ scroll_rect = ui_scroll.AddUIRect();

@@ -46,6 +46,7 @@ composite on top rather than relying on registration order.
 | `TextArea`       | Multi-line editable text; Enter inserts a newline; click-to-focus, caret.          |
 | `Dropdown`       | Selector with an expandable option list; fires `on_change(index)`.                 |
 | `Stack`          | Auto-layout: positions direct UI children vertically/horizontally.                 |
+| `UIAnchor`       | Anchored placement against the parent rect or canvas (resolved by `UILayout`).     |
 | `ScrollRect`     | Clipped, scrollable viewport with a scrollbar (`-scroll` offset + scissor clip).   |
 | `Modal`          | Dialog over a full-screen backdrop; blocks input to non-modal UI while open.       |
 | `OnClick`        | `std::function<void(flecs::entity)>` handler run on a completed click.             |
@@ -196,7 +197,8 @@ Systems are distributed across phases so UI behaves like ordinary simulation:
 
 **`PreUpdate` — layout**
 
-- `UILayout` — top-down pass from UI roots; positions every `Stack`'s children (recursing so nested stacks lay out in
+- `UILayout` — top-down pass from UI roots; places each `UIAnchor` element against its parent's rect or the canvas
+  (see `docs/ui.md`, "Anchoring"), then positions every `Stack`'s children (recursing so nested stacks lay out in
   one pass) before anything hit-tests against their rects.
 
 **`OnUpdate` — interaction/logic** (reads input polled in `PreUpdate`; runs before `PostUpdate`

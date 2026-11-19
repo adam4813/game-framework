@@ -205,6 +205,21 @@ struct Stack {
 	bool stretch{true};
 };
 
+// Anchored placement. UILayout (before any Stack layout) positions the element's UIRect against a reference
+// rect: the parent's UIRect when it has one, otherwise the canvas (the fixed logical size, so a window resize
+// never moves it). The element's size is untouched.
+//   x = ref.x + anchor.x * ref.w + inward(anchor.x) * offset.x - pivot.x * rect.w   (same for y)
+// `anchor` and `pivot` are fractions of the reference rect and of the element. A negative `pivot` component
+// (default -1) means "same as the anchor" on that axis. `offset` is in pixels and moves the element inward
+// from the anchored edge: inward(a) is -1 when a > 0.5 (right or bottom half) and +1 otherwise, so a
+// bottom-right label with offset {12, 12} sits 12 px in from both edges. A Stack child ignores its UIAnchor
+// (the Stack owns its position); an anchored Stack is placed first, then lays out its children.
+struct UIAnchor {
+	glm::vec2 anchor{0.0F};
+	glm::vec2 pivot{-1.0F};
+	glm::vec2 offset{0.0F};
+};
+
 // Scrollable viewport. Clips its children to its own UIRect and offsets them by `-scroll`, so a
 // (usually Stack-laid-out) child tree taller/wider than the viewport can be scrolled through. The
 // mouse wheel scrolls while hovering; `content_size` is recomputed from the children each frame by

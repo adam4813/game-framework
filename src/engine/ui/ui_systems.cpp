@@ -567,11 +567,39 @@ void EmitTree(
 	}
 }
 
+// Place an element carrying UIAnchor against its parent's rect (or the canvas). A Stack child is skipped: the
+// Stack owns its position. Runs top-down, so the parent is already placed.
+void ApplyAnchor(const flecs::entity entity, const core::Rect& canvas) {
+	const auto* anchor = entity.try_get<UIAnchor>();
+	if (anchor == nullptr || !entity.has<UIRect>()) {
+		return;
+	}
+	core::Rect ref = canvas;
+	if (const flecs::entity parent = entity.parent()) {
+		if (parent.has<Stack>()) {
+			return;
+		}
+		if (const auto* parent_ui = parent.try_get<UIRect>()) {
+			ref = parent_ui->rect;
+		}
+	}
+	core::Rect& r = entity.get_mut<UIRect>().rect;
+	const auto axis = [](const float ref_pos, const float ref_size, const float size, const float a, const float pivot,
+						 const float offset) {
+		const float p = pivot < 0.0F ? a : pivot;
+		const float inward = a > 0.5F ? -1.0F : 1.0F;
+		return ref_pos + a * ref_size + inward * offset - p * size;
+	};
+	r.x = axis(ref.x, ref.w, r.w, anchor->anchor.x, anchor->pivot.x, anchor->offset.x);
+	r.y = axis(ref.y, ref.h, r.h, anchor->anchor.y, anchor->pivot.y, anchor->offset.y);
+}
+
 // Lay out one node then recurse into its UI children (top-down). When the node is a Stack, its
 // direct children are positioned along the stack axis first; recursing afterwards means a nested
 // child stack lays out using the rect its parent just assigned, so multi-level compositions (e.g.
 // a prompt's vertical column containing a horizontal button row) resolve in a single pass.
-void LayoutNode(const flecs::entity entity) {
+void LayoutNode(const flecs::entity entity, const core::Rect& canvas) {
+	ApplyAnchor(entity, canvas);
 	if (const auto* stack = entity.try_get<Stack>()) {
 		if (const auto* ui = entity.try_get<UIRect>()) {
 			const core::Rect base = ui->rect;
@@ -602,9 +630,9 @@ void LayoutNode(const flecs::entity entity) {
 			});
 		}
 	}
-	entity.children([](const flecs::entity child) {
+	entity.children([&canvas](const flecs::entity child) {
 		if (child.has<UIRect>()) {
-			LayoutNode(child);
+			LayoutNode(child, canvas);
 		}
 	});
 }
@@ -627,12 +655,20 @@ void RegisterUISystems(const flecs::world& world) {
 	// Top-down pass from UI roots that positions every Stack's children. Runs before interaction so
 	// button/scroll hit-tests use the final laid-out rects this frame.
 	const auto layout_query = world.query_builder<const UIRect>().build();
-	world.system("UILayout").kind(flecs::PreUpdate).run([layout_query](const flecs::iter&) {
-		layout_query.each([](const flecs::entity entity, const UIRect&) {
+	world.system("UILayout").kind(flecs::PreUpdate).run([layout_query](const flecs::iter& it) {
+		// The canvas is the fixed logical size (never the window), the reference for an unparented UIAnchor.
+		const auto* platform = it.world().get<platform::PlatformRef>().ptr;
+		const core::Rect canvas{
+			.x = 0.0F,
+			.y = 0.0F,
+			.w = static_cast<float>(platform->Width()),
+			.h = static_cast<float>(platform->Height())
+		};
+		layout_query.each([&canvas](const flecs::entity entity, const UIRect&) {
 			if (const flecs::entity parent = entity.parent(); parent && parent.has<UIRect>()) {
 				return; // laid out via its parent's recursion
 			}
-			LayoutNode(entity);
+			LayoutNode(entity, canvas);
 		});
 	});
 
