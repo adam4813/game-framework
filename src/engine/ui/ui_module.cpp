@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <flecs.h>
 #include <glm/glm.hpp>
@@ -35,11 +36,10 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<core::Rgba>("border_color")
 		.member<float>("border_thickness")
 		.member<float>("roundness");
-	world.component<FitMode>()
-		.constant("Stretch", FitMode::Stretch)
-		.constant("Fit", FitMode::Fit)
-		.constant("Fill", FitMode::Fill)
-		.constant("Tile", FitMode::Tile);
+	auto fit_mode = world.component<FitMode>();
+	for (const auto& entry : kFitModeNames) {
+		fit_mode.constant(std::string{entry.name}.c_str(), entry.mode);
+	}
 	world.component<Image>()
 		.member<int>("texture")
 		.member<FitMode>("fit")
@@ -199,15 +199,17 @@ UIModule::UIModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<Panel>());
 	scripting::RegisterComponentForScripts(world, world.component<Image>());
 	// Scripts bind Image.fit as an int; FitMode_* name its values.
-	scripting::RegisterGlobalConstantsForScripts(
-		world,
-		{
-			{.name = "FitMode_Stretch", .type = scripting::ScriptValueType::MakeInt(), .value_str = "0"},
-			{.name = "FitMode_Fit", .type = scripting::ScriptValueType::MakeInt(), .value_str = "1"},
-			{.name = "FitMode_Fill", .type = scripting::ScriptValueType::MakeInt(), .value_str = "2"},
-			{.name = "FitMode_Tile", .type = scripting::ScriptValueType::MakeInt(), .value_str = "3"},
+	{
+		std::vector<scripting::ScriptConstant> fit_constants;
+		for (const auto& entry : kFitModeNames) {
+			fit_constants.push_back(
+				{.name = "FitMode_" + std::string{entry.name},
+				 .type = scripting::ScriptValueType::MakeInt(),
+				 .value_str = std::to_string(static_cast<int>(entry.mode))}
+			);
 		}
-	);
+		scripting::RegisterGlobalConstantsForScripts(world, fit_constants);
+	}
 	scripting::RegisterComponentForScripts(world, world.component<Label>());
 	scripting::RegisterComponentForScripts(world, world.component<Button>());
 	scripting::RegisterComponentForScripts(world, world.component<Slider>());

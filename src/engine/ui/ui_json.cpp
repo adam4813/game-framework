@@ -28,10 +28,9 @@ TextAlign ParseAlign(const std::string& s, const TextAlign def) {
 }
 
 FitMode ParseFit(const std::string& s, const FitMode def) {
-	if (s == "stretch") return FitMode::Stretch;
-	if (s == "fit") return FitMode::Fit;
-	if (s == "fill") return FitMode::Fill;
-	if (s == "tile") return FitMode::Tile;
+	for (const auto& entry : kFitModeNames) {
+		if (s == entry.json) return entry.mode;
+	}
 	return def;
 }
 
@@ -91,7 +90,7 @@ void RegisterUILevelLoaders(const flecs::world& world) {
 		image.tint = JRgba(j, "tint", image.tint);
 		e.set<Image>(image);
 	});
-	level::RegisterComponentLoader(world, "label",[](const flecs::entity e, const json& j) {
+	level::RegisterComponentLoader(world, "label", [](const flecs::entity e, const json& j) {
 		Label l{};
 		l.text = j.value("text", l.text);
 		l.font_size = j.value("font_size", l.font_size);

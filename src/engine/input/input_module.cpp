@@ -63,9 +63,8 @@ InputModule::InputModule(const flecs::world& world) {
 	// Per-frame typed-text buffer (kept separate so InputState stays a trivially-copyable value type).
 	world.set<TypedText>({});
 	// What the UI claimed (filled by the UI module) and the mouse before that claim; see input_components.hpp.
-	world.set<UICapture>({});
-	world.set<RawInput>({});
 	world.component<UICapture>().member<bool>("pointer").member<bool>("keyboard").member<bool>("pointer_latched");
+	world.set<UICapture>({});
 
 	world.component<MouseCoord>().member<float>("x").member<float>("y");
 	world.component<KeyState>().member<bool>("pressed").member<bool>("state").member<bool>("current").member<bool>(
@@ -81,6 +80,9 @@ InputModule::InputModule(const flecs::world& world) {
 		.member<MouseCoord>("scroll");
 
 	scripting::RegisterValueTypeForScripts(world, world.component<MouseCoord>());
+	// Pre-registered before the singleton is set; keys (a large array) aren't reflected, as with InputState.
+	world.component<RawInput>().member("mouse", &RawInput::mouse).member("text", &RawInput::text);
+	world.set<RawInput>({});
 	scripting::RegisterValueTypeForScripts(world, world.component<KeyState>());
 	scripting::RegisterValueTypeForScripts(world, world.component<MouseState>());
 

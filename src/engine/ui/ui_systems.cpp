@@ -1108,6 +1108,7 @@ void RegisterUISystems(const flecs::world& world) {
 		});
 
 	// === SYSTEM: Pointer capture (OnUpdate, after every interaction system) ===
+	// Ordering relies on registration order: this must stay registered after every interaction system above.
 	// Fills input::UICapture.pointer from the hit-tests the interaction systems just ran: an interactive element is
 	// hovered or held, or a Modal is open. InputPoll reads it next Frame and withholds the mouse from gameplay (one
 	// Frame of lag, visible only when the layout moves under a still cursor). Also fills `keyboard` from UIFocus: a

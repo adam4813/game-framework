@@ -75,13 +75,14 @@ Stack layout, against a reference rect: the parent's `UIRect` when it has one, o
 so a window resize never moves it). The element's size is untouched.
 
 ```
-x = ref.x + anchor.x * ref.w + inward(anchor.x) * offset.x - pivot.x * rect.w     (same for y)
+x = ref.x + anchor.x * ref.w + sign(anchor.x) * offset.x - pivot.x * rect.w     (same for y)
 ```
 
 - `anchor` and `pivot` are fractions of the reference rect and of the element. A negative `pivot` component (default
   `-1`) means "same as the anchor" on that axis.
-- `offset` is in pixels and moves **inward** from the anchored edge: `inward(a)` is `-1` when `a > 0.5` and `+1`
-  otherwise, so `anchor {1, 1}, offset {12, 12}` sits 12 px in from the right and bottom edges.
+- `offset` is in pixels and moves **inward** from the anchored edge: `sign(a)` is `-1` when `a > 0.5` and `+1`
+  otherwise (exactly `0.5` moves right/down), so `anchor {1, 1}, offset {12, 12}` sits 12 px in from the right and bottom edges. This differs from the plain `+ offset.x` only for `anchor > 0.5`, where the
+  offset is mirrored so a positive value always means "away from the edge".
 - A Stack child ignores its `UIAnchor` (the Stack owns its position). An anchored Stack is placed first, then lays out
   its children.
 

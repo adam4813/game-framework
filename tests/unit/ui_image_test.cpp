@@ -211,6 +211,8 @@ TEST(UiImage, AnImageUnderAScrollRectIsOffsetByTheScrollAndClipped) {
 	ASSERT_GE(begin, 0);
 	ASSERT_GT(image, begin);
 	ASSERT_GT(end, image);
+	// The clip is the scroll viewport itself.
+	ExpectRect(commands[static_cast<size_t>(begin)].rect, {.x = 0, .y = 0, .w = 100, .h = 100});
 	ExpectRect(commands[static_cast<size_t>(image)].rect, {.x = 5, .y = 20, .w = 20, .h = 20});
 }
 
