@@ -57,6 +57,13 @@ struct BarrierGlow {
 	float bob{0.0F};
 };
 
+// Singleton: where the crabnado is breaching. Barrier pieces within kBarrierFlareArc of `bearing` (the same angle as
+// BarrierGlow::angle) flare brighter by `strength`, 0 to 1. Written by the crabnado's orbit system.
+struct BarrierFlare {
+	float bearing{0.0F};
+	float strength{0.0F};
+};
+
 struct RockCircle {
 	glm::vec2 center{0.0F};
 	float radius{0.0F};

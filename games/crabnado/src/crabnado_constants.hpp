@@ -43,19 +43,32 @@ inline constexpr float kSeparationRelax = 0.5F;
 inline constexpr float kCrowdCellSize = 2.2F;
 
 // ── Crabnado ──
-inline constexpr float kCrabnadoSpeed = 6.0F;
-// Waypoints are picked inside this fraction of the arena radius, so the crabnado never parks at the edge.
-inline constexpr float kCrabnadoRoamFraction = 0.6F;
-inline constexpr float kCrabnadoArriveRadius = 2.0F;
-// The spawn tables and rates are the Stages' in campaign.json. No throws for this many seconds at the start of a run (ticket 15).
+// The orbit's radius, speed and gust response are the `crabnado` entry's in bosses.json. The crabnado spawns at
+// kOrbitFallbackRadius until the first orbit tick reads them. Its start bearing is at least kOrbitStartMinAngle
+// (90 degrees) from the player's.
+inline constexpr float kOrbitFallbackRadius = 78.0F;
+inline constexpr float kOrbitStartMinAngle = 1.5708F;
+// The spawn tables and rates are the Stages' in campaign.json. No throws for this many seconds of the Act (ticket 15).
 inline constexpr float kFirstThrowDelay = 3.0F;
-// Throw: the landing point is 6–32 units from the crabnado toward the player, ±10 units of jitter.
+// The storm-up's last kStormHoldTime seconds hold the crabnado still at the orbit point nearest the player; before
+// that it slides there.
+inline constexpr float kStormHoldTime = 2.0F;
+// The breach: the crabnado moves from the orbit to the arena edge over kBreachTime seconds, and back out over
+// kRetreatTime once beaten. Barrier pieces within kBarrierFlareArc radians (20 degrees) of its bearing flare.
+inline constexpr float kBreachTime = 1.5F;
+inline constexpr float kRetreatTime = 2.0F;
+inline constexpr float kBarrierFlareArc = 0.349F;
+// Orbit throw: the landing point is kLandingMin-kLandingMax units in from the barrier on the line toward the player,
+// never past the player, with kThrowJitter units of jitter. The Boss Stage's body throw lands kThrowMinDistance-
+// kThrowMaxDistance units from the crabnado toward the player instead.
+inline constexpr float kLandingMin = 12.0F;
+inline constexpr float kLandingMax = 45.0F;
 inline constexpr float kThrowMinDistance = 6.0F;
 inline constexpr float kThrowMaxDistance = 32.0F;
 inline constexpr float kThrowJitter = 10.0F;
 inline constexpr float kThrowHeight = 16.0F;
-inline constexpr float kThrowMinTime = 1.1F;
-inline constexpr float kThrowMaxTime = 1.6F;
+inline constexpr float kThrowMinTime = 1.5F;
+inline constexpr float kThrowMaxTime = 2.2F;
 inline constexpr float kGravity = 30.0F;
 
 // ── Wind (prototype values) ──
@@ -78,8 +91,6 @@ inline constexpr float kWindGustFade = 0.25F;
 // Wind push per unit of strength, in units per second. Waves, not wind, are the main force.
 inline constexpr float kPlayerWindPush = 1.5F;
 inline constexpr float kEnemyWindPush = 1.2F;
-// The crabnado's next waypoint shifts this far downwind per unit of strength.
-inline constexpr float kCrabnadoWindBias = 14.0F;
 // How many wind lines are drawn, as a share of the full count: the arena's streaks and the title's breeze
 // lines. 1 is the original density.
 inline constexpr float kWindLineDensity = 0.25F;

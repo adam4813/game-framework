@@ -5,6 +5,7 @@
 #include <cmath>
 #include <numbers>
 
+#include "arena.hpp"
 #include "boss_registry.hpp"
 #include "campaign.hpp"
 #include "crabnado_constants.hpp"
@@ -90,34 +91,92 @@ void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, cons
 		const glm::vec3 p = player.get<spatial::Transform>().position;
 		target = {p.x, p.z};
 	}
+	// From the orbit it lands in from the barrier; ashore, the body throws close by.
+	const bool fromBody = crabnado.get<Crabnado>().mode == CrabnadoMode::Fight;
 	for (int i = 0; i < count; ++i) {
 		const int type = PickEnemyType(world, *plan->spawns, kThrowSource);
 		if (type >= 0) {
-			ThrowEnemy(world, horde, type, from, target);
+			ThrowEnemy(world, horde, type, from, fromBody ? BodyLanding(world, from, target) : EdgeLanding(world, from, target));
 		}
 	}
 }
 
-// A random point in the roaming disc, shifted downwind and held inside the disc, so the wind steers the
-// crabnado without sending it to the arena edge.
-glm::vec2 PickWaypoint(const flecs::world& world) {
-	auto& rng = world.get_mut<ecs::RngState>();
-	const float roam = constants::kArenaRadius * constants::kCrabnadoRoamFraction;
-	const float angle = rng.NextFloatRange(0.0F, 2.0F * std::numbers::pi_v<float>);
-	// sqrt spreads waypoints evenly over the disc instead of bunching them at the centre.
-	const float radius = roam * std::sqrt(rng.NextFloat());
-	const glm::vec2 waypoint =
-		glm::vec2{std::cos(angle), std::sin(angle)} * radius + WindPush(world.get<Wind>(), constants::kCrabnadoWindBias);
-	const float distance = glm::length(waypoint);
-	return distance > roam ? waypoint * (roam / distance) : waypoint;
+// Eases `current` toward `target` along the short way round the circle, by `fraction` of the gap.
+float EaseBearing(const float current, const float target, const float fraction) {
+	constexpr float tau = 2.0F * std::numbers::pi_v<float>;
+	const float gap = std::remainder(target - current, tau);
+	return current + gap * std::clamp(fraction, 0.0F, 1.0F);
+}
+
+// One tick of the orbit mode: circle at the tunable speed (faster in gusts), or in the storm-up's slide stretch glide
+// to the bearing of the player's position so the crabnado arrives with kStormHoldTime to spare, then hold.
+void StepOrbit(const flecs::world& world, Crabnado& crabnado, const SlamTunables& tune, const float dt) {
+	const auto& run = world.get<RunState>();
+	crabnado.radius = tune.orbit_radius;
+	if (InBossStage(world) && run.storm_up > 0.0F) {
+		const float slideLeft = run.storm_up - constants::kStormHoldTime;
+		const flecs::entity player = FindPlayer(world);
+		if (slideLeft > 0.0F && player) {
+			const glm::vec3 p = player.get<spatial::Transform>().position;
+			if (glm::length(glm::vec2{p.x, p.z}) > 1.0F) {
+				crabnado.bearing = EaseBearing(crabnado.bearing, BearingOf({p.x, p.z}), dt / slideLeft);
+			}
+		}
+		return;
+	}
+	const float speed = tune.orbit_speed * (1.0F + tune.gust_speed_mult * world.get<Wind>().gust);
+	// Counterclockwise on the north-up map is the bearing shrinking.
+	crabnado.bearing -= static_cast<float>(crabnado.direction) * speed / std::max(1.0F, crabnado.radius) * dt;
+}
+
+// One tick of a Breach or Retreat leg: slide radially from `leg_from` to `to` over `duration`; true once it has arrived.
+bool StepLeg(Crabnado& crabnado, const float to, const float duration, const float dt) {
+	crabnado.mode_time += dt;
+	const float t = std::min(1.0F, crabnado.mode_time / duration);
+	crabnado.radius = crabnado.leg_from + (to - crabnado.leg_from) * t;
+	return t >= 1.0F;
 }
 
 } // namespace
 
+glm::vec2 OrbitPoint(const float bearing, const float radius) {
+	return {std::cos(bearing) * radius, std::sin(bearing) * radius};
+}
+
+float BearingOf(const glm::vec2 point) {
+	return std::atan2(point.y, point.x);
+}
+
+float PickOrbitBearing(const flecs::world& world) {
+	constexpr float tau = 2.0F * std::numbers::pi_v<float>;
+	auto& rng = world.get_mut<ecs::RngState>();
+	const flecs::entity player = FindPlayer(world);
+	if (player) {
+		const glm::vec3 p = player.get<spatial::Transform>().position;
+		if (glm::length(glm::vec2{p.x, p.z}) > 1.0F) {
+			// Anywhere on the half of the circle facing away from the player.
+			const float away = BearingOf({p.x, p.z}) + std::numbers::pi_v<float>;
+			const float spread = std::numbers::pi_v<float> - constants::kOrbitStartMinAngle;
+			return std::remainder(away + rng.NextFloatRange(-spread, spread), tau);
+		}
+	}
+	return rng.NextFloatRange(0.0F, tau);
+}
+
 void RegisterCrabnado(const flecs::world& world) {
+	world.component<CrabnadoMode>()
+		.constant("Orbit", CrabnadoMode::Orbit)
+		.constant("Breach", CrabnadoMode::Breach)
+		.constant("Fight", CrabnadoMode::Fight)
+		.constant("Retreat", CrabnadoMode::Retreat);
 	world.component<Crabnado>()
-		.member<glm::vec2>("waypoint")
-		.member<float>("speed")
+		.member<float>("bearing")
+		.member<int>("direction")
+		.member<float>("radius")
+		.member<CrabnadoMode>("mode")
+		.member<float>("mode_time")
+		.member<float>("leg_from")
+		.member<int>("shifts_seen")
 		.member<float>("spawn_debt")
 		.member<glm::vec2>("knock");
 	world.component<ThrowsInto>().add(flecs::Exclusive);
@@ -125,13 +184,15 @@ void RegisterCrabnado(const flecs::world& world) {
 	world.component<FunnelStorm>().member<float>("storm").member<float>("flash").member<int>("slams_seen");
 	world.component<FunnelTint>().member<core::Rgba>("base");
 
-	// The spin lives here, not in CrabnadoRoam, because it speeds up with the storm.
+	// The spin lives here, not in CrabnadoOrbit, because it speeds up with the storm.
 	world.system<Crabnado, FunnelStorm, spatial::Transform>("CrabnadoStorm")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, Crabnado&, FunnelStorm& storm, spatial::Transform& transform) {
+		.each([](const flecs::iter& it, size_t, Crabnado& crabnado, FunnelStorm& storm, spatial::Transform& transform) {
 			const float dt = it.delta_time();
 			const auto& run = it.world().get<RunState>();
-			storm.storm = StormLevel(it.world());
+			// The storm calms as the beaten crabnado is blown back out.
+			storm.storm = crabnado.mode == CrabnadoMode::Retreat ? std::max(0.0F, storm.storm - dt / constants::kRetreatTime)
+																  : StormLevel(it.world());
 			if (run.slams > storm.slams_seen) {
 				storm.slams_seen = run.slams;
 				storm.flash = 1.0F;
@@ -175,24 +236,62 @@ void RegisterCrabnado(const flecs::world& world) {
 		})
 		.add<scene::GameScene>();
 
-	world.system<Crabnado, spatial::Transform>("CrabnadoRoam")
+	// Orbit, and the Breach and Retreat legs either side of the fight (the Fight itself is boss.cpp's). It also tells the
+	// barrier where the crabnado is, so the pieces beside it flare.
+	world.system<Crabnado, spatial::Transform>("CrabnadoOrbit")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, Crabnado& crabnado, spatial::Transform& transform) {
+			const flecs::world world = it.world();
 			const float dt = it.delta_time();
-			// The boss phase moves it instead (see boss.cpp).
-			if (it.world().get<RunState>().phase >= RunPhase::Boss) {
+			const auto& run = world.get<RunState>();
+			const auto& wind = world.get<Wind>();
+			if (wind.shifts != crabnado.shifts_seen) {
+				crabnado.shifts_seen = wind.shifts;
+				crabnado.direction = -crabnado.direction;
+			}
+			const BossDef* boss = CurrentBoss(world);
+			if (boss == nullptr) {
 				return;
 			}
-			const glm::vec2 position{transform.position.x, transform.position.z};
-			const glm::vec2 toWaypoint = crabnado.waypoint - position;
-			const float distance = glm::length(toWaypoint);
-			if (distance <= constants::kCrabnadoArriveRadius) {
-				crabnado.waypoint = PickWaypoint(it.world());
-				return;
+			const SlamTunables& tune = boss->slam;
+			// A jump back to a normal Stage ends the fight where it stands.
+			if (!InBossStage(world) && crabnado.mode != CrabnadoMode::Orbit) {
+				crabnado.mode = CrabnadoMode::Orbit;
 			}
-			const glm::vec2 step = toWaypoint / distance * std::min(crabnado.speed * dt, distance);
-			transform.position.x += step.x;
-			transform.position.z += step.y;
+			if (crabnado.mode == CrabnadoMode::Orbit && InBossStage(world) && run.phase == RunPhase::Boss) {
+				crabnado.mode = CrabnadoMode::Breach;
+				crabnado.mode_time = 0.0F;
+				crabnado.leg_from = crabnado.radius;
+			}
+
+			float flare = 0.0F;
+			switch (crabnado.mode) {
+			case CrabnadoMode::Orbit: StepOrbit(world, crabnado, tune, dt); break;
+			case CrabnadoMode::Breach:
+				flare = 1.0F;
+				if (StepLeg(crabnado, constants::kArenaRadius - tune.edge_margin, constants::kBreachTime, dt)) {
+					crabnado.mode = CrabnadoMode::Fight;
+				}
+				break;
+			case CrabnadoMode::Fight: flare = 1.0F; break;
+			case CrabnadoMode::Retreat:
+				flare = 1.0F - std::min(1.0F, crabnado.mode_time / constants::kRetreatTime);
+				if (StepLeg(crabnado, tune.orbit_radius, constants::kRetreatTime, dt)) {
+					crabnado.mode = CrabnadoMode::Orbit;
+					crabnado.knock = glm::vec2{0.0F};
+					// The column is over the barrier again: the Act is done (until the campaign has more to play).
+					WinRun(world);
+				}
+				break;
+			}
+			if (crabnado.mode != CrabnadoMode::Fight) {
+				const glm::vec2 at = OrbitPoint(crabnado.bearing, crabnado.radius);
+				transform.position.x = at.x;
+				transform.position.z = at.y;
+			}
+			auto& barrier = world.get_mut<BarrierFlare>();
+			barrier.bearing = BearingOf({transform.position.x, transform.position.z});
+			barrier.strength = flare;
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -204,8 +303,9 @@ void RegisterCrabnado(const flecs::world& world) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
 			const auto plan = CurrentSpawnPlan(world);
-			// No new throws while the storm rises.
-			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay || run.storm_up > 0.0F || !plan) {
+			// No new throws while the storm rises, and none from a crabnado that isn't throwing: breaching or retreating.
+			const bool throwing = run.phase != RunPhase::Boss || crabnado.mode == CrabnadoMode::Fight;
+			if (!IsRunning(run.phase) || run.act_clock < constants::kFirstThrowDelay || run.storm_up > 0.0F || !throwing || !plan) {
 				return;
 			}
 			crabnado.spawn_debt += plan->rate * it.delta_time();
@@ -309,15 +409,16 @@ void AddFunnel(const flecs::world& world, const flecs::entity crabnado) {
 	}
 }
 
-flecs::entity SpawnCrabnado(
-	const flecs::world& world, const flecs::entity parent, const flecs::entity horde, const glm::vec2 position
-) {
-	const flecs::entity crabnado = world.entity("Crabnado")
-									  .child_of(parent)
-									  .set<Crabnado>({.waypoint = PickWaypoint(world), .speed = constants::kCrabnadoSpeed})
-									  .add<ThrowsInto>(horde)
-									  .set<FunnelStorm>({})
-									  .set<spatial::Transform>({.position = {position.x, 0.0F, position.y}});
+flecs::entity SpawnCrabnado(const flecs::world& world, const flecs::entity parent, const flecs::entity horde) {
+	const float bearing = PickOrbitBearing(world);
+	const glm::vec2 position = OrbitPoint(bearing, constants::kOrbitFallbackRadius);
+	const flecs::entity crabnado =
+		world.entity("Crabnado")
+			.child_of(parent)
+			.set<Crabnado>({.bearing = bearing, .radius = constants::kOrbitFallbackRadius, .shifts_seen = world.get<Wind>().shifts})
+			.add<ThrowsInto>(horde)
+			.set<FunnelStorm>({})
+			.set<spatial::Transform>({.position = {position.x, 0.0F, position.y}});
 
 	AddFunnel(world, crabnado);
 	return crabnado;

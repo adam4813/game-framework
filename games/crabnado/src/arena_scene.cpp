@@ -128,9 +128,7 @@ constexpr float kBossCrestLookahead = 3.0F * constants::kWavePeriod;
 constexpr float kCompassRadius = 56.0F;
 constexpr float kCompassMargin = 30.0F;
 constexpr float kCompassTop = 20.0F;
-// Where the crabnado starts, away from the player at the centre.
-constexpr glm::vec2 kCrabnadoStart{30.0F, -25.0F};
-// Scattered rocks keep this clear of the player's start (the centre) and the crabnado's.
+// Scattered rocks keep this clear of the player's start (the centre).
 constexpr float kStartClearance = 5.0F;
 
 // A stat value with at most two decimals and no trailing zeros: "100", "3.6", "0.96".
@@ -182,8 +180,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	if (deferred) {
 		world.defer_suspend();
 	}
-	const std::array<RockCircle, 2> keepClear{
-		{{.center = glm::vec2{0.0F}, .radius = kStartClearance}, {.center = kCrabnadoStart, .radius = kStartClearance}}};
+	const std::array<RockCircle, 1> keepClear{{{.center = glm::vec2{0.0F}, .radius = kStartClearance}}};
 	BuildArena(world, sceneRoot_, keepClear);
 	if (deferred) {
 		world.defer_resume();
@@ -192,7 +189,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	AddClawSnap(world, player);
 	AddBubbles(player);
 	AddRiptide(player);
-	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
+	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_);
 	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);
 

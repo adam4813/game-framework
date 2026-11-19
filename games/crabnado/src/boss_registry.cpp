@@ -24,7 +24,10 @@ constexpr std::string_view kSlamBehavior = "slam";
 // Reads every tunable of the slam behavior. A missing or non-numeric one is named in the returned error, with no
 // default to fall back on.
 std::string ParseSlam(const nlohmann::json& entry, SlamTunables& out) {
-	const std::array<std::pair<const char*, float*>, 10> floats{{
+	const std::array<std::pair<const char*, float*>, 13> floats{{
+		{"orbit_radius", &out.orbit_radius},
+		{"orbit_speed", &out.orbit_speed},
+		{"gust_speed_mult", &out.gust_speed_mult},
 		{"speed", &out.speed},
 		{"knock_min_height", &out.knock_min_height},
 		{"knock_push", &out.knock_push},

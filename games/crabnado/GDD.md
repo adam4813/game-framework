@@ -21,7 +21,7 @@ feel of the horde and weapons are kept at the `crabnado-jam` tag.
 
 | Term | Meaning |
 |---|---|
-| **Crabnado** | The tornado that throws enemies. It roams the arena and becomes the boss when the Act reaches its Boss Stage (5:00 in Act 1). |
+| **Crabnado** | The tornado that throws enemies. Outside a Boss Stage it circles just outside the barrier, untouchable; in the Boss Stage it comes ashore as the boss (5:00 in Act 1). |
 | **Crest** | A band of raised water moving downwind. It pushes whatever it passes. |
 | **Set** | A group of crests about 6 s apart. Every third crest in a set is **big**. |
 | **Swell** | One train of crests along one bearing. Later in the run, two swells cross. |
@@ -77,10 +77,12 @@ Keyboard only, plus the mouse for menus.
   gate) and a Boss Stage. Act 1 is the Crab Stage (0:00–0:25), the Shrimp Stage (to 5:00) and then the boss.
 - **The player:** 100 HP. Touching a landed enemy drains HP at that enemy's contact rate. The crab scuttles sideways
   when it moves. HP 0 ends the run.
-- **Spawning:** the crabnado roams between waypoints inside 60% of the arena radius. The wind biases which waypoint
-  it picks next, but it never drifts to the edge, so enemies keep arriving from new directions around the rocks. It
-  throws each enemy on a ballistic arc toward a landing point between itself and the player (6–32 units out, ±10
-  jitter). **An enemy in the air is harmless and can't be hit until it lands.**
+- **Spawning:** the crabnado circles the arena 78 units from the centre at about 6 units per second, counterclockwise
+  at first. It reverses on each wind shift and speeds up a little in gusts. It starts at least 90° round from the player
+  and throws its first enemy 3 s into the Act. It throws each enemy on a ballistic arc (1.5–2.2 s) to a landing point
+  12–45 units in from the barrier on the line toward the player, never past the player, ±10 jitter, and a dark shadow
+  on the water grows to show where it will land. **An enemy in the air is harmless and can't be hit until it lands,
+  and nothing can damage the orbiting crabnado.**
 - **Pressure:** each Stage lists its spawn table (enemy type to weight) and a rate: `base + growth * stage_clock`,
   starting at 1.0 per second and growing by 0.035 per second, capped by the horde cap. The Boss Stage throws at 35% of
   the last Stage's closing rate. Enemy HP grows by ×(1 + act time / 240) (the Act's `hp_scale`). The first throw comes
@@ -196,10 +198,14 @@ nothing). Any enemy death counts toward Y. Every Stage change shows a 2 s banner
 ## The boss
 
 When the last Stage ends, the crabnado stops throwing for a fixed 5 s storm-up: it darkens, spins and sways harder, the HUD
-reads "The storm is rising!" and a warning sounds. Then a banner announces the boss: the same crabnado
-comes ashore and chases the player, its spawn rate drops to 35%, and contact with it deals 25 damage per second.
+reads "The storm is rising!" and a warning sounds. The crabnado slides along its orbit to the point nearest the
+player and holds there. Then a banner announces the boss: the crabnado breaches the barrier at that point (the pieces
+beside it flare, and it can't hurt or be hurt for the 1.5 s it takes to arrive), then chases the player, throws from
+its own body at 35% of the rate, and deals 25 damage per second on contact.
 **You can't damage it directly.** A big crest that pushes it into a rock counts as one slam (2.5 s cooldown so one
-crest can't count twice). The HUD shows the slams left. **Three slams win**, and the crabnado breaks apart.
+crest can't count twice). The HUD shows the slams left. **Three slams beat it:** the horde is swept away (no shells, no kills), every shell on the water flies to the
+player, and the crabnado is blown back out over the barrier to its orbit. Until the next Act exists, that ends the run
+as a victory.
 
 ## Presentation
 

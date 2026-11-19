@@ -1,6 +1,9 @@
 {
   "crabnado": {
     "behavior": "slam",
+    "orbit_radius": 78.0,
+    "orbit_speed": 6.0,
+    "gust_speed_mult": 0.5,
     "speed": 6.0,
     "knock_min_height": 1.3,
     "knock_push": 0.9,

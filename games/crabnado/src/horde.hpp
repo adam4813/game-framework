@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 #include <flecs.h>
@@ -43,9 +45,18 @@ struct Enemy {
 	bool slammed{false};
 };
 
-// An enemy in flight on its ballistic arc. Removed when it lands.
+// An enemy in flight on its ballistic arc. Removed when it lands. `landing` is where it will come down.
 struct Airborne {
 	glm::vec3 velocity{0.0F};
+	glm::vec2 landing{0.0F};
+};
+
+// The dark disc on the water that marks where an airborne enemy will land. It grows from half size to full over the
+// flight (`age` of `duration` seconds) and goes when the enemy lands or dies. `enemy` is the id of the enemy it marks.
+struct LandingShadow {
+	uint64_t enemy{0};
+	float age{0.0F};
+	float duration{1.0F};
 };
 
 // Singleton: live performance readout, refreshed each frame by the arena scene and read over the Remote
@@ -59,10 +70,19 @@ struct HordeReadout {
 // crowding chase, contact damage, defeat, hit flash). Call from the module constructor.
 void RegisterHorde(const flecs::world& world);
 
-// Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) toward a landing point between it and `target`, as a
-// child of `parent` (so the scene's Unload destroys it). Draws from the world's RngState; enemy HP grows
-// with the run clock.
-void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 target);
+// The orbit spawner's landing rule: from where the line from `from` (outside the arena) to `target` (the player)
+// crosses the arena edge, kLandingMin-kLandingMax units in along it, never past `target`, plus kThrowJitter jitter,
+// held inside the arena. Draws from the world's RngState.
+[[nodiscard]] glm::vec2 EdgeLanding(const flecs::world& world, glm::vec2 from, glm::vec2 target);
+
+// The Boss Stage's body-throw landing rule: kThrowMinDistance-kThrowMaxDistance units from `from` toward `target`,
+// plus kThrowJitter jitter, held inside the arena. Draws from the world's RngState.
+[[nodiscard]] glm::vec2 BodyLanding(const flecs::world& world, glm::vec2 from, glm::vec2 target);
+
+// Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) to `landing`, as a child of
+// `parent` (so the scene's Unload destroys it), and puts a landing shadow under `parent` where it will come down.
+// Draws from the world's RngState; enemy HP grows with the run clock.
+void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing);
 
 // Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
 // its shell.

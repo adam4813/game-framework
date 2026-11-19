@@ -37,6 +37,13 @@ constexpr float kFlightSpin = 8.0F;
 constexpr float kEdgeSlack = 1.0F;
 // Throws land at least this far inside the arena edge.
 constexpr float kLandingMargin = 2.0F;
+// The landing shadow: a disc of kShadowRadiusK times the crab's scale, squashed to kShadowFlatness, a little above the
+// water. It starts at kShadowStartScale of its full size.
+constexpr core::Rgba kShadowColor{.r = 10, .g = 20, .b = 30, .a = 140};
+constexpr float kShadowRadiusK = 1.4F;
+constexpr float kShadowStartScale = 0.5F;
+constexpr float kShadowFlatness = 0.03F;
+constexpr float kShadowY = 0.15F;
 // Overlap below this fraction of the touching distance is tolerated, so a crowd settles instead of jittering.
 constexpr float kSeparationSlack = 0.9F;
 // A touching neighbour within acos(kBlockedCone) of an enemy's heading blocks its step (about ±60°).
@@ -87,7 +94,8 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("windup")
 		.member<float>("charge")
 		.member<glm::vec2>("charge_dir");
-	world.component<Airborne>().member<glm::vec3>("velocity");
+	world.component<Airborne>().member<glm::vec3>("velocity").member<glm::vec2>("landing");
+	world.component<LandingShadow>().member<uint64_t>("enemy").member<float>("age").member<float>("duration");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
 	world.set<HordeReadout>({});
 	world.component<CrowdGrid>()
@@ -109,6 +117,22 @@ void RegisterHorde(const flecs::world& world) {
 				transform.position.y = 0.0F;
 				it.entity(i).remove<Airborne>();
 			}
+		})
+		.add<ecs::Pausable>()
+		.add<scene::GameScene>();
+
+	// A shadow grows with its enemy's flight and goes when the enemy lands or is gone (a swept horde, a Retry).
+	world.system<LandingShadow, spatial::Transform>("LandingShadowGrow")
+		.kind(flecs::OnUpdate)
+		.each([](const flecs::iter& it, const size_t i, LandingShadow& shadow, spatial::Transform& transform) {
+			const flecs::world world = it.world();
+			if (!world.is_alive(shadow.enemy) || !world.entity(shadow.enemy).has<Airborne>()) {
+				it.entity(i).destruct();
+				return;
+			}
+			shadow.age += it.delta_time();
+			const float grown = kShadowStartScale + (1.0F - kShadowStartScale) * std::min(1.0F, shadow.age / shadow.duration);
+			transform.scale = {grown, kShadowFlatness, grown};
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -355,10 +379,26 @@ void RegisterHorde(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
-void ThrowEnemy(
-	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 target
-) {
-	const EnemyType& type = world.get<EnemyRegistry>().types.at(static_cast<size_t>(typeIndex));
+glm::vec2 EdgeLanding(const flecs::world& world, const glm::vec2 from, const glm::vec2 target) {
+	auto& rng = world.get_mut<ecs::RngState>();
+	const glm::vec2 toTarget = target - from;
+	const float distance = glm::length(toTarget);
+	const glm::vec2 heading = distance > 0.0001F ? toTarget / distance : glm::vec2{0.0F, 1.0F};
+	// Where the line first crosses the arena circle: solve |from + t * heading| = radius for the smaller t.
+	const float b = glm::dot(from, heading);
+	const float discriminant = b * b - (glm::dot(from, from) - constants::kArenaRadius * constants::kArenaRadius);
+	const float t = discriminant >= 0.0F ? std::max(0.0F, -b - std::sqrt(discriminant)) : 0.0F;
+	const glm::vec2 crossing = from + heading * t;
+	const float reach =
+		std::min(rng.NextFloatRange(constants::kLandingMin, constants::kLandingMax), std::max(0.0F, distance - t));
+	const glm::vec2 jitter{
+		rng.NextFloatRange(-constants::kThrowJitter, constants::kThrowJitter),
+		rng.NextFloatRange(-constants::kThrowJitter, constants::kThrowJitter)
+	};
+	return ClampToRadius(crossing + heading * reach + jitter, constants::kArenaRadius - kLandingMargin);
+}
+
+glm::vec2 BodyLanding(const flecs::world& world, const glm::vec2 from, const glm::vec2 target) {
 	auto& rng = world.get_mut<ecs::RngState>();
 	const glm::vec2 toTarget = target - from;
 	const float distance = glm::length(toTarget);
@@ -368,8 +408,14 @@ void ThrowEnemy(
 		rng.NextFloatRange(-constants::kThrowJitter, constants::kThrowJitter),
 		rng.NextFloatRange(-constants::kThrowJitter, constants::kThrowJitter)
 	};
-	const glm::vec2 landing =
-		ClampToRadius(from + heading * reach + jitter, constants::kArenaRadius - kLandingMargin);
+	return ClampToRadius(from + heading * reach + jitter, constants::kArenaRadius - kLandingMargin);
+}
+
+void ThrowEnemy(
+	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 landing
+) {
+	const EnemyType& type = world.get<EnemyRegistry>().types.at(static_cast<size_t>(typeIndex));
+	auto& rng = world.get_mut<ecs::RngState>();
 
 	// Launch speed for a flight time T from height y0 under gravity G (the prototype's formula).
 	const float flightTime = rng.NextFloatRange(constants::kThrowMinTime, constants::kThrowMaxTime);
@@ -394,12 +440,24 @@ void ThrowEnemy(
 				 .walks_sideways = type.walks_sideways,
 				 .color = type.color}
 			)
-			.set<Airborne>({.velocity = {ground.x, vy, ground.y}});
+			.set<Airborne>({.velocity = {ground.x, vy, ground.y}, .landing = landing});
 	// The same body and claws for every type, scaled by the type.
 	const float scale = type.scale;
 	AddPart(world, enemy, kBodyOffset * scale, kBodyScale * scale, scale, type.color);
 	AddPart(world, enemy, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F} * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
 	AddPart(world, enemy, kClawOffset * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
+
+	// The landing marker, under the horde so a cleared horde takes it too.
+	std::ignore = world.entity()
+					  .child_of(parent)
+					  .set<spatial::Transform>(
+						  {.position = {landing.x, kShadowY, landing.y},
+						   .scale = {kShadowStartScale, kShadowFlatness, kShadowStartScale}}
+					  )
+					  .set<LandingShadow>({.enemy = enemy.id(), .duration = flightTime})
+					  .set<render::SpherePrimitive>({.radius = scale * kShadowRadiusK})
+					  .set<render::Material>({.color = kShadowColor, .cast_shadow = false, .unlit = true})
+					  .add<render::Translucent>();
 }
 
 void DamageEnemy(const flecs::entity enemy, const float amount) {

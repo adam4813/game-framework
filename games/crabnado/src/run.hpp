@@ -71,7 +71,7 @@ void StartRun(const flecs::world& world);
 // Opens or closes the pause menu (pausing the scene). Does nothing unless the run is live.
 void SetMenuPaused(const flecs::world& world, bool paused);
 
-// Ends the run as won (the third boss slam) and pauses the scene. Does nothing unless the boss phase is running.
+// Ends the run as won (for now, when the beaten boss finishes its retreat) and pauses the scene. Does nothing unless the boss phase is running.
 void WinRun(const flecs::world& world);
 
 // Ends the run as lost and pauses the scene. Does nothing unless the run is live.

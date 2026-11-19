@@ -12,13 +12,18 @@
 // An Act's Boss Stage refers to an entry by id. Loaded on every arena scene Load, so an edit shows on the next Play.
 namespace crabnado {
 
-// The tunables of the `slam` behavior (the crabnado): it chases the player ashore, and a crest that knocks it into a
+// The tunables of the `slam` behavior (the crabnado). Outside the Boss Stage it circles the barrier at `orbit_radius`
+// units from the centre and `orbit_speed` units per second, faster by `gust_speed_mult` times the wind's gust. In the
+// Boss Stage it chases the player ashore, and a crest that knocks it into a
 // rock fast enough is a slam. A wave higher than `knock_min_height` carries it at `knock_push` of the wave push, else
 // its knock decays. It is a circle of `radius` against rocks, stays `edge_margin` inside the arena edge, and within
 // `contact_range` of the player it drains `contact_dps` HP per second. Knocked into a rock faster than `slam_min_speed`
-// it takes a slam (`slam_cooldown` seconds apart; knock * `slam_bounce`); `slams_to_win` win the run.
+// it takes a slam (`slam_cooldown` seconds apart; knock * `slam_bounce`); `slams_to_win` beat it.
 // Every field is required: a missing one is a validation error and the entry is skipped.
 struct SlamTunables {
+	float orbit_radius{0.0F};
+	float orbit_speed{0.0F};
+	float gust_speed_mult{0.0F};
 	float speed{0.0F};
 	float knock_min_height{0.0F};
 	float knock_push{0.0F};

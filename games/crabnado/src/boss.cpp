@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -10,9 +11,11 @@
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "horde.hpp"
 #include "player.hpp"
 #include "run.hpp"
 #include "sfx.hpp"
+#include "shells.hpp"
 #include "waves.hpp"
 
 using namespace engine;
@@ -21,16 +24,30 @@ namespace crabnado {
 
 namespace {
 
-// The crabnado breaks apart: its funnel and specks go, the root stays so the scene's handle stays valid.
-void BreakApart(const flecs::world& world, const flecs::entity crabnado) {
-	crabnado.children([](const flecs::entity part) { part.destruct(); });
-	WinRun(world);
+// The last slam: the horde is swept away (no shells, no kills, no XP), every shell on the water is vacuumed to the
+// player, and the crabnado starts its retreat back over the barrier from where it stands.
+void Defeat(const flecs::world& world, Crabnado& crabnado, const spatial::Transform& transform) {
+	// Collected first: destroying while a query iterates would change the tables under it.
+	std::vector<flecs::entity> horde;
+	world.query_builder<const Enemy>().build().each([&horde](const flecs::entity enemy, const Enemy&) { horde.push_back(enemy); });
+	for (const flecs::entity enemy : horde) {
+		enemy.destruct();
+	}
+	world.query_builder<Shell>().build().each([](Shell& shell) { shell.flying = true; });
+
+	const glm::vec2 position{transform.position.x, transform.position.z};
+	crabnado.mode = CrabnadoMode::Retreat;
+	crabnado.mode_time = 0.0F;
+	crabnado.bearing = BearingOf(position);
+	crabnado.radius = glm::length(position);
+	crabnado.leg_from = crabnado.radius;
+	crabnado.knock = glm::vec2{0.0F};
 }
 
-void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& crabnado, spatial::Transform& transform, const float dt) {
+void StepBoss(const flecs::world& world, Crabnado& crabnado, spatial::Transform& transform, const float dt) {
 	auto& run = world.get_mut<RunState>();
 	const BossDef* boss = CurrentBoss(world);
-	if (run.phase != RunPhase::Boss || boss == nullptr) {
+	if (run.phase != RunPhase::Boss || crabnado.mode != CrabnadoMode::Fight || boss == nullptr) {
 		return;
 	}
 	const SlamTunables& tune = boss->slam;
@@ -72,13 +89,13 @@ void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& c
 			crabnado.knock *= tune.slam_bounce;
 			PlaySfx(world, Sfx::BossSlam);
 			spdlog::info("[Run] Slam {}/{}", run.slams, tune.slams_to_win);
-			if (run.slams >= tune.slams_to_win) {
-				BreakApart(world, entity);
-			}
 		}
 	}
 	transform.position.x = position.x;
 	transform.position.z = position.y;
+	if (run.slams >= tune.slams_to_win) {
+		Defeat(world, crabnado, transform);
+	}
 }
 
 } // namespace
@@ -86,8 +103,8 @@ void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& c
 void RegisterBoss(const flecs::world& world) {
 	world.system<Crabnado, spatial::Transform>("BossUpdate")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, const size_t i, Crabnado& crabnado, spatial::Transform& transform) {
-			StepBoss(it.world(), it.entity(i), crabnado, transform, it.delta_time());
+		.each([](const flecs::iter& it, size_t, Crabnado& crabnado, spatial::Transform& transform) {
+			StepBoss(it.world(), crabnado, transform, it.delta_time());
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();

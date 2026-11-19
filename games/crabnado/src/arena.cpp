@@ -50,6 +50,9 @@ constexpr float kShimmerSpeed = 1.6F;
 constexpr float kFlashSpeed = 0.7F;
 constexpr float kFlashSharpness = 24.0F;
 constexpr float kWardBob = 0.15F;
+// Beside a breach the pieces bob kBreachHeave further and ride kBreachLift higher.
+constexpr float kBreachHeave = 0.5F;
+constexpr float kBreachLift = 0.6F;
 constexpr float kOrbBob = 0.3F;
 
 core::Rgba Lerp(const core::Rgba a, const core::Rgba b, const float t) {
@@ -220,6 +223,8 @@ void RegisterArena(const flecs::world& world) {
 		.member<float>("max_radius");
 	world.component<RockScatter>().member<RockBand>("inner").member<RockBand>("outer").member<float>("gap");
 	world.component<BarrierGlow>().member<float>("angle").member<float>("rest_y").member<float>("bob");
+	world.component<BarrierFlare>().member<float>("bearing").member<float>("strength");
+	world.set<BarrierFlare>({});
 	world.set<RockScatter>({});
 	world.set<ArenaEdge>({.radius = constants::kArenaRadius});
 	world.set<Rocks>({});
@@ -251,8 +256,13 @@ void RegisterArena(const flecs::world& world) {
 			const auto time = static_cast<float>(it.world().get_info()->world_time_total);
 			const float band = 0.5F + 0.5F * std::sin(glow.angle * kShimmerBands - time * kShimmerSpeed);
 			const float flash = std::pow(std::max(0.0F, std::cos(glow.angle - time * kFlashSpeed)), kFlashSharpness);
-			material.color = Lerp(Lerp(kWardViolet, kWardCyan, band), kWardFlash, flash);
-			transform.position.y = glow.rest_y + glow.bob * std::sin(time * 2.0F + glow.angle * 6.0F);
+			// Pieces beside the breach flare white and heave, easing off toward the edge of the arc.
+			const auto& breach = it.world().get<BarrierFlare>();
+			const float apart = std::fabs(std::remainder(glow.angle - breach.bearing, 2.0F * std::numbers::pi_v<float>));
+			const float flared = breach.strength * std::max(0.0F, 1.0F - apart / constants::kBarrierFlareArc);
+			material.color = Lerp(Lerp(Lerp(kWardViolet, kWardCyan, band), kWardFlash, flash), kWardFlash, flared);
+			transform.position.y =
+				glow.rest_y + (glow.bob + flared * kBreachHeave) * std::sin(time * 2.0F + glow.angle * 6.0F) + flared * kBreachLift;
 		})
 		.add<scene::GameScene>();
 }
@@ -267,6 +277,7 @@ void BuildArena(const flecs::world& world, const flecs::entity parent, const std
 }
 
 void ClearArena(const flecs::world& world) {
+	world.set<BarrierFlare>({});
 	world.set<Rocks>({});
 	world.set<TidePools>({});
 }
