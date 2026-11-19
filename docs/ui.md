@@ -18,6 +18,7 @@ also [systems-reference.md](systems-reference.md#ui-srcengineuiui_modulecpp) for
 | `UIRect`         | Screen-space position + size. **Every** UI entity carries one.                                    |
 | `UIElement`      | Optional `z_index` (layer) + `visible`; inherited by descendants as a floor.                      |
 | `Panel`          | Filled box with optional border/rounding.                                                         |
+| `Image`          | A texture in the rect: `fit` (stretch/fit/fill/tile), atlas `source` rect, `tint`. See "Image" below. |
 | `Label`          | Text with alignment; vertically centred in its rect.                                              |
 | `Button`         | Clickable; runtime `hovered`/`pressed`/`clicked`; fires `OnClick` + sound.                        |
 | `ProgressBar`    | Determinate value bar (`value` in `[min, max]`).                                                  |
@@ -91,6 +92,29 @@ x = ref.x + anchor.x * ref.w + inward(anchor.x) * offset.x - pivot.x * rect.w   
 
 Hotbar centered at the bottom: `anchor {0.5, 1}, offset {0, 20}`. Top-left row: `offset {10, 10}`. Top-center label:
 `anchor {0.5, 0}`. Left-edge column: `anchor {0, 0.5}`. Bottom-right label: `anchor {1, 1}`.
+
+## Image
+
+`Image` draws a texture into its element's `UIRect`: an icon, a crosshair, a portrait. Fields:
+
+| Field     | Meaning                                                                                                   |
+|-----------|-----------------------------------------------------------------------------------------------------------|
+| `texture` | Handle from `assets::LoadTexture` (deduped by path, so sharing one is cheap). `-1` draws nothing.        |
+| `fit`     | `Stretch` (fill, distorting), `Fit` (uniform scale, letterboxed), `Fill` (uniform scale, cropped), `Tile` (1:1 texel-to-pixel repeat, what `Panel.texture`/`Button.texture` do). Default `Stretch`. |
+| `source`  | Texel sub-rectangle, for an atlas cell. A zero width or height means the whole texture. `Fit` and `Fill` use its aspect ratio. |
+| `tint`    | Multiplies the texels; white (the default) leaves them unchanged.                                         |
+
+The fit mode is resolved into a source and destination rectangle when the draw list is built
+(`ResolveImageRects`, `ui_image.hpp`), so the `TexturedRect` draw command and `Platform::DrawTexturedRect(texture,
+src, dest, tint)` carry the final rects and tests can assert on them headlessly. An `Image` clips under a `ScrollRect`
+and paints on a `Modal`'s layer like any other element. `UIDrawList::PushTexturedRect(texture, dest, tint)` keeps its
+tiling behavior; an overload takes an explicit `src`.
+
+JSON: `"image": {"texture": "ui/icons.png", "fit": "fit", "source": [32, 0, 32, 32], "tint": [255, 255, 255, 255]}`
+(`fit` is `stretch`, `fit`, `fill` or `tile`; `texture` resolves like Panel and Button textures). Scripts read and write
+`Image` fields; `fit` is an int named by `FitMode_Stretch`, `FitMode_Fit`, `FitMode_Fill` and `FitMode_Tile`.
+
+Not yet: nine-slice for `Panel`/`Button`, and an icon slot on `Button` (tracked as follow-ups).
 
 ## Phases
 

@@ -52,7 +52,8 @@ public:
 	bool SetTextFont(std::string_view path) override;
 	void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) override;
 	void DrawCircle(glm::vec2 center, float radius, Rgba c) override;
-	void DrawTexturedRect(int texture, Rect dest, Rgba tint) override;
+	void DrawTexturedRect(int texture, Rect src, Rect dest, Rgba tint) override;
+	[[nodiscard]] glm::vec2 TextureSize(int handle) const override;
 	void BeginScissor(Rect r) override;
 	void EndScissor() override;
 

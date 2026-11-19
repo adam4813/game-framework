@@ -1076,6 +1076,36 @@
       "name": "TestUIDropdown",
       "parent": "SceneRoot"
     },
+    "TestUIImage": {
+      "components": {
+        "Image": {
+          "fit": "Fill",
+          "source": {
+            "h": 32,
+            "w": 32,
+            "x": 32,
+            "y": 0
+          },
+          "texture": -1,
+          "tint": {
+            "a": 200,
+            "b": 64,
+            "g": 128,
+            "r": 255
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 48,
+            "w": 48,
+            "x": 70,
+            "y": 240
+          }
+        }
+      },
+      "name": "TestUIImage",
+      "parent": "SceneRoot"
+    },
     "TestUILabel": {
       "components": {
         "Label": {

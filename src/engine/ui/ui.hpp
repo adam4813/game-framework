@@ -9,6 +9,7 @@
 #include "ui_draw_list.hpp"
 #include "ui_events.hpp"
 #include "ui_factories.hpp"
+#include "ui_image.hpp"
 #include "ui_json.hpp"
 #include "ui_module.hpp"
 #include "ui_scripting.hpp"

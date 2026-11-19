@@ -1446,17 +1446,25 @@ void RaylibBackend::DrawCircle(const glm::vec2 center, const float radius, const
 	DrawCircleV(ToRay(center), radius, ToRay(c));
 }
 
-void RaylibBackend::DrawTexturedRect(const int texture, const Rect dest, const Rgba tint) {
+void RaylibBackend::DrawTexturedRect(const int texture, const Rect src, const Rect dest, const Rgba tint) {
 	if (texture < 0 || texture >= static_cast<int>(g_textures.size())) {
 		DrawRectangleRec(ToRay(dest), ToRay(tint));
 		return;
 	}
 	const Texture2D& tex = g_textures[static_cast<std::size_t>(texture)];
-	// Source rect the size of the destination: texels beyond the texture wrap (default REPEAT), so
+	// A source rect the size of the destination makes texels beyond the texture wrap (default REPEAT), so
 	// the art tiles at 1:1 texel:pixel instead of stretching.
-	const Rectangle src{.x = 0.0F, .y = 0.0F, .width = dest.w, .height = dest.h};
+	const Rectangle source{.x = src.x, .y = src.y, .width = src.w, .height = src.h};
 	const Rectangle dst{.x = dest.x, .y = dest.y, .width = dest.w, .height = dest.h};
-	DrawTexturePro(tex, src, dst, Vector2{.x = 0.0F, .y = 0.0F}, 0.0F, ToRay(tint));
+	DrawTexturePro(tex, source, dst, Vector2{.x = 0.0F, .y = 0.0F}, 0.0F, ToRay(tint));
+}
+
+glm::vec2 RaylibBackend::TextureSize(const int handle) const {
+	if (handle < 0 || handle >= static_cast<int>(g_textures.size())) {
+		return {};
+	}
+	const Texture2D& tex = g_textures[static_cast<std::size_t>(handle)];
+	return {static_cast<float>(tex.width), static_cast<float>(tex.height)};
 }
 
 void RaylibBackend::BeginScissor(const Rect r) {
