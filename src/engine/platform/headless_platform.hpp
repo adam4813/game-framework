@@ -86,7 +86,8 @@ public:
 	bool SetTextFont(std::string_view) override { return false; }
 	void DrawLine(glm::vec2, glm::vec2, float, Rgba) override {}
 	void DrawCircle(glm::vec2, float, Rgba) override {}
-	void DrawTexturedRect(int, Rect, Rgba) override {}
+	void DrawTexturedRect(int, Rect, Rect, Rgba) override {}
+	[[nodiscard]] glm::vec2 TextureSize(int) const override { return {}; }
 	void BeginScissor(Rect) override {}
 	void EndScissor() override {}
 

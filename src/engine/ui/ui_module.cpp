@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <flecs.h>
 #include <glm/glm.hpp>
@@ -35,6 +36,15 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<core::Rgba>("border_color")
 		.member<float>("border_thickness")
 		.member<float>("roundness");
+	auto fit_mode = world.component<FitMode>();
+	for (const auto& entry : kFitModeNames) {
+		fit_mode.constant(std::string{entry.name}.c_str(), entry.mode);
+	}
+	world.component<Image>()
+		.member<int>("texture")
+		.member<FitMode>("fit")
+		.member<core::Rect>("source")
+		.member<core::Rgba>("tint");
 	world.component<TextAlign>()
 		.constant("Left", TextAlign::Left)
 		.constant("Center", TextAlign::Center)
@@ -89,6 +99,10 @@ UIModule::UIModule(const flecs::world& world) {
 		.member("spacing", &Stack::spacing)
 		.member("padding", &Stack::padding)
 		.member("stretch", &Stack::stretch);
+	world.component<UIAnchor>()
+		.member<glm::vec2>("anchor")
+		.member<glm::vec2>("pivot")
+		.member<glm::vec2>("offset");
 	world.component<ScrollRect>()
 		.member<glm::vec2>("scroll")
 		.member<glm::vec2>("content_size")
@@ -183,12 +197,26 @@ UIModule::UIModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<UIRect>());
 	scripting::RegisterComponentForScripts(world, world.component<UIElement>());
 	scripting::RegisterComponentForScripts(world, world.component<Panel>());
+	scripting::RegisterComponentForScripts(world, world.component<Image>());
+	// Scripts bind Image.fit as an int; FitMode_* name its values.
+	{
+		std::vector<scripting::ScriptConstant> fit_constants;
+		for (const auto& entry : kFitModeNames) {
+			fit_constants.push_back(
+				{.name = "FitMode_" + std::string{entry.name},
+				 .type = scripting::ScriptValueType::MakeInt(),
+				 .value_str = std::to_string(static_cast<int>(entry.mode))}
+			);
+		}
+		scripting::RegisterGlobalConstantsForScripts(world, fit_constants);
+	}
 	scripting::RegisterComponentForScripts(world, world.component<Label>());
 	scripting::RegisterComponentForScripts(world, world.component<Button>());
 	scripting::RegisterComponentForScripts(world, world.component<Slider>());
 	scripting::RegisterComponentForScripts(world, world.component<ProgressBar>());
 	scripting::RegisterComponentForScripts(world, world.component<Spinner>());
 	scripting::RegisterComponentForScripts(world, world.component<Stack>());
+	scripting::RegisterComponentForScripts(world, world.component<UIAnchor>());
 	scripting::RegisterComponentForScripts(world, world.component<ScrollRect>());
 	scripting::RegisterComponentForScripts(world, world.component<Modal>());
 	scripting::RegisterComponentForScripts(world, world.component<Checkbox>());

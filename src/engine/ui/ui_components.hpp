@@ -1,7 +1,9 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -47,6 +49,39 @@ struct Panel {
 	float border_thickness{2.0F};
 	float roundness{0.0F}; // 0 = square corners; >0 = rounded (fraction of the shorter side)
 	int texture{-1};       // optional texture handle (from platform LoadTexture); -1 = solid color fill
+};
+
+// How an Image's source region maps into its UIRect.
+//   Stretch: fill the rect, distorting the aspect ratio.
+//   Fit:     scale uniformly to fit inside the rect (letterbox: the rect's spare space stays empty).
+//   Fill:    scale uniformly to cover the rect, cropping the source's overflow.
+//   Tile:    repeat the source at 1:1 texel-to-pixel (what Panel.texture and Button.texture do).
+// Keeps the default `int` underlying type: reflected enums are serialized as 4 bytes.
+enum class FitMode { Stretch, Fit, Fill, Tile };
+
+// The one name table for FitMode: `json` is the level-JSON spelling, `name` the reflected constant and script
+// constant suffix (FitMode_<name>). Add a new FitMode here too.
+struct FitModeName {
+	std::string_view json;
+	std::string_view name;
+	FitMode mode;
+};
+inline constexpr std::array<FitModeName, 4> kFitModeNames{{
+	{.json = "stretch", .name = "Stretch", .mode = FitMode::Stretch},
+	{.json = "fit", .name = "Fit", .mode = FitMode::Fit},
+	{.json = "fill", .name = "Fill", .mode = FitMode::Fill},
+	{.json = "tile", .name = "Tile", .mode = FitMode::Tile},
+}};
+
+// A texture drawn into the element's UIRect: an icon, a crosshair, a portrait. `source` selects a
+// sub-rectangle of the texture in texels (an atlas cell); a zero width or height means the whole
+// texture. `tint` multiplies the texels (white leaves them unchanged). An Image with no texture
+// (`texture` < 0) draws nothing. Combine with a Panel on the same entity for a backdrop.
+struct Image {
+	int texture{-1}; // texture handle (from LoadTexture); -1 = nothing drawn
+	FitMode fit{FitMode::Stretch};
+	core::Rect source{};
+	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
 };
 
 // Horizontal text placement of a Label within its UIRect.
@@ -203,6 +238,23 @@ struct Stack {
 	float spacing{8.0F};
 	float padding{0.0F};
 	bool stretch{true};
+};
+
+// Anchored placement. UILayout (before any Stack layout) positions the element's UIRect against a reference
+// rect: the parent's UIRect when it has one, otherwise the canvas (the fixed logical size, so a window resize
+// never moves it). The element's size is untouched.
+//   x = ref.x + anchor.x * ref.w + sign(anchor.x) * offset.x - pivot.x * rect.w   (same for y)
+// where sign(a) = -1 when a > 0.5 and +1 otherwise (so exactly 0.5 moves right/down). This is the "inward" form of
+// the plain `+ offset.x`: for anchor <= 0.5 it is identical, for anchor > 0.5 the offset is mirrored.
+// `anchor` and `pivot` are fractions of the reference rect and of the element. A negative `pivot` component
+// (default -1) means "same as the anchor" on that axis. `offset` is in pixels and moves the element inward
+// from the anchored edge: sign(a) is -1 when a > 0.5 (right or bottom half) and +1 otherwise, so a
+// bottom-right label with offset {12, 12} sits 12 px in from both edges. A Stack child ignores its UIAnchor
+// (the Stack owns its position); an anchored Stack is placed first, then lays out its children.
+struct UIAnchor {
+	glm::vec2 anchor{0.0F};
+	glm::vec2 pivot{-1.0F};
+	glm::vec2 offset{0.0F};
 };
 
 // Scrollable viewport. Clips its children to its own UIRect and offsets them by `-scroll`, so a

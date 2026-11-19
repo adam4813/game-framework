@@ -33,6 +33,25 @@ Represents mouse input:
 - `view` - View-space coordinates (populated by camera system if needed)
 - `scroll` - Scroll wheel delta (cleared each frame)
 
+### `UICapture` (Singleton)
+
+`{ pointer, keyboard }`: the input the UI claimed on its last interaction pass (see [UI](../../../docs/ui.md#pointer-capture)).
+`InputPoll` withholds claimed input from `InputState` the way it does for the debug UI:
+
+- `pointer` - mouse buttons up, zero `relative` and `scroll`; `window_position` still flows. Set by the UI while a
+  control is hovered or held or a `Modal` is open. A press that lands while set stays captured until every button is
+  released (`pointer_latched`, InputPoll's own state). Skipped while the cursor is locked.
+- `keyboard` - every key up, no repeats and no `TypedText`. Set by the UI while a text field is focused (`UIFocus`).
+  The field edits from `RawInput`, which this doesn't gate.
+
+One Frame of lag: the UI fills it after `InputPoll` ran, so `InputPoll` reads the previous Frame's value.
+
+### `RawInput` (Singleton)
+
+`{ keys, mouse, text }`: the keys, mouse and typed text before the `UICapture` gate (the debug UI's gate still applies).
+The UI reads its own clicks, drags and editing keys (Backspace, Return) and typed text from it, since what it captured
+is hidden from `InputState`. `keys` has `WasKeyPressed`/`WasKeyPressedOrRepeated`. Gameplay reads `InputState`.
+
 ### Tag: `InputEnabled`
 
 Can be used to filter systems that should only run when input is available.
@@ -128,6 +147,7 @@ keyboard and mouse state.
 - Tracks "pressed" events (transitions from up to down)
 - Updates mouse position and delta
 - Updates scroll wheel state
+- Fills `RawInput` and applies `UICapture` to `InputState` (above)
 
 **Cursor lock:** `Platform::SetCursorLocked(bool)` hides and captures the cursor for mouselook, and `IsCursorLocked()`
 reports it. Nothing locks it by default. While locked, `mouse.relative` carries raw relative motion (canvas-scaled) and

@@ -911,6 +911,34 @@
       "name": "TestTween",
       "parent": "SceneRoot"
     },
+    "TestUIAnchor": {
+      "components": {
+        "UIAnchor": {
+          "anchor": {
+            "x": 1,
+            "y": 1
+          },
+          "offset": {
+            "x": 12,
+            "y": 12
+          },
+          "pivot": {
+            "x": -1,
+            "y": -1
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 30,
+            "w": 120,
+            "x": 0,
+            "y": 0
+          }
+        }
+      },
+      "name": "TestUIAnchor",
+      "parent": "SceneRoot"
+    },
     "TestUIButton": {
       "components": {
         "Button": {
@@ -1062,6 +1090,36 @@
         }
       },
       "name": "TestUIDropdown",
+      "parent": "SceneRoot"
+    },
+    "TestUIImage": {
+      "components": {
+        "Image": {
+          "fit": "Fill",
+          "source": {
+            "h": 32,
+            "w": 32,
+            "x": 32,
+            "y": 0
+          },
+          "texture": -1,
+          "tint": {
+            "a": 200,
+            "b": 64,
+            "g": 128,
+            "r": 255
+          }
+        },
+        "UIRect": {
+          "rect": {
+            "h": 48,
+            "w": 48,
+            "x": 70,
+            "y": 240
+          }
+        }
+      },
+      "name": "TestUIImage",
       "parent": "SceneRoot"
     },
     "TestUILabel": {

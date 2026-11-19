@@ -235,12 +235,16 @@ public:
 	virtual bool SetTextFont(std::string_view path) = 0;
 	virtual void DrawLine(glm::vec2 a, glm::vec2 b, float thickness, Rgba c) = 0;
 	virtual void DrawCircle(glm::vec2 center, float radius, Rgba c) = 0;
-	// Draws `texture` into `dest` (screen-space pixels), tiling it at native resolution (the source
-	// rect is the dest size, repeating via the texture's wrap mode) so low-res art stays crisp — an
-	// N64-style look rather than a stretched blur. Modulated by `tint` (use white for the texture's
-	// own colours). Falls back to a solid `tint` rect when the handle is invalid. Handles come from
-	// LoadTexture. Used by the 2D UI layer for textured panels/buttons/backgrounds.
-	virtual void DrawTexturedRect(int texture, Rect dest, Rgba tint) = 0;
+	// Draws the `src` region of `texture` (in texels) into `dest` (screen-space pixels), modulated by
+	// `tint` (use white for the texture's own colours). A `src` the size of `dest` draws at native
+	// resolution, 1:1 texel to pixel, repeating past the texture's edge via its wrap mode: low-res art
+	// stays crisp, an N64-style look rather than a stretched blur. A different size scales it (nearest
+	// or linear per SetTextureFilter). Falls back to a solid `tint` rect when the handle is invalid.
+	// Handles come from LoadTexture. Used by the 2D UI layer; fit modes are resolved into `src` and
+	// `dest` before this call.
+	virtual void DrawTexturedRect(int texture, Rect src, Rect dest, Rgba tint) = 0;
+	// Size of a loaded texture in texels, or (0, 0) for an invalid handle (and always on a headless platform).
+	[[nodiscard]] virtual glm::vec2 TextureSize(int handle) const = 0;
 	// Restricts subsequent 2D drawing to the rectangle `r` (screen-space pixels) until EndScissor
 	// is called. Used by the UI layer to clip scrollable content. Calls are not nestable at the
 	// backend level — the UI render pass intersects rectangles and issues a single active region.

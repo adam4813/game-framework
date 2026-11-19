@@ -19,6 +19,7 @@
 #include "ui_components.hpp"
 #include "ui_draw_list.hpp"
 #include "ui_events.hpp"
+#include "ui_image.hpp"
 
 namespace engine::ui {
 
@@ -231,6 +232,12 @@ void EmitElement(
 				list.PushRectLines(r, panel->border_thickness, panel->border_color);
 			}
 		}
+	}
+
+	if (const auto* image = entity.try_get<Image>(); image != nullptr && image->texture >= 0) {
+		const auto [src, dest] =
+			ResolveImageRects(image->fit, r, image->source, platform->TextureSize(image->texture));
+		list.PushTexturedRect(image->texture, dest, src, image->tint);
 	}
 
 	if (const auto* slider = entity.try_get<Slider>()) {
@@ -567,11 +574,39 @@ void EmitTree(
 	}
 }
 
+// Place an element carrying UIAnchor against its parent's rect (or the canvas). A Stack child is skipped: the
+// Stack owns its position. Runs top-down, so the parent is already placed.
+void ApplyAnchor(const flecs::entity entity, const core::Rect& canvas) {
+	const auto* anchor = entity.try_get<UIAnchor>();
+	if (anchor == nullptr || !entity.has<UIRect>()) {
+		return;
+	}
+	core::Rect ref = canvas;
+	if (const flecs::entity parent = entity.parent()) {
+		if (parent.has<Stack>()) {
+			return;
+		}
+		if (const auto* parent_ui = parent.try_get<UIRect>()) {
+			ref = parent_ui->rect;
+		}
+	}
+	core::Rect& r = entity.get_mut<UIRect>().rect;
+	const auto axis = [](const float ref_pos, const float ref_size, const float size, const float a, const float pivot,
+						 const float offset) {
+		const float p = pivot < 0.0F ? a : pivot;
+		const float inward = a > 0.5F ? -1.0F : 1.0F;
+		return ref_pos + a * ref_size + inward * offset - p * size;
+	};
+	r.x = axis(ref.x, ref.w, r.w, anchor->anchor.x, anchor->pivot.x, anchor->offset.x);
+	r.y = axis(ref.y, ref.h, r.h, anchor->anchor.y, anchor->pivot.y, anchor->offset.y);
+}
+
 // Lay out one node then recurse into its UI children (top-down). When the node is a Stack, its
 // direct children are positioned along the stack axis first; recursing afterwards means a nested
 // child stack lays out using the rect its parent just assigned, so multi-level compositions (e.g.
 // a prompt's vertical column containing a horizontal button row) resolve in a single pass.
-void LayoutNode(const flecs::entity entity) {
+void LayoutNode(const flecs::entity entity, const core::Rect& canvas) {
+	ApplyAnchor(entity, canvas);
 	if (const auto* stack = entity.try_get<Stack>()) {
 		if (const auto* ui = entity.try_get<UIRect>()) {
 			const core::Rect base = ui->rect;
@@ -602,9 +637,9 @@ void LayoutNode(const flecs::entity entity) {
 			});
 		}
 	}
-	entity.children([](const flecs::entity child) {
+	entity.children([&canvas](const flecs::entity child) {
 		if (child.has<UIRect>()) {
-			LayoutNode(child);
+			LayoutNode(child, canvas);
 		}
 	});
 }
@@ -627,12 +662,20 @@ void RegisterUISystems(const flecs::world& world) {
 	// Top-down pass from UI roots that positions every Stack's children. Runs before interaction so
 	// button/scroll hit-tests use the final laid-out rects this frame.
 	const auto layout_query = world.query_builder<const UIRect>().build();
-	world.system("UILayout").kind(flecs::PreUpdate).run([layout_query](const flecs::iter&) {
-		layout_query.each([](const flecs::entity entity, const UIRect&) {
+	world.system("UILayout").kind(flecs::PreUpdate).run([layout_query](const flecs::iter& it) {
+		// The canvas is the fixed logical size (never the window), the reference for an unparented UIAnchor.
+		const auto* platform = it.world().get<platform::PlatformRef>().ptr;
+		const core::Rect canvas{
+			.x = 0.0F,
+			.y = 0.0F,
+			.w = static_cast<float>(platform->Width()),
+			.h = static_cast<float>(platform->Height())
+		};
+		layout_query.each([&canvas](const flecs::entity entity, const UIRect&) {
 			if (const flecs::entity parent = entity.parent(); parent && parent.has<UIRect>()) {
 				return; // laid out via its parent's recursion
 			}
-			LayoutNode(entity);
+			LayoutNode(entity, canvas);
 		});
 	});
 
@@ -675,7 +718,7 @@ void RegisterUISystems(const flecs::world& world) {
 			sr.content_size = extent;
 
 			const glm::vec2 range{std::max(0.0F, extent.x - ui.rect.w), std::max(0.0F, extent.y - ui.rect.h)};
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const core::Rect viewport = ResolvedRect(entity, ui);
 			const bool mouse_down = input.mouse.left.state;
@@ -767,7 +810,7 @@ void RegisterUISystems(const flecs::world& world) {
 			if (!modal.open || !modal.close_on_backdrop) {
 				return;
 			}
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			if (const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 				input.mouse.left.pressed && !ResolvedRect(entity, ui).Contains(mouse)) {
 				modal.open = false;
@@ -783,7 +826,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Dropdown, const UIRect>("UIDropdownInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Dropdown& dd, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			const core::Rect box = ResolvedRect(entity, ui);
@@ -832,7 +875,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Button, const UIRect>("UIButtonInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Button& button, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 
@@ -862,7 +905,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Slider, const UIRect>("UISliderInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Slider& slider, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const core::Rect r = ResolvedRect(entity, ui);
 			const auto& modal_state = entity.world().get<UIModalState>();
@@ -913,7 +956,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Checkbox, const UIRect>("UICheckboxInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Checkbox& cb, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			cb.hovered = ElementInteractable(entity, mouse, modal_state) && ResolvedRect(entity, ui).Contains(mouse);
@@ -932,7 +975,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Radio, const UIRect>("UIRadioInteraction")
 		.kind(flecs::OnUpdate)
 		.each([radio_query](const flecs::entity entity, Radio& rb, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			rb.hovered = ElementInteractable(entity, mouse, modal_state) && ResolvedRect(entity, ui).Contains(mouse);
@@ -960,7 +1003,7 @@ void RegisterUISystems(const flecs::world& world) {
 		.kind(flecs::OnUpdate)
 		.run([text_input_query, text_area_query](const flecs::iter& it) {
 			const flecs::world w = it.world();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			if (!input.mouse.left.pressed) {
 				return;
 			}
@@ -994,9 +1037,9 @@ void RegisterUISystems(const flecs::world& world) {
 				return;
 			}
 			ti.caret_blink += it.delta_time();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			bool changed = false;
-			for (const char c : w.get<input::TypedText>().text) {
+			for (const char c : w.get<input::RawInput>().text) {
 				if (c == '\n' || c == '\t') {
 					continue; // single-line: ignore newlines/tabs
 				}
@@ -1033,12 +1076,12 @@ void RegisterUISystems(const flecs::world& world) {
 				return;
 			}
 			ta.caret_blink += it.delta_time();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			const auto at_limit = [&ta] {
 				return ta.max_length > 0 && static_cast<int>(ta.text.size()) >= ta.max_length;
 			};
 			bool changed = false;
-			for (const char c : w.get<input::TypedText>().text) {
+			for (const char c : w.get<input::RawInput>().text) {
 				if (c == '\t') {
 					continue;
 				}
@@ -1062,6 +1105,44 @@ void RegisterUISystems(const flecs::world& world) {
 					ta.on_change(ta.text);
 				}
 			}
+		});
+
+	// === SYSTEM: Pointer capture (OnUpdate, after every interaction system) ===
+	// Ordering relies on registration order: this must stay registered after every interaction system above.
+	// Fills input::UICapture.pointer from the hit-tests the interaction systems just ran: an interactive element is
+	// hovered or held, or a Modal is open. InputPoll reads it next Frame and withholds the mouse from gameplay (one
+	// Frame of lag, visible only when the layout moves under a still cursor). Also fills `keyboard` from UIFocus: a
+	// focused text field takes the keyboard from gameplay (the field edits from RawInput, which isn't gated). The
+	// click that focuses or unfocuses a field is in this same pass, so clicking away frees gameplay next Frame.
+	const auto text_input_hit_query = world.query_builder<const TextInput, const UIRect>().build();
+	const auto text_area_hit_query = world.query_builder<const TextArea, const UIRect>().build();
+	const auto button_query = world.query_builder<const Button>().build();
+	const auto slider_query = world.query_builder<const Slider>().build();
+	const auto checkbox_query = world.query_builder<const Checkbox>().build();
+	const auto radio_query_hover = world.query_builder<const Radio>().build();
+	const auto dropdown_query = world.query_builder<const Dropdown>().build();
+	world.system("UIPointerCapture")
+		.kind(flecs::OnUpdate)
+		.write<input::UICapture>()
+		.run([=](const flecs::iter& it) {
+			const flecs::world w = it.world();
+			const auto& modal_state = w.get<UIModalState>();
+			const auto& mouse_pos = w.get<input::RawInput>().mouse.window_position;
+			const glm::vec2 mouse{mouse_pos.x, mouse_pos.y};
+			bool captured = modal_state.any_open;
+			button_query.each([&](const Button& b) { captured = captured || b.hovered || b.pressed; });
+			slider_query.each([&](const Slider& s) { captured = captured || s.hovered || s.dragging; });
+			checkbox_query.each([&](const Checkbox& c) { captured = captured || c.hovered; });
+			radio_query_hover.each([&](const Radio& r) { captured = captured || r.hovered; });
+			dropdown_query.each([&](const Dropdown& d) { captured = captured || d.hovered || d.open; });
+			const auto over_field = [&](const flecs::entity e, auto&&, const UIRect& ui) {
+				captured = captured || (ElementInteractable(e, mouse, modal_state) && ResolvedRect(e, ui).Contains(mouse));
+			};
+			text_input_hit_query.each(over_field);
+			text_area_hit_query.each(over_field);
+			auto& capture = w.get_mut<input::UICapture>();
+			capture.pointer = captured;
+			capture.keyboard = w.get<UIFocus>().focused.is_alive();
 		});
 
 	// === SYSTEM: Build the draw list (PreStore) ===
@@ -1120,7 +1201,9 @@ void RegisterUISystems(const flecs::world& world) {
 			case UIDrawKind::Text: platform->DrawText(cmd.text, cmd.p0.x, cmd.p0.y, cmd.font_size, cmd.color); break;
 			case UIDrawKind::Line: platform->DrawLine(cmd.p0, cmd.p1, cmd.thickness, cmd.color); break;
 			case UIDrawKind::Circle: platform->DrawCircle(cmd.p0, cmd.radius, cmd.color); break;
-			case UIDrawKind::TexturedRect: platform->DrawTexturedRect(cmd.texture, cmd.rect, cmd.color); break;
+			case UIDrawKind::TexturedRect:
+				platform->DrawTexturedRect(cmd.texture, cmd.src, cmd.rect, cmd.color);
+				break;
 			case UIDrawKind::BeginClip:
 			{
 				const core::Rect region = clip_stack.empty() ? cmd.rect : intersect(clip_stack.back(), cmd.rect);

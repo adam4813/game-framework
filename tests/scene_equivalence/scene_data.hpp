@@ -481,10 +481,24 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestUIImage",
+      "components": {
+        "ui_rect": [70.0, 240.0, 48.0, 48.0],
+        "image": {"fit": "fill", "source": [32.0, 0.0, 32.0, 32.0], "tint": [255, 128, 64, 200]}
+      }
+    },
+    {
       "name": "TestUIStack",
       "components": {
         "ui_rect": [10.0, 300.0, 200.0, 100.0],
         "stack": {"spacing": 8.0, "padding": 4.0, "stretch": true}
+      }
+    },
+    {
+      "name": "TestUIAnchor",
+      "components": {
+        "ui_rect": [0.0, 0.0, 120.0, 30.0],
+        "ui_anchor": {"anchor": [1.0, 1.0], "pivot": [-1.0, -1.0], "offset": [12.0, 12.0]}
       }
     },
     {
@@ -881,6 +895,20 @@ void OnInit(Entity self) {
     spinner.dots = 8;
     spinner.speed = 6.0f;
 
+    Entity ui_image = CreateNamedEntity("TestUIImage");
+    UIRect@ image_rect = ui_image.AddUIRect();
+    image_rect.rect.x = 70.0f;
+    image_rect.rect.y = 240.0f;
+    image_rect.rect.w = 48.0f;
+    image_rect.rect.h = 48.0f;
+    Image@ image = ui_image.AddImage();
+    image.fit = FitMode_Fill;
+    image.source.x = 32.0f;
+    image.source.y = 0.0f;
+    image.source.w = 32.0f;
+    image.source.h = 32.0f;
+    image.tint = MakeRgba(255, 128, 64, 200);
+
     Entity ui_stack = CreateNamedEntity("TestUIStack");
     UIRect@ stack_rect = ui_stack.AddUIRect();
     stack_rect.rect.x = 10.0f;
@@ -891,6 +919,16 @@ void OnInit(Entity self) {
     stack.spacing = 8.0f;
     stack.padding = 4.0f;
     stack.stretch = true;
+
+    Entity ui_anchor = CreateNamedEntity("TestUIAnchor");
+    UIRect@ anchor_rect = ui_anchor.AddUIRect();
+    anchor_rect.rect.w = 120.0f;
+    anchor_rect.rect.h = 30.0f;
+    UIAnchor@ anchor = ui_anchor.AddUIAnchor();
+    anchor.anchor.x = 1.0f;
+    anchor.anchor.y = 1.0f;
+    anchor.offset.x = 12.0f;
+    anchor.offset.y = 12.0f;
 
     Entity ui_scroll = CreateNamedEntity("TestUIScrollRect");
     UIRect@ scroll_rect = ui_scroll.AddUIRect();

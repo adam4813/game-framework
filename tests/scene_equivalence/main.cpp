@@ -819,9 +819,25 @@ json BuildCppWorld() {
 	test_world.World()
 		.entity()
 		.child_of(scene_root)
+		.set_name("TestUIImage")
+		.set<engine::ui::UIRect>({{.x = 70.0F, .y = 240.0F, .w = 48.0F, .h = 48.0F}})
+		.set<engine::ui::Image>({
+			.fit = engine::ui::FitMode::Fill,
+			.source = {.x = 32.0F, .y = 0.0F, .w = 32.0F, .h = 32.0F},
+			.tint = {.r = 255, .g = 128, .b = 64, .a = 200},
+		});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
 		.set_name("TestUIStack")
 		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 300.0F, .w = 200.0F, .h = 100.0F}})
 		.set<engine::ui::Stack>({.spacing = 8.0F, .padding = 4.0F, .stretch = true});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
+		.set_name("TestUIAnchor")
+		.set<engine::ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = 120.0F, .h = 30.0F}})
+		.set<engine::ui::UIAnchor>({.anchor = {1.0F, 1.0F}, .pivot = {-1.0F, -1.0F}, .offset = {12.0F, 12.0F}});
 	test_world.World()
 		.entity()
 		.child_of(scene_root)

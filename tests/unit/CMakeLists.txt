@@ -48,6 +48,11 @@ add_engine_test(translucent_pass_test
     translucent_pass_test.cpp
 )
 
+# UI Image: fit modes, atlas sub-rect and tint resolved into the draw list, under ScrollRect and Modal, and JSON
+add_engine_test(ui_image_test
+    ui_image_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp
@@ -141,4 +146,19 @@ add_engine_test(raycast_script_test
 # turned dynamic or a new shape recreates it, and a repeated set changes nothing
 add_engine_test(rigid_body_update_test
     rigid_body_update_test.cpp
+)
+
+# UIAnchor: anchored placement against the parent rect or canvas, pivot default, offset sign, Stack interplay
+add_engine_test(ui_anchor_test
+    ui_anchor_test.cpp
+)
+
+# UICapture: a UI-owned pointer click, drag or modal is withheld from gameplay by InputPoll
+add_engine_test(ui_pointer_capture_test
+    ui_pointer_capture_test.cpp
+)
+
+# UICapture.keyboard: a focused text field takes the keyboard from gameplay but still edits from RawInput
+add_engine_test(ui_keyboard_capture_test
+    ui_keyboard_capture_test.cpp
 )
