@@ -37,7 +37,7 @@ enum class UIDrawKind : std::uint8_t {
 	Text,
 	Line,
 	Circle,
-	TexturedRect, // a texture tiled into a rect, modulated by `color` (tint)
+	TexturedRect, // `src` texels of `texture` drawn into `rect`, modulated by `color` (tint)
 	BeginClip,    // push a scissor rectangle (intersected with any active clip)
 	EndClip,      // pop the last scissor rectangle
 };
@@ -54,6 +54,7 @@ struct UIDrawCommand {
 	glm::vec2 p1{0.0F};     // Line end
 	float radius{0.0F};     // Circle
 	int texture{-1};        // TexturedRect (handle from LoadTexture)
+	core::Rect src{};       // TexturedRect: texel region drawn into `rect`; larger than the texture = repeats
 	std::string text;       // Text
 	float font_size{20.0F}; // Text
 	int layer{0};           // primary sort key (z_index)
@@ -157,13 +158,21 @@ struct UIDrawList {
 		);
 	}
 
-	// Queue a textured rect: `texture` (a LoadTexture handle) tiled into `r`, modulated by `tint`.
+	// Queue a textured rect: `texture` (a LoadTexture handle) tiled into `r` at 1:1 texel-to-pixel, modulated
+	// by `tint`.
 	void PushTexturedRect(const int texture, const core::Rect r, const core::Rgba tint) {
+		PushTexturedRect(texture, r, {.x = 0.0F, .y = 0.0F, .w = r.w, .h = r.h}, tint);
+	}
+
+	// Queue a textured rect with an explicit texel region: `src` of `texture` is drawn into `r`, modulated by
+	// `tint`. Resolve a fit mode into `src` and `r` first with ResolveImageRects (ui_image.hpp).
+	void PushTexturedRect(const int texture, const core::Rect r, const core::Rect src, const core::Rgba tint) {
 		commands.push_back(
 			{.kind = UIDrawKind::TexturedRect,
 			 .rect = r,
 			 .color = tint,
 			 .texture = texture,
+			 .src = src,
 			 .layer = layer,
 			 .seq = seq++}
 		);

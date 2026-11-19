@@ -481,6 +481,13 @@ inline constexpr std::string_view kTestSceneJson = R"json(
       }
     },
     {
+      "name": "TestUIImage",
+      "components": {
+        "ui_rect": [70.0, 240.0, 48.0, 48.0],
+        "image": {"fit": "fill", "source": [32.0, 0.0, 32.0, 32.0], "tint": [255, 128, 64, 200]}
+      }
+    },
+    {
       "name": "TestUIStack",
       "components": {
         "ui_rect": [10.0, 300.0, 200.0, 100.0],
@@ -887,6 +894,20 @@ void OnInit(Entity self) {
     spinner.dot_radius = 4.0f;
     spinner.dots = 8;
     spinner.speed = 6.0f;
+
+    Entity ui_image = CreateNamedEntity("TestUIImage");
+    UIRect@ image_rect = ui_image.AddUIRect();
+    image_rect.rect.x = 70.0f;
+    image_rect.rect.y = 240.0f;
+    image_rect.rect.w = 48.0f;
+    image_rect.rect.h = 48.0f;
+    Image@ image = ui_image.AddImage();
+    image.fit = FitMode_Fill;
+    image.source.x = 32.0f;
+    image.source.y = 0.0f;
+    image.source.w = 32.0f;
+    image.source.h = 32.0f;
+    image.tint = MakeRgba(255, 128, 64, 200);
 
     Entity ui_stack = CreateNamedEntity("TestUIStack");
     UIRect@ stack_rect = ui_stack.AddUIRect();

@@ -19,6 +19,7 @@
 #include "ui_components.hpp"
 #include "ui_draw_list.hpp"
 #include "ui_events.hpp"
+#include "ui_image.hpp"
 
 namespace engine::ui {
 
@@ -231,6 +232,12 @@ void EmitElement(
 				list.PushRectLines(r, panel->border_thickness, panel->border_color);
 			}
 		}
+	}
+
+	if (const auto* image = entity.try_get<Image>(); image != nullptr && image->texture >= 0) {
+		const auto [src, dest] =
+			ResolveImageRects(image->fit, r, image->source, platform->TextureSize(image->texture));
+		list.PushTexturedRect(image->texture, dest, src, image->tint);
 	}
 
 	if (const auto* slider = entity.try_get<Slider>()) {
@@ -1193,7 +1200,9 @@ void RegisterUISystems(const flecs::world& world) {
 			case UIDrawKind::Text: platform->DrawText(cmd.text, cmd.p0.x, cmd.p0.y, cmd.font_size, cmd.color); break;
 			case UIDrawKind::Line: platform->DrawLine(cmd.p0, cmd.p1, cmd.thickness, cmd.color); break;
 			case UIDrawKind::Circle: platform->DrawCircle(cmd.p0, cmd.radius, cmd.color); break;
-			case UIDrawKind::TexturedRect: platform->DrawTexturedRect(cmd.texture, cmd.rect, cmd.color); break;
+			case UIDrawKind::TexturedRect:
+				platform->DrawTexturedRect(cmd.texture, cmd.src, cmd.rect, cmd.color);
+				break;
 			case UIDrawKind::BeginClip:
 			{
 				const core::Rect region = clip_stack.empty() ? cmd.rect : intersect(clip_stack.back(), cmd.rect);

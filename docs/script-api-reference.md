@@ -213,7 +213,18 @@ A `RaycastFilter.layer_mask` bit is `1 << Layer_<Name>`.
 
 ### Components (via GetButton/MutButton etc.)
 
-`UIRect`, `UIElement`, `Panel`, `Button`, `ProgressBar`, `Spinner`, `Stack`, `ScrollRect`, `Modal`
+`UIRect`, `UIElement`, `Panel`, `Image`, `Button`, `ProgressBar`, `Spinner`, `Stack`, `ScrollRect`, `Modal`
+
+### Image fit constants
+
+`Image.fit` is an int.
+
+| Constant         | Value |
+|------------------|-------|
+| `FitMode_Stretch`| 0     |
+| `FitMode_Fit`    | 1     |
+| `FitMode_Fill`   | 2     |
+| `FitMode_Tile`   | 3     |
 
 ### Callback globals
 

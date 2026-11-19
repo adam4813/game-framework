@@ -35,6 +35,16 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<core::Rgba>("border_color")
 		.member<float>("border_thickness")
 		.member<float>("roundness");
+	world.component<FitMode>()
+		.constant("Stretch", FitMode::Stretch)
+		.constant("Fit", FitMode::Fit)
+		.constant("Fill", FitMode::Fill)
+		.constant("Tile", FitMode::Tile);
+	world.component<Image>()
+		.member<int>("texture")
+		.member<FitMode>("fit")
+		.member<core::Rect>("source")
+		.member<core::Rgba>("tint");
 	world.component<TextAlign>()
 		.constant("Left", TextAlign::Left)
 		.constant("Center", TextAlign::Center)
@@ -187,6 +197,17 @@ UIModule::UIModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<UIRect>());
 	scripting::RegisterComponentForScripts(world, world.component<UIElement>());
 	scripting::RegisterComponentForScripts(world, world.component<Panel>());
+	scripting::RegisterComponentForScripts(world, world.component<Image>());
+	// Scripts bind Image.fit as an int; FitMode_* name its values.
+	scripting::RegisterGlobalConstantsForScripts(
+		world,
+		{
+			{.name = "FitMode_Stretch", .type = scripting::ScriptValueType::MakeInt(), .value_str = "0"},
+			{.name = "FitMode_Fit", .type = scripting::ScriptValueType::MakeInt(), .value_str = "1"},
+			{.name = "FitMode_Fill", .type = scripting::ScriptValueType::MakeInt(), .value_str = "2"},
+			{.name = "FitMode_Tile", .type = scripting::ScriptValueType::MakeInt(), .value_str = "3"},
+		}
+	);
 	scripting::RegisterComponentForScripts(world, world.component<Label>());
 	scripting::RegisterComponentForScripts(world, world.component<Button>());
 	scripting::RegisterComponentForScripts(world, world.component<Slider>());
