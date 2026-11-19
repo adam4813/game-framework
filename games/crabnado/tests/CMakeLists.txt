@@ -20,3 +20,8 @@ add_crabnado_test(crabnado_scene_flow_test
 add_crabnado_test(crabnado_ride_duration_test
     ride_duration_test.cpp
 )
+
+# The shipped campaign.json, bosses.json and enemies.json parse with every reference resolving
+add_crabnado_test(crabnado_campaign_data_test
+    campaign_data_test.cpp
+)

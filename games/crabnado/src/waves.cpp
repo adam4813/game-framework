@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "arena.hpp"
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "run.hpp"
@@ -53,7 +54,7 @@ void RemoveSwell(WaveField& field, const int index) {
 	--field.swell_count;
 }
 
-// A wind shift past kCrossSwellAt: every swell stops following and fades, and a new one builds along the
+// A wind shift past the Act's `cross_swell_at`: every swell stops following and fades, and a new one builds along the
 // shift's target bearing. Before then the one swell just follows the turning wind.
 void AddCrossSwell(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 	for (int i = 0; i < field.swell_count; ++i) {
@@ -90,9 +91,16 @@ void AddRogue(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 		.amp = constants::kRogueAmp};
 }
 
+// Whether the Act clock has reached an optional sea time; a missing one never comes.
+bool SeaEventDue(const std::optional<float> at, const float actClock) {
+	return at && actClock >= *at;
+}
+
 void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
-	const float clock = world.get<RunState>().clock;
+	const float clock = world.get<RunState>().act_clock;
 	const RunPhase phase = world.get<RunState>().phase;
+	const Act* act = CurrentAct(world);
+	const ActSea sea = act != nullptr ? act->sea : ActSea{};
 	const auto& wind = world.get<Wind>();
 	auto& rng = world.get_mut<ecs::RngState>();
 	field.time += dt;
@@ -100,7 +108,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 
 	if (wind.shifts != field.last_shifts) {
 		field.last_shifts = wind.shifts;
-		if (clock >= constants::kCrossSwellAt && phase != RunPhase::Boss) {
+		if (SeaEventDue(sea.cross_swell_at, clock) && phase != RunPhase::Boss) {
 			AddCrossSwell(field, wind, rng);
 		}
 	}
@@ -124,7 +132,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 		}
 	}
 
-	if (clock >= constants::kRogueAt && phase != RunPhase::Boss) {
+	if (SeaEventDue(sea.rogue_at, clock) && phase != RunPhase::Boss) {
 		field.rogue_timer -= dt;
 		if (field.rogue_timer <= 0.0F) {
 			field.rogue_timer = rng.NextFloatRange(constants::kRogueGapMin, constants::kRogueGapMax);
@@ -334,22 +342,27 @@ std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 positio
 	return soonest;
 }
 
-const char* WaveStageName(const float clock) {
-	if (clock < constants::kCrossSwellAt) {
-		return "Steady swell";
+const char* WaveStageName(const ActSea& sea, const float actClock) {
+	if (SeaEventDue(sea.rogue_at, actClock)) {
+		return "Rogue waves";
 	}
-	return clock < constants::kRogueAt ? "Crossing swells" : "Rogue waves";
+	return SeaEventDue(sea.cross_swell_at, actClock) ? "Crossing swells" : "Steady swell";
 }
 
 void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 	const flecs::entity water = world.entity("Water").child_of(parent);
 	const auto& pools = world.get<TidePools>().pools;
+	const Act* act = CurrentAct(world);
+	const ActArena* tint = act != nullptr ? &act->arena : nullptr;
 	const auto spawnTile = [&](const glm::vec2 center, const float cell) {
 		core::Rgba base = kWaterColor;
 		if (glm::length(center) > constants::kArenaRadius) {
 			base = kOceanColor;
 		} else if (std::ranges::any_of(pools, [&](const TidePool& pool) { return glm::length(center - pool.center) < pool.radius; })) {
 			base = kPoolColor;
+		}
+		if (tint != nullptr) {
+			base = Lerp(base, tint->tint_color, tint->tint_amount);
 		}
 		const float size = cell * constants::kWaterFill;
 		std::ignore = world.entity()

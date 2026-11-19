@@ -7,6 +7,7 @@
 #include "arena_scene.hpp"
 #include "boss.hpp"
 #include "bubbles.hpp"
+#include "campaign.hpp"
 #include "claw_snap.hpp"
 #include "controls.hpp"
 #include "crabnado.hpp"
@@ -41,6 +42,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	// (whose grid the claw snap reads), then shells and molting.
 	RegisterControls(world);
 	RegisterRun(world);
+	RegisterCampaign(world);
 	RegisterWind(world);
 	RegisterWaves(world);
 	RegisterPlayer(world);

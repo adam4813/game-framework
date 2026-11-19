@@ -5,6 +5,8 @@
 #include <cmath>
 #include <numbers>
 
+#include "boss_registry.hpp"
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "enemy_types.hpp"
@@ -71,11 +73,15 @@ float RingHeight(const int ring) {
 	return kFunnelRingHeight * (static_cast<float>(ring) + 0.5F);
 }
 
+// The spawner id of the crabnado's own throw (a spawn table entry names the spawner that brings it in).
+constexpr std::string_view kThrowSource = "crabnado";
+
 // Throws up to `count` crabs from the crabnado toward the player, stopping at the horde cap.
 void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, const glm::vec3 position, int count) {
 	count = std::min(count, constants::kHordeCap - world.count<Enemy>());
 	const flecs::entity horde = crabnado.target<ThrowsInto>();
-	if (count <= 0 || !horde) {
+	const auto plan = CurrentSpawnPlan(world);
+	if (count <= 0 || !horde || !plan) {
 		return;
 	}
 	const glm::vec2 from{position.x, position.z};
@@ -85,7 +91,7 @@ void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, cons
 		target = {p.x, p.z};
 	}
 	for (int i = 0; i < count; ++i) {
-		const int type = PickEnemyType(world, world.get<RunState>().clock);
+		const int type = PickEnemyType(world, *plan->spawns, kThrowSource);
 		if (type >= 0) {
 			ThrowEnemy(world, horde, type, from, target);
 		}
@@ -125,9 +131,7 @@ void RegisterCrabnado(const flecs::world& world) {
 		.each([](const flecs::iter& it, size_t, Crabnado&, FunnelStorm& storm, spatial::Transform& transform) {
 			const float dt = it.delta_time();
 			const auto& run = it.world().get<RunState>();
-			storm.storm = std::clamp(
-				(run.clock - constants::kBossWindUpAt) / (constants::kBossAt - constants::kBossWindUpAt), 0.0F, 1.0F
-			);
+			storm.storm = StormLevel(it.world());
 			if (run.slams > storm.slams_seen) {
 				storm.slams_seen = run.slams;
 				storm.flash = 1.0F;
@@ -193,18 +197,17 @@ void RegisterCrabnado(const flecs::world& world) {
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	// The spawn rate rises linearly with the run clock.
+	// The spawn rate is the current Stage's curve on the Stage clock (the Boss Stage's is fixed).
 	world.system<Crabnado, const spatial::Transform>("CrabnadoThrow")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, const size_t i, Crabnado& crabnado, const spatial::Transform& transform) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
-			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay) {
+			const auto plan = CurrentSpawnPlan(world);
+			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay || !plan) {
 				return;
 			}
-			const float factor = run.phase == RunPhase::Boss ? constants::kBossSpawnFactor : 1.0F;
-			crabnado.spawn_debt +=
-				(constants::kSpawnRateBase + constants::kSpawnRateGrowth * run.clock) * factor * it.delta_time();
+			crabnado.spawn_debt += plan->rate * it.delta_time();
 			const int throws = static_cast<int>(crabnado.spawn_debt);
 			crabnado.spawn_debt -= static_cast<float>(throws);
 			ThrowAtPlayer(world, it.entity(i), transform.position, throws);

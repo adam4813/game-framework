@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include "arena.hpp"
+#include "boss_registry.hpp"
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
@@ -28,14 +29,11 @@ void BreakApart(const flecs::world& world, const flecs::entity crabnado) {
 
 void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& crabnado, spatial::Transform& transform, const float dt) {
 	auto& run = world.get_mut<RunState>();
-	if (run.phase == RunPhase::Playing && run.clock >= constants::kBossAt) {
-		run.phase = RunPhase::Boss;
-		run.banner_timer = constants::kBossBannerTime;
-		spdlog::info("[Run] The crabnado comes ashore at {:.1f}s", run.clock);
-	}
-	if (run.phase != RunPhase::Boss) {
+	const BossDef* boss = CurrentBoss(world);
+	if (run.phase != RunPhase::Boss || boss == nullptr) {
 		return;
 	}
+	const SlamTunables& tune = boss->slam;
 	run.slam_cooldown = std::max(0.0F, run.slam_cooldown - dt);
 
 	glm::vec2 position{transform.position.x, transform.position.z};
@@ -48,33 +46,33 @@ void StepBoss(const flecs::world& world, const flecs::entity entity, Crabnado& c
 		if (distance > 0.0001F) {
 			heading = toPlayer / distance;
 		}
-		if (distance < constants::kBossContactRange) {
-			player.get_mut<PlayerStats>().hp -= constants::kBossContactDps * dt;
+		if (distance < tune.contact_range) {
+			player.get_mut<PlayerStats>().hp -= tune.contact_dps * dt;
 		}
 	}
 
 	const WaveSample wave = SampleWaves(world.get<WaveField>(), world.get<TidePools>().pools, position);
-	if (wave.height > constants::kBossKnockMinHeight) {
-		crabnado.knock = wave.push * constants::kBossKnockPush;
+	if (wave.height > tune.knock_min_height) {
+		crabnado.knock = wave.push * tune.knock_push;
 	} else {
 		crabnado.knock *= std::exp(-constants::kKnockDecay * dt);
 	}
 
-	position += (heading * crabnado.speed + crabnado.knock) * dt;
-	const float reach = constants::kArenaRadius - constants::kBossEdgeMargin;
+	position += (heading * tune.speed + crabnado.knock) * dt;
+	const float reach = constants::kArenaRadius - tune.edge_margin;
 	const float fromCentre = glm::length(position);
 	if (fromCentre > reach) {
 		position *= reach / fromCentre;
 	}
-	if (PushOutOfRocks(world.get<Rocks>().circles, position, constants::kBossRadius)) {
-		if (glm::length(crabnado.knock) > constants::kBossSlamMinSpeed && run.slam_cooldown <= 0.0F) {
+	if (PushOutOfRocks(world.get<Rocks>().circles, position, tune.radius)) {
+		if (glm::length(crabnado.knock) > tune.slam_min_speed && run.slam_cooldown <= 0.0F) {
 			++run.slams;
-			run.slam_cooldown = constants::kBossSlamCooldown;
+			run.slam_cooldown = tune.slam_cooldown;
 			run.banner_timer = constants::kBossBannerTime;
-			crabnado.knock *= constants::kBossSlamBounce;
+			crabnado.knock *= tune.slam_bounce;
 			PlaySfx(world, Sfx::BossSlam);
-			spdlog::info("[Run] Slam {}/{}", run.slams, constants::kBossSlamsToWin);
-			if (run.slams >= constants::kBossSlamsToWin) {
+			spdlog::info("[Run] Slam {}/{}", run.slams, tune.slams_to_win);
+			if (run.slams >= tune.slams_to_win) {
 				BreakApart(world, entity);
 			}
 		}

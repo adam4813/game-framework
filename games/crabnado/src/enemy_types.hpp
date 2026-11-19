@@ -6,6 +6,7 @@
 
 #include <flecs.h>
 
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 
@@ -37,9 +38,6 @@ struct EnemyType {
 	float charge_time{constants::kChargeTime};
 	float charge_dps_mult{constants::kChargeDpsMult};
 	bool charges{true};
-	// Run clock (seconds) from which the crabnado throws this type, and its weight in the weighted pick.
-	float appears_at{0.0F};
-	float weight{1.0F};
 };
 
 // Singleton: every enemy type, in id order. An Enemy's `type` indexes into it.
@@ -55,7 +53,8 @@ void LoadEnemyTypes(const flecs::world& world, std::string_view path);
 // capped at ride_max. A ride's peak only ever rises, so a taller crest mid-ride extends it but never restarts it.
 [[nodiscard]] float RideDuration(const EnemyType& type, float peak);
 
-// Index of a type drawn by weight from those with appears_at <= `clock`, or -1 if none is unlocked.
-[[nodiscard]] int PickEnemyType(const flecs::world& world, float clock);
+// Index of an enemy type drawn by weight from the spawn table entries whose spawner is `source` (what a Stage's spawn
+// table lists, see campaign.hpp), or -1 if the table has none.
+[[nodiscard]] int PickEnemyType(const flecs::world& world, const std::vector<SpawnEntry>& spawns, std::string_view source);
 
 } // namespace crabnado

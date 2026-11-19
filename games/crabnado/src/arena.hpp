@@ -42,7 +42,7 @@ struct RockBand {
 };
 
 // Singleton from the level's "rock_scatter": the bands rocks are rolled into each run. Rocks keep `gap` clear of
-// each other and of pools, so crabs can pass between them.
+// each other and of pools, so crabs can pass between them. The current Act's `arena.rocks` override the band counts.
 struct RockScatter {
 	RockBand inner;
 	RockBand outer;

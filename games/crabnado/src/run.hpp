@@ -23,6 +23,10 @@ enum class RunPhase { Countdown, Playing, Molting, Boss, Won, Lost };
 // toward the next molt, which needs `shells_needed`; `molt_level` starts at 1. `seed` is the RngState
 // seed the run started from, so a run can be replayed. `countdown` is the seconds left of the start countdown; it
 // runs on below 0, to -kGoTime, while "Go!" shows.
+// `act` and `stage` (both 0-based; `stage == stages.size()` is the Boss Stage) say where the campaign director has the
+// run. The Remote API jumps to a Stage by writing both; the director then enters it with `stage_clock` 0. Writing
+// `stage_clock` alone just moves the Stage's gate. `stage_clock` and `act_clock` count up next to `clock`, which stays
+// the campaign clock.
 struct RunState {
 	RunPhase phase{RunPhase::Playing};
 	float clock{0.0F};
@@ -37,6 +41,10 @@ struct RunState {
 	float banner_timer{0.0F};
 	uint64_t seed{0};
 	float countdown{0.0F};
+	int act{0};
+	int stage{0};
+	float stage_clock{0.0F};
+	float act_clock{0.0F};
 };
 
 // Shells needed for the molt after `moltLevel` (geometric: kShellsFirstMolt * kShellsGrowth^(level - 1)).

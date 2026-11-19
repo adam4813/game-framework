@@ -21,7 +21,7 @@ feel of the horde and weapons are kept at the `crabnado-jam` tag.
 
 | Term | Meaning |
 |---|---|
-| **Crabnado** | The tornado that throws enemies. It roams the arena and becomes the boss at 5:00. |
+| **Crabnado** | The tornado that throws enemies. It roams the arena and becomes the boss when the Act reaches its Boss Stage (5:00 in Act 1). |
 | **Crest** | A band of raised water moving downwind. It pushes whatever it passes. |
 | **Set** | A group of crests about 6 s apart. Every third crest in a set is **big**. |
 | **Swell** | One train of crests along one bearing. Later in the run, two swells cross. |
@@ -73,15 +73,18 @@ Keyboard only, plus the mouse for menus.
 
 ## The run
 
-- **Clock:** counts up. The boss arrives at 5:00.
+- **Clock:** counts up. The run is driven by `assets/data/crabnado/campaign.json`: Acts hold Stages (each ends at a
+  gate) and a Boss Stage. Act 1 is the Crab Stage (0:00–0:25), the Shrimp Stage (to 5:00) and then the boss.
 - **The player:** 100 HP. Touching a landed enemy drains HP at that enemy's contact rate. The crab scuttles sideways
   when it moves. HP 0 ends the run.
 - **Spawning:** the crabnado roams between waypoints inside 60% of the arena radius. The wind biases which waypoint
   it picks next, but it never drifts to the edge, so enemies keep arriving from new directions around the rocks. It
   throws each enemy on a ballistic arc toward a landing point between itself and the player (6–32 units out, ±10
   jitter). **An enemy in the air is harmless and can't be hit until it lands.**
-- **Pressure:** the spawn rate starts at 1.0 per second and grows by 0.035 per second of run time, capped by the
-  horde cap. Enemy HP grows by ×(1 + t / 240). The first throw comes 3 s in.
+- **Pressure:** each Stage lists its spawn table (enemy type to weight) and a rate: `base + growth * stage_clock`,
+  starting at 1.0 per second and growing by 0.035 per second, capped by the horde cap. The Boss Stage throws at 35% of
+  the last Stage's closing rate. Enemy HP grows by ×(1 + act time / 240) (the Act's `hp_scale`). The first throw comes
+  3 s in.
 - **Shells and molting:** the first molt needs 18 shells, and each molt after needs ×1.3 more. A molt pauses the run
   and offers 3 distinct upgrades. After the pick, "Ready…" and "Go!" hold the pause for about a second so you can get
   your hands back on the movement keys.
@@ -103,7 +106,7 @@ of crests about 6 s apart, every third one big.
 
 **The ramp to chaos:**
 
-| Run time | Sea state |
+| Act time (the Act's `sea` times; a missing one never happens) | Sea state |
 |---|---|
 | 0:00–1:30 | One steady swell. |
 | 1:30–3:00 | After each wind shift, the old swell keeps running alongside the new one (fading over 45 s), so crests cross and their heights add. |
@@ -153,13 +156,14 @@ pools, the start point and each other. The layout and scatter rules live in `ass
 
 ## Enemies
 
-Defined in `assets/data/crabnado/enemies.json`. `weight` is the relative spawn chance once a type has appeared.
+Defined in `assets/data/crabnado/enemies.json`. When a type appears and its relative spawn weight come from the Stage
+spawn tables in `campaign.json`; Act 1 uses crab and shrimp, and lobsters arrive with Act 2.
 
-| Type | HP | Speed | Contact DPS | XP | Rides on | Appears | Weight | Role |
-|---|---|---|---|---|---|---|---|---|
-| Crab | 3 | 4.2 | 4 | 1 | any crest | 0:00 | 65 | The steady, sideways-walking base enemy. |
-| Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | 0:25 | 27 | Fast, fragile flankers. |
-| Lobster | 14 | 2.8 | 18 | 4 | big crests only | 1:00 | 8 | Slow tanks that make big waves matter. |
+| Type | HP | Speed | Contact DPS | XP | Rides on | Role |
+|---|---|---|---|---|---|---|
+| Crab | 3 | 4.2 | 4 | 1 | any crest | The steady, sideways-walking base enemy (Act 1 weight 65). |
+| Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | Fast, fragile flankers, from 0:25 (weight 27). |
+| Lobster | 14 | 2.8 | 18 | 4 | big crests only | Slow tanks that make big waves matter. Not in Act 1's tables yet. |
 
 ## Upgrades
 
@@ -182,7 +186,7 @@ Molt cards show each changed stat as "before → after", green when it helps and
 
 ## The boss
 
-At 4:30 the crabnado storms up, darker and swaying harder. At 5:00 a banner announces the boss: the same crabnado
+At 4:30 (`storm_up` 30 s before the last Stage ends) the crabnado storms up, darker and swaying harder. At 5:00 a banner announces the boss: the same crabnado
 comes ashore and chases the player, its spawn rate drops to 35%, and contact with it deals 25 damage per second.
 **You can't damage it directly.** A big crest that pushes it into a rock counts as one slam (2.5 s cooldown so one
 crest can't count twice). The HUD shows the slams left. **Three slams win**, and the crabnado breaks apart.
@@ -217,7 +221,8 @@ crest can't count twice). The HUD shows the slams left. **Three slams win**, and
 - **Determinism:** all gameplay randomness (spawns, jitter, wind, rogue waves, rock scatter, upgrade rolls) draws
   from the engine's `RngState`, seeded per run. The seed is `RunState.seed`.
 - **Reflection:** every gameplay component and singleton is reflected, so the Flecs Remote API (port 27751) can read
-  and set it. For example, set `RunState.clock` to 290 to reach the boss.
+  and set it. For example, set `RunState.act` and `RunState.stage` to jump to a Stage: Act 1's Boss Stage is `stage` 2 (a Stage's index is its
+  position in the Act; the Boss Stage is one past the last). Writing `stage_clock` alone only moves the gate.
 - **Tuning** lives in `src/crabnado_constants.hpp` and the two JSON registries.
 - **Assets:** generated by `tools/make_sfx.py` (sound effects), `tools/make_icons.py` (card and HUD icons) and
   `tools/make_story.py` (comic panels).

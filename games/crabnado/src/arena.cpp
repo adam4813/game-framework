@@ -80,7 +80,12 @@ RockBand ParseBand(const nlohmann::json& j) {
 // Rolls the RockScatter bands into rock entities under `parent`, clear of the pools, the level's own rocks,
 // `keepClear` and each other.
 void ScatterRocks(const flecs::world& world, const flecs::entity parent, const std::span<const RockCircle> keepClear) {
-	const auto& scatter = world.get<RockScatter>();
+	RockScatter scatter = world.get<RockScatter>();
+	// The Act's rock counts override the level's; the distances and radii stay in the level file.
+	if (const Act* act = CurrentAct(world)) {
+		scatter.inner.count = act->arena.rocks_inner.value_or(scatter.inner.count);
+		scatter.outer.count = act->arena.rocks_outer.value_or(scatter.outer.count);
+	}
 	std::vector<RockCircle> taken(keepClear.begin(), keepClear.end());
 	world.query_builder<const PoolSite, const spatial::Transform>().build().each(
 		[&](const PoolSite& pool, const spatial::Transform& transform) {

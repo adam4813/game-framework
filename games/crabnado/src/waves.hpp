@@ -8,6 +8,7 @@
 
 #include <flecs.h>
 
+#include "campaign.hpp"
 #include "engine/engine.hpp"
 
 // The waves: crests that travel downwind in sets, drawn as a grid of raised, tinted water tiles and tumbling
@@ -93,11 +94,13 @@ std::optional<float> BoostNextCrest(WaveField& field, glm::vec2 position, float 
 // Seconds until the next rogue wave reaches `position`, if it is within `within` seconds.
 [[nodiscard]] std::optional<float> NextRogueIn(const WaveField& field, glm::vec2 position, float within);
 
-// The HUD name of the wave stage at run clock `clock`: "Steady swell", "Crossing swells" or "Rogue waves".
-[[nodiscard]] const char* WaveStageName(float clock);
+// The HUD name of the wave stage at Act clock `actClock`: "Steady swell", "Crossing swells" or "Rogue waves". The Act's
+// `sea` times say when each begins; a missing one never does.
+[[nodiscard]] const char* WaveStageName(const ActSea& sea, float actClock);
 
 // Spawns the water tiles as children of `parent`: a fine grid over the arena, then coarser tiles out across the open
-// ocean to kOceanFarReach. Tiles inside a TidePools pool are tinted darker, and those past the barrier deeper blue.
+// ocean to kOceanFarReach. Tiles inside a TidePools pool are tinted darker, and those past the barrier deeper blue; the
+// current Act's arena tint then lerps every tile's base color.
 void SpawnWaterTiles(const flecs::world& world, flecs::entity parent);
 
 } // namespace crabnado

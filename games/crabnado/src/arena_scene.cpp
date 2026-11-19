@@ -5,7 +5,9 @@
 #include <format>
 #include <string>
 
+#include "boss_registry.hpp"
 #include "bubbles.hpp"
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "arena.hpp"
@@ -155,7 +157,9 @@ void ArenaScene::RegisterLoaders(const flecs::world& world) {
 
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
-	LoadEnemyTypes(world, world.get<platform::PlatformRef>().ptr->AssetDirectory() + std::string{constants::kEnemiesPath});
+	const std::string assetDirectory = world.get<platform::PlatformRef>().ptr->AssetDirectory();
+	LoadEnemyTypes(world, assetDirectory + std::string{constants::kEnemiesPath});
+	LoadCampaignData(world, assetDirectory);
 	StartWind(world);
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
@@ -662,7 +666,8 @@ void ArenaScene::UpdateHud(const flecs::world& world) const {
 	if (timeLabel_.has<ui::Label>() && killsLabel_.has<ui::Label>() && waveLabel_.has<ui::Label>()) {
 		timeLabel_.get_mut<ui::Label>().text = std::format("{}:{:02}", seconds / 60, seconds % 60);
 		killsLabel_.get_mut<ui::Label>().text = std::format("{}", run.kills);
-		waveLabel_.get_mut<ui::Label>().text = WaveStageName(run.clock);
+		const Act* act = CurrentAct(world);
+		waveLabel_.get_mut<ui::Label>().text = WaveStageName(act != nullptr ? act->sea : ActSea{}, run.act_clock);
 	}
 	UpdateResults(world);
 	UpdateMolt(world);
@@ -696,13 +701,15 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 		return;
 	}
 	const auto& run = world.get<RunState>();
-	const bool boss = run.phase == RunPhase::Boss;
+	const BossDef* def = CurrentBoss(world);
+	const bool boss = run.phase == RunPhase::Boss && def != nullptr;
+	const int slamsToWin = def != nullptr ? def->slam.slams_to_win : 0;
 	bossLabel_.get_mut<ui::Label>().text =
-		boss ? std::format("CRABNADO \xC2\xB7 slams left {}", constants::kBossSlamsToWin - run.slams) : "";
+		boss ? std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams) : "";
 	std::string banner;
 	if (boss && run.banner_timer > 0.0F) {
 		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
-								: std::format("SLAM! {}/{}", run.slams, constants::kBossSlamsToWin);
+								: std::format("SLAM! {}/{}", run.slams, slamsToWin);
 	}
 	bannerLabel_.get_mut<ui::Label>().text = banner;
 }

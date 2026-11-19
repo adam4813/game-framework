@@ -377,14 +377,14 @@ void ThrowEnemy(
 	const glm::vec2 ground = (landing - from) / flightTime;
 	const float vy = (0.5F * constants::kGravity * flightTime * flightTime - y0) / flightTime;
 
-	const float clock = world.get<RunState>().clock;
+	const float hpScale = CurrentEnemyHpScale(world);
 	const flecs::entity enemy =
 		world.entity()
 			.child_of(parent)
 			// First, so the world transform the engine seeds when it is added starts at the throw point, not the origin.
 			.set<spatial::Transform>({.position = {from.x, y0, from.y}})
 			.set<Enemy>(
-				{.hp = type.hp * (1.0F + clock / constants::kEnemyHpGrowthSeconds),
+				{.hp = type.hp * hpScale,
 				 .speed = type.speed,
 				 .radius = type.radius,
 				 .contact_dps = type.contact_dps,

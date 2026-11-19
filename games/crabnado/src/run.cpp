@@ -5,6 +5,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "controls.hpp"
 #include "engine/engine.hpp"
@@ -35,7 +36,11 @@ void RegisterRun(const flecs::world& world) {
 		.member<float>("slam_cooldown")
 		.member<float>("banner_timer")
 		.member<uint64_t>("seed")
-		.member<float>("countdown");
+		.member<float>("countdown")
+		.member<int>("act")
+		.member<int>("stage")
+		.member<float>("stage_clock")
+		.member<float>("act_clock");
 	world.set<RunState>({});
 
 	world.system<RunState>("RunClock")
@@ -45,6 +50,8 @@ void RegisterRun(const flecs::world& world) {
 		.each([](const flecs::iter& it, size_t, RunState& run) {
 			if (IsRunning(run.phase)) {
 				run.clock += it.delta_time();
+				run.stage_clock += it.delta_time();
+				run.act_clock += it.delta_time();
 				run.banner_timer = std::max(0.0F, run.banner_timer - it.delta_time());
 			}
 		})
@@ -71,7 +78,7 @@ void RegisterRun(const flecs::world& world) {
 				PlaySfx(it.world(), Sfx::ClawClick);
 			}
 			if (run.phase == RunPhase::Countdown && run.countdown <= 0.0F) {
-				run.phase = run.clock >= constants::kBossAt ? RunPhase::Boss : RunPhase::Playing;
+				run.phase = InBossStage(it.world()) ? RunPhase::Boss : RunPhase::Playing;
 				it.world().remove<scene::Paused>();
 				PlaySfx(it.world(), Sfx::ClawSnap);
 			}
@@ -106,6 +113,7 @@ void StartRun(const flecs::world& world) {
 	world.set<RunState>(
 		{.phase = RunPhase::Countdown, .shells_needed = ShellsNeeded(1), .seed = seed, .countdown = constants::kCountdownTime}
 	);
+	world.set<DirectorApplied>({});
 }
 
 void SetMenuPaused(const flecs::world& world, const bool paused) {

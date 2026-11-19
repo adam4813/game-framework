@@ -1,0 +1,29 @@
+{
+  "acts": [
+    {
+      "id": "act1",
+      "name": "The Red Tide",
+      "title": "Act 1",
+      "arena": { "rocks": { "inner": 9, "outer": 5 }, "tint": { "color": [47, 143, 168], "amount": 0.0 } },
+      "sea": { "cross_swell_at": 90, "rogue_at": 180 },
+      "hp_scale": { "mult": 1.0, "growth_seconds": 240 },
+      "stages": [
+        {
+          "name": "Crab",
+          "gate": { "type": "time", "time": 25 },
+          "spawns": { "crab": 65 },
+          "rate": { "base": 1.0, "growth": 0.035 },
+          "source": "crabnado"
+        },
+        {
+          "name": "Shrimp",
+          "gate": { "type": "time", "time": 275 },
+          "spawns": { "crab": 65, "shrimp": 27 },
+          "rate": { "base": 1.875, "growth": 0.035 },
+          "source": "crabnado"
+        }
+      ],
+      "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27 }, "rate_mult": 0.35 }
+    }
+  ]
+}
