@@ -73,9 +73,8 @@ struct TypedText {
 // capture, one Frame later (the UI pass runs after InputPoll).
 //   pointer  - the cursor is over an interactive element, a captured press is held, or a Modal is open. InputPoll
 //              reports the mouse buttons up with zero delta and scroll; the position still flows.
-//   keyboard - a focused text field wants the keyboard. InputPoll reports every key up and no typed text. Nothing
-//              sets it yet (the text field fill is #108, which will also add the raw keys the field itself needs
-//              to RawInput, since the keys it edits with are the ones this gate hides).
+//   keyboard - a focused text field (UIFocus) wants the keyboard. InputPoll reports every key up, no repeats and no
+//              typed text to gameplay. The field itself edits from RawInput's keys and text, which this gate doesn't hide.
 // A locked cursor skips the pointer gate, as it does for the debug UI.
 struct UICapture {
 	bool pointer{false};
@@ -85,11 +84,22 @@ struct UICapture {
 	bool pointer_latched{false};
 };
 
-// Singleton: the mouse as the platform reported it, before UICapture gates it. InputPoll writes it every Frame beside
-// InputState.mouse. The UI reads its clicks, drags and wheel from here, since a captured press is hidden from
-// InputState (and the UI is what captured it). Gameplay reads InputState.
+// Singleton: the mouse, keys and typed text as the platform reported them, before UICapture gates them (the debug
+// UI's gate still applies). InputPoll writes it every Frame beside InputState. The UI reads its clicks, drags, wheel,
+// editing keys and typed text from here, since captured input is hidden from InputState (and the UI is what captured
+// it). Gameplay reads InputState. A std::string member is fine: unlike InputState this isn't exposed to scripts.
 struct RawInput {
+	std::array<KeyState, InputState::MaxKeys> keys;
 	MouseState mouse;
+	std::string text; // printable text typed this Frame (UTF-8); cleared by InputResetFrameState
+
+	[[nodiscard]] bool WasKeyPressed(const int key) const {
+		return key >= 0 && key < static_cast<int>(InputState::MaxKeys) && keys[static_cast<size_t>(key)].pressed;
+	}
+	// True on the initial press and on each OS auto-repeat while held.
+	[[nodiscard]] bool WasKeyPressedOrRepeated(const int key) const {
+		return key >= 0 && key < static_cast<int>(InputState::MaxKeys) && keys[static_cast<size_t>(key)].repeat;
+	}
 };
 
 // Keys held down from outside the platform: `held` is a space-separated list of KeyCode constant names

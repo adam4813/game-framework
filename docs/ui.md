@@ -111,7 +111,7 @@ too. The UI claims the pointer through the `input::UICapture` singleton, `{ poin
 
 - `UIPointerCapture` (last of the `OnUpdate` interaction systems) sets `pointer` when an interactive element is
   hovered or held (`Button`, `Slider`, `Checkbox`, `Radio`, `Dropdown`, a text field) or a `Modal` is open, from the
-  hit-tests the interaction systems just ran. It writes only `pointer`; `keyboard` is for the focused text field.
+  hit-tests the interaction systems just ran. It also sets `keyboard` (see Keyboard capture).
 - `InputPoll` honors it as it does the debug UI's capture: mouse buttons up, zero delta and scroll for gameplay, the
   position still flows. A locked cursor skips the gate.
 - A press that lands while the pointer is captured latches until every button is released, so a drag that starts on a
@@ -123,6 +123,20 @@ too. The UI claims the pointer through the `input::UICapture` singleton, `{ poin
 
 Since a captured press is hidden from `InputState`, the UI reads the mouse from `input::RawInput` (the mouse before
 the UI's own gate; the debug UI's still applies). Gameplay reads `InputState`. Don't read `RawInput` outside UI code.
+
+## Keyboard capture
+
+A focused `TextInput`/`TextArea` (`UIFocus.focused`) takes the keyboard from gameplay, so typing W/A/S/D doesn't also
+move a player controller:
+
+- `UIPointerCapture` sets `UICapture.keyboard` whenever `UIFocus.focused` is a live entity. `InputPoll` then reports
+  every key up, no repeats and no `TypedText` in `InputState`.
+- The field edits from `RawInput`, not `InputState`: `RawInput.keys` (with `WasKeyPressed`/`WasKeyPressedOrRepeated`)
+  and `RawInput.text` hold the keys and typed text before the `UICapture` gate (the debug UI's gate still applies).
+  `UITextInputEdit` and `UITextAreaEdit` read them, so the field still gets typed text, Backspace and Return.
+- Clicking away clears `UIFocus` in the same pass, so gameplay's keys return the next Frame. The same one Frame of
+  lag as the pointer applies: the click that focuses a field leaks at most one Frame of keys. Destroying the focused
+  field also frees the keyboard.
 
 All UI systems are **untagged** (run in every scene pipeline) and **non-Pausable** (UI keeps working while the game is
 paused). Button state persists between phases, so `OnUI` rendering reflects the same-frame `OnUpdate` interaction.

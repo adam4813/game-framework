@@ -128,7 +128,9 @@ InputModule::InputModule(const flecs::world& world) {
 		// so the game doesn't also act on it. Mouse position still flows for hover/picking.
 		const auto& debug_ui = platform.ptr->GetDebugUi();
 		// The UI's own capture (UICapture) gates the same inputs, below.
-		const bool keyboard_free = !debug_ui.CapturesKeyboard() && !it.world().get<UICapture>().keyboard;
+		const bool debug_keyboard_free = !debug_ui.CapturesKeyboard();
+		const bool keyboard_free = debug_keyboard_free && !it.world().get<UICapture>().keyboard;
+		auto& raw_state = it.world().get_mut<RawInput>();
 		// A locked cursor is hidden, so it can't be over a panel: the mouse gate would only zero the look delta.
 		const bool mouse_free = platform.ptr->IsCursorLocked() || !debug_ui.CapturesMouse();
 
@@ -145,11 +147,20 @@ InputModule::InputModule(const flecs::world& world) {
 			key_state.state = now_pressed;
 			key_state.current = now_pressed;
 			key_state.repeat = keyboard_free && platform.ptr->IsKeyPressedRepeat(static_cast<int>(i));
+
+			// The UI's view: only the debug UI's gate applies, so a focused text field still gets its editing keys.
+			auto& raw_key = raw_state.keys[i];
+			const bool raw_now = (debug_keyboard_free && platform.ptr->IsKeyDown(static_cast<int>(i)))
+								 || std::ranges::contains(overridden, static_cast<int>(i));
+			raw_key.pressed = !raw_key.state && raw_now;
+			raw_key.state = raw_now;
+			raw_key.current = raw_now;
+			raw_key.repeat = debug_keyboard_free && platform.ptr->IsKeyPressedRepeat(static_cast<int>(i));
 		}
 
 		// The mouse the UI sees: everything but what the debug UI captured. `mouse` below is the same, minus
 		// what the UI itself captured (UICapture), and is what gameplay reads.
-		auto& raw = it.world().get_mut<RawInput>().mouse;
+		auto& raw = raw_state.mouse;
 		const bool was_any_down = raw.left.state || raw.right.state || raw.middle.state;
 		const bool left_down = mouse_free && platform.ptr->IsMouseButtonDown(0);   // Left = 0
 		const bool right_down = mouse_free && platform.ptr->IsMouseButtonDown(1);  // Right = 1
@@ -195,7 +206,9 @@ InputModule::InputModule(const flecs::world& world) {
 
 		// Printable text typed this frame (drains the platform character queue exactly once per frame,
 		// so focused text-input UI reads it from the TypedText singleton like any other input).
-		it.world().get_mut<TypedText>().text = keyboard_free ? platform.ptr->TextInput() : std::string{};
+		// The platform queue is drained once; gameplay's copy is withheld under keyboard capture, the UI's isn't.
+		raw_state.text = debug_keyboard_free ? platform.ptr->TextInput() : std::string{};
+		it.world().get_mut<TypedText>().text = keyboard_free ? raw_state.text : std::string{};
 	}).add<ecs::FrameSample>();
 
 	// === SYSTEM: Reset frame-state input flags at end of frame ===
@@ -226,8 +239,14 @@ InputModule::InputModule(const flecs::world& world) {
 		input_state.mouse.scroll.x = 0.0F;
 		input_state.mouse.scroll.y = 0.0F;
 
-		// The same for the unfiltered mouse the UI reads
-		auto& raw = ecs_world.get_mut<RawInput>().mouse;
+		// The same for the unfiltered keys, text and mouse the UI reads
+		auto& raw_input = ecs_world.get_mut<RawInput>();
+		for (auto& key_state : raw_input.keys) {
+			key_state.pressed = false;
+			key_state.repeat = false;
+		}
+		raw_input.text.clear();
+		auto& raw = raw_input.mouse;
 		raw.left.pressed = false;
 		raw.right.pressed = false;
 		raw.middle.pressed = false;

@@ -1030,9 +1030,9 @@ void RegisterUISystems(const flecs::world& world) {
 				return;
 			}
 			ti.caret_blink += it.delta_time();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			bool changed = false;
-			for (const char c : w.get<input::TypedText>().text) {
+			for (const char c : w.get<input::RawInput>().text) {
 				if (c == '\n' || c == '\t') {
 					continue; // single-line: ignore newlines/tabs
 				}
@@ -1069,12 +1069,12 @@ void RegisterUISystems(const flecs::world& world) {
 				return;
 			}
 			ta.caret_blink += it.delta_time();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			const auto at_limit = [&ta] {
 				return ta.max_length > 0 && static_cast<int>(ta.text.size()) >= ta.max_length;
 			};
 			bool changed = false;
-			for (const char c : w.get<input::TypedText>().text) {
+			for (const char c : w.get<input::RawInput>().text) {
 				if (c == '\t') {
 					continue;
 				}
@@ -1103,8 +1103,9 @@ void RegisterUISystems(const flecs::world& world) {
 	// === SYSTEM: Pointer capture (OnUpdate, after every interaction system) ===
 	// Fills input::UICapture.pointer from the hit-tests the interaction systems just ran: an interactive element is
 	// hovered or held, or a Modal is open. InputPoll reads it next Frame and withholds the mouse from gameplay (one
-	// Frame of lag, visible only when the layout moves under a still cursor). Writes only `pointer`; `keyboard` is
-	// the text field's.
+	// Frame of lag, visible only when the layout moves under a still cursor). Also fills `keyboard` from UIFocus: a
+	// focused text field takes the keyboard from gameplay (the field edits from RawInput, which isn't gated). The
+	// click that focuses or unfocuses a field is in this same pass, so clicking away frees gameplay next Frame.
 	const auto text_input_hit_query = world.query_builder<const TextInput, const UIRect>().build();
 	const auto text_area_hit_query = world.query_builder<const TextArea, const UIRect>().build();
 	const auto button_query = world.query_builder<const Button>().build();
@@ -1131,7 +1132,9 @@ void RegisterUISystems(const flecs::world& world) {
 			};
 			text_input_hit_query.each(over_field);
 			text_area_hit_query.each(over_field);
-			w.get_mut<input::UICapture>().pointer = captured;
+			auto& capture = w.get_mut<input::UICapture>();
+			capture.pointer = captured;
+			capture.keyboard = w.get<UIFocus>().focused.is_alive();
 		});
 
 	// === SYSTEM: Build the draw list (PreStore) ===
