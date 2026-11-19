@@ -142,3 +142,8 @@ add_engine_test(raycast_script_test
 add_engine_test(rigid_body_update_test
     rigid_body_update_test.cpp
 )
+
+# UIAnchor: anchored placement against the parent rect or canvas, pivot default, offset sign, Stack interplay
+add_engine_test(ui_anchor_test
+    ui_anchor_test.cpp
+)

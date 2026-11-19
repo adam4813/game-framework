@@ -89,6 +89,10 @@ UIModule::UIModule(const flecs::world& world) {
 		.member("spacing", &Stack::spacing)
 		.member("padding", &Stack::padding)
 		.member("stretch", &Stack::stretch);
+	world.component<UIAnchor>()
+		.member<glm::vec2>("anchor")
+		.member<glm::vec2>("pivot")
+		.member<glm::vec2>("offset");
 	world.component<ScrollRect>()
 		.member<glm::vec2>("scroll")
 		.member<glm::vec2>("content_size")
@@ -189,6 +193,7 @@ UIModule::UIModule(const flecs::world& world) {
 	scripting::RegisterComponentForScripts(world, world.component<ProgressBar>());
 	scripting::RegisterComponentForScripts(world, world.component<Spinner>());
 	scripting::RegisterComponentForScripts(world, world.component<Stack>());
+	scripting::RegisterComponentForScripts(world, world.component<UIAnchor>());
 	scripting::RegisterComponentForScripts(world, world.component<ScrollRect>());
 	scripting::RegisterComponentForScripts(world, world.component<Modal>());
 	scripting::RegisterComponentForScripts(world, world.component<Checkbox>());

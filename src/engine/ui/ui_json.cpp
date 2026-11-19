@@ -138,6 +138,13 @@ void RegisterUILevelLoaders(const flecs::world& world) {
 		s.stretch = j.value("stretch", s.stretch);
 		e.set<Stack>(s);
 	});
+	level::RegisterComponentLoader(world, "ui_anchor", [](const flecs::entity e, const json& j) {
+		UIAnchor a{};
+		a.anchor = core::JVec2(j, "anchor", a.anchor);
+		a.pivot = core::JVec2(j, "pivot", a.pivot);
+		a.offset = core::JVec2(j, "offset", a.offset);
+		e.set<UIAnchor>(a);
+	});
 	level::RegisterComponentLoader(world, "scroll_rect", [](const flecs::entity e, const json& j) {
 		ScrollRect s{};
 		s.vertical = j.value("vertical", s.vertical);

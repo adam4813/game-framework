@@ -283,6 +283,16 @@
 | TestTween#Tween.from                            | 0                       | 0                       | 0                       | [MATCH]     |
 | TestTween#Tween.to                              | 1                       | 1                       | 1                       | [MATCH]     |
 | TestTween#Tween.value                           | 0                       | 0                       | 0                       | [MATCH]     |
+| TestUIAnchor#UIAnchor.anchor.x                  | 1                       | 1                       | 1                       | [MATCH]     |
+| TestUIAnchor#UIAnchor.anchor.y                  | 1                       | 1                       | 1                       | [MATCH]     |
+| TestUIAnchor#UIAnchor.offset.x                  | 12                      | 12                      | 12                      | [MATCH]     |
+| TestUIAnchor#UIAnchor.offset.y                  | 12                      | 12                      | 12                      | [MATCH]     |
+| TestUIAnchor#UIAnchor.pivot.x                   | -1                      | -1                      | -1                      | [MATCH]     |
+| TestUIAnchor#UIAnchor.pivot.y                   | -1                      | -1                      | -1                      | [MATCH]     |
+| TestUIAnchor#UIRect.rect.h                      | 30                      | 30                      | 30                      | [MATCH]     |
+| TestUIAnchor#UIRect.rect.w                      | 120                     | 120                     | 120                     | [MATCH]     |
+| TestUIAnchor#UIRect.rect.x                      | 0                       | 0                       | 0                       | [MATCH]     |
+| TestUIAnchor#UIRect.rect.y                      | 0                       | 0                       | 0                       | [MATCH]     |
 | TestUIButton#Button.border_color.a              | 255                     | 255                     | 255                     | [MATCH]     |
 | TestUIButton#Button.border_color.b              | 90                      | 90                      | 90                      | [MATCH]     |
 | TestUIButton#Button.border_color.g              | 100                     | 100                     | 100                     | [MATCH]     |

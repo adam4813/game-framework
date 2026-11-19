@@ -825,6 +825,12 @@ json BuildCppWorld() {
 	test_world.World()
 		.entity()
 		.child_of(scene_root)
+		.set_name("TestUIAnchor")
+		.set<engine::ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = 120.0F, .h = 30.0F}})
+		.set<engine::ui::UIAnchor>({.anchor = {1.0F, 1.0F}, .pivot = {-1.0F, -1.0F}, .offset = {12.0F, 12.0F}});
+	test_world.World()
+		.entity()
+		.child_of(scene_root)
 		.set_name("TestUIScrollRect")
 		.set<engine::ui::UIRect>({{.x = 10.0F, .y = 420.0F, .w = 200.0F, .h = 150.0F}})
 		.set<engine::ui::ScrollRect>({

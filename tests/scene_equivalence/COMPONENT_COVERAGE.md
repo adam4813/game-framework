@@ -158,7 +158,7 @@ Legend:
 
 `UIModule` is imported by `EngineContext`, so UI components are registered in `TestWorld`. The sixteen
 script-registered components below are authored in all three paths (`TestUIPanel`/`TestUIButton`/
-`TestUIProgressBar`/`TestUISpinner`/`TestUIStack`/`TestUIScrollRect`/`TestUIModal`/`TestUILabel`/
+`TestUIProgressBar`/`TestUISpinner`/`TestUIStack`/`TestUIAnchor`/`TestUIScrollRect`/`TestUIModal`/`TestUILabel`/
 `TestUISlider`/`TestUICheckbox`/`TestUIRadio`/`TestUITextInput`/`TestUITextArea`/`TestUIDropdown`). Runtime
 fields (`hovered`/`pressed`/`clicked`/`phase`/`scroll`/`content_size`/`dragging_*`/`caret_blink`/`hover_index`) are
 left at defaults — no path runs systems, so they match. Each widget's unreflected members (`std::function`
@@ -174,6 +174,7 @@ script and JSON layers, so only the plain-data fields are compared.
 | `ProgressBar` | value, min, max, fill_color/track_color/border_color(Rgba), border_thickness, roundness                                                         | ✅     |                                                                 |
 | `Spinner`     | color(Rgba), radius, dot_radius, dots(int), speed, phase                                                                                        | ✅     | `phase` runtime; default-match (no systems run)                 |
 | `Stack`       | spacing, padding, stretch                                                                                                                       | ✅     | `direction` enum not meta-reflected                             |
+| `UIAnchor`    | anchor(vec2), pivot(vec2), offset(vec2)                                                                                                         | ✅     | `pivot` default -1 (= anchor)                                   |
 | `ScrollRect`  | scroll(vec2), content_size(vec2), vertical, horizontal, scrollbar_thickness, wheel_speed, track_color/thumb_color(Rgba), dragging_v, dragging_h | ✅     | `scroll`/`content_size`/`dragging_*` runtime; default-match     |
 | `Modal`       | open(bool), backdrop_color(Rgba), close_on_backdrop                                                                                             | ✅     |                                                                 |
 | `Label`       | text(string), font_size, color(Rgba), align(TextAlign)                                                                                          | ✅     | `align` enum skipped (left default); text/font_size/color       |
