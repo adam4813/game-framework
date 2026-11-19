@@ -100,9 +100,29 @@ UI is treated like ordinary simulation, split across phases so there is no one-f
   anything hit-tests.
 - **Interaction/logic** — `OnUpdate` reads input sampled in `PreUpdate` (before `PostUpdate` clears it):
   `UIScrollRectUpdate`, `UISpinnerAnimate`, `UIModalInteraction`, `UIButtonInteraction`,
-  `UIButtonClickRequest`.
+  `UIButtonClickRequest`, then `UIPointerCapture` (see below).
 - **Render** — `UIBuildDrawList` then `UIRenderDrawList` in `ecs::OnUI` (after 3D in `OnStore`), so 2D always composites
   on top.
+
+## Pointer capture
+
+A click on a `Button` is in the mouse input like any other, so gameplay (Build mode placing a Part) would act on it
+too. The UI claims the pointer through the `input::UICapture` singleton, `{ pointer, keyboard }`:
+
+- `UIPointerCapture` (last of the `OnUpdate` interaction systems) sets `pointer` when an interactive element is
+  hovered or held (`Button`, `Slider`, `Checkbox`, `Radio`, `Dropdown`, a text field) or a `Modal` is open, from the
+  hit-tests the interaction systems just ran. It writes only `pointer`; `keyboard` is for the focused text field.
+- `InputPoll` honors it as it does the debug UI's capture: mouse buttons up, zero delta and scroll for gameplay, the
+  position still flows. A locked cursor skips the gate.
+- A press that lands while the pointer is captured latches until every button is released, so a drag that starts on a
+  UI element stays with the UI and a press/release pair isn't split. A press that began in gameplay stays gameplay's
+  even when dragged across a UI element.
+- **One Frame of lag.** The UI pass runs after `InputPoll`, so the capture a Frame's input sees comes from the
+  previous Frame's layout. It shows only when the layout moves under a still cursor: the Frame a `Modal` opens leaks
+  that Frame's press to gameplay.
+
+Since a captured press is hidden from `InputState`, the UI reads the mouse from `input::RawInput` (the mouse before
+the UI's own gate; the debug UI's still applies). Gameplay reads `InputState`. Don't read `RawInput` outside UI code.
 
 All UI systems are **untagged** (run in every scene pipeline) and **non-Pausable** (UI keeps working while the game is
 paused). Button state persists between phases, so `OnUI` rendering reflects the same-frame `OnUpdate` interaction.

@@ -68,6 +68,30 @@ struct TypedText {
 	std::string text;
 };
 
+// Singleton: which input the UI claimed on its last interaction pass, so gameplay doesn't also act on it. The
+// UI fills it (UICapture pass, after its interaction systems); InputPoll honors it the way it honors the debug UI's
+// capture, one Frame later (the UI pass runs after InputPoll).
+//   pointer  - the cursor is over an interactive element, a captured press is held, or a Modal is open. InputPoll
+//              reports the mouse buttons up with zero delta and scroll; the position still flows.
+//   keyboard - a focused text field wants the keyboard. InputPoll reports every key up and no typed text. Nothing
+//              sets it yet (the text field fill is #108, which will also add the raw keys the field itself needs
+//              to RawInput, since the keys it edits with are the ones this gate hides).
+// A locked cursor skips the pointer gate, as it does for the debug UI.
+struct UICapture {
+	bool pointer{false};
+	bool keyboard{false};
+	// InputPoll's own state, not the UI's: a button went down while `pointer` was set and hasn't been released, so
+	// the press/drag stays captured even once the cursor leaves the element.
+	bool pointer_latched{false};
+};
+
+// Singleton: the mouse as the platform reported it, before UICapture gates it. InputPoll writes it every Frame beside
+// InputState.mouse. The UI reads its clicks, drags and wheel from here, since a captured press is hidden from
+// InputState (and the UI is what captured it). Gameplay reads InputState.
+struct RawInput {
+	MouseState mouse;
+};
+
 // Keys held down from outside the platform: `held` is a space-separated list of KeyCode constant names
 // (see key_names.hpp), e.g. "D LeftShift". InputPoll treats each as physically held, with the usual
 // rising-edge `pressed` on the first frame. Reflected so the Remote API can press keys

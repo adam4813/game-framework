@@ -147,3 +147,8 @@ add_engine_test(rigid_body_update_test
 add_engine_test(ui_anchor_test
     ui_anchor_test.cpp
 )
+
+# UICapture: a UI-owned pointer click, drag or modal is withheld from gameplay by InputPoll
+add_engine_test(ui_pointer_capture_test
+    ui_pointer_capture_test.cpp
+)
