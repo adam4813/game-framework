@@ -48,6 +48,11 @@ add_engine_test(translucent_pass_test
     translucent_pass_test.cpp
 )
 
+# UI Image: fit modes, atlas sub-rect and tint resolved into the draw list, under ScrollRect and Modal, and JSON
+add_engine_test(ui_image_test
+    ui_image_test.cpp
+)
+
 if (ENABLE_DEBUG_UI)
     add_engine_test(imgui_debug_ui_test
         imgui_debug_ui_test.cpp

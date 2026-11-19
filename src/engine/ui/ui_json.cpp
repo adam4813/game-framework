@@ -27,6 +27,14 @@ TextAlign ParseAlign(const std::string& s, const TextAlign def) {
 	return def;
 }
 
+FitMode ParseFit(const std::string& s, const FitMode def) {
+	if (s == "stretch") return FitMode::Stretch;
+	if (s == "fit") return FitMode::Fit;
+	if (s == "fill") return FitMode::Fill;
+	if (s == "tile") return FitMode::Tile;
+	return def;
+}
+
 StackDirection ParseDirection(const std::string& s, const StackDirection def) {
 	if (s == "horizontal") return StackDirection::Horizontal;
 	if (s == "vertical") return StackDirection::Vertical;
@@ -73,7 +81,17 @@ void RegisterUILevelLoaders(const flecs::world& world) {
 		p.texture = LoadTextureField(e.world(), j);
 		e.set<Panel>(p);
 	});
-	level::RegisterComponentLoader(world, "label", [](const flecs::entity e, const json& j) {
+	level::RegisterComponentLoader(world, "image", [](const flecs::entity e, const json& j) {
+		Image image{};
+		image.texture = LoadTextureField(e.world(), j);
+		image.fit = ParseFit(j.value("fit", std::string{}), image.fit);
+		if (j.contains("source")) {
+			image.source = ParseRect(j["source"]);
+		}
+		image.tint = JRgba(j, "tint", image.tint);
+		e.set<Image>(image);
+	});
+	level::RegisterComponentLoader(world, "label",[](const flecs::entity e, const json& j) {
 		Label l{};
 		l.text = j.value("text", l.text);
 		l.font_size = j.value("font_size", l.font_size);

@@ -49,6 +49,25 @@ struct Panel {
 	int texture{-1};       // optional texture handle (from platform LoadTexture); -1 = solid color fill
 };
 
+// How an Image's source region maps into its UIRect.
+//   Stretch: fill the rect, distorting the aspect ratio.
+//   Fit:     scale uniformly to fit inside the rect (letterbox: the rect's spare space stays empty).
+//   Fill:    scale uniformly to cover the rect, cropping the source's overflow.
+//   Tile:    repeat the source at 1:1 texel-to-pixel (what Panel.texture and Button.texture do).
+// Keeps the default `int` underlying type: reflected enums are serialized as 4 bytes.
+enum class FitMode { Stretch, Fit, Fill, Tile };
+
+// A texture drawn into the element's UIRect: an icon, a crosshair, a portrait. `source` selects a
+// sub-rectangle of the texture in texels (an atlas cell); a zero width or height means the whole
+// texture. `tint` multiplies the texels (white leaves them unchanged). An Image with no texture
+// (`texture` < 0) draws nothing. Combine with a Panel on the same entity for a backdrop.
+struct Image {
+	int texture{-1}; // texture handle (from LoadTexture); -1 = nothing drawn
+	FitMode fit{FitMode::Stretch};
+	core::Rect source{};
+	core::Rgba tint{.r = 255, .g = 255, .b = 255, .a = 255};
+};
+
 // Horizontal text placement of a Label within its UIRect.
 enum class TextAlign : std::uint8_t { Left, Center, Right };
 
