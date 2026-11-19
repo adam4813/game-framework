@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 
 #include "campaign.hpp"
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "run.hpp"
 
@@ -23,7 +24,7 @@ constexpr std::string_view kSlamBehavior = "slam";
 // Reads every tunable of the slam behavior. A missing or non-numeric one is named in the returned error, with no
 // default to fall back on.
 std::string ParseSlam(const nlohmann::json& entry, SlamTunables& out) {
-	const std::array<std::pair<const char*, float*>, 11> floats{{
+	const std::array<std::pair<const char*, float*>, 10> floats{{
 		{"speed", &out.speed},
 		{"knock_min_height", &out.knock_min_height},
 		{"knock_push", &out.knock_push},
@@ -34,7 +35,6 @@ std::string ParseSlam(const nlohmann::json& entry, SlamTunables& out) {
 		{"slam_min_speed", &out.slam_min_speed},
 		{"slam_cooldown", &out.slam_cooldown},
 		{"slam_bounce", &out.slam_bounce},
-		{"storm_up", &out.storm_up},
 	}};
 	std::string missing;
 	for (const auto& [key, field] : floats) {
@@ -103,21 +103,11 @@ const BossDef* CurrentBoss(const flecs::world& world) {
 }
 
 float StormLevel(const flecs::world& world) {
-	const BossDef* boss = CurrentBoss(world);
-	if (boss == nullptr) {
+	if (CurrentBoss(world) == nullptr || !InBossStage(world)) {
 		return 0.0F;
 	}
-	if (InBossStage(world)) {
-		return 1.0F;
-	}
-	const Act& act = *CurrentAct(world);
 	const auto& run = world.get<RunState>();
-	// Only the last Stage's time gate says when the storm lands; any earlier Stage is calm.
-	if (run.stage + 1 != static_cast<int>(act.stages.size()) || boss->slam.storm_up <= 0.0F) {
-		return 0.0F;
-	}
-	const float gateTime = act.stages.back().gate.time;
-	return std::clamp((run.stage_clock - (gateTime - boss->slam.storm_up)) / boss->slam.storm_up, 0.0F, 1.0F);
+	return run.phase == RunPhase::Boss ? 1.0F : std::clamp(1.0F - run.storm_up / constants::kStormUpTime, 0.0F, 1.0F);
 }
 
 } // namespace crabnado

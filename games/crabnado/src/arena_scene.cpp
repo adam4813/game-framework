@@ -265,7 +265,11 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set<ui::Label>({.font_size = 24.0F, .color = kBossColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
 					 .set_name("BossLabel")
 					 .child_of(uiRoot_);
-	bannerLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.28F, .w = w, .h = 44.0F}, "", 38.0F)
+	challengeLabel_ = ui::CreateLabel(world, {.x = barX, .y = 84.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 24.0F)
+						  .set<ui::Label>({.font_size = 24.0F, .color = kBannerColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
+						  .set_name("ChallengeLabel")
+						  .child_of(uiRoot_);
+	bannerLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.28F, .w = w, .h = 88.0F}, "", 38.0F)
 					   .set<ui::Label>({.font_size = 38.0F, .color = kBannerColor, .outline = 3.0F, .outline_color = kHudOutlineColor})
 					   .set_name("BannerLabel")
 					   .child_of(uiRoot_);
@@ -500,6 +504,16 @@ void ArenaScene::BuildMoltModal(const flecs::world& world, const float width, co
 	)
 						 .set_name("ConfirmButton")
 						 .child_of(moltModal_);
+	// Shown only while a reroll is in hand (UpdateMolt).
+	rerollButton_ = ui::CreateButton(
+						world,
+						{.x = x + kMoltModalWidth - kConfirmWidth - 24.0F, .y = top + kCardHeight + 20.0F, .w = kConfirmWidth, .h = kModalButtonHeight},
+						"Reroll",
+						[](const flecs::entity button) { RerollMolt(button.world()); }
+	)
+						.set<ui::UIElement>({})
+						.set_name("RerollButton")
+						.child_of(moltModal_);
 }
 
 void ArenaScene::BuildResultsModal(const flecs::world& world, const float width, const float height) {
@@ -704,14 +718,33 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	const BossDef* def = CurrentBoss(world);
 	const bool boss = run.phase == RunPhase::Boss && def != nullptr;
 	const int slamsToWin = def != nullptr ? def->slam.slams_to_win : 0;
-	bossLabel_.get_mut<ui::Label>().text =
-		boss ? std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams) : "";
+	const bool stormRising = run.phase == RunPhase::Playing && run.storm_up > 0.0F && InBossStage(world);
+	bossLabel_.get_mut<ui::Label>().text = boss ? std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams)
+												: (stormRising ? "The storm is rising!" : "");
 	std::string banner;
 	if (boss && run.banner_timer > 0.0F) {
 		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
 								: std::format("SLAM! {}/{}", run.slams, slamsToWin);
+	} else if (const Stage* stage = CurrentStage(world); stage != nullptr && run.stage_banner > 0.0F && run.phase == RunPhase::Playing) {
+		banner = std::format("{} Stage", stage->name);
+		if (const std::string challenge = ChallengeText(stage->gate); !challenge.empty()) {
+			banner += "\n" + challenge;
+		}
 	}
 	bannerLabel_.get_mut<ui::Label>().text = banner;
+	if (challengeLabel_.has<ui::Label>()) {
+		const Stage* stage = CurrentStage(world);
+		std::string challenge;
+		if (run.challenge_cleared > 0.0F) {
+			challenge = "Challenge cleared!";
+		} else if (stage != nullptr && stage->gate.type == GateType::Both) {
+			challenge = std::format(
+				"Challenge {}/{} \xC2\xB7 {}", std::min(run.kills - run.stage_kills_start, stage->gate.kills), stage->gate.kills,
+				FormatClock(stage->gate.time - run.stage_clock)
+			);
+		}
+		challengeLabel_.get_mut<ui::Label>().text = challenge;
+	}
 }
 
 void ArenaScene::UpdateCountdown(const flecs::world& world) const {
@@ -791,6 +824,10 @@ void ArenaScene::UpdateMolt(const flecs::world& world) const {
 	const auto& offer = world.get<MoltOffer>();
 	for (int i = 0; i < kMoltChoices; ++i) {
 		UpdateMoltCard(world, moltCards_[i], FindUpgrade(world, offer.ids[i]), offer.selected == i);
+	}
+	if (rerollButton_.has<ui::Button>() && rerollButton_.has<ui::UIElement>()) {
+		rerollButton_.get_mut<ui::UIElement>().visible = run.rerolls > 0;
+		rerollButton_.get_mut<ui::Button>().label = std::format("Reroll ({})", run.rerolls);
 	}
 	if (confirmButton_.has<ui::Button>()) {
 		// Greyed out until a card is selected; ConfirmUpgrade ignores the click until then.
@@ -917,6 +954,8 @@ void ArenaScene::Unload(flecs::world& world) {
 	waveLabel_ = {};
 	telegraph_ = {};
 	bossLabel_ = {};
+	challengeLabel_ = {};
+	rerollButton_ = {};
 	bannerLabel_ = {};
 	countdownLabel_ = {};
 	moltModal_ = {};

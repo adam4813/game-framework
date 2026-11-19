@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <filesystem>
 #include <format>
 #include <stdexcept>
 #include <utility>
@@ -12,7 +14,9 @@
 #include "boss_registry.hpp"
 #include "crabnado_constants.hpp"
 #include "enemy_types.hpp"
+#include "player.hpp"
 #include "run.hpp"
+#include "sfx.hpp"
 
 using namespace engine;
 
@@ -71,6 +75,25 @@ const json& Object(const json& j, const char* key) {
 	return j[key];
 }
 
+GateBonus ParseBonus(const json& j) {
+	if (!j.is_object()) {
+		throw std::runtime_error("'bonus' must be an object {type, amount}");
+	}
+	const std::string type = Text(j, "type");
+	GateBonus bonus;
+	if (type == "shells") {
+		bonus.type = BonusType::Shells;
+	} else if (type == "reroll") {
+		bonus.type = BonusType::Reroll;
+	} else if (type == "heal") {
+		bonus.type = BonusType::Heal;
+	} else {
+		throw std::runtime_error(std::format("unknown bonus type '{}'", type));
+	}
+	bonus.amount = OptionalNumber(j, "amount");
+	return bonus;
+}
+
 Gate ParseGate(const json& j) {
 	if (!j.is_object()) {
 		throw std::runtime_error("gate must be an object");
@@ -92,6 +115,7 @@ Gate ParseGate(const json& j) {
 		if (!j.contains("time") || !j.contains("kills") || !j.contains("bonus")) {
 			throw std::runtime_error("a both gate needs 'time', 'kills' and 'bonus'");
 		}
+		gate.bonus = ParseBonus(j["bonus"]);
 	} else if (type == "script") {
 		gate.type = GateType::Script;
 	} else {
@@ -99,7 +123,6 @@ Gate ParseGate(const json& j) {
 	}
 	gate.time = Number(j, "time", 0.0F);
 	gate.kills = static_cast<int>(Number(j, "kills", 0.0F));
-	gate.bonus = Number(j, "bonus", 0.0F);
 	gate.script = Text(j, "script");
 	return gate;
 }
@@ -285,7 +308,11 @@ std::span<const std::string_view> SpawnerIds() {
 }
 
 void LoadCampaignData(const flecs::world& world, const std::string_view assetDirectory) {
-	LoadBosses(world, std::string{assetDirectory} + std::string{constants::kBossesPath});
+	const auto& source = world.get<CampaignSource>();
+	const auto resolve = [assetDirectory](const std::string& path) {
+		return std::filesystem::path{path}.is_absolute() ? path : std::string{assetDirectory} + path;
+	};
+	LoadBosses(world, resolve(source.bosses_path));
 
 	std::vector<std::string> enemyIds;
 	for (const EnemyType& type : world.get<EnemyRegistry>().types) {
@@ -296,7 +323,7 @@ void LoadCampaignData(const flecs::world& world, const std::string_view assetDir
 		bossIds.push_back(boss.id);
 	}
 
-	const std::string path = std::string{assetDirectory} + std::string{constants::kCampaignPath};
+	const std::string path = resolve(source.campaign_path);
 	CampaignParseResult result;
 	if (const auto doc = core::LoadJsonFile(path, kLogTag)) {
 		result = ParseCampaign(*doc, enemyIds, bossIds, SpawnerIds());
@@ -366,17 +393,39 @@ float CurrentEnemyHpScale(const flecs::world& world) {
 
 namespace {
 
-// Enters the Stage RunState names: the Boss Stage starts the boss phase (or, with no boss, clears the Act, which for
-// now wins the run), and a normal Stage ends a boss phase a jump left behind.
+// Pays a `both` gate's bonus.
+void PayBonus(const flecs::world& world, RunState& run, const GateBonus& bonus) {
+	switch (bonus.type) {
+	case BonusType::Shells:
+		// The same path a pickup uses: MoltCheck spends them next tick, so a big enough bonus molts.
+		run.shells += static_cast<int>(std::lround(bonus.amount.value_or(0.5F * static_cast<float>(run.shells_needed))));
+		break;
+	case BonusType::Reroll: run.rerolls += static_cast<int>(std::lround(bonus.amount.value_or(1.0F))); break;
+	case BonusType::Heal:
+		if (const flecs::entity player = FindPlayer(world)) {
+			auto& stats = player.get_mut<PlayerStats>();
+			stats.hp = std::min(stats.max_hp, stats.hp + bonus.amount.value_or(0.3F * stats.max_hp));
+		}
+		break;
+	}
+}
+
+// Enters the Stage RunState names: a normal Stage shows its banner, the Boss Stage starts the storm-up (or, with no
+// boss, clears the Act, which for now wins the run), and a normal Stage also ends a boss phase a jump left behind.
 void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
+	run.stage_kills_start = run.kills;
+	run.storm_up = 0.0F;
 	if (run.stage < static_cast<int>(act.stages.size())) {
 		if (run.phase == RunPhase::Boss) {
 			run.phase = RunPhase::Playing;
 			run.slams = 0;
 		}
+		run.stage_banner = constants::kStageBannerTime;
+		PlaySfx(world, Sfx::StageSting);
 		spdlog::info("[Run] Act {} Stage {} '{}' at {:.1f}s", run.act, run.stage, act.stages[static_cast<size_t>(run.stage)].name, run.clock);
 		return;
 	}
+	run.stage_banner = 0.0F;
 	if (!act.boss) {
 		spdlog::warn("[Run] Act {} has no boss: cleared at {:.1f}s", run.act, run.clock);
 		run.phase = RunPhase::Boss;
@@ -384,15 +433,34 @@ void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 		return;
 	}
 	if (run.phase == RunPhase::Playing) {
-		run.phase = RunPhase::Boss;
-		run.banner_timer = constants::kBossBannerTime;
-		spdlog::info("[Run] The crabnado comes ashore at {:.1f}s", run.clock);
+		run.storm_up = constants::kStormUpTime;
+		PlaySfx(world, Sfx::StormWarning);
+		spdlog::info("[Run] The storm rises at {:.1f}s", run.clock);
 	}
 }
 
-// One director tick: enter the Stage RunState names if it differs from the last applied pair, else end the current
-// Stage when its gate opens. Only time gates are evaluated; ticket 03 adds the rest.
-void StepDirector(const flecs::world& world, RunState& run) {
+// Whether a Stage's gate has opened, and whether it opened with a `both` gate's quota met (in time, or at the same
+// tick as the clock).
+struct GateResult {
+	bool open{false};
+	bool challengeMet{false};
+};
+
+GateResult EvaluateGate(const Gate& gate, const RunState& run) {
+	const bool timeUp = run.stage_clock >= gate.time;
+	const bool quotaMet = run.kills - run.stage_kills_start >= gate.kills;
+	switch (gate.type) {
+	case GateType::Time: return {.open = timeUp};
+	case GateType::Quota: return {.open = quotaMet};
+	case GateType::Both: return {.open = timeUp || quotaMet, .challengeMet = quotaMet};
+	case GateType::Script: break;
+	}
+	return {};
+}
+
+// One director tick: enter the Stage RunState names if it differs from the last applied pair; in the Boss Stage count
+// the storm-up down and land the boss; else end the current Stage when its gate opens.
+void StepDirector(const flecs::world& world, RunState& run, const float dt) {
 	if (!IsRunning(run.phase)) {
 		return;
 	}
@@ -411,8 +479,26 @@ void StepDirector(const flecs::world& world, RunState& run) {
 		return;
 	}
 	const Stage* stage = CurrentStage(world);
-	if (stage == nullptr || stage->gate.type != GateType::Time || run.stage_clock < stage->gate.time) {
+	if (stage == nullptr) {
+		if (run.storm_up > 0.0F && run.phase == RunPhase::Playing) {
+			run.storm_up = std::max(0.0F, run.storm_up - dt);
+			if (run.storm_up <= 0.0F) {
+				run.phase = RunPhase::Boss;
+				run.banner_timer = constants::kBossBannerTime;
+				spdlog::info("[Run] The crabnado comes ashore at {:.1f}s", run.clock);
+			}
+		}
 		return;
+	}
+	const GateResult gate = EvaluateGate(stage->gate, run);
+	if (!gate.open) {
+		return;
+	}
+	if (gate.challengeMet) {
+		PayBonus(world, run, stage->gate.bonus);
+		run.challenge_cleared = constants::kChallengeClearedTime;
+		PlaySfx(world, Sfx::ChallengeCleared);
+		spdlog::info("[Run] Challenge cleared in Stage {} at {:.1f}s", run.stage, run.clock);
 	}
 	++run.stage;
 	applied.stage = run.stage;
@@ -422,9 +508,20 @@ void StepDirector(const flecs::world& world, RunState& run) {
 
 } // namespace
 
+std::string FormatClock(const float seconds) {
+	const int whole = std::max(0, static_cast<int>(std::ceil(seconds)));
+	return std::format("{}:{:02}", whole / 60, whole % 60);
+}
+
+std::string ChallengeText(const Gate& gate) {
+	return gate.type == GateType::Both ? std::format("Defeat {} in {}!", gate.kills, FormatClock(gate.time)) : std::string{};
+}
+
 void RegisterCampaign(const flecs::world& world) {
 	world.component<Campaign>();
 	world.component<DirectorApplied>();
+	world.component<CampaignSource>().member<std::string>("campaign_path").member<std::string>("bosses_path");
+	world.set<CampaignSource>({});
 	world.component<BossRegistry>();
 	world.set<Campaign>({});
 	world.set<DirectorApplied>({});
@@ -434,7 +531,7 @@ void RegisterCampaign(const flecs::world& world) {
 		.term_at(0)
 		.src<RunState>()
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, RunState& run) { StepDirector(it.world(), run); })
+		.each([](const flecs::iter& it, size_t, RunState& run) { StepDirector(it.world(), run, it.delta_time()); })
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 }

@@ -184,9 +184,19 @@ Molt cards show each changed stat as "before → after", green when it helps and
 | Tide Pull | Shell pickup range +40% |
 | Deep Roots | Max stamina +40, refills 30% faster |
 
+## Stage gates
+
+A Stage ends on a `time` gate (survive X), a `quota` gate (defeat Y, no clock) or a `both` gate (defeat Y in X: it ends
+at whichever comes first, and meeting Y in time pays the Stage's bonus: shells, a molt reroll or a heal; missing costs
+nothing). Any enemy death counts toward Y. Every Stage change shows a 2 s banner naming its headliner with a sting; a
+`both` Stage adds its challenge ("Defeat 40 in 1:00!") and the HUD shows "Challenge 23/40 · 0:41" while it runs, then
+"Challenge cleared!". A reroll adds a "Reroll (n)" button to the molt modal. Gates run on the Stage's own clock, which
+(like the run clock) stands still during molts and countdowns.
+
 ## The boss
 
-At 4:30 (`storm_up` 30 s before the last Stage ends) the crabnado storms up, darker and swaying harder. At 5:00 a banner announces the boss: the same crabnado
+When the last Stage ends, the crabnado stops throwing for a fixed 5 s storm-up: it darkens, spins and sways harder, the HUD
+reads "The storm is rising!" and a warning sounds. Then a banner announces the boss: the same crabnado
 comes ashore and chases the player, its spawn rate drops to 35%, and contact with it deals 25 damage per second.
 **You can't damage it directly.** A big crest that pushes it into a rock counts as one slam (2.5 s cooldown so one
 crest can't count twice). The HUD shows the slams left. **Three slams win**, and the crabnado breaks apart.

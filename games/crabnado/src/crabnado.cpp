@@ -204,7 +204,8 @@ void RegisterCrabnado(const flecs::world& world) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
 			const auto plan = CurrentSpawnPlan(world);
-			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay || !plan) {
+			// No new throws while the storm rises.
+			if (!IsRunning(run.phase) || run.clock < constants::kFirstThrowDelay || run.storm_up > 0.0F || !plan) {
 				return;
 			}
 			crabnado.spawn_debt += plan->rate * it.delta_time();

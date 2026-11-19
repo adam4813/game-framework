@@ -1,0 +1,27 @@
+{
+  "acts": [
+    {
+      "id": "gates",
+      "name": "Gate Fixture",
+      "title": "Test Act",
+      "hp_scale": { "mult": 1.0, "growth_seconds": 0 },
+      "stages": [
+        { "name": "Timed", "gate": { "type": "time", "time": 10 }, "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        { "name": "Quota", "gate": { "type": "quota", "kills": 5 }, "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        {
+          "name": "Race",
+          "gate": { "type": "both", "time": 20, "kills": 4, "bonus": { "type": "reroll", "amount": 2 } },
+          "spawns": { "crab": 1 },
+          "rate": { "base": 0 }
+        },
+        {
+          "name": "Slow Race",
+          "gate": { "type": "both", "time": 5, "kills": 100, "bonus": { "type": "shells", "amount": 7 } },
+          "spawns": { "crab": 1 },
+          "rate": { "base": 0 }
+        }
+      ],
+      "boss": { "id": "crabnado", "spawns": { "crab": 1 }, "rate_mult": 1.0 }
+    }
+  ]
+}

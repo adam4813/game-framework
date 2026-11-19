@@ -96,6 +96,10 @@ void SelectUpgrade(const flecs::world& world, int choice);
 // Applies the selected upgrade (see ChooseUpgrade). Does nothing when none is selected.
 void ConfirmUpgrade(const flecs::world& world);
 
+// Spends one of RunState::rerolls to roll a new set of offers. Does nothing unless the run is molting and a reroll is
+// in hand.
+void RerollMolt(const flecs::world& world);
+
 // Applies the offered upgrade in slot `choice` (0-based) to the player and resumes the run. Does nothing
 // unless the run is molting and the slot holds an upgrade.
 void ChooseUpgrade(const flecs::world& world, int choice);

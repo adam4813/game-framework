@@ -204,6 +204,7 @@ void BeginMolt(const flecs::world& world, RunState& run) {
 		return;
 	}
 	world.set<MoltOffer>(offer);
+	run.resume_phase = run.phase;
 	run.phase = RunPhase::Molting;
 	world.add<scene::Paused>();
 	PlaySfx(world, Sfx::Molt);
@@ -299,6 +300,20 @@ void ConfirmUpgrade(const flecs::world& world) {
 	if (const int selected = world.get<MoltOffer>().selected; selected >= 0) {
 		ChooseUpgrade(world, selected);
 	}
+}
+
+void RerollMolt(const flecs::world& world) {
+	auto& run = world.get_mut<RunState>();
+	if (run.phase != RunPhase::Molting || run.rerolls <= 0) {
+		return;
+	}
+	const MoltOffer offer = RollOffer(world, run.molt_level);
+	if (offer.ids[0].empty()) {
+		return;
+	}
+	--run.rerolls;
+	world.set<MoltOffer>(offer);
+	spdlog::info("[Run] Molt {}: rerolled, offering {}, {}, {}", run.molt_level, offer.ids[0], offer.ids[1], offer.ids[2]);
 }
 
 void ChooseUpgrade(const flecs::world& world, const int choice) {

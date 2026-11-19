@@ -115,6 +115,8 @@ private:
 	std::array<MoltCard, kMoltChoices> moltCards_;
 	void UpdateMoltCard(const flecs::world& world, const MoltCard& card, const Upgrade* upgrade, bool selected) const;
 	flecs::entity confirmButton_;
+	flecs::entity rerollButton_;
+	flecs::entity challengeLabel_;
 };
 
 } // namespace crabnado

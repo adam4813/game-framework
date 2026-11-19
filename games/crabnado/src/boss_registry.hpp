@@ -16,8 +16,7 @@ namespace crabnado {
 // rock fast enough is a slam. A wave higher than `knock_min_height` carries it at `knock_push` of the wave push, else
 // its knock decays. It is a circle of `radius` against rocks, stays `edge_margin` inside the arena edge, and within
 // `contact_range` of the player it drains `contact_dps` HP per second. Knocked into a rock faster than `slam_min_speed`
-// it takes a slam (`slam_cooldown` seconds apart; knock * `slam_bounce`); `slams_to_win` win the run. `storm_up` is
-// the seconds before the last Stage ends over which the funnel darkens (ticket 03 replaces it with a fixed wind-up).
+// it takes a slam (`slam_cooldown` seconds apart; knock * `slam_bounce`); `slams_to_win` win the run.
 // Every field is required: a missing one is a validation error and the entry is skipped.
 struct SlamTunables {
 	float speed{0.0F};
@@ -31,7 +30,6 @@ struct SlamTunables {
 	float slam_cooldown{0.0F};
 	float slam_bounce{0.0F};
 	int slams_to_win{0};
-	float storm_up{0.0F};
 };
 
 // One boss: `tunables` is the entry as authored, `slam` its parsed form when `behavior` is "slam".
@@ -63,8 +61,8 @@ void LoadBosses(const flecs::world& world, std::string_view path);
 // The slam boss of the current Act's Boss Stage, or nullptr when the Act has none (or it isn't a slam boss).
 [[nodiscard]] const BossDef* CurrentBoss(const flecs::world& world);
 
-// How far the storm has built, 0 to 1: it ramps over the last `storm_up` seconds of the last normal Stage, and holds
-// at 1 through the Boss Stage. 0 with no boss.
+// How far the storm has built, 0 to 1: it ramps over the Boss Stage's storm-up (RunState::storm_up counting down from
+// kStormUpTime) and holds at 1 once the boss lands. 0 before the Boss Stage, and with no boss.
 [[nodiscard]] float StormLevel(const flecs::world& world);
 
 } // namespace crabnado

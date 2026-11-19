@@ -26,7 +26,12 @@ enum class RunPhase { Countdown, Playing, Molting, Boss, Won, Lost };
 // `act` and `stage` (both 0-based; `stage == stages.size()` is the Boss Stage) say where the campaign director has the
 // run. The Remote API jumps to a Stage by writing both; the director then enters it with `stage_clock` 0. Writing
 // `stage_clock` alone just moves the Stage's gate. `stage_clock` and `act_clock` count up next to `clock`, which stays
-// the campaign clock.
+// the campaign clock; all of them stand still unless the run is live (molts and countdowns pause them).
+// `stage_kills_start` is `kills` when the Stage began, so a quota counts `kills - stage_kills_start`. `stage_banner` is
+// the seconds left of the Stage-change banner, `challenge_cleared` of "Challenge cleared!". When the last normal Stage
+// gates, `stage` moves to the Boss Stage with `phase` still Playing while `storm_up` counts down from kStormUpTime;
+// at 0 the phase becomes Boss. `resume_phase` is the phase a molt returns to when its countdown ends. `rerolls` is the
+// molt rerolls in hand.
 struct RunState {
 	RunPhase phase{RunPhase::Playing};
 	float clock{0.0F};
@@ -45,6 +50,12 @@ struct RunState {
 	int stage{0};
 	float stage_clock{0.0F};
 	float act_clock{0.0F};
+	int stage_kills_start{0};
+	float stage_banner{0.0F};
+	float challenge_cleared{0.0F};
+	float storm_up{0.0F};
+	RunPhase resume_phase{RunPhase::Playing};
+	int rerolls{0};
 };
 
 // Shells needed for the molt after `moltLevel` (geometric: kShellsFirstMolt * kShellsGrowth^(level - 1)).

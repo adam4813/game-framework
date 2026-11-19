@@ -167,10 +167,15 @@ inline constexpr float kSlamBounce = -0.2F;
 // ── Boss (presentation) ──
 // The boss's behavior tunables live in bosses.json. Banners show for kBossBannerTime seconds.
 inline constexpr float kBossBannerTime = 3.0F;
-// The storm wind-up: over the last `storm_up` seconds of the last Stage the crabnado darkens to storm grey and spins
-// and sways harder, then stays that way through the boss. At full storm it spins kStormSpin times faster, and its
+// Every Stage change shows its banner for kStageBannerTime seconds, and "Challenge cleared!" shows for
+// kChallengeClearedTime.
+inline constexpr float kStageBannerTime = 2.0F;
+inline constexpr float kChallengeClearedTime = 2.0F;
+// The storm wind-up: when the last normal Stage gates, the crabnado stops throwing for kStormUpTime seconds while it
+// darkens to storm grey and spins and sways harder, then the boss lands and it stays that way. At full storm it spins kStormSpin times faster, and its
 // rings sway kStormSwayRate times faster and kStormSwayReach times wider. Each slam flashes it pale, fading over
 // 1 / kStormFlashFade seconds.
+inline constexpr float kStormUpTime = 5.0F;
 inline constexpr float kStormSpin = 2.0F;
 inline constexpr float kStormSwayRate = 1.8F;
 inline constexpr float kStormSwayReach = 1.6F;

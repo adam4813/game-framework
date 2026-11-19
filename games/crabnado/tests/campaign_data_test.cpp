@@ -98,10 +98,26 @@ TEST(CampaignParse, AnUnknownBossIdLeavesTheActWithoutABossStage) {
 TEST(CampaignParse, ParsesEveryGateType) {
 	const json doc = json::parse(R"({"acts":[{"id":"a","stages":[
 		{"gate":{"type":"time","time":1}},{"gate":{"type":"quota","kills":2}},
-		{"gate":{"type":"both","time":3,"kills":4,"bonus":5}},{"gate":{"type":"script","script":"x"}}]}]})");
+		{"gate":{"type":"both","time":3,"kills":4,"bonus":{"type":"heal"}}},{"gate":{"type":"script","script":"x"}}]}]})");
 	const CampaignParseResult result = ParseCampaign(doc, std::vector<std::string>{}, std::vector<std::string>{}, SpawnerIds());
 	EXPECT_TRUE(result.errors.empty()) << ::testing::PrintToString(result.errors);
 	ASSERT_EQ(result.campaign.acts.at(0).stages.size(), 4U);
+}
+
+TEST(CampaignParse, ABothGateReadsItsBonusAndStatesItsChallenge) {
+	const json doc = json::parse(R"({"acts":[{"id":"a","stages":[
+		{"gate":{"type":"both","time":60,"kills":40,"bonus":{"type":"shells","amount":9}}},
+		{"gate":{"type":"both","time":60,"kills":40,"bonus":{"type":"heal"}}},
+		{"gate":{"type":"both","time":60,"kills":40,"bonus":{"type":"nonsense"}}}]}]})");
+	const CampaignParseResult result = ParseCampaign(doc, std::vector<std::string>{}, std::vector<std::string>{}, SpawnerIds());
+	const auto& stages = result.campaign.acts.at(0).stages;
+	ASSERT_EQ(stages.size(), 2U);
+	EXPECT_EQ(result.errors.size(), 1U);
+	EXPECT_EQ(stages[0].gate.bonus.type, BonusType::Shells);
+	EXPECT_FLOAT_EQ(stages[0].gate.bonus.amount.value_or(0.0F), 9.0F);
+	EXPECT_FALSE(stages[1].gate.bonus.amount.has_value());
+	EXPECT_EQ(ChallengeText(stages[0].gate), "Defeat 40 in 1:00!");
+	EXPECT_EQ(ChallengeText(Gate{}), "");
 }
 
 TEST(CampaignParse, AMissingSeaKeyMeansTheEventNeverHappens) {

@@ -10,6 +10,7 @@
 
 #include <flecs.h>
 
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 
 // The campaign: `campaign.json` holds Acts, each with inline Stages and a Boss Stage. The run walks them: a Stage's
@@ -18,14 +19,26 @@
 // (`stage == stages.size()` is the Boss Stage); see RunState.
 namespace crabnado {
 
-// How a Stage ends. Only `Time` is evaluated so far; ticket 03 adds the others (the parser accepts them now).
+// How a Stage ends: `Time` at `time` seconds on the Stage clock, `Quota` at `kills` defeats in the Stage, `Both` at
+// whichever comes first (reaching the quota in time pays the bonus), `Script` only when a script says so (not yet
+// evaluated).
 enum class GateType { Time, Quota, Both, Script };
+
+// What a `both` gate pays for meeting its quota in time: shells (through the same path a pickup uses, so it can
+// trigger a molt), a molt reroll, or a heal in HP. A missing `amount` means half the shells the molt needs, one
+// reroll, or 30% of max HP.
+enum class BonusType { Shells, Reroll, Heal };
+
+struct GateBonus {
+	BonusType type{BonusType::Shells};
+	std::optional<float> amount;
+};
 
 struct Gate {
 	GateType type{GateType::Time};
 	float time{0.0F};
 	int kills{0};
-	float bonus{0.0F};
+	GateBonus bonus;
 	std::string script;
 };
 
@@ -103,8 +116,16 @@ struct Campaign {
 // Singleton, not reflected: the (act, stage) pair the director last applied. When RunState's reflected pair differs
 // (the Remote API wrote it), the director enters that Stage.
 struct DirectorApplied {
-	int act{0};
-	int stage{0};
+	int act{-1};
+	int stage{-1};
+};
+
+// Singleton, reflected: where the arena loads its campaign and bosses from. A relative path resolves against the
+// asset directory; an absolute one is used as is, so a test can point the arena at a fixture. Set it before the
+// arena scene loads.
+struct CampaignSource {
+	std::string campaign_path{constants::kCampaignPath};
+	std::string bosses_path{constants::kBossesPath};
 };
 
 struct CampaignParseResult {
@@ -125,10 +146,16 @@ struct CampaignParseResult {
 	std::span<const std::string_view> spawnerIds
 );
 
+// The text of a Stage's challenge banner line, "Defeat 40 in 1:00!". Empty unless the gate is `both`.
+[[nodiscard]] std::string ChallengeText(const Gate& gate);
+
+// "m:ss" for a number of seconds, rounded up (a clock counting down).
+[[nodiscard]] std::string FormatClock(float seconds);
+
 // The spawner ids the code registers. Tickets 09 and 10 add `offscreen` and `infested_crest`.
 [[nodiscard]] std::span<const std::string_view> SpawnerIds();
 
-// Loads bosses.json then campaign.json (both resolved against `assetDirectory`), replacing the BossRegistry and
+// Loads bosses.json then campaign.json (the CampaignSource paths, resolved against `assetDirectory`), replacing the BossRegistry and
 // Campaign singletons and logging every error. Call after LoadEnemyTypes.
 void LoadCampaignData(const flecs::world& world, std::string_view assetDirectory);
 

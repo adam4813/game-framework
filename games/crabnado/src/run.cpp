@@ -40,7 +40,13 @@ void RegisterRun(const flecs::world& world) {
 		.member<int>("act")
 		.member<int>("stage")
 		.member<float>("stage_clock")
-		.member<float>("act_clock");
+		.member<float>("act_clock")
+		.member<int>("stage_kills_start")
+		.member<float>("stage_banner")
+		.member<float>("challenge_cleared")
+		.member<float>("storm_up")
+		.member<RunPhase>("resume_phase")
+		.member<int>("rerolls");
 	world.set<RunState>({});
 
 	world.system<RunState>("RunClock")
@@ -53,6 +59,8 @@ void RegisterRun(const flecs::world& world) {
 				run.stage_clock += it.delta_time();
 				run.act_clock += it.delta_time();
 				run.banner_timer = std::max(0.0F, run.banner_timer - it.delta_time());
+				run.stage_banner = std::max(0.0F, run.stage_banner - it.delta_time());
+				run.challenge_cleared = std::max(0.0F, run.challenge_cleared - it.delta_time());
 			}
 		})
 		.add<ecs::Pausable>()
@@ -78,7 +86,7 @@ void RegisterRun(const flecs::world& world) {
 				PlaySfx(it.world(), Sfx::ClawClick);
 			}
 			if (run.phase == RunPhase::Countdown && run.countdown <= 0.0F) {
-				run.phase = InBossStage(it.world()) ? RunPhase::Boss : RunPhase::Playing;
+				run.phase = run.resume_phase;
 				it.world().remove<scene::Paused>();
 				PlaySfx(it.world(), Sfx::ClawSnap);
 			}
@@ -113,7 +121,7 @@ void StartRun(const flecs::world& world) {
 	world.set<RunState>(
 		{.phase = RunPhase::Countdown, .shells_needed = ShellsNeeded(1), .seed = seed, .countdown = constants::kCountdownTime}
 	);
-	world.set<DirectorApplied>({});
+	world.set<DirectorApplied>({.act = -1, .stage = -1});
 }
 
 void SetMenuPaused(const flecs::world& world, const bool paused) {
