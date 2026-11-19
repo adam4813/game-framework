@@ -675,7 +675,7 @@ void RegisterUISystems(const flecs::world& world) {
 			sr.content_size = extent;
 
 			const glm::vec2 range{std::max(0.0F, extent.x - ui.rect.w), std::max(0.0F, extent.y - ui.rect.h)};
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const core::Rect viewport = ResolvedRect(entity, ui);
 			const bool mouse_down = input.mouse.left.state;
@@ -767,7 +767,7 @@ void RegisterUISystems(const flecs::world& world) {
 			if (!modal.open || !modal.close_on_backdrop) {
 				return;
 			}
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			if (const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 				input.mouse.left.pressed && !ResolvedRect(entity, ui).Contains(mouse)) {
 				modal.open = false;
@@ -783,7 +783,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Dropdown, const UIRect>("UIDropdownInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Dropdown& dd, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			const core::Rect box = ResolvedRect(entity, ui);
@@ -832,7 +832,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Button, const UIRect>("UIButtonInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Button& button, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 
@@ -862,7 +862,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Slider, const UIRect>("UISliderInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Slider& slider, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const core::Rect r = ResolvedRect(entity, ui);
 			const auto& modal_state = entity.world().get<UIModalState>();
@@ -913,7 +913,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Checkbox, const UIRect>("UICheckboxInteraction")
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::entity entity, Checkbox& cb, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			cb.hovered = ElementInteractable(entity, mouse, modal_state) && ResolvedRect(entity, ui).Contains(mouse);
@@ -932,7 +932,7 @@ void RegisterUISystems(const flecs::world& world) {
 	world.system<Radio, const UIRect>("UIRadioInteraction")
 		.kind(flecs::OnUpdate)
 		.each([radio_query](const flecs::entity entity, Radio& rb, const UIRect& ui) {
-			const auto& input = entity.world().get<input::InputState>();
+			const auto& input = entity.world().get<input::RawInput>();
 			const glm::vec2 mouse{input.mouse.window_position.x, input.mouse.window_position.y};
 			const auto& modal_state = entity.world().get<UIModalState>();
 			rb.hovered = ElementInteractable(entity, mouse, modal_state) && ResolvedRect(entity, ui).Contains(mouse);
@@ -960,7 +960,7 @@ void RegisterUISystems(const flecs::world& world) {
 		.kind(flecs::OnUpdate)
 		.run([text_input_query, text_area_query](const flecs::iter& it) {
 			const flecs::world w = it.world();
-			const auto& input = w.get<input::InputState>();
+			const auto& input = w.get<input::RawInput>();
 			if (!input.mouse.left.pressed) {
 				return;
 			}
@@ -1062,6 +1062,40 @@ void RegisterUISystems(const flecs::world& world) {
 					ta.on_change(ta.text);
 				}
 			}
+		});
+
+	// === SYSTEM: Pointer capture (OnUpdate, after every interaction system) ===
+	// Fills input::UICapture.pointer from the hit-tests the interaction systems just ran: an interactive element is
+	// hovered or held, or a Modal is open. InputPoll reads it next Frame and withholds the mouse from gameplay (one
+	// Frame of lag, visible only when the layout moves under a still cursor). Writes only `pointer`; `keyboard` is
+	// the text field's.
+	const auto text_input_hit_query = world.query_builder<const TextInput, const UIRect>().build();
+	const auto text_area_hit_query = world.query_builder<const TextArea, const UIRect>().build();
+	const auto button_query = world.query_builder<const Button>().build();
+	const auto slider_query = world.query_builder<const Slider>().build();
+	const auto checkbox_query = world.query_builder<const Checkbox>().build();
+	const auto radio_query_hover = world.query_builder<const Radio>().build();
+	const auto dropdown_query = world.query_builder<const Dropdown>().build();
+	world.system("UIPointerCapture")
+		.kind(flecs::OnUpdate)
+		.write<input::UICapture>()
+		.run([=](const flecs::iter& it) {
+			const flecs::world w = it.world();
+			const auto& modal_state = w.get<UIModalState>();
+			const auto& mouse_pos = w.get<input::RawInput>().mouse.window_position;
+			const glm::vec2 mouse{mouse_pos.x, mouse_pos.y};
+			bool captured = modal_state.any_open;
+			button_query.each([&](const Button& b) { captured = captured || b.hovered || b.pressed; });
+			slider_query.each([&](const Slider& s) { captured = captured || s.hovered || s.dragging; });
+			checkbox_query.each([&](const Checkbox& c) { captured = captured || c.hovered; });
+			radio_query_hover.each([&](const Radio& r) { captured = captured || r.hovered; });
+			dropdown_query.each([&](const Dropdown& d) { captured = captured || d.hovered || d.open; });
+			const auto over_field = [&](const flecs::entity e, auto&&, const UIRect& ui) {
+				captured = captured || (ElementInteractable(e, mouse, modal_state) && ResolvedRect(e, ui).Contains(mouse));
+			};
+			text_input_hit_query.each(over_field);
+			text_area_hit_query.each(over_field);
+			w.get_mut<input::UICapture>().pointer = captured;
 		});
 
 	// === SYSTEM: Build the draw list (PreStore) ===

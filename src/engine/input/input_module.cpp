@@ -62,6 +62,10 @@ InputModule::InputModule(const flecs::world& world) {
 	world.set<InputState>({});
 	// Per-frame typed-text buffer (kept separate so InputState stays a trivially-copyable value type).
 	world.set<TypedText>({});
+	// What the UI claimed (filled by the UI module) and the mouse before that claim; see input_components.hpp.
+	world.set<UICapture>({});
+	world.set<RawInput>({});
+	world.component<UICapture>().member<bool>("pointer").member<bool>("keyboard").member<bool>("pointer_latched");
 
 	world.component<MouseCoord>().member<float>("x").member<float>("y");
 	world.component<KeyState>().member<bool>("pressed").member<bool>("state").member<bool>("current").member<bool>(
@@ -110,7 +114,12 @@ InputModule::InputModule(const flecs::world& world) {
 	// === SYSTEM: Poll input from platform each frame ===
 	// Updates the InputState singleton with current keyboard and mouse input. A FrameSample system, so the fixed step
 	// runs it before the Frame's Ticks and every Tick sees this Frame's input.
-	world.system("InputPoll").kind(flecs::OnLoad).write<InputState>().run([](const flecs::iter& it) {
+	world.system("InputPoll")
+		.kind(flecs::OnLoad)
+		.write<InputState>()
+		.write<RawInput>()
+		.write<UICapture>()
+		.run([](const flecs::iter& it) {
 		auto& input_state = it.world().get_mut<InputState>();
 		auto& keys = input_state.keys;
 		auto& mouse = input_state.mouse;
@@ -118,7 +127,8 @@ InputModule::InputModule(const flecs::world& world) {
 		// Input the debug UI captured this frame (pointer over a panel, text field active) is withheld
 		// so the game doesn't also act on it. Mouse position still flows for hover/picking.
 		const auto& debug_ui = platform.ptr->GetDebugUi();
-		const bool keyboard_free = !debug_ui.CapturesKeyboard();
+		// The UI's own capture (UICapture) gates the same inputs, below.
+		const bool keyboard_free = !debug_ui.CapturesKeyboard() && !it.world().get<UICapture>().keyboard;
 		// A locked cursor is hidden, so it can't be over a panel: the mouse gate would only zero the look delta.
 		const bool mouse_free = platform.ptr->IsCursorLocked() || !debug_ui.CapturesMouse();
 
@@ -137,48 +147,51 @@ InputModule::InputModule(const flecs::world& world) {
 			key_state.repeat = keyboard_free && platform.ptr->IsKeyPressedRepeat(static_cast<int>(i));
 		}
 
-		// Mouse buttons
-		{
-			const bool was_left_pressed = mouse.left.state;
-			const bool now_left_pressed = mouse_free && platform.ptr->IsMouseButtonDown(0); // Left = 0
+		// The mouse the UI sees: everything but what the debug UI captured. `mouse` below is the same, minus
+		// what the UI itself captured (UICapture), and is what gameplay reads.
+		auto& raw = it.world().get_mut<RawInput>().mouse;
+		const bool was_any_down = raw.left.state || raw.right.state || raw.middle.state;
+		const bool left_down = mouse_free && platform.ptr->IsMouseButtonDown(0);   // Left = 0
+		const bool right_down = mouse_free && platform.ptr->IsMouseButtonDown(1);  // Right = 1
+		const bool middle_down = mouse_free && platform.ptr->IsMouseButtonDown(2); // Middle = 2
+		const bool any_down = left_down || right_down || middle_down;
 
-			mouse.left.pressed = !was_left_pressed && now_left_pressed;
-			mouse.left.state = now_left_pressed;
-			mouse.left.current = now_left_pressed;
+		// UI capture of the pointer. A press that lands while the UI holds the pointer latches, so the drag keeps
+		// going to the UI after the cursor leaves the element and the release isn't split from its press. A press
+		// that began in gameplay stays there, even if it is dragged across a UI element.
+		auto& capture = it.world().get_mut<UICapture>();
+		if (!any_down) {
+			capture.pointer_latched = false;
 		}
-
-		{
-			const bool was_right_pressed = mouse.right.state;
-			const bool now_right_pressed = mouse_free && platform.ptr->IsMouseButtonDown(1); // Right = 1
-
-			mouse.right.pressed = !was_right_pressed && now_right_pressed;
-			mouse.right.state = now_right_pressed;
-			mouse.right.current = now_right_pressed;
+		else if (!was_any_down) {
+			capture.pointer_latched = capture.pointer;
 		}
+		const bool ui_has_pointer = platform.ptr->IsCursorLocked() ? false : (any_down ? capture.pointer_latched : capture.pointer);
+		const bool game_mouse_free = !ui_has_pointer;
 
-		{
-			const bool was_middle_pressed = mouse.middle.state;
-			const bool now_middle_pressed = mouse_free && platform.ptr->IsMouseButtonDown(2); // Middle = 2
+		const auto update_button = [](KeyState& state, const bool down) {
+			state.pressed = !state.state && down;
+			state.state = down;
+			state.current = down;
+		};
+		update_button(raw.left, left_down);
+		update_button(raw.right, right_down);
+		update_button(raw.middle, middle_down);
+		update_button(mouse.left, game_mouse_free && left_down);
+		update_button(mouse.right, game_mouse_free && right_down);
+		update_button(mouse.middle, game_mouse_free && middle_down);
 
-			mouse.middle.pressed = !was_middle_pressed && now_middle_pressed;
-			mouse.middle.state = now_middle_pressed;
-			mouse.middle.current = now_middle_pressed;
-		}
-
-		// Mouse position
+		// Mouse position: always flows, for hover and picking.
 		const auto mouse_pos = platform.ptr->MousePosition();
-		mouse.window_position.x = mouse_pos.x;
-		mouse.window_position.y = mouse_pos.y;
+		raw.window_position = mouse.window_position = {mouse_pos.x, mouse_pos.y};
 
-		// Mouse relative motion
+		// Mouse relative motion and scroll
 		const auto delta = mouse_free ? platform.ptr->MouseDelta() : glm::vec2{0.0f};
-		mouse.relative.x = delta.x;
-		mouse.relative.y = delta.y;
-
-		// Mouse scroll
 		const auto scroll = mouse_free ? platform.ptr->MouseWheel() : glm::vec2{0.0f};
-		mouse.scroll.x = scroll.x;
-		mouse.scroll.y = scroll.y;
+		raw.relative = {delta.x, delta.y};
+		raw.scroll = {scroll.x, scroll.y};
+		mouse.relative = game_mouse_free ? raw.relative : MouseCoord{};
+		mouse.scroll = game_mouse_free ? raw.scroll : MouseCoord{};
 
 		// Printable text typed this frame (drains the platform character queue exactly once per frame,
 		// so focused text-input UI reads it from the TypedText singleton like any other input).
@@ -187,7 +200,11 @@ InputModule::InputModule(const flecs::world& world) {
 
 	// === SYSTEM: Reset frame-state input flags at end of frame ===
 	// Clears the per-frame "pressed"/scroll flags so they don't persist.
-	world.system("InputResetFrameState").kind(flecs::PostUpdate).write<InputState>().run([](const flecs::iter& it) {
+	world.system("InputResetFrameState")
+		.kind(flecs::PostUpdate)
+		.write<InputState>()
+		.write<RawInput>()
+		.run([](const flecs::iter& it) {
 		const auto ecs_world = it.world();
 		auto& input_state = ecs_world.get_mut<InputState>();
 
@@ -208,6 +225,13 @@ InputModule::InputModule(const flecs::world& world) {
 		// Reset scroll (accumulates during frame, clear for next frame)
 		input_state.mouse.scroll.x = 0.0F;
 		input_state.mouse.scroll.y = 0.0F;
+
+		// The same for the unfiltered mouse the UI reads
+		auto& raw = ecs_world.get_mut<RawInput>().mouse;
+		raw.left.pressed = false;
+		raw.right.pressed = false;
+		raw.middle.pressed = false;
+		raw.scroll = {};
 	});
 
 	spdlog::info("[InputModule] Registered input systems with Flecs");
