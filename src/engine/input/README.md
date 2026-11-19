@@ -41,14 +41,16 @@ Represents mouse input:
 - `pointer` - mouse buttons up, zero `relative` and `scroll`; `window_position` still flows. Set by the UI while a
   control is hovered or held or a `Modal` is open. A press that lands while set stays captured until every button is
   released (`pointer_latched`, InputPoll's own state). Skipped while the cursor is locked.
-- `keyboard` - every key up and no `TypedText`. Gated here already; nothing fills it yet (focused text fields will).
+- `keyboard` - every key up, no repeats and no `TypedText`. Set by the UI while a text field is focused (`UIFocus`).
+  The field edits from `RawInput`, which this doesn't gate.
 
 One Frame of lag: the UI fills it after `InputPoll` ran, so `InputPoll` reads the previous Frame's value.
 
 ### `RawInput` (Singleton)
 
-`{ MouseState mouse }`: the mouse before the `UICapture` gate (the debug UI's gate still applies). The UI reads its own
-clicks and drags from it, since the press it captured is hidden from `InputState`. Gameplay reads `InputState`.
+`{ keys, mouse, text }`: the keys, mouse and typed text before the `UICapture` gate (the debug UI's gate still applies).
+The UI reads its own clicks, drags and editing keys (Backspace, Return) and typed text from it, since what it captured
+is hidden from `InputState`. `keys` has `WasKeyPressed`/`WasKeyPressedOrRepeated`. Gameplay reads `InputState`.
 
 ### Tag: `InputEnabled`
 

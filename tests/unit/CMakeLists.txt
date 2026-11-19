@@ -157,3 +157,8 @@ add_engine_test(ui_anchor_test
 add_engine_test(ui_pointer_capture_test
     ui_pointer_capture_test.cpp
 )
+
+# UICapture.keyboard: a focused text field takes the keyboard from gameplay but still edits from RawInput
+add_engine_test(ui_keyboard_capture_test
+    ui_keyboard_capture_test.cpp
+)
