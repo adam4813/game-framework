@@ -24,6 +24,9 @@ namespace {
 // Crab look, from the prototype: a flattened body sphere with two claw spheres ahead of it (local +z
 // is forward).
 constexpr core::Rgba kFlashColor{.r = 255, .g = 255, .b = 255, .a = 255};
+// The wind-up and charge tells.
+constexpr core::Rgba kWindupColor{.r = 255, .g = 200, .b = 40, .a = 255};
+constexpr core::Rgba kChargeColor{.r = 255, .g = 40, .b = 90, .a = 255};
 constexpr glm::vec3 kBodyOffset{0.0F, 0.45F, 0.0F};
 constexpr glm::vec3 kBodyScale{1.0F, 0.5F, 0.75F};
 constexpr float kClawRadius = 0.32F;
@@ -77,7 +80,13 @@ void RegisterHorde(const flecs::world& world) {
 		.member<core::Rgba>("color")
 		.member<float>("tumble")
 		.member<glm::vec2>("knock")
-		.member<bool>("slammed");
+		.member<bool>("slammed")
+		.member<float>("ride_age")
+		.member<float>("ride_peak")
+		.member<float>("immune")
+		.member<float>("windup")
+		.member<float>("charge")
+		.member<glm::vec2>("charge_dir");
 	world.component<Airborne>().member<glm::vec3>("velocity");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
 	world.set<HordeReadout>({});
@@ -127,7 +136,8 @@ void RegisterHorde(const flecs::world& world) {
 		.add<scene::GameScene>();
 
 	// Landed enemies walk sideways toward the player, drift downwind and push apart where they overlap. A crest
-	// above an enemy's tumble threshold tumbles it: it stops chasing and queueing and rides the push instead.
+	// above an enemy's tumble threshold grabs it: it stops chasing and queueing and rides the push instead, then
+	// winds up and charges the player.
 	// They all ride the water surface.
 	world.system<Enemy, spatial::Transform>("HordeChase")
 		.without<Airborne>()
@@ -147,6 +157,7 @@ void RegisterHorde(const flecs::world& world) {
 			const auto& waves = it.world().get<WaveField>();
 			const auto& pools = it.world().get<TidePools>().pools;
 			const auto& rocks = it.world().get<Rocks>().circles;
+			const auto& types = it.world().get<EnemyRegistry>().types;
 			while (it.next()) {
 				auto enemies = it.field<Enemy>(0);
 				auto transforms = it.field<spatial::Transform>(1);
@@ -155,41 +166,109 @@ void RegisterHorde(const flecs::world& world) {
 					spatial::Transform& transform = transforms[i];
 					const glm::vec2 position{transform.position.x, transform.position.z};
 
+					const EnemyType& type = types[static_cast<size_t>(enemy.type)];
+					const flecs::entity self = it.entity(i);
+					const auto endRide = [&] {
+						enemy.tumble = 0.0F;
+						enemy.ride_age = 0.0F;
+						enemy.immune = type.immune;
+						if (type.charges) {
+							enemy.windup = std::max(0.001F, type.windup);
+							SetTint(self, kWindupColor);
+						}
+					};
+
+					// Ride, then wind up, then charge, then chase again. A ride never restarts: a taller crest
+					// only raises its peak, and a finished ride makes the enemy immune to grabs for a while.
 					const WaveSample wave = SampleWaves(waves, pools, position);
-					if (wave.height > enemy.tumble_min) {
-						enemy.tumble = constants::kTumbleTime;
-						enemy.knock = wave.push;
+					const bool onCrest = wave.height > enemy.tumble_min;
+					const float decay = std::exp(-constants::kKnockDecay * dt);
+					enemy.immune = std::max(0.0F, enemy.immune - dt);
+					if (enemy.tumble > 0.0F) {
+						enemy.ride_age += dt;
+						if (onCrest) {
+							enemy.ride_peak = std::max(enemy.ride_peak, wave.height);
+						}
+						enemy.knock = onCrest ? wave.push * type.ride_push : enemy.knock * decay;
+						enemy.tumble = RideDuration(type, enemy.ride_peak) - enemy.ride_age;
+						if (enemy.tumble <= 0.0F) {
+							endRide();
+						}
+					} else if (onCrest && enemy.immune <= 0.0F) {
+						enemy.ride_age = 0.0F;
+						enemy.ride_peak = wave.height;
+						enemy.tumble = RideDuration(type, wave.height);
+						enemy.knock = wave.push * type.ride_push;
+						enemy.windup = 0.0F;
+						enemy.charge = 0.0F;
+						SetTint(self, enemy.color);
 					} else {
-						enemy.knock *= std::exp(-constants::kKnockDecay * dt);
-						enemy.tumble = std::max(0.0F, enemy.tumble - dt);
+						enemy.knock = onCrest ? wave.push * constants::kImmunePush : enemy.knock * decay;
+					}
+					if (enemy.windup > 0.0F) {
+						enemy.windup -= dt;
+						if (enemy.windup <= 0.0F) {
+							enemy.windup = 0.0F;
+							enemy.charge = type.charge_time;
+							const glm::vec2 aim = target - position;
+							const float aimLength = glm::length(aim);
+							enemy.charge_dir = aimLength > 0.0001F ? aim / aimLength : glm::vec2{0.0F};
+							SetTint(self, kChargeColor);
+						}
+					} else if (enemy.charge > 0.0F) {
+						enemy.charge -= dt;
+						if (enemy.charge <= 0.0F) {
+							enemy.charge = 0.0F;
+							SetTint(self, enemy.color);
+						}
 					}
 					const bool tumbling = enemy.tumble > 0.0F;
+					const bool winding = enemy.windup > 0.0F;
+					const bool charging = enemy.charge > 0.0F;
 					transform.position.y = wave.height * constants::kWaterHeightScale;
 					transform.rotation.x = tumbling ? transform.rotation.x + constants::kTumbleSpin * dt : 0.0F;
 					const glm::vec2 toTarget = target - position;
 					const float distance = glm::length(toTarget);
-					const glm::vec2 heading = distance > 0.0001F ? toTarget / distance : glm::vec2{0.0F};
+					glm::vec2 heading = distance > 0.0001F ? toTarget / distance : glm::vec2{0.0F};
+					if (charging) {
+						heading = enemy.charge_dir;
+					}
+					if (winding) {
+						// A crouch-and-shiver tell.
+						transform.position.y -= constants::kWindupCrouch;
+						transform.rotation.z = std::sin(enemy.windup * constants::kWindupShiverRate) * constants::kWindupShiver;
+					} else {
+						transform.rotation.z = 0.0F;
+					}
 
 					glm::vec2 push{0.0F};
 					bool blocked = false;
-					const flecs::entity_t self = it.entity(i).id();
 					grid.ForEachNear(position, enemy.radius + grid.max_radius, [&](const CrowdEntry& other) {
 						const glm::vec2 apart = position - other.position;
 						const float gap = glm::length(apart);
 						const float touching = (enemy.radius + other.radius) * kSeparationSlack;
-						if (other.entity != self && gap > 0.0001F && gap < touching) {
+						if (other.entity != self.id() && gap > 0.0001F && gap < touching) {
 							push += apart * ((touching - gap) / gap);
 							// A neighbour in the cone ahead blocks the way: queue behind it instead of pushing in.
 							blocked = blocked || (!tumbling && glm::dot(-apart, heading) > kBlockedCone * gap);
 						}
 					});
 
-					const float step = blocked || tumbling ? 0.0F : enemy.speed * dt;
-					const glm::vec2 moved = ClampToRadius(
-						position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax,
-						constants::kArenaRadius + kEdgeSlack
-					);
-					glm::vec2 settled = moved;
+					// A charge pushes through the crowd.
+					float speed = enemy.speed;
+					if (charging) {
+						blocked = false;
+						speed *= 1.0F + (type.charge_mult - 1.0F) * (enemy.charge / std::max(0.01F, type.charge_time));
+					}
+					const float step = blocked || tumbling || winding ? 0.0F : speed * dt;
+					const glm::vec2 free =
+						position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax;
+					const float edge = constants::kArenaRadius + kEdgeSlack;
+					if (tumbling && glm::length(free) > edge) {
+						// Touching the barrier ends the ride at once: the wind-up starts there.
+						endRide();
+					}
+					glm::vec2 settled = ClampToRadius(free, edge);
 					if (PushOutOfRocks(rocks, settled, enemy.radius) && tumbling) {
 						// A rock slam: the harder the crest threw it, the harder it hits.
 						const float speed = glm::length(enemy.knock);
@@ -226,11 +305,13 @@ void RegisterHorde(const flecs::world& world) {
 			const glm::vec3 p = player.get<spatial::Transform>().position;
 			const glm::vec2 position{p.x, p.z};
 			const auto& grid = world.get<CrowdGrid>();
+			const auto& types = world.get<EnemyRegistry>().types;
 			float damage = 0.0F;
 			grid.ForEachNear(position, grid.max_radius + constants::kPlayerContactRadius, [&](const CrowdEntry& e) {
 				const Enemy& enemy = world.entity(e.entity).get<Enemy>();
 				if (enemy.tumble <= 0.0F && glm::length(e.position - position) < e.radius + constants::kPlayerContactRadius) {
-					damage += enemy.contact_dps;
+					const EnemyType& type = types[static_cast<size_t>(enemy.type)];
+					damage += enemy.contact_dps * (enemy.charge > 0.0F ? type.charge_dps_mult : 1.0F);
 				}
 			});
 			if (damage > 0.0F) {

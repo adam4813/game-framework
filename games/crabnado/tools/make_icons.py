@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Writes Crabnado's molt upgrade icons as 96x96 PNGs into assets/textures/crabnado/upgrades/, plus the small
+"""Writes Crabnado's molt upgrade icons as 96x96 PNGs into games/crabnado/assets/textures/crabnado/upgrades/, plus the small
 arrow (arrow.png) the molt cards put between a stat's old and new value, the 22x22 run-stats panel icons
-(time, kills) into assets/textures/crabnado/hud/, and the 48x48 weapon slot icons into
-assets/textures/crabnado/weapons/.
+(time, kills) into games/crabnado/assets/textures/crabnado/hud/, and the 48x48 weapon slot icons into
+games/crabnado/assets/textures/crabnado/weapons/.
 
 Needs Pillow (pip install pillow). Run from anywhere: python3 games/crabnado/tools/make_icons.py
 Each icon is a round sea-blue badge with the title's navy outline and a glyph in the UI's coral and cream. Icons are
@@ -17,7 +17,7 @@ from PIL import Image, ImageChops, ImageDraw
 SIZE = 96
 SCALE = 4
 S = SIZE * SCALE
-TEXTURES = Path(__file__).resolve().parents[3] / "assets" / "textures" / "crabnado"
+TEXTURES = Path(__file__).resolve().parents[1] / "assets" / "textures" / "crabnado"
 OUT = TEXTURES / "upgrades"
 HUD_OUT = TEXTURES / "hud"
 WEAPONS_OUT = TEXTURES / "weapons"

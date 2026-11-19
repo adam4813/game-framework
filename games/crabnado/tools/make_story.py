@@ -17,7 +17,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 SCALE = 3
 PANEL_W, PANEL_H = 392, 540
 PAGE_W, PAGE_H = 1280, 720
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "textures" / "crabnado" / "story"
 FONT_PATH = ROOT / "assets" / "fonts" / "crabnado" / "LilitaOne-Regular.ttf"
 

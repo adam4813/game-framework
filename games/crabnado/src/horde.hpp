@@ -26,10 +26,19 @@ struct Enemy {
 	bool walks_sideways{true};
 	float flash{0.0F};
 	engine::core::Rgba color{};
-	// Seconds left of a wave tumble: no chasing and no contact damage. `knock` is the velocity the crest
-	// carries it with, in units per second; the root spins on its local x axis meanwhile.
+	// Seconds left of a wave ride: no chasing and no contact damage. `knock` is the velocity the crest
+	// carries it with, in units per second; the root spins on its local x axis meanwhile. `ride_age` is the
+	// seconds into the ride and `ride_peak` the tallest crest ridden, which sets the ride's length.
 	float tumble{0.0F};
 	glm::vec2 knock{0.0F};
+	float ride_age{0.0F};
+	float ride_peak{0.0F};
+	// Seconds a fresh crest can't grab it after a ride, seconds of charge wind-up left (stopped, tinted yellow),
+	// seconds of charge left (tinted red) and the charge's direction, locked at launch.
+	float immune{0.0F};
+	float windup{0.0F};
+	float charge{0.0F};
+	glm::vec2 charge_dir{0.0F};
 	// Set once a rock slam has hurt it, so its defeat counts as a rock kill.
 	bool slammed{false};
 };

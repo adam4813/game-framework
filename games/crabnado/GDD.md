@@ -26,7 +26,9 @@ feel of the horde and weapons are kept at the `crabnado-jam` tag.
 | **Set** | A group of crests about 6 s apart. Every third crest in a set is **big**. |
 | **Swell** | One train of crests along one bearing. Later in the run, two swells cross. |
 | **Rogue wave** | A single large crest from near the wind's bearing, with a short warning. |
-| **Tumble** | A crest stuns an enemy and carries it downwind for about a second. |
+| **Ride** | A crest grabs an enemy and carries it downwind. Taller crests ride longer. Also called the tumble. |
+| **Wind-up** | After a ride, the enemy crouches and shivers, tinted yellow, for about a third of a second. |
+| **Charge** | After the wind-up, a red-tinted dash at where the player stood, fast at first and slowing to normal. |
 | **Rock slam** | A tumbling enemy hits a rock and takes damage scaled by impact speed. |
 | **Dig in** | Hold Space to root in place against crests and wind, spending stamina. |
 | **Surf** | Ride a crest while not dug in, taking its push as extra speed you can still steer. |
@@ -111,10 +113,19 @@ Big crests are telegraphed about 2 s ahead by a foam line, a HUD label and a sou
 
 ### Tumble, slams and pools
 
-- **Tumble:** a crest taller than an enemy type's tumble threshold stuns it and carries it downwind for about 0.9 s,
-  then it recovers and comes back. Lobsters only tumble on big crests.
-- **Rock slam:** a tumbling enemy that hits a rock fast enough takes damage scaled by impact speed, enough to kill a
-  crab or shrimp outright. A non-tumbling enemy is just stopped by the rock. Rocks block the player and the horde.
+- **Ride, wind-up, charge:** a crest taller than an enemy type's tumble threshold grabs it and carries it downwind
+  for 0.5 s plus 0.6 s per unit of height over the threshold (at most 2 s), with no contact damage. A taller crest
+  mid-ride extends the ride, but a ride never restarts. Lobsters only ride big crests.
+  - When the ride ends, or the enemy touches the barrier, it winds up for 0.35 s (stopped, shivering, yellow), then
+    charges the player's position at launch (red, dodgeable) at 2.2× speed fading to 1× over 1.2 s. A charge pushes
+    through the crowd and deals 1.5× contact damage. Then it chases as usual.
+  - After a ride, crests can't grab it for a while (1.5 s by default; crab and shrimp 1.0 s, lobster 2.5 s), so the
+    horde doesn't clump against the barrier.
+  - Every value is a per-type lever in `enemies.json` (`ride_base`, `ride_per_height`, `ride_max`, `ride_push`,
+    `immune`, `windup`, `charge_mult`, `charge_time`, `charge_dps_mult`, `charges`), falling back to the defaults in
+    `crabnado_constants.hpp`.
+- **Rock slam:** a riding enemy that hits a rock fast enough takes damage scaled by impact speed, enough to kill a
+  crab or shrimp outright. A non-riding enemy is just stopped by the rock. Rocks block the player and the horde.
 - **Tide pools** calm the water inside them almost completely. They're safe from crests, but the horde gathers there
   too.
 
@@ -138,13 +149,13 @@ pools, the start point and each other. The layout and scatter rules live in `ass
 |---|---|---|
 | **Claw snap** | Start | Hits every enemy within 4.5 units, every 0.9 s, for 2 damage. A ring shows its reach. |
 | **Bubbles** | Start | Fires at the nearest landed enemy within 30 units every 0.7 s. Bubbles drift with the wind and waves and pop on the first hit. |
-| **Riptide** | First-molt upgrade | Every 8 s, makes the next crest 2.2× bigger (as big as a big crest, so it tumbles lobsters). The HUD shows "RIPTIDE CREST in …". |
+| **Riptide** | First-molt upgrade | Every 8 s, makes the next crest 2.2× bigger (as big as a big crest, so it rides lobsters). The HUD shows "RIPTIDE CREST in …". |
 
 ## Enemies
 
 Defined in `assets/data/crabnado/enemies.json`. `weight` is the relative spawn chance once a type has appeared.
 
-| Type | HP | Speed | Contact DPS | XP | Tumbles on | Appears | Weight | Role |
+| Type | HP | Speed | Contact DPS | XP | Rides on | Appears | Weight | Role |
 |---|---|---|---|---|---|---|---|---|
 | Crab | 3 | 4.2 | 4 | 1 | any crest | 0:00 | 65 | The steady, sideways-walking base enemy. |
 | Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | 0:25 | 27 | Fast, fragile flankers. |

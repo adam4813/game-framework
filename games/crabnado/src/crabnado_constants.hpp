@@ -141,9 +141,25 @@ inline constexpr float kFoamRamp = 1.3F;
 inline constexpr float kBigCrestWarning = 2.2F;
 // Shells drift with this fraction of the wave push until they fly to the player.
 inline constexpr float kShellWavePush = 0.4F;
-// Enemies over their type's tumble_min wave height are tumbled for kTumbleTime seconds, spinning at kTumbleSpin radians per
-// second. Their knock decays by exp(-kKnockDecay * dt) once the crest has passed.
-inline constexpr float kTumbleTime = 0.9F;
+// A crest over an enemy type's tumble_min grabs it and carries it (a ride) for kRideBase + kRidePerHeight * (peak - tumble_min)
+// seconds, at most kRideMax, at kRidePush of the crest's push. Afterwards no crest can grab it for kImmune seconds (it
+// still gets kImmunePush of the push). It then winds up for kWindup seconds and charges the player's position at
+// kChargeMult times its speed, decaying linearly to 1x over kChargeTime seconds, dealing kChargeDpsMult times its contact
+// damage. Each enemy type can override these in enemies.json. The ride spins at kTumbleSpin radians per second and its
+// knock decays by exp(-kKnockDecay * dt) once the crest has passed.
+inline constexpr float kRideBase = 0.5F;
+inline constexpr float kRidePerHeight = 0.6F;
+inline constexpr float kRideMax = 2.0F;
+inline constexpr float kRidePush = 1.0F;
+inline constexpr float kImmune = 1.5F;
+inline constexpr float kImmunePush = 0.0F;
+inline constexpr float kWindup = 0.35F;
+inline constexpr float kChargeMult = 2.2F;
+inline constexpr float kChargeTime = 1.2F;
+inline constexpr float kChargeDpsMult = 1.5F;
+inline constexpr float kWindupCrouch = 0.15F;
+inline constexpr float kWindupShiver = 0.25F;
+inline constexpr float kWindupShiverRate = 60.0F;
 inline constexpr float kTumbleSpin = 9.0F;
 inline constexpr float kKnockDecay = 3.0F;
 

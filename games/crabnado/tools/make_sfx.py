@@ -10,7 +10,7 @@ import wave
 from pathlib import Path
 
 RATE = 44100
-OUT = Path(__file__).resolve().parents[3] / "assets" / "audio" / "crabnado"
+OUT = Path(__file__).resolve().parents[1] / "assets" / "audio" / "crabnado"
 
 
 def write(name, samples, gain=0.8):
