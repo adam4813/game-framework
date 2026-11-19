@@ -28,6 +28,11 @@ inline constexpr float kCountdownTime = 3.0F;
 inline constexpr float kGoTime = 0.7F;
 // After a molt, play resumes after kResumeTime seconds of "Ready...", then the same "Go!".
 inline constexpr float kResumeTime = 1.0F;
+// Between Acts, "ACT CLEAR" shows for kActClearTime seconds before the comic page.
+inline constexpr float kActClearTime = 2.5F;
+
+// Scattered rocks keep this clear of the player's start (the centre).
+inline constexpr float kStartClearance = 5.0F;
 
 // ── Horde ──
 // Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).

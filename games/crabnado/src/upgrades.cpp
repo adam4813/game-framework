@@ -211,7 +211,28 @@ void BeginMolt(const flecs::world& world, RunState& run) {
 	spdlog::info("[Run] Molt {}: offering {}, {}, {}", run.molt_level, offer.ids[0], offer.ids[1], offer.ids[2]);
 }
 
+// Starts the next Act's countdown after its free molt (or when the molt had nothing to offer).
+void BeginActCountdown(RunState& run) {
+	run.resume_phase = RunPhase::Playing;
+	run.phase = RunPhase::Countdown;
+	run.countdown = constants::kCountdownTime;
+}
+
 } // namespace
+
+void OfferFreeMolt(const flecs::world& world) {
+	auto& run = world.get_mut<RunState>();
+	const MoltOffer offer = RollOffer(world, run.molt_level);
+	if (offer.ids[0].empty()) {
+		BeginActCountdown(run);
+		return;
+	}
+	world.set<MoltOffer>(offer);
+	run.phase = RunPhase::Transition;
+	run.step = TransitionStep::Molt;
+	PlaySfx(world, Sfx::Molt);
+	spdlog::info("[Run] Free molt: offering {}, {}, {}", offer.ids[0], offer.ids[1], offer.ids[2]);
+}
 
 void RegisterUpgrades(const flecs::world& world, const std::string_view path) {
 	world.component<UpgradeOp>().constant("Add", UpgradeOp::Add).constant("Multiply", UpgradeOp::Multiply);
@@ -287,7 +308,8 @@ std::vector<StatPreview> PreviewUpgrade(const flecs::world& world, const Upgrade
 }
 
 void SelectUpgrade(const flecs::world& world, const int choice) {
-	if (world.get<RunState>().phase != RunPhase::Molting || choice < 0 || choice >= kMoltChoices) {
+	const auto& run = world.get<RunState>();
+	if (!IsMolting(run.phase, run.step) || choice < 0 || choice >= kMoltChoices) {
 		return;
 	}
 	auto& offer = world.get_mut<MoltOffer>();
@@ -304,7 +326,7 @@ void ConfirmUpgrade(const flecs::world& world) {
 
 void RerollMolt(const flecs::world& world) {
 	auto& run = world.get_mut<RunState>();
-	if (run.phase != RunPhase::Molting || run.rerolls <= 0) {
+	if (!IsMolting(run.phase, run.step) || run.rerolls <= 0) {
 		return;
 	}
 	const MoltOffer offer = RollOffer(world, run.molt_level);
@@ -319,7 +341,7 @@ void RerollMolt(const flecs::world& world) {
 void ChooseUpgrade(const flecs::world& world, const int choice) {
 	auto& run = world.get_mut<RunState>();
 	const flecs::entity player = FindPlayer(world);
-	if (run.phase != RunPhase::Molting || !player || choice < 0 || choice >= kMoltChoices) {
+	if (!IsMolting(run.phase, run.step) || !player || choice < 0 || choice >= kMoltChoices) {
 		return;
 	}
 	const Upgrade* upgrade = FindUpgrade(world, world.get<MoltOffer>().ids[choice]);
@@ -330,9 +352,14 @@ void ChooseUpgrade(const flecs::world& world, const int choice) {
 		ApplyEffect(world, player, effect);
 	}
 	world.set<MoltOffer>({});
-	// The scene stays paused for a short countdown, so the player can get their hands back on the keys.
-	run.phase = RunPhase::Countdown;
-	run.countdown = constants::kResumeTime;
+	// The scene stays paused for a short countdown, so the player can get their hands back on the keys. An Act's free
+	// molt leads into that Act's full countdown instead.
+	if (run.phase == RunPhase::Transition) {
+		BeginActCountdown(run);
+	} else {
+		run.phase = RunPhase::Countdown;
+		run.countdown = constants::kResumeTime;
+	}
 	spdlog::info("[Run] Molt {}: chose {}", run.molt_level, upgrade->id);
 }
 

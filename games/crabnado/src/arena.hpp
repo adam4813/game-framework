@@ -86,6 +86,11 @@ void RegisterArena(const flecs::world& world);
 // Call before SpawnWaterTiles, which tints the pools.
 void BuildArena(const flecs::world& world, flecs::entity parent, std::span<const RockCircle> keepClear);
 
+// Destroys the "ScatteredRocks" group under `parent` and scatters a new one from RngState with the current Act's rock
+// counts, then rebuilds the Rocks cache. Safe to call inside a system, where the old rocks outlive the call until the
+// next merge. The level's tide pools and hand-placed rocks stay.
+void RescatterRocks(const flecs::world& world, flecs::entity parent, std::span<const RockCircle> keepClear);
+
 // Empties the Rocks and TidePools caches (the level entities go with the scene root).
 void ClearArena(const flecs::world& world);
 

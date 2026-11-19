@@ -21,8 +21,13 @@ void RegisterRun(const flecs::world& world) {
 		.constant("Playing", RunPhase::Playing)
 		.constant("Molting", RunPhase::Molting)
 		.constant("Boss", RunPhase::Boss)
+		.constant("Transition", RunPhase::Transition)
 		.constant("Won", RunPhase::Won)
 		.constant("Lost", RunPhase::Lost);
+	world.component<TransitionStep>()
+		.constant("ActClear", TransitionStep::ActClear)
+		.constant("Comic", TransitionStep::Comic)
+		.constant("Molt", TransitionStep::Molt);
 	world.component<RunState>()
 		.member<RunPhase>("phase")
 		.member<float>("clock")
@@ -46,7 +51,10 @@ void RegisterRun(const flecs::world& world) {
 		.member<float>("challenge_cleared")
 		.member<float>("storm_up")
 		.member<RunPhase>("resume_phase")
-		.member<int>("rerolls");
+		.member<int>("rerolls")
+		.member<TransitionStep>("step")
+		.member<float>("transition_timer")
+		.member<float>("splits", kSplitCount);
 	world.set<RunState>({});
 
 	world.system<RunState>("RunClock")
@@ -137,15 +145,27 @@ void SetMenuPaused(const flecs::world& world, const bool paused) {
 	}
 }
 
-void WinRun(const flecs::world& world) {
+void ClearAct(const flecs::world& world) {
 	auto& run = world.get_mut<RunState>();
 	if (run.phase != RunPhase::Boss) {
 		return;
 	}
-	run.phase = RunPhase::Won;
+	if (run.act >= 0 && run.act < kSplitCount) {
+		run.splits[static_cast<size_t>(run.act)] = run.clock;
+	}
+	run.phase = RunPhase::Transition;
+	run.step = TransitionStep::ActClear;
+	run.transition_timer = constants::kActClearTime;
 	world.add<scene::Paused>();
 	PlaySfx(world, Sfx::Victory);
-	spdlog::info("[Run] Crabnado broken apart at {:.1f}s with {} kills", run.clock, run.kills);
+	spdlog::info("[Run] Act {} cleared at {:.1f}s with {} kills", run.act, run.clock, run.kills);
+}
+
+void WinRun(const flecs::world& world) {
+	auto& run = world.get_mut<RunState>();
+	run.phase = RunPhase::Won;
+	world.add<scene::Paused>();
+	spdlog::info("[Run] Won at {:.1f}s with {} kills", run.clock, run.kills);
 }
 
 void LoseRun(const flecs::world& world) {

@@ -279,8 +279,8 @@ void RegisterCrabnado(const flecs::world& world) {
 				if (StepLeg(crabnado, tune.orbit_radius, constants::kRetreatTime, dt)) {
 					crabnado.mode = CrabnadoMode::Orbit;
 					crabnado.knock = glm::vec2{0.0F};
-					// The column is over the barrier again: the Act is done (until the campaign has more to play).
-					WinRun(world);
+					// The column is over the barrier again: the Act is done.
+					ClearAct(world);
 				}
 				break;
 			}

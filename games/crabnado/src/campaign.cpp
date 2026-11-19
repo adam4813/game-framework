@@ -236,6 +236,7 @@ Act ParseAct(const json& j, const std::string& where, Context& ctx) {
 	}
 	act.name = Text(j, "name");
 	act.title = Text(j, "title");
+	act.comic_after = Text(j, "comic_after");
 	act.arena = ParseArena(Object(j, "arena"));
 	const json& sea = Object(j, "sea");
 	act.sea = {.cross_swell_at = OptionalNumber(sea, "cross_swell_at"), .rogue_at = OptionalNumber(sea, "rogue_at")};
@@ -411,7 +412,7 @@ void PayBonus(const flecs::world& world, RunState& run, const GateBonus& bonus) 
 }
 
 // Enters the Stage RunState names: a normal Stage shows its banner, the Boss Stage starts the storm-up (or, with no
-// boss, clears the Act, which for now wins the run), and a normal Stage also ends a boss phase a jump left behind.
+// boss, clears the Act), and a normal Stage also ends a boss phase a jump left behind.
 void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 	run.stage_kills_start = run.kills;
 	run.storm_up = 0.0F;
@@ -429,7 +430,7 @@ void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 	if (!act.boss) {
 		spdlog::warn("[Run] Act {} has no boss: cleared at {:.1f}s", run.act, run.clock);
 		run.phase = RunPhase::Boss;
-		WinRun(world);
+		ClearAct(world);
 		return;
 	}
 	if (run.phase == RunPhase::Playing) {

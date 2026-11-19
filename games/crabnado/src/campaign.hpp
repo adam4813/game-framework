@@ -106,6 +106,8 @@ struct Act {
 	std::vector<Stage> stages;
 	// Absent when the Act has none or its boss id didn't resolve; the Act then clears when its last Stage gates.
 	std::optional<BossStage> boss;
+	// The id of the comic page shown after this Act (the last Act's is the ending). Ticket 06 makes the pages real.
+	std::string comic_after;
 };
 
 // Singleton: the loaded campaign.

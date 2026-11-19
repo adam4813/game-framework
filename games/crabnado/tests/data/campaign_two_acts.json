@@ -1,0 +1,24 @@
+{
+  "acts": [
+    {
+      "id": "first",
+      "name": "First Fixture Act",
+      "title": "Act A",
+      "comic_after": "after_first",
+      "arena": { "rocks": { "inner": 2, "outer": 1 } },
+      "hp_scale": { "mult": 1.0, "growth_seconds": 0 },
+      "stages": [{ "name": "Only", "gate": { "type": "time", "time": 30 }, "spawns": { "crab": 1 }, "rate": { "base": 0 } }],
+      "boss": { "id": "crabnado", "spawns": { "crab": 1 }, "rate_mult": 1.0 }
+    },
+    {
+      "id": "second",
+      "name": "Second Fixture Act",
+      "title": "Act B",
+      "comic_after": "ending",
+      "arena": { "rocks": { "inner": 6, "outer": 4 }, "tint": { "color": [255, 0, 0], "amount": 0.5 } },
+      "hp_scale": { "mult": 2.0, "growth_seconds": 0 },
+      "stages": [{ "name": "Lone", "gate": { "type": "time", "time": 30 }, "spawns": { "crab": 1 }, "rate": { "base": 0 } }],
+      "boss": { "id": "crabnado", "spawns": { "crab": 1 }, "rate_mult": 1.0 }
+    }
+  ]
+}

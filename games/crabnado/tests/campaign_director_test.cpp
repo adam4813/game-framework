@@ -1,4 +1,5 @@
 #include <memory>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -7,8 +8,11 @@
 #include "crabnado_constants.hpp"
 #include "crabnado_module.hpp"
 #include "engine/engine.hpp"
+#include "horde.hpp"
 #include "player.hpp"
+#include "arena.hpp"
 #include "run.hpp"
+#include "upgrades.hpp"
 
 using namespace engine;
 using namespace crabnado;
@@ -22,9 +26,9 @@ struct DirectorWorld {
 	std::unique_ptr<EngineContext> ctx =
 		std::make_unique<EngineContext>(std::make_unique<platform::HeadlessPlatform>(CRABNADO_TEST_ASSET_DIR));
 
-	DirectorWorld() {
+	explicit DirectorWorld(const std::string& fixture = "campaign_gates.json") {
 		World().import<CrabnadoModule>();
-		World().get_mut<CampaignSource>().campaign_path = CRABNADO_TEST_FIXTURE_DIR "/campaign_gates.json";
+		World().get_mut<CampaignSource>().campaign_path = std::string{CRABNADO_TEST_FIXTURE_DIR} + "/" + fixture;
 	}
 
 	[[nodiscard]] flecs::world& World() const { return *ctx->GetWorld(); }
@@ -118,6 +122,87 @@ TEST(CampaignDirector, AMoltPausesEveryClockAndResumesThePhaseItLeft) {
 	EXPECT_FLOAT_EQ(game.Run().stage_clock, stageClock);
 	EXPECT_FLOAT_EQ(game.Run().act_clock, actClock);
 	EXPECT_FLOAT_EQ(game.Run().clock, clock);
+}
+
+// Jumps to the Boss Stage of the current Act and ends the boss the way its retreat does.
+void BeatTheBoss(const DirectorWorld& game) {
+	game.Run().stage = static_cast<int>(CurrentAct(game.World())->stages.size());
+	game.Step(0.1F);
+	game.Run().phase = RunPhase::Boss;
+	ClearAct(game.World());
+}
+
+TEST(CampaignDirector, BeatingAnActsBossRunsTheTransitionAndStartsTheNextActsCountdown) {
+	const DirectorWorld game("campaign_two_acts.json");
+	game.StartRun();
+	game.Run().kills = 12;
+	game.Run().molt_level = 3;
+	game.Step(2.0F);
+	BeatTheBoss(game);
+
+	// ACT CLEAR holds the scene paused with every clock standing still, and notes the split.
+	EXPECT_EQ(game.Run().phase, RunPhase::Transition);
+	EXPECT_EQ(game.Run().step, TransitionStep::ActClear);
+	EXPECT_GT(game.Run().splits[0], 2.0F);
+	const float clock = game.Run().clock;
+	game.Step(constants::kActClearTime - 0.5F);
+	EXPECT_EQ(game.Run().step, TransitionStep::ActClear);
+	EXPECT_FLOAT_EQ(game.Run().clock, clock);
+
+	// Then the comic, the arena reset and the free molt, which leaves the molt bar alone.
+	game.Step(1.0F);
+	EXPECT_EQ(game.Run().phase, RunPhase::Transition);
+	EXPECT_EQ(game.Run().step, TransitionStep::Molt);
+	EXPECT_EQ(game.Run().act, 1);
+	EXPECT_EQ(game.Run().stage, 0);
+	EXPECT_EQ(game.Run().molt_level, 3);
+	EXPECT_EQ(game.Run().kills, 12);
+	EXPECT_FALSE(game.World().get<MoltOffer>().ids[0].empty());
+	EXPECT_FLOAT_EQ(game.Run().clock, clock);
+	EXPECT_EQ(game.World().get<Rocks>().circles.size(), 10U);
+
+	// Picking an upgrade leads into the new Act's countdown, then play.
+	ChooseUpgrade(game.World(), 0);
+	EXPECT_EQ(game.Run().phase, RunPhase::Countdown);
+	game.Step(constants::kCountdownTime + 0.5F);
+	EXPECT_EQ(game.Run().phase, RunPhase::Playing);
+	game.Step(0.5F);
+	EXPECT_EQ(game.Run().act, 1);
+	EXPECT_EQ(game.Run().stage, 0);
+	EXPECT_GT(game.Run().act_clock, 0.0F);
+	EXPECT_LT(game.Run().act_clock, 1.0F);
+	EXPECT_EQ(game.Run().molt_level, 3);
+}
+
+TEST(CampaignDirector, TheNextActStartsAtFullHealthInTheCentreWithTheHordeCleared) {
+	const DirectorWorld game("campaign_two_acts.json");
+	game.StartRun();
+	const flecs::entity player = FindPlayer(game.World());
+	player.get_mut<PlayerStats>().max_hp = 150.0F;
+	player.get_mut<PlayerStats>().hp = 20.0F;
+	player.get_mut<spatial::Transform>().position = {30.0F, 0.0F, 10.0F};
+	BeatTheBoss(game);
+	game.Step(constants::kActClearTime + 0.5F);
+
+	EXPECT_FLOAT_EQ(player.get<PlayerStats>().hp, 150.0F);
+	EXPECT_FLOAT_EQ(player.get<spatial::Transform>().position.x, 0.0F);
+	EXPECT_FLOAT_EQ(player.get<spatial::Transform>().position.z, 0.0F);
+	EXPECT_EQ(game.World().count<Enemy>(), 0);
+}
+
+TEST(CampaignDirector, BeatingTheLastActsBossWinsTheRunAfterItsEnding) {
+	const DirectorWorld game("campaign_two_acts.json");
+	game.StartRun();
+	BeatTheBoss(game);
+	game.Step(constants::kActClearTime + 0.5F);
+	ChooseUpgrade(game.World(), 0);
+	game.Step(constants::kCountdownTime + 1.0F);
+	ASSERT_EQ(game.Run().act, 1);
+	BeatTheBoss(game);
+	EXPECT_EQ(game.Run().phase, RunPhase::Transition);
+	game.Step(constants::kActClearTime + 0.5F);
+	EXPECT_EQ(game.Run().phase, RunPhase::Won);
+	EXPECT_GT(game.Run().splits[1], game.Run().splits[0]);
 }
 
 } // namespace

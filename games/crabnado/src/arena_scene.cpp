@@ -117,7 +117,7 @@ const ui::Button kCardStyle{
 	.border_thickness = 3.0F,
 };
 constexpr float kResultsModalWidth = 520.0F;
-constexpr float kResultsModalHeight = 380.0F;
+constexpr float kResultsModalHeight = 470.0F;
 constexpr float kPauseModalWidth = 360.0F;
 constexpr float kPauseModalHeight = 312.0F;
 constexpr float kModalButtonWidth = 200.0F;
@@ -128,8 +128,6 @@ constexpr float kBossCrestLookahead = 3.0F * constants::kWavePeriod;
 constexpr float kCompassRadius = 56.0F;
 constexpr float kCompassMargin = 30.0F;
 constexpr float kCompassTop = 20.0F;
-// Scattered rocks keep this clear of the player's start (the centre).
-constexpr float kStartClearance = 5.0F;
 
 // A stat value with at most two decimals and no trailing zeros: "100", "3.6", "0.96".
 std::string FormatStat(const float value) {
@@ -180,7 +178,7 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	if (deferred) {
 		world.defer_suspend();
 	}
-	const std::array<RockCircle, 1> keepClear{{{.center = glm::vec2{0.0F}, .radius = kStartClearance}}};
+	const std::array<RockCircle, 1> keepClear{{{.center = glm::vec2{0.0F}, .radius = constants::kStartClearance}}};
 	BuildArena(world, sceneRoot_, keepClear);
 	if (deferred) {
 		world.defer_resume();
@@ -274,6 +272,11 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 						  .set<ui::Label>({.font_size = kCountdownFontSize, .color = kBannerColor, .outline = 6.0F, .outline_color = kHudOutlineColor})
 						  .set_name("CountdownLabel")
 						  .child_of(uiRoot_);
+	// The Act's title card, under the countdown number.
+	actCardLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.3F + kCountdownFontSize * 1.7F, .w = w, .h = 90.0F}, "", 40.0F)
+						.set<ui::Label>({.font_size = 40.0F, .color = kBannerColor, .outline = 3.0F, .outline_color = kHudOutlineColor})
+						.set_name("ActCardLabel")
+						.child_of(uiRoot_);
 	BuildLoadout(world, h);
 	BuildMoltModal(world, w, h);
 
@@ -524,8 +527,8 @@ void ArenaScene::BuildResultsModal(const flecs::world& world, const float width,
 						  .set<ui::Label>({.font_size = 48.0F, .color = kResultsHeadingColor})
 						  .child_of(resultsModal_);
 	resultsStats_ =
-		ui::CreateLabel(world, {.x = x, .y = y + 96.0F, .w = kResultsModalWidth, .h = 120.0F}, "", 26.0F)
-			.set<ui::Label>({.font_size = 26.0F, .color = kPanelTextColor})
+		ui::CreateLabel(world, {.x = x, .y = y + 96.0F, .w = kResultsModalWidth, .h = 220.0F}, "", 24.0F)
+			.set<ui::Label>({.font_size = 24.0F, .color = kPanelTextColor})
 			.child_of(resultsModal_);
 
 	const float rowWidth = 2.0F * kModalButtonWidth + kChoiceGap;
@@ -629,11 +632,25 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 	}
 	const int seconds = static_cast<int>(run.clock);
 	auto& heading = resultsHeading_.get_mut<ui::Label>();
-	heading.text = won ? "Victory!" : "Swept away";
+	heading.text = won ? "Hermit Isle holds!" : "Swept away";
 	heading.color = won ? kVictoryHeadingColor : kResultsHeadingColor;
+	// A loss says where the run ended; a victory lists the campaign clock at each Act's clear.
+	std::string where;
+	if (won) {
+		const int acts = std::min(kSplitCount, static_cast<int>(world.get<Campaign>().acts.size()));
+		for (int i = 0; i < acts; ++i) {
+			// The splits are cumulative clock readings; each Act's own time is the difference from the one before.
+			const auto at = static_cast<size_t>(i);
+			const int split = static_cast<int>(run.splits[at] - (i > 0 ? run.splits[at - 1] : 0.0F));
+			where += std::format("\nAct {}  {}:{:02}", i + 1, split / 60, split % 60);
+		}
+	} else if (const Act* act = CurrentAct(world)) {
+		const Stage* stage = CurrentStage(world);
+		where = std::format("{}: {}, {} Stage\n", act->title, act->name, stage != nullptr ? stage->name : "Boss");
+	}
 	resultsStats_.get_mut<ui::Label>().text = std::format(
-		"{}Time {}  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}", won ? "The crabnado breaks apart!\n" : "",
-		won ? "to win" : "survived", seconds / 60, seconds % 60, run.kills, run.rock_kills, run.molt_level
+		"{}Time {}  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}{}", won ? "" : where, won ? "to win" : "survived",
+		seconds / 60, seconds % 60, run.kills, run.rock_kills, run.molt_level, won ? where : ""
 	);
 }
 
@@ -719,7 +736,9 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	bossLabel_.get_mut<ui::Label>().text = boss ? std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams)
 												: (stormRising ? "The storm is rising!" : "");
 	std::string banner;
-	if (boss && run.banner_timer > 0.0F) {
+	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
+		banner = "ACT CLEAR";
+	} else if (boss && run.banner_timer > 0.0F) {
 		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
 								: std::format("SLAM! {}/{}", run.slams, slamsToWin);
 	} else if (const Stage* stage = CurrentStage(world); stage != nullptr && run.stage_banner > 0.0F && run.phase == RunPhase::Playing) {
@@ -751,18 +770,24 @@ void ArenaScene::UpdateCountdown(const flecs::world& world) const {
 	const auto& run = world.get<RunState>();
 	const float countdown = run.countdown;
 	auto& label = countdownLabel_.get_mut<ui::Label>();
+	// The Act's title card shows with its opening 3-2-1; the Act clock only stands at 0 before play starts.
+	if (actCardLabel_.has<ui::Label>()) {
+		const Act* act = CurrentAct(world);
+		const bool card = act != nullptr && countdown > 0.0F && run.act_clock == 0.0F && run.phase == RunPhase::Countdown;
+		actCardLabel_.get_mut<ui::Label>().text = card ? act->title + '\n' + act->name : "";
+	}
 	if (countdown <= -constants::kGoTime) {
 		label.text.clear();
 		return;
 	}
 	// Each number lands big and settles over its second; "Go!" does the same over kGoTime.
 	const float settle = countdown > 0.0F ? countdown - std::ceil(countdown) + 1.0F : 1.0F + countdown / constants::kGoTime;
-	// The clock only stands at 0 before the first countdown ends, so a later countdown is the resume after a molt.
+	// The Act clock only stands at 0 before an Act's play starts, so a later countdown is the resume after a molt.
 	if (countdown <= 0.0F) {
 		label.text = "Go!";
 	}
 	else {
-		label.text = run.clock > 0.0F ? "Ready..." : std::format("{}", static_cast<int>(std::ceil(countdown)));
+		label.text = run.act_clock > 0.0F ? "Ready..." : std::format("{}", static_cast<int>(std::ceil(countdown)));
 	}
 	label.font_size = kCountdownFontSize * (1.0F + kCountdownPop * settle * settle * settle);
 }
@@ -813,7 +838,7 @@ void ArenaScene::UpdateMolt(const flecs::world& world) const {
 		moltChip_.get_mut<ui::Label>().text = std::format("{}", run.molt_level);
 	}
 
-	const bool molting = run.phase == RunPhase::Molting;
+	const bool molting = IsMolting(run.phase, run.step);
 	moltModal_.get_mut<ui::Modal>().open = molting;
 	if (!molting) {
 		return;
@@ -955,6 +980,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	rerollButton_ = {};
 	bannerLabel_ = {};
 	countdownLabel_ = {};
+	actCardLabel_ = {};
 	moltModal_ = {};
 	moltCards_ = {};
 	confirmButton_ = {};

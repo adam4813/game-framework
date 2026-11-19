@@ -23,6 +23,7 @@
 #include "title_backdrop.hpp"
 #include "title_logo.hpp"
 #include "title_scene.hpp"
+#include "transition.hpp"
 #include "ui_theme.hpp"
 #include "upgrades.hpp"
 #include "waves.hpp"
@@ -43,6 +44,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterControls(world);
 	RegisterRun(world);
 	RegisterCampaign(world);
+	RegisterTransition(world);
 	RegisterWind(world);
 	RegisterWaves(world);
 	RegisterPlayer(world);

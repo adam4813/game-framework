@@ -4,6 +4,7 @@
       "id": "act1",
       "name": "The Red Tide",
       "title": "Act 1",
+      "comic_after": "after_act1",
       "arena": { "rocks": { "inner": 9, "outer": 5 }, "tint": { "color": [47, 143, 168], "amount": 0.0 } },
       "sea": { "cross_swell_at": 90, "rogue_at": 180 },
       "hp_scale": { "mult": 1.0, "growth_seconds": 240 },
@@ -24,6 +25,58 @@
         }
       ],
       "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27 }, "rate_mult": 0.35 }
+    },
+    {
+      "id": "act2",
+      "name": "The Crabnado's Fury",
+      "title": "Act 2",
+      "comic_after": "after_act2",
+      "arena": { "rocks": { "inner": 11, "outer": 6 }, "tint": { "color": [140, 60, 70], "amount": 0.2 } },
+      "sea": { "cross_swell_at": 45, "rogue_at": 150 },
+      "hp_scale": { "mult": 1.2, "growth_seconds": 240 },
+      "stages": [
+        {
+          "name": "Crab",
+          "gate": { "type": "time", "time": 60 },
+          "spawns": { "crab": 65, "shrimp": 27 },
+          "rate": { "base": 1.0, "growth": 0.035 },
+          "source": "crabnado"
+        },
+        {
+          "name": "Lobster",
+          "gate": { "type": "time", "time": 120 },
+          "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 },
+          "rate": { "base": 1.875, "growth": 0.035 },
+          "source": "crabnado"
+        }
+      ],
+      "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 }, "rate_mult": 0.35 }
+    },
+    {
+      "id": "act3",
+      "name": "Captain Crab's Cavalry",
+      "title": "Act 3",
+      "comic_after": "ending",
+      "arena": { "rocks": { "inner": 13, "outer": 7 }, "tint": { "color": [40, 40, 90], "amount": 0.3 } },
+      "sea": { "cross_swell_at": 30, "rogue_at": 100 },
+      "hp_scale": { "mult": 1.4, "growth_seconds": 240 },
+      "stages": [
+        {
+          "name": "Crab",
+          "gate": { "type": "time", "time": 60 },
+          "spawns": { "crab": 65, "shrimp": 27 },
+          "rate": { "base": 1.0, "growth": 0.035 },
+          "source": "crabnado"
+        },
+        {
+          "name": "Shrimp",
+          "gate": { "type": "time", "time": 120 },
+          "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 },
+          "rate": { "base": 1.875, "growth": 0.035 },
+          "source": "crabnado"
+        }
+      ],
+      "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 }, "rate_mult": 0.35 }
     }
   ]
 }

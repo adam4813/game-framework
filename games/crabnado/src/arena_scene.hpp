@@ -93,6 +93,7 @@ private:
 	flecs::entity bossLabel_;
 	flecs::entity bannerLabel_;
 	flecs::entity countdownLabel_;
+	flecs::entity actCardLabel_;
 	flecs::entity moltModal_;
 	// Stat lines a molt card has room for.
 	static constexpr int kMaxStatLines = 3;

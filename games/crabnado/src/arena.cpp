@@ -62,8 +62,8 @@ core::Rgba Lerp(const core::Rgba a, const core::Rgba b, const float t) {
 	return {.r = channel(a.r, b.r), .g = channel(a.g, b.g), .b = channel(a.b, b.b), .a = 255};
 }
 
+// Adds a rock's flattened sphere as its child. The rock's own height is set where it is made (kRockLift).
 void DressRock(const flecs::world& world, const flecs::entity rock, const float radius) {
-	rock.get_mut<spatial::Transform>().position.y = radius * kRockLift;
 	std::ignore = world.entity()
 					  .child_of(rock)
 					  .set<spatial::Transform>({.scale = {1.0F, kRockFlatten, 1.0F}})
@@ -80,9 +80,20 @@ RockBand ParseBand(const nlohmann::json& j) {
 		.max_radius = j.value("max_radius", 1.0F)};
 }
 
-// Rolls the RockScatter bands into rock entities under `parent`, clear of the pools, the level's own rocks,
-// `keepClear` and each other.
-void ScatterRocks(const flecs::world& world, const flecs::entity parent, const std::span<const RockCircle> keepClear) {
+// Rolls the RockScatter bands into rock entities in a new "ScatteredRocks" group under `parent`, clear of the pools, the
+// level's own rocks (not those of `ignoreGroup`, a group about to be destroyed), `keepClear` and each other. Returns
+// the rocks placed, with the entities that hold them.
+struct Scattered {
+	flecs::entity group;
+	std::vector<RockCircle> circles;
+	std::vector<flecs::entity> entities;
+};
+Scattered ScatterRocks(
+	const flecs::world& world,
+	const flecs::entity parent,
+	const std::span<const RockCircle> keepClear,
+	const flecs::entity ignoreGroup = {}
+) {
 	RockScatter scatter = world.get<RockScatter>();
 	// The Act's rock counts override the level's; the distances and radii stay in the level file.
 	if (const Act* act = CurrentAct(world)) {
@@ -96,13 +107,18 @@ void ScatterRocks(const flecs::world& world, const flecs::entity parent, const s
 		}
 	);
 	world.query_builder<const Rock, const spatial::Transform>().build().each(
-		[&](const Rock& rock, const spatial::Transform& transform) {
+		[&](const flecs::entity e, const Rock& rock, const spatial::Transform& transform) {
+			if (ignoreGroup && e.parent() == ignoreGroup) {
+				return;
+			}
 			taken.push_back({.center = {transform.position.x, transform.position.z}, .radius = rock.radius});
 		}
 	);
 
+	Scattered scattered;
 	auto& rng = world.get_mut<ecs::RngState>();
 	const flecs::entity group = world.entity("ScatteredRocks").child_of(parent);
+	scattered.group = group;
 	int wanted = 0;
 	int placed = 0;
 	for (const RockBand* band : {&scatter.inner, &scatter.outer}) {
@@ -120,10 +136,13 @@ void ScatterRocks(const flecs::world& world, const flecs::entity parent, const s
 					continue;
 				}
 				taken.push_back({.center = center, .radius = radius});
-				std::ignore = world.entity()
-								  .child_of(group)
-								  .set<spatial::Transform>({.position = {center.x, 0.0F, center.y}})
-								  .set<Rock>({.radius = radius});
+				scattered.entities.push_back(
+					world.entity()
+						.child_of(group)
+						.set<spatial::Transform>({.position = {center.x, radius * kRockLift, center.y}})
+						.set<Rock>({.radius = radius})
+				);
+				scattered.circles.push_back({.center = center, .radius = radius});
 				++placed;
 				break;
 			}
@@ -132,6 +151,7 @@ void ScatterRocks(const flecs::world& world, const flecs::entity parent, const s
 	if (placed < wanted) {
 		spdlog::warn("[Arena] Scattered {} of {} rocks; the rock_scatter bands are too crowded", placed, wanted);
 	}
+	return scattered;
 }
 
 // A piece of the barrier: an unlit, glowing primitive that BarrierShimmer recolours and bobs.
@@ -195,6 +215,7 @@ void CacheAndDress(const flecs::world& world, const flecs::entity parent) {
 	);
 	// Dress after the query, so no entity is added to a rock mid-iteration.
 	for (const flecs::entity rock : rockEntities) {
+		rock.get_mut<spatial::Transform>().position.y = rock.get<Rock>().radius * kRockLift;
 		DressRock(world, rock, rock.get<Rock>().radius);
 	}
 
@@ -272,8 +293,33 @@ void BuildArena(const flecs::world& world, const flecs::entity parent, const std
 		spdlog::error("[Arena] Could not load {}", kArenaLevel);
 		return;
 	}
-	ScatterRocks(world, parent, keepClear);
+	std::ignore = ScatterRocks(world, parent, keepClear);
 	CacheAndDress(world, parent);
+}
+
+void RescatterRocks(const flecs::world& world, const flecs::entity parent, const std::span<const RockCircle> keepClear) {
+	const flecs::entity old = parent.lookup("ScatteredRocks");
+	// The old group goes at the next merge, so the scatter has to look past it and the cache is built from what it made.
+	// Destroyed before the new group takes its name (in a system both are queued, and run in this order).
+	if (old) {
+		old.destruct();
+	}
+	const Scattered scattered = ScatterRocks(world, parent, keepClear, old);
+	for (size_t i = 0; i < scattered.entities.size(); ++i) {
+		DressRock(world, scattered.entities[i], scattered.circles[i].radius);
+	}
+	auto& cache = world.get_mut<Rocks>().circles;
+	cache.clear();
+	world.query_builder<const Rock, const spatial::Transform>().build().each(
+		[&](const flecs::entity e, const Rock& rock, const spatial::Transform& transform) {
+			// Neither the old group (going) nor the new one (added below, and visible here only outside a system).
+			if ((old && e.parent() == old) || e.parent() == scattered.group) {
+				return;
+			}
+			cache.push_back({.center = {transform.position.x, transform.position.z}, .radius = rock.radius});
+		}
+	);
+	cache.insert(cache.end(), scattered.circles.begin(), scattered.circles.end());
 }
 
 void ClearArena(const flecs::world& world) {

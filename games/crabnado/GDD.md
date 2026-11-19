@@ -42,7 +42,7 @@ Title ──Play──▶ intro (crab scurries off the island) ──▶ story c
                                                               │
                                                               ▼
         ┌──────────────── Arena: 3-2-1-Go! countdown ─▶ run ──┬─▶ HP 0 ──▶ Results "Swept away"
-        │                                                     └─▶ 3 boss slams ──▶ Results (victory)
+        │                                                     └─▶ boss beaten ──▶ next Act (3 Acts) ──▶ Results (victory)
         │                                                              │
         └────────────────────── Retry ◀────────────────────────────────┤
 Title ◀──────────────────────────────── Title ◀────────────────────────┘
@@ -55,7 +55,8 @@ Title ◀───────────────────────�
   skips.
 - **Arena:** a 3-2-1-Go! countdown, then the run. Esc opens the pause menu (Resume, Settings, Quit to title).
 - **Results:** a modal over the arena showing time survived, kills and molt level, with Retry (reloads the arena in
-  place) and Title. A loss plays a melancholy piano loop; a win plays a victory sting.
+  place, back at the Act 1 countdown) and Title. A loss is headed "Swept away" and names where it ended ("Act 2: The
+  Crabnado's Fury, Lobster Stage"); a win is headed "Hermit Isle holds!" with the time each Act took (the splits are stored as cumulative clock readings). A loss plays a melancholy piano loop; a win plays a victory sting.
 - **Settings:** music and sound-effect volume sliders, a Mute box for each, and a Fullscreen box. Saved to the
   `crabnado_settings` save slot and loaded at startup.
 
@@ -204,8 +205,15 @@ beside it flare, and it can't hurt or be hurt for the 1.5 s it takes to arrive),
 its own body at 35% of the rate, and deals 25 damage per second on contact.
 **You can't damage it directly.** A big crest that pushes it into a rock counts as one slam (2.5 s cooldown so one
 crest can't count twice). The HUD shows the slams left. **Three slams beat it:** the horde is swept away (no shells, no kills), every shell on the water flies to the
-player, and the crabnado is blown back out over the barrier to its orbit. Until the next Act exists, that ends the run
-as a victory.
+player, and the crabnado is blown back out over the barrier to its orbit. That clears the Act.
+
+**Between Acts** the scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page (a placeholder
+until ticket 06; it logs its id), then the arena resets (rocks re-scattered with the next Act's counts, water re-tinted,
+horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
+(it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
+upgrades, kills and the campaign clock carry over. After the last Act the ending comic leads to the victory Results.
+The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Acts 2 and 3 are skeleton data
+(placeholder tables, the crabnado as boss) until tickets 07, 09 and 11.
 
 ## Presentation
 
