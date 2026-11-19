@@ -14,7 +14,7 @@ namespace crabnado {
 // the break between Acts, or the run's end). Transition is the scene paused between a beaten boss and the next Act.
 enum class RunPhase { Countdown, Playing, Molting, Boss, Transition, Won, Lost };
 
-// Where a Transition is: ActClear shows the "ACT CLEAR" label, Comic is the story page (a placeholder until ticket 06),
+// Where a Transition is: ActClear shows the "ACT CLEAR" label, Comic is the story page (the arena scene plays it),
 // Molt is the Act's free molt pick. The Transition then hands over to a Countdown (or to Won after the last Act).
 enum class TransitionStep { ActClear, Comic, Molt };
 

@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Writes the story comic shown between the title and the arena into assets/textures/crabnado/story/: the page
-(page.png, 1280x720, the newsprint backdrop with the masthead) and its three panels (panel_1.png .. panel_3.png,
-392x540 each). The story scene draws them 1:1, so these sizes are the on-screen sizes.
+"""Writes the story comics into assets/textures/crabnado/story/<page id>/: the page (page.png, 1280x720, the newsprint
+backdrop with the masthead) and its three panels (panel_1.png .. panel_3.png, 392x540 each). The comic viewer draws
+them 1:1, so these sizes are the on-screen sizes. The pages are `opening` (title to arena), `after_act1`, `after_act2`
+and `ending`; campaign.json's `comic_after` names the one shown after each Act.
 
-Needs Pillow (pip install pillow). Run from anywhere: python3 games/crabnado/tools/make_story.py
+Needs Pillow (pip install pillow). Run from anywhere: python3 games/crabnado/tools/make_story.py [--page <id>]
+(default: every page). The barrier is drawn whole in every panel until the ending's last, where it fades.
 The look is a golden-age comic: thick black ink over flat four-colour fills, Ben-Day dots, colour printed a hair out of
 register, and caption boxes and balloons lettered in the UI font on yellowed newsprint. Everything is drawn at 3x and
 downsampled so the ink stays smooth. The copy lives here, baked into the art.
 """
+import argparse
 import math
 import random
 from pathlib import Path
@@ -574,7 +577,7 @@ def waves(cv, top, bottom, base=BLUE, crest=CYAN, rows=4, seed=3, amp=8.0):
             x += width
 
 
-def tornado(cv, cx, top, bottom, width, color=STORM, flecks=True, seed=5):
+def tornado(cv, cx, top, bottom, width, color=STORM, flecks=True, seed=5, alt=GREY):
     """The crabnado: a funnel of stacked, swaying ellipses with crabs whirled up in it."""
     rng = random.Random(seed)
     rows = 11
@@ -584,7 +587,7 @@ def tornado(cv, cx, top, bottom, width, color=STORM, flecks=True, seed=5):
         w = width * (1.0 - f * 0.78)
         sway = math.sin(f * 4.0) * width * 0.12
         cv.ellipse([cx + sway - w / 2, y - w * 0.12 - 6, cx + sway + w / 2, y + w * 0.12 + 6],
-                   fill=GREY if n % 2 else color, width=2.5)
+                   fill=alt if n % 2 else color, width=2.5)
         cv.arc([cx + sway - w * 0.4, y - w * 0.06, cx + sway + w * 0.4, y + w * 0.08], 10, 170, width=1.8)
     if flecks:
         for _ in range(7):
@@ -745,6 +748,271 @@ def panel_barrier():
     return cv.finish()
 
 
+# ── The later pages: characters and scenery ──
+
+ENRAGED = (150, 66, 70, 255)
+ENRAGED_ALT = (176, 110, 112, 255)
+TEAL = (46, 170, 150, 255)
+DEEP = (18, 14, 34, 255)
+
+
+def enraged_crabnado(cv, cx, top, bottom, width, seed=31):
+    """The crabnado in a rage: the funnel in red-gray, glaring from its mouth."""
+    tornado(cv, cx, top, bottom, width, color=ENRAGED, alt=ENRAGED_ALT, seed=seed)
+    for dx, side in ((-0.22, 1), (0.22, -1)):
+        eye(cv, cx + dx * width, top + 6, 11, look=(0.0, 0.3), angry=0.45, lid_side=side)
+
+
+def barrier_dome(cv, cx, base, r, alpha=255):
+    """The barrier, whole: three bands of light across the panel and the runes floating on them. `alpha` fades it."""
+    for n, col in enumerate((LILAC, VIOLET, (140, 70, 200, 255))):
+        rr = r - n * 10
+        cv.c.arc([s(cx - rr * 1.15), s(base - rr), s(cx + rr * 1.15), s(base + rr)], 180, 360,
+                 fill=col[:3] + (alpha,), width=s(9 - n * 2))
+    ink = INK[:3] + (alpha,)
+    for rr in (r + 10, r - 28):
+        cv.i.arc([s(cx - rr * 1.15), s(base - rr), s(cx + rr * 1.15), s(base + rr)], 180, 360, fill=ink, width=s(1.8))
+    for a in (200, 225, 250, 290, 315, 340):
+        ra = math.radians(a)
+        x, y = cx + math.cos(ra) * (r - 9) * 1.15, base + math.sin(ra) * (r - 9)
+        cv.c.ellipse([s(x - 7), s(y - 7), s(x + 7), s(y + 7)], fill=WHITE[:3] + (alpha,))
+        cv.i.ellipse([s(x - 7), s(y - 7), s(x + 7), s(y + 7)], outline=ink, width=s(2))
+
+
+def storm_sky(cv, bottom, top_color=(120, 130, 100, 255), dot=(70, 90, 80, 255)):
+    dot_fill(cv, rect_mask(cv, [0, 0, cv.w, bottom]), top_color, dot, spacing=7, fade=lambda f: 2.6 - 2.2 * f)
+
+
+def snapjaw_shadow(cv, x, y, scale=1.0, eye_dx=0.0):
+    """Snapjaw is never fully shown: a vast dark silhouette whose one eye glows. (x, y) is the eye; the body is meant to
+    run off the panel's edge."""
+    k = scale
+    body = [(x - 190 * k, y + 260 * k), (x - 160 * k, y - 20 * k), (x - 120 * k, y - 70 * k), (x - 90 * k, y - 120 * k),
+            (x - 60 * k, y - 80 * k), (x - 30 * k, y - 150 * k), (x, y - 80 * k), (x + 40 * k, y - 140 * k),
+            (x + 70 * k, y - 70 * k), (x + 130 * k, y - 60 * k), (x + 170 * k, y - 10 * k), (x + 190 * k, y + 260 * k)]
+    cv.poly(body, fill=DEEP, width=3)
+    for side in (-1, 1):
+        cv.poly([(x + side * 150 * k, y + 70 * k), (x + side * 215 * k, y + 20 * k), (x + side * 230 * k, y + 110 * k),
+                 (x + side * 175 * k, y + 130 * k)], fill=DEEP, width=3)
+    ex = x + eye_dx
+    for r, col in ((34, (250, 210, 60, 110)), (22, (250, 160, 40, 190))):
+        cv.circle(ex, y, r * k, fill=col, width=0)
+    cv.circle(ex, y, 13 * k, fill=YELLOW, width=2)
+    slit = [(ex - 3 * k, y - 11 * k), (ex + 3 * k, y - 11 * k), (ex + 3 * k, y + 11 * k), (ex - 3 * k, y + 11 * k)]
+    cv.fill_ink(slit)
+    cv.fill_color(slit, RED)
+
+
+def seahorse(cv, x, y, k=1.0):
+    """A green-teal seahorse, head to the right: (x, y) is the middle of its belly."""
+    cv.stroke([(x - 44 * k, y + 56 * k), (x - 64 * k, y + 44 * k), (x - 62 * k, y + 22 * k), (x - 46 * k, y + 20 * k)],
+              10 * k, TEAL)
+    cv.stroke([(x + 22 * k, y - 78 * k), (x + 34 * k, y - 38 * k), (x + 8 * k, y + 6 * k), (x - 14 * k, y + 40 * k),
+               (x - 44 * k, y + 56 * k)], 34 * k, TEAL)
+    cv.poly([(x - 8 * k, y - 60 * k), (x - 44 * k, y - 36 * k), (x - 20 * k, y - 16 * k), (x - 42 * k, y + 6 * k),
+             (x - 6 * k, y + 8 * k)], fill=GREEN, width=2.5)
+    cv.stroke([(x + 30 * k, y - 82 * k), (x + 70 * k, y - 76 * k)], 14 * k, TEAL)
+    cv.circle(x + 28 * k, y - 88 * k, 6 * k, fill=WHITE, width=2)
+    cv.circle(x + 30 * k, y - 88 * k, 2.4 * k, fill=INK, width=0)
+    cv.poly([(x + 12 * k, y - 98 * k), (x + 22 * k, y - 114 * k), (x + 30 * k, y - 98 * k)], fill=LEAF, width=2.2)
+    for n in range(4):
+        cv.arc([x - 8 * k, y - 50 * k + n * 14 * k, x + 28 * k, y - 28 * k + n * 14 * k], 20, 160, width=1.8)
+
+
+def captain_crab(cv, x, y, k=1.0, claws_up=True):
+    """Captain Crab: a big red crab in a captain's hat, riding a green-teal seahorse. (x, y) is the middle of the crab."""
+    seahorse(cv, x - 6 * k, y + 70 * k, k * 0.9)
+    legs(cv, x - 30 * k, y + 22 * k, 1, 60 * k, RED, -1, count=2)
+    legs(cv, x + 30 * k, y + 22 * k, 1, 60 * k, RED, 1, count=2)
+    cv.ellipse([x - 62 * k, y - 38 * k, x + 62 * k, y + 40 * k], fill=RED, width=3.5)
+    dot_fill(cv, poly_mask(cv, [(x - 50 * k, y + 8 * k), (x + 50 * k, y + 8 * k), (x + 40 * k, y + 34 * k),
+                                (x - 40 * k, y + 34 * k)]), RED, (150, 24, 30, 255), spacing=5, radius=1.4)
+    up = -1.2 if claws_up else -0.2
+    for side in (-1, 1):
+        ang = up if side > 0 else math.pi - up
+        hx, hy = x + side * 86 * k, y - 28 * k + (-30 * k if claws_up else 10 * k)
+        cv.stroke([(x + side * 50 * k, y), ((x + side * 50 * k + hx) / 2, y - 14 * k), (hx, hy)], 14 * k, RED)
+        pincer(cv, hx, hy, 34 * k, ang, ORANGE, open_=0.8, shade=RED)
+    for ex in (-18, 18):
+        cv.stroke([(x + ex * k, y - 34 * k), (x + ex * k, y - 58 * k)], 7 * k, RED)
+        eye(cv, x + ex * k, y - 64 * k, 10 * k, look=(0.2, 0.2), angry=0.2, lid_side=1 if ex < 0 else -1)
+    hat = [(x - 62 * k, y - 62 * k), (x - 30 * k, y - 88 * k), (x, y - 100 * k), (x + 30 * k, y - 88 * k),
+           (x + 62 * k, y - 62 * k), (x + 20 * k, y - 70 * k), (x - 20 * k, y - 70 * k)]
+    cv.poly(hat, fill=NAVY, width=3)
+    cv.line([(x - 54 * k, y - 66 * k), (x - 20 * k, y - 73 * k), (x + 20 * k, y - 73 * k), (x + 54 * k, y - 66 * k)],
+            width=4 * k, color=GOLD, plate="color")
+    cv.circle(x, y - 84 * k, 7 * k, fill=YELLOW, width=2)
+    cv.poly([(x - 16 * k, y - 8 * k), (x + 16 * k, y - 8 * k), (x + 10 * k, y + 8 * k), (x - 10 * k, y + 8 * k)],
+            fill=(120, 20, 30, 255), width=2.5)
+
+
+def whirl(cv, cx, cy, r, color=WHITE, turns=3):
+    """Spin lines: a spiral around (cx, cy)."""
+    p = []
+    for n in range(80):
+        a = n * turns * 2 * math.pi / 80
+        rr = r * (0.15 + 0.85 * n / 79)
+        p.append((cx + math.cos(a) * rr, cy + math.sin(a) * rr * 0.55))
+    cv.line(p, width=5, color=color, plate="color")
+    cv.line(p, width=1.8)
+
+
+def night_sea_panel(top=330):
+    cv = Canvas(PANEL_W, PANEL_H)
+    dot_fill(cv, rect_mask(cv, [0, 0, PANEL_W, PANEL_H]), (60, 40, 110, 255), (20, 14, 50, 255), spacing=7,
+             fade=lambda f: 2.8 - 2.4 * f)
+    waves(cv, top, PANEL_H, base=(40, 70, 140, 255), crest=(90, 140, 200, 255), rows=4, seed=12, amp=6)
+    return cv
+
+
+# ── Panels: after Act 1 ──
+
+
+def panel_limp():
+    """After Act 1, panel 1: the beaten crabnado limps back to the barrier's edge."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    h = PANEL_H
+    storm_sky(cv, 330)
+    barrier_dome(cv, 200, 400, 200)
+    waves(cv, 380, h, base=BLUE, crest=CYAN, rows=4, seed=14)
+    tornado(cv, 190, 190, 400, 110, seed=41)
+    for n, dx in enumerate((-50, 30, 78)):
+        minion(cv, 70 + n * 120 + dx * 0.2, 470 + n * 8, 9, color=RED, facing=1)
+    caption(cv, 10, 10, 372, "The Crabnado limped back to the Red Tide...")
+    caption(cv, 10, h - 56, 372, "...battered, dripping, and very much not winning.", emphasis=("NOT",))
+    return cv.finish()
+
+
+def panel_snapjaw_fumes():
+    """After Act 1, panel 2: Snapjaw looms out of the dark and raves at the crabnado."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    dot_fill(cv, rect_mask(cv, [0, 0, PANEL_W, PANEL_H]), (90, 30, 40, 255), (40, 12, 30, 255), spacing=7,
+             fade=lambda f: 2.8 - 2.2 * f)
+    sunburst(cv, 200, 250, [(180, 50, 50, 110), (0, 0, 0, 0)], rays=26, reach=700)
+    barrier_dome(cv, 200, 520, 230)
+    snapjaw_shadow(cv, 200, 250, scale=0.95)
+    tornado(cv, 110, 360, 520, 90, seed=43, color=ENRAGED, alt=ENRAGED_ALT, flecks=False)
+    caption(cv, 10, 10, 372, "In the dark, a voice like cracking shells...")
+    balloon(cv, 230, 150, 330, "YOU LOST?! To a hermit?! I gave you a storm and you gave me a SOAKING!",
+            tail=(214, 232), size=14.5, emphasis=("LOST?!", "SOAKING!"), shout=True)
+    return cv.finish()
+
+
+def panel_again():
+    """After Act 1, panel 3: the crabnado, enraged, roars back out. "Again!"."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    h = PANEL_H
+    storm_sky(cv, 330, top_color=(150, 90, 80, 255), dot=(90, 40, 50, 255))
+    sunburst(cv, 200, 250, [(240, 120, 80, 120), (0, 0, 0, 0)], rays=24, reach=700)
+    speed_lines(cv, 200, 250, 30, 150, 400, width=1.4, seed=5)
+    barrier_dome(cv, 200, 420, 210)
+    waves(cv, 400, h, base=BLUE, crest=CYAN, rows=3, seed=16)
+    enraged_crabnado(cv, 200, 110, 420, 210)
+    sound_effect(cv, 200, 470, "AGAIN!", 56, fill=YELLOW, outline=RED, angle=-6)
+    caption(cv, 10, 10, 372, "And the Crabnado rose, redder and angrier than before!", emphasis=("ANGRIER",))
+    return cv.finish()
+
+
+# ── Panels: after Act 2 ──
+
+
+def panel_spun_off():
+    """After Act 2, panel 1: the crabnado spins off across the sea, out of control."""
+    cv = night_sea_panel(360)
+    barrier_dome(cv, 200, 430, 200)
+    whirl(cv, 290, 200, 120)
+    tornado(cv, 290, 120, 340, 100, seed=51, color=ENRAGED, alt=ENRAGED_ALT)
+    for dx, dy in ((-40, 10), (-80, 70), (-110, 150)):
+        cv.line([(240 + dx, 180 + dy), (180 + dx, 190 + dy)], width=2.5)
+    sound_effect(cv, 110, 300, "WHIRRR...", 34, fill=WHITE, outline=BLUE, angle=-12)
+    caption(cv, 10, 10, 372, "Round and round it went, spinning clean out of control...")
+    return cv.finish()
+
+
+def panel_summons():
+    """After Act 2, panel 2: Snapjaw's silhouette summons Captain Crab out of a rift."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    dot_fill(cv, rect_mask(cv, [0, 0, PANEL_W, PANEL_H]), (50, 30, 100, 255), (16, 10, 44, 255), spacing=7,
+             fade=lambda f: 2.8 - 2.2 * f)
+    sunburst(cv, 200, 340, [(180, 120, 250, 120), (0, 0, 0, 0)], rays=28, reach=700)
+    snapjaw_shadow(cv, 110, 130, scale=0.75, eye_dx=6)
+    cv.ellipse([150, 280, 300, 330], fill=WHITE, width=3)
+    cv.ellipse([172, 288, 280, 322], fill=VIOLET, width=2.5)
+    for ang in range(0, 360, 30):
+        ra = math.radians(ang)
+        cv.line([(225 + math.cos(ra) * 80, 305 + math.sin(ra) * 32), (225 + math.cos(ra) * 110, 305 + math.sin(ra) * 46)],
+                width=3, color=YELLOW, plate="color")
+    barrier_dome(cv, 200, 540, 240)
+    sound_effect(cv, 270, 60, "KRA-KOOM!", 36, fill=YELLOW, outline=RED, angle=-8)
+    balloon(cv, 222, 400, 340, "If you want a storm tamed, you send a CAPTAIN! Rise, Captain Crab!",
+            tail=(225, 330), size=14.5, emphasis=("CAPTAIN!", "CRAB!"), shout=True)
+    return cv.finish()
+
+
+def panel_captain_claims():
+    """After Act 2, panel 3: Captain Crab rides in on his seahorse and claims the crabnado."""
+    cv = night_sea_panel(380)
+    sunburst(cv, 200, 250, [(250, 210, 60, 70), (0, 0, 0, 0)], rays=22, reach=700)
+    barrier_dome(cv, 200, 430, 210)
+    whirl(cv, 300, 110, 70)
+    tornado(cv, 310, 60, 240, 80, seed=53, color=ENRAGED, alt=ENRAGED_ALT, flecks=False)
+    captain_crab(cv, 160, 300, k=1.05)
+    balloon(cv, 252, 168, 250, "Belay that! This storm is MINE now!", tail=(200, 250), size=15,
+            emphasis=("MINE",), shout=True)
+    caption(cv, 10, PANEL_H - 56, 372, "Captain Crab, rider of the deep-sea tides, had arrived.", size=15)
+    return cv.finish()
+
+
+# ── Panels: the ending ──
+
+
+def panel_twins_scatter():
+    """The ending, panel 1: two small whirlwinds, all that's left of the storm, scatter in opposite directions."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    h = PANEL_H
+    storm_sky(cv, 330, top_color=(170, 190, 150, 255), dot=(110, 140, 110, 255))
+    barrier_dome(cv, 200, 410, 210)
+    waves(cv, 390, h, base=BLUE, crest=CYAN, rows=4, seed=18)
+    for cx, flip in ((100, -1), (300, 1)):
+        whirl(cv, cx, 240, 70)
+        tornado(cv, cx, 170, 380, 70, seed=61 + flip, flecks=False)
+        cv.line([(cx + flip * 40, 200), (cx + flip * 80, 180)], width=3)
+        cv.line([(cx + flip * 40, 250), (cx + flip * 90, 245)], width=3)
+    sound_effect(cv, 200, 440, "FWOOOSH!", 36, fill=WHITE, outline=BLUE, angle=-6)
+    caption(cv, 10, 10, 372, "The Crabnado split in two, twin whirlwinds scattering to the winds!", emphasis=("TWIN",))
+    return cv.finish()
+
+
+def panel_dive():
+    """The ending, panel 2: Captain Crab dives into a whirlpool toward Snapjaw's realm."""
+    cv = night_sea_panel(190)
+    for r, col in ((200, BLUE), (150, NAVY), (100, DEEP), (50, (6, 4, 16, 255))):
+        cv.ellipse([200 - r, 380 - r * 0.45, 200 + r, 380 + r * 0.45], fill=col, width=2.5)
+    whirl(cv, 200, 380, 190, color=CYAN)
+    snapjaw_shadow(cv, 200, 500, scale=0.7)
+    barrier_dome(cv, 200, 330, 200)
+    captain_crab(cv, 205, 190, k=0.85, claws_up=False)
+    speed_lines(cv, 205, 120, 18, 40, 130, width=1.4, seed=8)
+    sound_effect(cv, 100, 440, "SPLASH!", 32, fill=WHITE, outline=BLUE, angle=-8)
+    caption(cv, 10, 10, 372, "Captain Crab dove after the storm, straight toward Snapjaw's realm!", emphasis=("SNAPJAW'S",))
+    return cv.finish()
+
+
+def panel_fades():
+    """The ending, panel 3: the barrier fades over a calm sea."""
+    cv = Canvas(PANEL_W, PANEL_H)
+    w, h = PANEL_W, PANEL_H
+    dot_fill(cv, rect_mask(cv, [0, 0, w, h]), (240, 190, 120, 255), (250, 130, 80, 255), spacing=7,
+             fade=lambda f: 0.6 + 2.2 * f)
+    cv.circle(200, 300, 46, fill=YELLOW, width=3)
+    waves(cv, 350, h, base=BLUE, crest=CYAN, rows=4, seed=20)
+    barrier_dome(cv, 200, 420, 200, alpha=70)
+    palm(cv, 340, 400, 100, lean=0.2)
+    caption(cv, 10, 10, 372, "The barrier faded, the tide went still...")
+    caption(cv, 10, h - 62, 372, "To be continued... beneath the waves?", size=18, emphasis=("BENEATH",))
+    return cv.finish()
+
+
 def page():
     """The page behind the panels: halftone pulp with the masthead along the top."""
     cv = Canvas(PAGE_W, PAGE_H, ground=(242, 226, 190, 255))
@@ -768,12 +1036,28 @@ def page():
     return cv.finish(border=0)
 
 
+PAGES = {
+    "opening": (panel_challenge, panel_vow, panel_barrier),
+    "after_act1": (panel_limp, panel_snapjaw_fumes, panel_again),
+    "after_act2": (panel_spun_off, panel_summons, panel_captain_claims),
+    "ending": (panel_twins_scatter, panel_dive, panel_fades),
+}
+
+
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    page().save(OUT / "page.png")
-    for n, make in enumerate((panel_challenge, panel_vow, panel_barrier), start=1):
-        make().save(OUT / f"panel_{n}.png")
-    print(f"Wrote the story page and 3 panels to {OUT}")
+    parser = argparse.ArgumentParser(description="Draws the story comic pages.")
+    parser.add_argument("--page", choices=sorted(PAGES), help="draw only this page (default: all)")
+    args = parser.parse_args()
+    backdrop = page()
+    for page_id, panels in PAGES.items():
+        if args.page and args.page != page_id:
+            continue
+        folder = OUT / page_id
+        folder.mkdir(parents=True, exist_ok=True)
+        backdrop.save(folder / "page.png")
+        for n, make in enumerate(panels, start=1):
+            make().save(folder / f"panel_{n}.png")
+        print(f"Wrote story page '{page_id}' and 3 panels to {folder}")
 
 
 if __name__ == "__main__":

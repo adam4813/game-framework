@@ -12,6 +12,7 @@
 #include "player.hpp"
 #include "arena.hpp"
 #include "run.hpp"
+#include "transition.hpp"
 #include "upgrades.hpp"
 
 using namespace engine;
@@ -201,7 +202,16 @@ TEST(CampaignDirector, BeatingTheLastActsBossWinsTheRunAfterItsEnding) {
 	BeatTheBoss(game);
 	EXPECT_EQ(game.Run().phase, RunPhase::Transition);
 	game.Step(constants::kActClearTime + 0.5F);
+	// The ending plays before the win; Skip goes straight to Results.
+	EXPECT_EQ(game.Run().phase, RunPhase::Transition);
+	EXPECT_EQ(game.Run().step, TransitionStep::Comic);
+	game.Step(2.0F);
+	const flecs::entity skip = game.World().lookup("ArenaUI::StoryComic::SkipButton");
+	ASSERT_TRUE(skip.is_valid());
+	skip.get<ui::OnClick>().callback(skip);
+	game.Step(0.1F);
 	EXPECT_EQ(game.Run().phase, RunPhase::Won);
+	EXPECT_FALSE(game.World().lookup("ArenaUI::StoryComic").is_valid());
 	EXPECT_GT(game.Run().splits[1], game.Run().splits[0]);
 }
 

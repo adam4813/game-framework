@@ -96,6 +96,15 @@ void StartNextAct(const flecs::world& world) {
 	spdlog::info("[Campaign] Act {} '{}' begins", run.act, CurrentAct(world) != nullptr ? CurrentAct(world)->name : "?");
 }
 
+void FinishComic(const flecs::world& world) {
+	if (!HasNextAct(world)) {
+		WinRun(world);
+		return;
+	}
+	StartNextAct(world);
+	OfferFreeMolt(world);
+}
+
 void RegisterTransition(const flecs::world& world) {
 	world.component<TransitionStep>();
 	// Not pausable: the scene is paused for the whole Transition.
@@ -115,17 +124,8 @@ void RegisterTransition(const flecs::world& world) {
 					run.step = TransitionStep::Comic;
 				}
 				break;
-			case TransitionStep::Comic: {
-				const Act* act = CurrentAct(w);
-				spdlog::info("[Campaign] comic '{}' (placeholder)", act != nullptr ? act->comic_after : std::string{});
-				if (!HasNextAct(w)) {
-					WinRun(w);
-					break;
-				}
-				StartNextAct(w);
-				OfferFreeMolt(w);
-				break;
-			}
+			// The arena scene shows the page and calls FinishComic when the player is done with it.
+			case TransitionStep::Comic: break;
 			case TransitionStep::Molt: break;
 			}
 		})

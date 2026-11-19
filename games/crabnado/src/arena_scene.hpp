@@ -9,6 +9,7 @@
 #include <flecs.h>
 
 #include "engine/engine.hpp"
+#include "story_comic.hpp"
 #include "upgrades.hpp"
 
 namespace crabnado {
@@ -51,6 +52,11 @@ private:
 	void UpdateStamina(flecs::entity player) const;
 	void UpdateBoss(const flecs::world& world) const;
 	void UpdateCountdown(const flecs::world& world) const;
+	// Plays the story page that follows an Act while the run's Transition is on its Comic step: builds it over the
+	// paused arena, ticks it, and hands back to the run (FinishComic) when the player is done or the page is missing.
+	void UpdateComic(const flecs::world& world, float deltaTime);
+	StoryComic comic_;
+	bool comicOpen_{false};
 	void UpdateTelegraph(const flecs::world& world, flecs::entity player) const;
 	// Whether the cue for the current big crest has played, so it plays once per crest.
 	mutable bool crestCued_{false};

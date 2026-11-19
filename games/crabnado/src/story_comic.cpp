@@ -1,6 +1,8 @@
 #include "story_comic.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <format>
 #include <string_view>
 
 #include "engine/engine.hpp"
@@ -19,10 +21,11 @@ constexpr float kPanelHeight = 540.0F;
 constexpr float kPanelsLeft = 34.0F;
 constexpr float kPanelsTop = 90.0F;
 constexpr float kPanelGap = 18.0F;
-constexpr std::string_view kPagePath = "textures/crabnado/story/page.png";
-constexpr std::array<std::string_view, StoryComic::kPanelCount> kPanelPaths{
-	"textures/crabnado/story/panel_1.png", "textures/crabnado/story/panel_2.png", "textures/crabnado/story/panel_3.png"
-};
+
+// A page's folder, relative to the assets: story/<page id>/page.png and panel_1.png .. panel_3.png.
+std::string PageFile(const std::string_view pageId, const std::string_view file) {
+	return std::format("textures/crabnado/story/{}/{}", pageId, file);
+}
 
 // Above the title's UI and below its modals.
 constexpr int kZIndex = 50;
@@ -45,7 +48,15 @@ void SetVisible(const flecs::entity entity, const bool visible) { entity.get_mut
 
 } // namespace
 
-void StoryComic::Build(const flecs::world& world, const flecs::entity parent, const float width, const float height) {
+bool StoryComic::PageExists(const flecs::world& world, const std::string_view pageId) {
+	return std::filesystem::exists(assets::ResolveAsset(world, PageFile(pageId, "page.png")));
+}
+
+void StoryComic::Build(
+	const flecs::world& world, const flecs::entity parent, const float width, const float height, const std::string_view pageId,
+	std::string finishLabel
+) {
+	finishLabel_ = std::move(finishLabel);
 	started_ = false;
 	finished_ = false;
 	pageFade_ = 0.0F;
@@ -61,7 +72,7 @@ void StoryComic::Build(const flecs::world& world, const flecs::entity parent, co
 		return handle;
 	};
 	// A textured panel tinted fully transparent, so it starts hidden and fades in through its alpha.
-	const auto picture = [&](const char* name, const flecs::entity owner, const core::Rect rect, const std::string_view path) {
+	const auto picture = [&](const char* name, const flecs::entity owner, const core::Rect rect, const std::string& path) {
 		return world.entity(name)
 			.child_of(owner)
 			.set<ui::UIRect>({rect})
@@ -74,11 +85,11 @@ void StoryComic::Build(const flecs::world& world, const flecs::entity parent, co
 				.child_of(parent)
 				.set<ui::UIRect>({{.x = 0.0F, .y = 0.0F, .w = width, .h = height}})
 				.set<ui::UIElement>({.z_index = kZIndex, .visible = false});
-	page_ = picture("Page", root_, {.x = left, .y = top, .w = kPageWidth, .h = kPageHeight}, kPagePath);
+	page_ = picture("Page", root_, {.x = left, .y = top, .w = kPageWidth, .h = kPageHeight}, PageFile(pageId, "page.png"));
 	for (int i = 0; i < kPanelCount; ++i) {
 		const float x = left + kPanelsLeft + static_cast<float>(i) * (kPanelWidth + kPanelGap);
 		const std::string name = "Panel" + std::to_string(i + 1);
-		panels_[i] = picture(name.c_str(), page_, {.x = x, .y = top + kPanelsTop, .w = kPanelWidth, .h = kPanelHeight}, kPanelPaths[i]);
+		panels_[i] = picture(name.c_str(), page_, {.x = x, .y = top + kPanelsTop, .w = kPanelWidth, .h = kPanelHeight}, PageFile(pageId, std::format("panel_{}.png", i + 1)));
 	}
 
 	const float buttonsY = top + kPageHeight - kButtonsBottom - kButtonHeight;
@@ -113,6 +124,10 @@ void StoryComic::Release(const flecs::world& world) {
 		assets::Release(world, assets::AssetType::Texture, path);
 	}
 	textures_.clear();
+	// An arena comic is built again per page, so its entities can't wait for a parent's destruct.
+	if (root_ && root_.is_alive()) {
+		root_.destruct();
+	}
 	root_ = {};
 	page_ = {};
 	panels_ = {};
@@ -135,7 +150,7 @@ void StoryComic::Next() {
 	if (shown_ < kPanelCount) {
 		++shown_;
 		if (shown_ == kPanelCount) {
-			nextButton_.get_mut<ui::Button>().label = "Fight!";
+			nextButton_.get_mut<ui::Button>().label = finishLabel_;
 		}
 		return;
 	}

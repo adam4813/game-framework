@@ -5,6 +5,8 @@
 #include <format>
 #include <string>
 
+#include <spdlog/spdlog.h>
+
 #include "boss_registry.hpp"
 #include "bubbles.hpp"
 #include "campaign.hpp"
@@ -19,6 +21,7 @@
 #include "settings.hpp"
 #include "settings_menu.hpp"
 #include "sfx.hpp"
+#include "transition.hpp"
 #include "ui_theme.hpp"
 #include "enemy_types.hpp"
 #include "upgrades.hpp"
@@ -654,7 +657,9 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 	);
 }
 
-void ArenaScene::Tick(const flecs::world& world, float) {
+void ArenaScene::Tick(const flecs::world& world, const float deltaTime) {
+	// Ticks while the scene is paused, like the countdown, so the page runs between Acts.
+	UpdateComic(world, deltaTime);
 	auto* platform = world.get<platform::PlatformRef>().ptr;
 	const int enemyCount = world.count<Enemy>();
 	world.set<HordeReadout>({.enemy_count = enemyCount, .fps = platform->Fps()});
@@ -677,6 +682,38 @@ void ArenaScene::Tick(const flecs::world& world, float) {
 	}
 	if (clear) {
 		ClearHorde(world);
+	}
+}
+
+void ArenaScene::UpdateComic(const flecs::world& world, const float deltaTime) {
+	const auto& run = world.get<RunState>();
+	const bool wanted = run.phase == RunPhase::Transition && run.step == TransitionStep::Comic;
+	if (!comicOpen_) {
+		if (!wanted) {
+			return;
+		}
+		const Act* act = CurrentAct(world);
+		const std::string page = act != nullptr ? act->comic_after : std::string{};
+		if (page.empty() || !StoryComic::PageExists(world, page)) {
+			spdlog::warn("[Campaign] no comic page '{}'; skipping it", page);
+			FinishComic(world);
+			return;
+		}
+		const auto* platform = world.get<platform::PlatformRef>().ptr;
+		const bool last = run.act + 1 >= static_cast<int>(world.get<Campaign>().acts.size());
+		comic_.Build(world, uiRoot_, static_cast<float>(platform->Width()), static_cast<float>(platform->Height()), page, last ? "Continue" : "Fight!");
+		// Tick runs inside a system, so the page's entities exist only after this frame: it starts on the next one.
+		comicOpen_ = true;
+		return;
+	}
+	comic_.Start();
+	comic_.Tick(world, deltaTime);
+	if (comic_.Finished() || !wanted) {
+		comic_.Release(world);
+		comicOpen_ = false;
+		if (wanted) {
+			FinishComic(world);
+		}
 	}
 }
 
@@ -946,6 +983,8 @@ void ArenaScene::ClearHorde(const flecs::world& world) {
 void ArenaScene::Unload(flecs::world& world) {
 	// A lost run paused the scene; the next scene starts unpaused.
 	world.remove<scene::Paused>();
+	comic_.Release(world);
+	comicOpen_ = false;
 	ClearArena(world);
 	for (flecs::entity* root : {&sceneRoot_, &uiRoot_}) {
 		if (*root) {

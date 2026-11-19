@@ -53,6 +53,11 @@ Title ◀───────────────────────�
 - **Story comic:** three golden-age comic panels. Warlord Snapjaw issues his challenge, the Hermit King vows to
   fight, and the barrier goes up. One panel at a time with Next, and a Skip button. Space or Enter advances; Esc
   skips.
+- **Story pages between Acts:** three more three-panel pages, `after_act1` (the crabnado limps back, Snapjaw
+  enrages it, "Again!"), `after_act2` (it spins off, Snapjaw summons Captain Crab, who claims it) and `ending` (twins
+  scatter, Captain Crab dives toward Snapjaw's realm, the barrier fades: "To be continued... beneath the waves?").
+  Each is a folder under `assets/textures/crabnado/story/` drawn by `tools/make_story.py --page <id>`. The last
+  panel's button reads "Fight!", or "Continue" on the ending. Skipping the ending goes straight to Results.
 - **Arena:** a 3-2-1-Go! countdown, then the run. Esc opens the pause menu (Resume, Settings, Quit to title).
 - **Results:** a modal over the arena showing time survived, kills and molt level, with Retry (reloads the arena in
   place, back at the Act 1 countdown) and Title. A loss is headed "Swept away" and names where it ended ("Act 2: The
@@ -207,8 +212,8 @@ its own body at 35% of the rate, and deals 25 damage per second on contact.
 crest can't count twice). The HUD shows the slams left. **Three slams beat it:** the horde is swept away (no shells, no kills), every shell on the water flies to the
 player, and the crabnado is blown back out over the barrier to its orbit. That clears the Act.
 
-**Between Acts** the scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page (a placeholder
-until ticket 06; it logs its id), then the arena resets (rocks re-scattered with the next Act's counts, water re-tinted,
+**Between Acts** the scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page the Act's
+`comic_after` names (Next and Skip; a missing page is logged and skipped), then the arena resets (rocks re-scattered with the next Act's counts, water re-tinted,
 horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
 (it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
 upgrades, kills and the campaign clock carry over. After the last Act the ending comic leads to the victory Results.

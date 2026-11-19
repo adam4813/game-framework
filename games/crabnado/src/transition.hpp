@@ -3,14 +3,18 @@
 #include <flecs.h>
 
 // The break between Acts. ClearAct (run.hpp) starts it when a boss has retreated; the ActTransition system then walks
-// RunState::step: ACT CLEAR for kActClearTime, the comic page (a placeholder until ticket 06 logs its id and
-// completes at once), the arena reset and the Act's free molt. Choosing the molt (upgrades.hpp) starts the next Act's
+// RunState::step: ACT CLEAR for kActClearTime, the comic page (the arena scene shows it and calls FinishComic),
+// the arena reset and the Act's free molt. Choosing the molt (upgrades.hpp) starts the next Act's
 // countdown. After the last Act the comic is the ending and the run is won instead. The scene stays paused throughout,
 // so every clock stands still.
 namespace crabnado {
 
 // Registers the ActTransition system. Call from the module constructor after RegisterRun and RegisterCampaign.
 void RegisterTransition(const flecs::world& world);
+
+// Ends the Comic step: the next Act begins with its free molt, or after the last Act the run is won. The arena scene
+// calls it once the page is finished, or at once when the Act's page is missing.
+void FinishComic(const flecs::world& world);
 
 // Moves the run into the next Act and resets the arena for it: the rocks are re-scattered with the Act's counts, the
 // water re-tinted, the horde and loose shells cleared, the player put back in the centre at full HP and stamina, and
