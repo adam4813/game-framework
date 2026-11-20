@@ -43,13 +43,6 @@ bool FindTarget(const flecs::world& world, const glm::vec2 from, glm::vec2& targ
 	return found;
 }
 
-// The horde root the crabnado throws into, or an invalid entity when there is no crabnado.
-flecs::entity FindHorde(const flecs::world& world) {
-	flecs::entity horde;
-	world.each([&](const flecs::entity crabnado, const Crabnado&) { horde = crabnado.target<ThrowsInto>(); });
-	return horde;
-}
-
 } // namespace
 
 void RegisterBubbles(const flecs::world& world) {

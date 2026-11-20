@@ -32,7 +32,8 @@ using json = nlohmann::json;
 constexpr std::string_view kLogTag = "Campaign";
 constexpr std::string_view kDefaultSource = "crabnado";
 constexpr std::string_view kOffscreenSource = "offscreen";
-constexpr std::array<std::string_view, 2> kSpawnerIds{"crabnado", kOffscreenSource};
+constexpr std::string_view kInfestedSource = "infested_crest";
+constexpr std::array<std::string_view, 3> kSpawnerIds{"crabnado", kOffscreenSource, kInfestedSource};
 
 // What the parsers share. A fatal problem in a Stage or Act throws std::runtime_error, caught where that Stage or Act
 // is dropped; a droppable one (a bad spawn entry) goes straight into `errors`.
@@ -141,6 +142,33 @@ std::string ParseScriptId(const json& j, const char* key, const std::string& whe
 	return id;
 }
 
+// Reads an infested_crest entry's `chance`, `riders` and `min_gap` into `entry`; false when one is malformed.
+bool ParseInfested(const json& value, SpawnEntry& entry) {
+	const auto number = [&](const char* key, const float fallback) -> std::optional<float> {
+		if (!value.contains(key)) {
+			return fallback;
+		}
+		return value[key].is_number() ? std::optional{value[key].get<float>()} : std::nullopt;
+	};
+	const auto chance = number("chance", entry.chance);
+	const auto gap = number("min_gap", entry.min_gap);
+	if (!chance || !gap || *chance < 0.0F || *chance > 1.0F || *gap < 0.0F) {
+		return false;
+	}
+	entry.chance = *chance;
+	entry.min_gap = *gap;
+	if (value.contains("riders")) {
+		const auto& riders = value["riders"];
+		if (!riders.is_array() || riders.size() != 2 || !riders[0].is_number_integer() || !riders[1].is_number_integer()) {
+			return false;
+		}
+		entry.riders_min = riders[0].get<int>();
+		entry.riders_max = riders[1].get<int>();
+		return entry.riders_min >= 1 && entry.riders_max >= entry.riders_min;
+	}
+	return true;
+}
+
 // A spawn table: enemy id to a weight, or to {weight, source}. An unknown enemy type or spawner drops that entry.
 std::vector<SpawnEntry> ParseSpawns(const json& spawns, const std::string_view defaultSource, const std::string& where, Context& ctx) {
 	std::vector<SpawnEntry> table;
@@ -153,6 +181,16 @@ std::vector<SpawnEntry> ParseSpawns(const json& spawns, const std::string_view d
 		SpawnEntry entry{.type = static_cast<int>(known - ctx.enemyIds.begin()), .weight = 0.0F, .source = std::string{defaultSource}};
 		if (value.is_number()) {
 			entry.weight = value.get<float>();
+		} else if (value.is_object() && Text(value, "source") == kInfestedSource) {
+			// No weight: an infested crest is rolled per crest, never picked from the table.
+			entry.source = kInfestedSource;
+			entry.weight = 0.0F;
+			if (!ParseInfested(value, entry)) {
+				ctx.errors.push_back(std::format(
+					"{}: infested_crest '{}' needs a numeric 'chance' (0-1), 'riders' [min, max] and 'min_gap', entry skipped", where, enemy
+				));
+				continue;
+			}
 		} else if (value.is_object() && value.contains("weight") && value["weight"].is_number()) {
 			entry.weight = value["weight"].get<float>();
 			if (value.contains("source")) {

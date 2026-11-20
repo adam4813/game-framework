@@ -15,6 +15,7 @@
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
+#include "infested.hpp"
 #include "offscreen.hpp"
 #include "player.hpp"
 #include "riptide.hpp"
@@ -55,6 +56,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterBoss(world);
 	RegisterHorde(world);
 	RegisterOffscreen(world);
+	RegisterInfested(world);
 	RegisterClawSnap(world);
 	RegisterBubbles(world);
 	RegisterRiptide(world);

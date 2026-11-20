@@ -18,6 +18,7 @@
 #include "claw_snap.hpp"
 #include "crabnado.hpp"
 #include "horde.hpp"
+#include "infested.hpp"
 #include "player.hpp"
 #include "run.hpp"
 #include "settings.hpp"
@@ -48,6 +49,7 @@ constexpr core::Rgba kBannerColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr float kCountdownFontSize = 120.0F;
 constexpr float kCountdownPop = 0.5F;
 constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
+constexpr core::Rgba kInfestedColor{.r = 150, .g = 220, .b = 120, .a = 255};
 constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
 constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
 // The loadout in the lower left: a row of weapon slots, with the dig-in bar above it. A slot is the weapon's
@@ -888,7 +890,8 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 	const glm::vec2 position{p.x, p.z};
 	auto& label = telegraph_.get_mut<ui::Label>();
 	label.color = kTelegraphColor;
-	const bool crestComing = NextBigCrestIn(field, position, constants::kBigCrestWarning).has_value();
+	const auto infested = InfestedCrestIn(world);
+	const bool crestComing = infested.has_value() || NextBigCrestIn(field, position, constants::kBigCrestWarning).has_value();
 	if (crestComing && !crestCued_) {
 		PlaySfx(world, Sfx::Crest);
 	}
@@ -903,6 +906,9 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 		label.color = kRogueColor;
 	} else if (const auto riptide = BoostedCrestIn(field, position, constants::kBigCrestWarning)) {
 		label.text = std::format("RIPTIDE CREST in {:.1f} s", *riptide);
+	} else if (infested) {
+		label.text = "INFESTED CREST!";
+		label.color = kInfestedColor;
 	} else if (const auto crest = NextBigCrestIn(
 				   field, position, world.get<RunState>().phase == RunPhase::Boss ? kBossCrestLookahead : constants::kBigCrestWarning
 			   )) {

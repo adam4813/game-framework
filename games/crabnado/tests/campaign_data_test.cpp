@@ -232,3 +232,19 @@ TEST(HpScale, AStageScaleReplacesTheActsAndBothRunOnTheActClock) {
 }
 
 } // namespace
+
+TEST(CampaignParse, AnInfestedCrestEntryNeedsNoWeightAndReadsItsTuning) {
+	const json doc = json::parse(R"({"acts":[{"id":"a","stages":[{"gate":{"type":"time","time":10},"source":"crabnado","spawns":{
+		"crab":5,"shrimp":{"source":"infested_crest","chance":0.35,"riders":[3,6],"min_gap":12},
+		"lobster":{"source":"infested_crest","chance":2}}}]}]})");
+	const CampaignParseResult result = ParseCampaign(doc, std::vector<std::string>{"crab", "shrimp", "lobster"}, std::vector<std::string>{}, SpawnerIds());
+	const auto& spawns = result.campaign.acts.at(0).stages.at(0).spawns;
+	ASSERT_EQ(spawns.size(), 2U);
+	EXPECT_EQ(spawns[1].source, "infested_crest");
+	EXPECT_FLOAT_EQ(spawns[1].weight, 0.0F);
+	EXPECT_FLOAT_EQ(spawns[1].chance, 0.35F);
+	EXPECT_EQ(spawns[1].riders_min, 3);
+	EXPECT_EQ(spawns[1].riders_max, 6);
+	EXPECT_FLOAT_EQ(spawns[1].min_gap, 12.0F);
+	EXPECT_EQ(result.errors.size(), 1U); // the chance of 2 is dropped
+}

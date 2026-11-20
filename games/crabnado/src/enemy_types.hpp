@@ -38,6 +38,13 @@ struct EnemyType {
 	float charge_time{constants::kChargeTime};
 	float charge_dps_mult{constants::kChargeDpsMult};
 	bool charges{true};
+	// A surfer (the seahorse) is carried by a crest it joins and steers along it, never ridden, stunned or charged. Its
+	// contact damage is multiplied by surf_dps_mult while it surfs, it steers across the crest at surf_steer units per
+	// second and it swims at pool_speed in a tide pool. `tumble_min` is the crest height that grabs and keeps it.
+	bool surfs{false};
+	float surf_dps_mult{1.0F};
+	float surf_steer{5.0F};
+	float pool_speed{3.0F};
 };
 
 // Singleton: every enemy type, in id order. An Enemy's `type` indexes into it.

@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <optional>
+#include <span>
 
 #include "arena.hpp"
 #include "campaign_script.hpp"
 #include "crabnado_constants.hpp"
+#include "crabnado.hpp"
 #include "crowd_grid.hpp"
 #include "enemy_types.hpp"
 #include "player.hpp"
@@ -49,6 +52,13 @@ constexpr float kShadowY = 0.15F;
 constexpr float kSeparationSlack = 0.9F;
 // A touching neighbour within acos(kBlockedCone) of an enemy's heading blocks its step (about ±60°).
 constexpr float kBlockedCone = 0.5F;
+// The sea-blue a surfing seahorse glows.
+constexpr core::Rgba kSurfColor{.r = 90, .g = 180, .b = 255, .a = 255};
+// A seahorse is a tall, thin body with no claws.
+constexpr glm::vec3 kSurferBodyOffset{0.0F, 1.0F, 0.0F};
+constexpr glm::vec3 kSurferBodyScale{0.45F, 1.2F, 0.45F};
+// A seahorse waiting in a pool is "there" within this many units of its spot.
+constexpr float kPoolArrive = 0.3F;
 
 void AddPart(const flecs::world& world, const flecs::entity enemy, const glm::vec3 position, const glm::vec3 scale,
 	const float radius, const core::Rgba color) {
@@ -65,6 +75,90 @@ void SetTint(const flecs::entity enemy, const core::Rgba color) {
 			part.get_mut<render::Material>().color = color;
 		}
 	});
+}
+
+// What a seahorse does this frame: `surf_velocity` is set while it surfs (the crest carries it and it steers across), else it
+// walks, flops or swims along `heading` at `speed`.
+struct SeahorseMove {
+	glm::vec2 heading{0.0F};
+	float speed{0.0F};
+	std::optional<glm::vec2> surf_velocity;
+};
+
+struct SeahorseContext {
+	const WaveField& waves;
+	std::span<const TidePool> pools;
+	glm::vec2 target;
+	glm::vec2 upwind;
+	float edge;
+	float dt;
+};
+
+glm::vec2 Normalized(const glm::vec2 v) {
+	const float length = glm::length(v);
+	return length > 0.0001F ? v / length : glm::vec2{0.0F};
+}
+
+// A seahorse's state machine. Surfing: it rides its crest along the swell's direction and steers across it toward the
+// player, until the crest passes the player, it reaches the downwind barrier or the crest height falls below its
+// tumble_min (a pool calmed it). Beached: any crest taller than tumble_min upwind of the player picks it up again (not
+// for `immune` seconds after leaving one). Otherwise it flops toward water, and in a pool it swims at a player sharing
+// the pool or waits at the upwind edge facing the next crest.
+SeahorseMove StepSeahorse(
+	Enemy& enemy, const EnemyType& type, const flecs::entity self, const glm::vec2 position, const float height,
+	const SeahorseContext& ctx
+) {
+	const auto steerAlong = [&](const CrestFront& front) {
+		const glm::vec2 side{-front.direction.y, front.direction.x};
+		const float across = glm::dot(ctx.target - position, side);
+		const float steer = ctx.dt > 0.0001F ? std::clamp(across / ctx.dt, -type.surf_steer, type.surf_steer) : 0.0F;
+		return SeahorseMove{.heading = front.direction, .surf_velocity = front.direction * constants::kWaveSpeed + side * steer};
+	};
+	if (enemy.surfing) {
+		const auto front = CrestFrontOf(ctx.waves, {.swell = enemy.surf_swell, .n = enemy.surf_n});
+		const bool passedPlayer = front && front->along > glm::dot(ctx.target, front->direction);
+		const bool atDownwindBarrier = front && glm::length(position) >= ctx.edge && glm::dot(position, front->direction) > 0.0F;
+		if (front && !passedPlayer && !atDownwindBarrier && height >= type.tumble_min) {
+			return steerAlong(*front);
+		}
+		enemy.surfing = false;
+		enemy.immune = type.immune;
+		SetTint(self, enemy.color);
+	} else if (height > type.tumble_min && enemy.immune <= 0.0F) {
+		if (const auto crest = NearestPrimaryCrest(ctx.waves, position)) {
+			const auto front = CrestFrontOf(ctx.waves, *crest);
+			if (front && glm::dot(position, front->direction) <= glm::dot(ctx.target, front->direction)) {
+				enemy.surfing = true;
+				enemy.surf_swell = crest->swell;
+				enemy.surf_n = crest->n;
+				SetTint(self, kSurfColor);
+				return steerAlong(*front);
+			}
+		}
+	}
+
+	const auto pool = std::ranges::find_if(ctx.pools, [&](const TidePool& p) { return glm::length(position - p.center) < p.radius; });
+	if (pool != ctx.pools.end()) {
+		if (glm::length(ctx.target - pool->center) < pool->radius) {
+			return {.heading = Normalized(ctx.target - position), .speed = type.pool_speed};
+		}
+		const glm::vec2 waitSpot = pool->center + ctx.upwind * (pool->radius * constants::kPoolWaitInset);
+		if (glm::length(waitSpot - position) > kPoolArrive) {
+			return {.heading = Normalized(waitSpot - position), .speed = type.pool_speed};
+		}
+		return {.heading = ctx.upwind};
+	}
+	// Beached: lurch toward the nearest pool within reach, else upwind.
+	glm::vec2 heading = ctx.upwind;
+	float nearest = constants::kFlopWaterReach;
+	for (const TidePool& p : ctx.pools) {
+		const float edgeDistance = glm::length(p.center - position) - p.radius;
+		if (edgeDistance <= nearest) {
+			nearest = edgeDistance;
+			heading = Normalized(p.center - position);
+		}
+	}
+	return {.heading = heading, .speed = enemy.speed * std::max(0.0F, std::sin(ctx.waves.time * constants::kFlopRate))};
 }
 
 glm::vec2 ClampToRadius(const glm::vec2 point, const float radius) {
@@ -88,14 +182,19 @@ void RegisterHorde(const flecs::world& world) {
 		.member<core::Rgba>("color")
 		.member<float>("tumble")
 		.member<glm::vec2>("knock")
-		.member<bool>("slammed")
 		.member<float>("ride_age")
 		.member<float>("ride_peak")
 		.member<float>("immune")
 		.member<float>("windup")
 		.member<float>("charge")
-		.member<glm::vec2>("charge_dir");
+		.member<glm::vec2>("charge_dir")
+		.member<bool>("slammed")
+		.member<bool>("surfing")
+		.member<int>("surf_swell")
+		.member<int>("surf_n")
+		.member<bool>("outside");
 	world.component<OffscreenThrown>();
+	world.component<InfestedRider>();
 	world.component<Airborne>().member<glm::vec3>("velocity").member<glm::vec2>("landing");
 	world.component<LandingShadow>().member<uint64_t>("enemy").member<float>("age").member<float>("duration");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
@@ -184,6 +283,14 @@ void RegisterHorde(const flecs::world& world) {
 			const auto& pools = it.world().get<TidePools>().pools;
 			const auto& rocks = it.world().get<Rocks>().circles;
 			const auto& types = it.world().get<EnemyRegistry>().types;
+			const float edge = constants::kArenaRadius + kEdgeSlack;
+			const SeahorseContext seahorseContext{
+				.waves = waves,
+				.pools = pools,
+				.target = target,
+				.upwind = -BearingDirection(it.world().get<Wind>().direction),
+				.edge = edge,
+				.dt = dt};
 			while (it.next()) {
 				auto enemies = it.field<Enemy>(0);
 				auto transforms = it.field<spatial::Transform>(1);
@@ -210,7 +317,10 @@ void RegisterHorde(const flecs::world& world) {
 					const bool onCrest = wave.height > enemy.tumble_min;
 					const float decay = std::exp(-constants::kKnockDecay * dt);
 					enemy.immune = std::max(0.0F, enemy.immune - dt);
-					if (enemy.tumble > 0.0F) {
+					SeahorseMove seahorse;
+					if (type.surfs) {
+						seahorse = StepSeahorse(enemy, type, self, position, wave.height, seahorseContext);
+					} else if (enemy.tumble > 0.0F) {
 						enemy.ride_age += dt;
 						if (onCrest) {
 							enemy.ride_peak = std::max(enemy.ride_peak, wave.height);
@@ -259,6 +369,9 @@ void RegisterHorde(const flecs::world& world) {
 					if (charging) {
 						heading = enemy.charge_dir;
 					}
+					if (type.surfs) {
+						heading = seahorse.heading;
+					}
 					if (winding) {
 						// A crouch-and-shiver tell.
 						transform.position.y -= constants::kWindupCrouch;
@@ -281,24 +394,34 @@ void RegisterHorde(const flecs::world& world) {
 					});
 
 					// A charge pushes through the crowd.
-					float speed = enemy.speed;
+					float speed = type.surfs ? seahorse.speed : enemy.speed;
 					if (charging) {
 						blocked = false;
 						speed *= 1.0F + (type.charge_mult - 1.0F) * (enemy.charge / std::max(0.01F, type.charge_time));
 					}
 					const float step = blocked || tumbling || winding ? 0.0F : speed * dt;
+					// A surfer is carried by its crest, not the wind.
 					const glm::vec2 free =
-						position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax;
-					const float edge = constants::kArenaRadius + kEdgeSlack;
+						seahorse.surf_velocity
+							? position + *seahorse.surf_velocity * dt + push * constants::kSeparationRelax
+							: position + heading * step + enemy.knock * dt + drift + push * constants::kSeparationRelax;
+					if (enemy.outside && glm::length(free) <= edge) {
+						enemy.outside = false;
+					}
 					if (tumbling && glm::length(free) > edge) {
 						// Touching the barrier ends the ride at once: the wind-up starts there.
 						endRide();
 					}
-					glm::vec2 settled = ClampToRadius(free, edge);
-					if (PushOutOfRocks(rocks, settled, enemy.radius) && tumbling) {
-						// A rock slam: the harder the crest threw it, the harder it hits.
-						const float speed = glm::length(enemy.knock);
+					// A rider surfing in from beyond the barrier crosses it one-way; everything else is held inside.
+					glm::vec2 settled = enemy.outside && seahorse.surf_velocity ? free : ClampToRadius(free, edge);
+					if (PushOutOfRocks(rocks, settled, enemy.radius) && (tumbling || seahorse.surf_velocity)) {
+						// A rock slam: the harder the crest threw it, the harder it hits. A beached seahorse can't be slammed.
+						const float speed = seahorse.surf_velocity ? glm::length(*seahorse.surf_velocity) : glm::length(enemy.knock);
 						if (speed > constants::kSlamMinSpeed) {
+							if (seahorse.surf_velocity) {
+								enemy.surfing = false;
+								enemy.immune = type.immune;
+							}
 							enemy.hp -= (speed - constants::kSlamSpeedOffset) * constants::kSlamDamage;
 							enemy.flash = constants::kSlamFlashTime;
 							enemy.slammed = true;
@@ -308,7 +431,7 @@ void RegisterHorde(const flecs::world& world) {
 					}
 					transform.position.x = settled.x;
 					transform.position.z = settled.y;
-					if (distance > 0.0001F && !tumbling) {
+					if (glm::length(heading) > 0.0001F && !tumbling) {
 						// Sideways walkers face 90° off the direction of travel, the rest face it.
 						const float facing = std::atan2(heading.x, heading.y);
 						transform.rotation.y = enemy.walks_sideways ? facing + std::numbers::pi_v<float> / 2.0F : facing;
@@ -337,7 +460,8 @@ void RegisterHorde(const flecs::world& world) {
 				const Enemy& enemy = world.entity(e.entity).get<Enemy>();
 				if (enemy.tumble <= 0.0F && glm::length(e.position - position) < e.radius + constants::kPlayerContactRadius) {
 					const EnemyType& type = types[static_cast<size_t>(enemy.type)];
-					damage += enemy.contact_dps * (enemy.charge > 0.0F ? type.charge_dps_mult : 1.0F);
+					damage += enemy.contact_dps * (enemy.charge > 0.0F ? type.charge_dps_mult : 1.0F) *
+							  (enemy.surfing ? type.surf_dps_mult : 1.0F);
 				}
 			});
 			if (damage > 0.0F) {
@@ -359,12 +483,13 @@ void RegisterHorde(const flecs::world& world) {
 			auto& run = world.get_mut<RunState>();
 			++run.kills;
 			run.rock_kills += enemy.slammed ? 1 : 0;
-			// Ticket 10's spawner will need its own source here too.
-			FireCampaignEvent(
-				world, "OnKill",
-				{world.get<EnemyRegistry>().types[static_cast<size_t>(enemy.type)].id,
-				 std::string{defeated.has<OffscreenThrown>() ? "offscreen" : "crabnado"}}
-			);
+			const char* source = "crabnado";
+			if (defeated.has<OffscreenThrown>()) {
+				source = "offscreen";
+			} else if (defeated.has<InfestedRider>()) {
+				source = "infested_crest";
+			}
+			FireCampaignEvent(world, "OnKill", {world.get<EnemyRegistry>().types[static_cast<size_t>(enemy.type)].id, std::string{source}});
 			PlaySfx(world, enemy.slammed ? Sfx::RockCrush : Sfx::EnemyDefeat);
 			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
 			defeated.destruct();
@@ -380,7 +505,7 @@ void RegisterHorde(const flecs::world& world) {
 			}
 			enemy.flash -= it.delta_time();
 			if (enemy.flash <= 0.0F) {
-				SetTint(it.entity(i), enemy.color);
+				SetTint(it.entity(i), enemy.surfing ? kSurfColor : enemy.color);
 			}
 		})
 		.add<ecs::Pausable>()
@@ -426,6 +551,68 @@ flecs::entity ThrowEnemy(
 	return ThrowEnemyAt(world, parent, typeIndex, from, landing, flightTime);
 }
 
+namespace {
+
+// An enemy of `type` at `position`: its Transform first, so the world transform the engine seeds when it is added starts
+// where the enemy is, not at the origin, then the Enemy and its body (a seahorse's is tall and thin, with no claws).
+// A `crest` makes it a surfer on that crest, spawned beyond the barrier and glowing sea-blue. Everything is set at creation:
+// inside a system the new entity's components are still deferred, so they can't be read back.
+flecs::entity SpawnEnemy(
+	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec3 position,
+	const std::optional<CrestRef> crest = std::nullopt
+) {
+	const EnemyType& type = world.get<EnemyRegistry>().types.at(static_cast<size_t>(typeIndex));
+	const float hpScale = CurrentEnemyHpScale(world);
+	const flecs::entity enemy =
+		world.entity()
+			.child_of(parent)
+			.set<spatial::Transform>({.position = position})
+			.set<Enemy>(
+				{.hp = type.hp * hpScale,
+				 .speed = type.speed,
+				 .radius = type.radius,
+				 .contact_dps = type.contact_dps,
+				 .xp = type.xp,
+				 .type = typeIndex,
+				 .tumble_min = type.tumble_min,
+				 .walks_sideways = type.walks_sideways,
+				 .color = type.color,
+				 .surfing = crest.has_value(),
+				 .surf_swell = crest ? crest->swell : 0,
+				 .surf_n = crest ? crest->n : 0,
+				 .outside = crest.has_value()}
+			);
+	const float scale = type.scale;
+	if (type.surfs) {
+		AddPart(world, enemy, kSurferBodyOffset * scale, kSurferBodyScale * scale, scale, crest ? kSurfColor : type.color);
+		return enemy;
+	}
+	// The same body and claws for every other type, scaled by the type.
+	AddPart(world, enemy, kBodyOffset * scale, kBodyScale * scale, scale, type.color);
+	AddPart(world, enemy, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F} * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
+	AddPart(world, enemy, kClawOffset * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
+	return enemy;
+}
+
+} // namespace
+
+flecs::entity FindHorde(const flecs::world& world) {
+	flecs::entity horde;
+	world.query_builder<Crabnado>().build().each([&](const flecs::entity crabnado, Crabnado&) { horde = crabnado.target<ThrowsInto>(); });
+	if (!horde) {
+		world.query_builder().with<Crabnado>().with(flecs::Disabled).build().each([&](const flecs::entity crabnado) {
+			horde = crabnado.target<ThrowsInto>();
+		});
+	}
+	return horde;
+}
+
+flecs::entity SpawnSurfer(
+	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 position, const CrestRef crest
+) {
+	return SpawnEnemy(world, parent, typeIndex, {position.x, 0.0F, position.y}, crest).add<InfestedRider>();
+}
+
 flecs::entity ThrowEnemyAt(
 	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 landing,
 	const float flightTime
@@ -437,29 +624,9 @@ flecs::entity ThrowEnemyAt(
 	const glm::vec2 ground = (landing - from) / flightTime;
 	const float vy = (0.5F * constants::kGravity * flightTime * flightTime - y0) / flightTime;
 
-	const float hpScale = CurrentEnemyHpScale(world);
-	const flecs::entity enemy =
-		world.entity()
-			.child_of(parent)
-			// First, so the world transform the engine seeds when it is added starts at the throw point, not the origin.
-			.set<spatial::Transform>({.position = {from.x, y0, from.y}})
-			.set<Enemy>(
-				{.hp = type.hp * hpScale,
-				 .speed = type.speed,
-				 .radius = type.radius,
-				 .contact_dps = type.contact_dps,
-				 .xp = type.xp,
-				 .type = typeIndex,
-				 .tumble_min = type.tumble_min,
-				 .walks_sideways = type.walks_sideways,
-				 .color = type.color}
-			)
-			.set<Airborne>({.velocity = {ground.x, vy, ground.y}, .landing = landing});
-	// The same body and claws for every type, scaled by the type.
+	const flecs::entity enemy = SpawnEnemy(world, parent, typeIndex, {from.x, y0, from.y});
+	enemy.set<Airborne>({.velocity = {ground.x, vy, ground.y}, .landing = landing});
 	const float scale = type.scale;
-	AddPart(world, enemy, kBodyOffset * scale, kBodyScale * scale, scale, type.color);
-	AddPart(world, enemy, kClawOffset * glm::vec3{-1.0F, 1.0F, 1.0F} * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
-	AddPart(world, enemy, kClawOffset * scale, glm::vec3{1.0F}, kClawRadius * scale, type.color);
 
 	// The landing marker, under the horde so a cleared horde takes it too.
 	std::ignore = world.entity()

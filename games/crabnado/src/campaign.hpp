@@ -43,11 +43,17 @@ struct Gate {
 };
 
 // One entry of a spawn table: an enemy type (an index into the EnemyRegistry), its relative weight, and the id of the
-// spawner that brings it in.
+// spawner that brings it in. An `infested_crest` entry has no weight (it stays out of every weighted pick): a crest
+// reaching the arena's upwind edge is infested with probability `chance`, at least `min_gap` seconds after the last one,
+// and carries in riders_min-riders_max of this type.
 struct SpawnEntry {
 	int type{0};
 	float weight{1.0F};
 	std::string source;
+	float chance{0.0F};
+	int riders_min{3};
+	int riders_max{6};
+	float min_gap{12.0F};
 };
 
 // Spawns per second on the Stage clock: min(max, base + growth * stage_clock). No `max` means no cap.
@@ -178,7 +184,7 @@ struct CampaignParseResult {
 // "m:ss" for a number of seconds, rounded up (a clock counting down).
 [[nodiscard]] std::string FormatClock(float seconds);
 
-// The spawner ids the code registers. Ticket 10 adds `infested_crest`.
+// The spawner ids the code registers: `crabnado`, `offscreen` and `infested_crest`.
 [[nodiscard]] std::span<const std::string_view> SpawnerIds();
 
 // Loads bosses.json then campaign.json (the CampaignSource paths, resolved against `assetDirectory`), replacing the BossRegistry and

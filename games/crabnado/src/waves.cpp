@@ -8,6 +8,7 @@
 #include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "infested.hpp"
 #include "run.hpp"
 #include "wind.hpp"
 
@@ -22,6 +23,8 @@ constexpr core::Rgba kWaterColor{.r = 0x2f, .g = 0x8f, .b = 0xa8, .a = 255};
 constexpr core::Rgba kOceanColor{.r = 0x22, .g = 0x6e, .b = 0x8e, .a = 255}; // past the barrier
 constexpr core::Rgba kPoolColor{.r = 0x1d, .g = 0x66, .b = 0x80, .a = 255};
 constexpr core::Rgba kFoamColor{.r = 0xea, .g = 0xf7, .b = 0xfa, .a = 255};
+// The foam under an infested crest lerps toward this.
+constexpr core::Rgba kInfestedFoamColor{.r = 150, .g = 220, .b = 120, .a = 255};
 // Water tile sizes: the fine arena grid, then the near and far open ocean (see kOceanNearReach).
 constexpr int kOceanLevels = 3;
 // How far past the primary swell's crest a crest still counts as "arriving" for the warning.
@@ -227,6 +230,11 @@ void RegisterWaves(const flecs::world& world) {
 			transform.position.y = height * constants::kWaterHeightScale - constants::kWaterTileThickness / 2.0F;
 			const float foam = std::clamp((height - constants::kFoamMinHeight) / constants::kFoamRamp, 0.0F, 1.0F);
 			material.color = Lerp(tile.base, kFoamColor, foam);
+			const auto& infested = it.world().get<InfestState>();
+			if (infested.active) {
+				const float tint = InfestedTint(infested, field, {transform.position.x, transform.position.z});
+				material.color = Lerp(material.color, kInfestedFoamColor, tint);
+			}
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -327,6 +335,38 @@ std::optional<float> BoostedCrestIn(const WaveField& field, const glm::vec2 posi
 	}
 	const float seconds = (static_cast<float>(swell->boost_n) - Phase(*swell, field.time, position)) * constants::kWavePeriod;
 	return seconds > 0.0F && seconds <= within ? std::optional{seconds} : std::nullopt;
+}
+
+std::optional<CrestRef> NearestPrimaryCrest(const WaveField& field, const glm::vec2 position) {
+	const Swell* swell = PrimarySwell(field);
+	if (swell == nullptr) {
+		return std::nullopt;
+	}
+	return CrestRef{
+		.swell = static_cast<int>(swell - field.swells.data()),
+		.n = static_cast<int>(std::round(Phase(*swell, field.time, position)))};
+}
+
+std::optional<float> PrimaryPhaseUpwind(const WaveField& field, const float reach, int& swellIndex) {
+	const Swell* swell = PrimarySwell(field);
+	if (swell == nullptr) {
+		return std::nullopt;
+	}
+	swellIndex = static_cast<int>(swell - field.swells.data());
+	return Phase(*swell, field.time, -BearingDirection(swell->direction) * reach);
+}
+
+std::optional<CrestFront> CrestFrontOf(const WaveField& field, const CrestRef crest) {
+	if (crest.swell < 0 || crest.swell >= field.swell_count) {
+		return std::nullopt;
+	}
+	const Swell& swell = field.swells[static_cast<size_t>(crest.swell)];
+	if (swell.amp < 0.01F) {
+		return std::nullopt;
+	}
+	return CrestFront{
+		.direction = BearingDirection(swell.direction),
+		.along = constants::kWaveSpeed * (field.time - swell.t0) - static_cast<float>(crest.n) * kCrestSpacing};
 }
 
 std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 position, const float within) {

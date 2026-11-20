@@ -71,6 +71,18 @@
           "source": "offscreen"
         },
         {
+          "name": "Seahorse",
+          "gate": { "type": "time", "time": 90 },
+          "spawns": {
+            "crab": 50,
+            "shrimp": 25,
+            "lobster": 15,
+            "seahorse": { "source": "infested_crest", "chance": 0.35, "riders": [3, 6], "min_gap": 12 }
+          },
+          "rate": { "base": 1.875, "growth": 0.035 },
+          "source": "offscreen"
+        },
+        {
           "name": "Lobster",
           "gate": { "type": "time", "time": 90 },
           "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 },

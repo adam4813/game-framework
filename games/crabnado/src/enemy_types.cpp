@@ -38,7 +38,11 @@ EnemyType ParseEnemyType(const std::string& id, const nlohmann::json& entry) {
 		.charge_mult = entry.value("charge_mult", def.charge_mult),
 		.charge_time = entry.value("charge_time", def.charge_time),
 		.charge_dps_mult = entry.value("charge_dps_mult", def.charge_dps_mult),
-		.charges = entry.value("charges", def.charges)
+		.charges = entry.value("charges", def.charges),
+		.surfs = entry.value("surfs", def.surfs),
+		.surf_dps_mult = entry.value("surf_dps_mult", def.surf_dps_mult),
+		.surf_steer = entry.value("surf_steer", def.surf_steer),
+		.pool_speed = entry.value("pool_speed", def.pool_speed)
 	};
 }
 

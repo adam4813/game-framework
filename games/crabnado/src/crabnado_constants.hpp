@@ -148,6 +148,20 @@ inline constexpr float kFoamMinHeight = 0.35F;
 inline constexpr float kFoamRamp = 1.3F;
 // The HUD warns of a big crest this many seconds before it reaches the player.
 inline constexpr float kBigCrestWarning = 2.2F;
+// An infested crest is rolled kBigCrestWarning seconds before it reaches the upwind barrier (the HUD and foam telegraph
+// start then). Its seahorses spawn when it is kInfestedSpawnReach units outside the barrier, spread over the middle
+// kInfestedChordFill of the chord it will cross with ±kInfestedJitter units of jitter, and it stays infested until it
+// is kInfestedEndMargin units past the downwind barrier. The foam tint at full strength is kInfestedTintMax.
+inline constexpr float kInfestedSpawnReach = 15.0F;
+inline constexpr float kInfestedChordFill = 0.8F;
+inline constexpr float kInfestedJitter = 2.0F;
+inline constexpr float kInfestedEndMargin = 10.0F;
+inline constexpr float kInfestedTintMax = 0.85F;
+// A beached seahorse flops at its speed times max(0, sin(t * kFlopRate)), toward a tide pool whose edge is within
+// kFlopWaterReach units, else upwind. In a pool it waits kPoolWaitInset of the radius from the centre, upwind.
+inline constexpr float kFlopRate = 6.0F;
+inline constexpr float kFlopWaterReach = 15.0F;
+inline constexpr float kPoolWaitInset = 0.85F;
 // Shells drift with this fraction of the wave push until they fly to the player.
 inline constexpr float kShellWavePush = 0.4F;
 // A crest over an enemy type's tumble_min grabs it and carries it (a ride) for kRideBase + kRidePerHeight * (peak - tumble_min)

@@ -7,6 +7,7 @@
 #include <flecs.h>
 
 #include "engine/engine.hpp"
+#include "waves.hpp"
 
 // The horde: enemies the crabnado throws at the player. Each enemy is a root entity carrying Enemy and
 // a Transform, with its body and claws as child sphere primitives that carry their own inline Material
@@ -43,6 +44,13 @@ struct Enemy {
 	glm::vec2 charge_dir{0.0F};
 	// Set once a rock slam has hurt it, so its defeat counts as a rock kill.
 	bool slammed{false};
+	// A surfer (type `surfs`) riding crest `surf_n` of swell `surf_swell`: no tumble, no immunity, a sea-blue glow and
+	// surf_dps_mult contact damage. `outside` is set on a rider that spawned beyond the barrier: it is exempt from the
+	// arena clamp while it surfs outside, so the barrier is one-way. `immune` also stops a crest re-grabbing it at once.
+	bool surfing{false};
+	int surf_swell{0};
+	int surf_n{0};
+	bool outside{false};
 };
 
 // An enemy in flight on its ballistic arc. Removed when it lands. `landing` is where it will come down.
@@ -61,6 +69,9 @@ struct LandingShadow {
 
 // Tag on an enemy the `offscreen` spawner threw, so its defeat reports that source to the campaign scripts.
 struct OffscreenThrown {};
+
+// Tag on a seahorse an infested crest carried in, so its defeat reports the `infested_crest` source to the scripts.
+struct InfestedRider {};
 
 // Singleton: live performance readout, refreshed each frame by the arena scene and read over the Remote
 // API during the horde performance check.
@@ -92,6 +103,14 @@ flecs::entity ThrowEnemy(const flecs::world& world, flecs::entity parent, int ty
 flecs::entity ThrowEnemyAt(
 	const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing, float flightTime
 );
+
+// The horde root enemies are thrown into: the crabnado's ThrowsInto target (the crabnado may be disabled, which a plain
+// query skips). Invalid before the arena has loaded.
+[[nodiscard]] flecs::entity FindHorde(const flecs::world& world);
+
+// Puts an enemy of registry type `typeIndex` straight onto the water at `position` (x, z) as a surfer riding `crest`, a
+// child of `parent`. It starts beyond the barrier and is tagged InfestedRider. Enemy HP grows with the run clock.
+flecs::entity SpawnSurfer(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 position, CrestRef crest);
 
 // Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
 // its shell.

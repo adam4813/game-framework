@@ -100,7 +100,11 @@ Keyboard only, plus the mouse for menus.
   An Act sets these in an `"offscreen": {volley_min, volley_max, radius, min_turn_deg}` block, which an `offscreen`
   entry needs. `"crabnado": false` on an Act hides the crabnado through its normal Stages (it returns for the storm-up
   and the boss), and a `crabnado` entry in such a Stage is dropped as a bad reference. Normal Stages only: a Boss
-  Stage's enemies still come from the boss fight.
+  Stage's enemies still come from the boss fight. `infested_crest` (Act 3's Seahorse Stage) has no weight: an entry
+  `{"source": "infested_crest", "chance", "riders": [min, max], "min_gap"}` infests a crest of the primary swell with
+  that chance as it comes within 2.2 s of the upwind barrier, at most one at a time and `min_gap` seconds apart. The
+  foam under it turns sickly green, the HUD says "INFESTED CREST!", and its riders (seahorses) spawn on it 15 units out
+  and surf in across the barrier, one-way.
 - **Shells and molting:** the first molt needs 18 shells, and each molt after needs ×1.3 more. A molt pauses the run
   and offers 3 distinct upgrades. After the pick, "Ready…" and "Go!" hold the pause for about a second so you can get
   your hands back on the movement keys.
@@ -180,6 +184,7 @@ spawn tables in `campaign.json`; Act 1 uses crab and shrimp, and lobsters arrive
 | Crab | 3 | 4.2 | 4 | 1 | any crest | The steady, sideways-walking base enemy (Act 1 weight 65). |
 | Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | Fast, fragile flankers, from 0:25 (weight 27). |
 | Lobster | 14 | 2.8 | 18 | 4 | big crests only | Slow tanks that make big waves matter. Not in Act 1's tables yet. |
+| Seahorse | 6 | 1.2 | 7 (�1.5 surfing) | 2 | never ridden: it *surfs* | Act 3 Seahorse Stage only, from infested crests. A surfer glows sea-blue, rides its crest and steers across it toward the player until the crest passes them, it hits the downwind barrier or the crest fades. Rocks block it, and a rock hit while surfing is a slam that kills it. Beached, it flops (can't be slammed) toward a pool within 15 units, else upwind, and the next crest re-grabs it; in a pool it swims at a player sharing the pool, else waits at the upwind edge. Weapons hurt it in every state. |
 
 ## Upgrades
 
@@ -269,8 +274,8 @@ costs HP but doesn't extend the daze. At 0 HP it retreats like the Act 1 boss. E
 horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
 (it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
 upgrades, kills and the campaign clock carry over. After the last Act the ending comic leads to the victory Results.
-The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Act 3's Crab and Lobster Stages
-throw from the off-screen spawner with no crabnado; its boss is still the crabnado until ticket 11 (ticket 10 adds a Seahorse Stage).
+The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Act 3's Crab, Seahorse and Lobster Stages
+throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infested crests); its boss is still the crabnado until ticket 11.
 
 ## Presentation
 

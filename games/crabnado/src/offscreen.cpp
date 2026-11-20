@@ -21,19 +21,6 @@ namespace {
 
 constexpr std::string_view kSource = "offscreen";
 
-// The horde root enemies are thrown into: the crabnado's ThrowsInto target. The crabnado may be disabled (an Act with
-// no crabnado), which a plain query skips.
-flecs::entity FindHorde(const flecs::world& world) {
-	flecs::entity horde;
-	world.query_builder<Crabnado>().build().each([&](const flecs::entity crabnado, Crabnado&) { horde = crabnado.target<ThrowsInto>(); });
-	if (!horde) {
-		world.query_builder().with<Crabnado>().with(flecs::Disabled).build().each([&](const flecs::entity crabnado) {
-			horde = crabnado.target<ThrowsInto>();
-		});
-	}
-	return horde;
-}
-
 // Throws one volley from `bearing` at the player, up to the horde cap. Each enemy is its own throw: its own type, jitter
 // and flight time, so the volley doesn't land as one clump.
 void ThrowVolley(const flecs::world& world, const OffscreenSpawner& tune, const std::vector<SpawnEntry>& spawns, const float bearing, int count) {
