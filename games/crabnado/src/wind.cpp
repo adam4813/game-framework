@@ -172,7 +172,7 @@ void RegisterWind(const flecs::world& world) {
 
 			// Below the arena's sea-state label.
 			if (wind.warning) {
-				PushCenteredText(list, platform, "Wind shifting!", {c.x, c.y + r + 48.0F}, 20.0F, kWarnColor);
+				PushCenteredText(list, platform, "Wind shifting!", {c.x, c.y + r + 72.0F}, 20.0F, kWarnColor);
 			}
 		})
 		.add<scene::GameScene>();

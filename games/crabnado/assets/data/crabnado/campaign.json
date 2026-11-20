@@ -6,21 +6,20 @@
       "title": "Act 1",
       "comic_after": "after_act1",
       "arena": { "rocks": { "inner": 9, "outer": 5 }, "tint": { "color": [47, 143, 168], "amount": 0.0 } },
-      "sea": { "cross_swell_at": 90, "rogue_at": 180 },
       "hp_scale": { "mult": 1.0, "growth_seconds": 240 },
       "stages": [
         {
           "name": "Crab",
-          "gate": { "type": "time", "time": 25 },
+          "gate": { "type": "both", "time": 60, "kills": 75, "bonus": { "type": "shells" } },
           "spawns": { "crab": 65 },
           "rate": { "base": 1.0, "growth": 0.035 },
           "source": "crabnado"
         },
         {
           "name": "Shrimp",
-          "gate": { "type": "time", "time": 275 },
+          "gate": { "type": "time", "time": 90 },
           "spawns": { "crab": 65, "shrimp": 27 },
-          "rate": { "base": 1.875, "growth": 0.035 },
+          "rate": { "base": 1.5, "growth": 0.035 },
           "source": "crabnado"
         }
       ],
@@ -32,21 +31,21 @@
       "title": "Act 2",
       "comic_after": "after_act2",
       "arena": { "rocks": { "inner": 11, "outer": 6 }, "tint": { "color": [140, 60, 70], "amount": 0.2 } },
-      "sea": { "cross_swell_at": 45, "rogue_at": 150 },
-      "hp_scale": { "mult": 1.2, "growth_seconds": 240 },
+      "sea": { "cross_swell_at": 45 },
+      "hp_scale": { "mult": 1.6, "growth_seconds": 240 },
       "stages": [
         {
-          "name": "Crab",
-          "gate": { "type": "time", "time": 60 },
+          "name": "Shrimp",
+          "gate": { "type": "time", "time": 90 },
           "spawns": { "crab": 65, "shrimp": 27 },
-          "rate": { "base": 1.0, "growth": 0.035 },
+          "rate": { "base": 1.5, "growth": 0.03 },
           "source": "crabnado"
         },
         {
           "name": "Lobster",
-          "gate": { "type": "time", "time": 120 },
+          "gate": { "type": "both", "time": 100, "kills": 240, "bonus": { "type": "heal" } },
           "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 },
-          "rate": { "base": 1.875, "growth": 0.035 },
+          "rate": { "base": 1.9, "growth": 0.03 },
           "source": "crabnado"
         }
       ],
@@ -58,8 +57,8 @@
       "title": "Act 3",
       "comic_after": "ending",
       "arena": { "rocks": { "inner": 13, "outer": 7 }, "tint": { "color": [40, 40, 90], "amount": 0.3 } },
-      "sea": { "cross_swell_at": 30, "rogue_at": 100 },
-      "hp_scale": { "mult": 1.4, "growth_seconds": 240 },
+      "sea": { "cross_swell_at": 20, "rogue_at": 60 },
+      "hp_scale": { "mult": 2.4, "growth_seconds": 240 },
       "crabnado": false,
       "script": "act3",
       "offscreen": { "volley_min": 3, "volley_max": 6, "radius": 85, "min_turn_deg": 60 },
@@ -68,26 +67,26 @@
           "name": "Crab",
           "gate": { "type": "time", "time": 60 },
           "spawns": { "crab": 65, "shrimp": 27 },
-          "rate": { "base": 1.0, "growth": 0.035 },
+          "rate": { "base": 1.8, "growth": 0.03 },
           "source": "offscreen"
         },
         {
           "name": "Seahorse",
-          "gate": { "type": "time", "time": 90 },
+          "gate": { "type": "quota", "kills": 130 },
           "spawns": {
             "crab": 50,
             "shrimp": 25,
             "lobster": 15,
             "seahorse": { "source": "infested_crest", "chance": 0.35, "riders": [3, 6], "min_gap": 12 }
           },
-          "rate": { "base": 1.875, "growth": 0.035 },
+          "rate": { "base": 2.0, "growth": 0.03 },
           "source": "offscreen"
         },
         {
           "name": "Lobster",
-          "gate": { "type": "time", "time": 90 },
+          "gate": { "type": "both", "time": 60, "kills": 130, "bonus": { "type": "reroll" } },
           "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 },
-          "rate": { "base": 1.875, "growth": 0.035 },
+          "rate": { "base": 2.2, "growth": 0.03 },
           "source": "offscreen"
         }
       ],

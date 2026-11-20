@@ -33,7 +33,7 @@
     "slam_cooldown": 2.5,
     "slam_bounce": -0.3,
     "storm_color": [120, 60, 60],
-    "hp": 40.0,
+    "hp": 120.0,
     "slam_damage": 10.0,
     "daze_time": 4.0,
     "chase_min": 2.5,

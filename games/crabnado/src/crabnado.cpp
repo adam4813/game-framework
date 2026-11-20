@@ -196,6 +196,62 @@ void RegisterCrabnado(const flecs::world& world) {
 		.member<core::Rgba>("storm_color");
 	world.component<FunnelTint>().member<core::Rgba>("base");
 
+	// A small arrow at the screen edge pointing at an orbiting crabnado (or twin) while it is off-screen. Drawn into the
+	// UI draw list like the compass. A hidden crabnado (Act 3's normal Stages) is disabled, so no system sees it; the
+	// `offscreen` spawner has no source to point at, by design.
+	world.system<const Crabnado, const spatial::Transform>("CrabnadoPointerDraw")
+		.kind(flecs::PreStore)
+		.each([](const flecs::iter& it, size_t, const Crabnado& crabnado, const spatial::Transform& transform) {
+			const flecs::world world = it.world();
+			const flecs::entity player = FindPlayer(world);
+			if (!player || crabnado.mode != CrabnadoMode::Orbit) {
+				return;
+			}
+			const auto& platform = *world.get<platform::PlatformRef>().ptr;
+			const auto width = static_cast<float>(platform.Width());
+			const auto height = static_cast<float>(platform.Height());
+			// Project through the follow camera: it sits `offset` from the player and looks at them.
+			const glm::vec3 offset{0.0F, constants::kCameraHeight, constants::kCameraBack};
+			const glm::vec3 forward = glm::normalize(-offset);
+			const glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3{0.0F, 1.0F, 0.0F}));
+			const glm::vec3 up = glm::cross(right, forward);
+			const glm::vec3 d = transform.position - (player.get<spatial::Transform>().position + offset);
+			const float depth = glm::dot(d, forward);
+			const float tanHalf = std::tan(glm::radians(60.0F) / 2.0F);
+			glm::vec2 ndc{glm::dot(d, right), glm::dot(d, up)};
+			ndc /= std::max(std::abs(depth), 0.01F) * tanHalf;
+			ndc.x /= width / height;
+			if (depth > 0.0F && std::abs(ndc.x) < 1.0F && std::abs(ndc.y) < 1.0F) {
+				return;
+			}
+			if (depth <= 0.0F) {
+				ndc = -ndc; // behind the camera: the arrow points the opposite way
+			}
+			// A screen-space direction (y grows downward) from the centre, and the edge point it reaches inset by a margin.
+			const glm::vec2 dir = glm::normalize(glm::vec2{ndc.x * width, -ndc.y * height} + glm::vec2{1e-4F});
+			// The arrow rides a rectangle inset from the screen edge, clear of the molt bar up top and the loadout below.
+			constexpr float kSideInset = 44.0F;
+			constexpr float kTopInset = 140.0F;
+			constexpr float kBottomInset = 120.0F;
+			const glm::vec2 centre{width / 2.0F, (kTopInset + height - kBottomInset) / 2.0F};
+			const glm::vec2 half{width / 2.0F - kSideInset, (height - kBottomInset - kTopInset) / 2.0F};
+			const float reach = std::min(half.x / std::max(std::abs(dir.x), 1e-4F), half.y / std::max(std::abs(dir.y), 1e-4F));
+			const glm::vec2 pos = centre + dir * reach;
+
+			auto& list = world.get_mut<ui::UIDrawList>();
+			list.SetLayer(0);
+			constexpr core::Rgba kRim{.r = 20, .g = 28, .b = 36, .a = 200};
+			constexpr core::Rgba kArrow{.r = 255, .g = 209, .b = 102, .a = 255};
+			list.PushCircle(pos, 20.0F, kRim);
+			const float angle = std::atan2(dir.y, dir.x);
+			const glm::vec2 tip = pos + dir * 12.0F;
+			list.PushLine(pos - dir * 10.0F, tip, 4.0F, kArrow);
+			for (const float side : {2.5F, -2.5F}) {
+				list.PushLine(tip, tip + glm::vec2{std::cos(angle + side), std::sin(angle + side)} * 10.0F, 4.0F, kArrow);
+			}
+		})
+		.add<scene::GameScene>();
+
 	// The spin lives here, not in CrabnadoOrbit, because it speeds up with the storm.
 	world.system<Crabnado, FunnelStorm, spatial::Transform>("CrabnadoStorm")
 		.kind(flecs::OnUpdate)

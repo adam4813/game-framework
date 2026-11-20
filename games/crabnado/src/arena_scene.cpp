@@ -320,10 +320,20 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 	std::ignore = world.entity("WindCompass")
 					  .child_of(uiRoot_)
 					  .set<WindCompass>({.center = compassCenter, .radius = kCompassRadius});
-	// The sea state, under the compass (the compass draws its shift warning below this).
+	// "Act 2 · Lobster Stage" under the compass, then the sea state below it (the compass draws its shift warning
+	// below that).
+	stageLabel_ = ui::CreateLabel(
+					  world,
+					  {.x = compassCenter.x - 130.0F, .y = compassCenter.y + kCompassRadius + 6.0F, .w = 260.0F, .h = 26.0F},
+					  "",
+					  20.0F
+	)
+					  .set<ui::Label>({.font_size = 20.0F, .color = kBannerColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
+					  .set_name("StageLabel")
+					  .child_of(uiRoot_);
 	waveLabel_ = ui::CreateLabel(
 					 world,
-					 {.x = compassCenter.x - 110.0F, .y = compassCenter.y + kCompassRadius + 6.0F, .w = 220.0F, .h = 26.0F},
+					 {.x = compassCenter.x - 110.0F, .y = compassCenter.y + kCompassRadius + 30.0F, .w = 220.0F, .h = 26.0F},
 					 "",
 					 20.0F
 	)
@@ -765,6 +775,12 @@ void ArenaScene::UpdateHud(const flecs::world& world) const {
 		killsLabel_.get_mut<ui::Label>().text = std::format("{}", run.kills);
 		const Act* act = CurrentAct(world);
 		waveLabel_.get_mut<ui::Label>().text = WaveStageName(act != nullptr ? act->sea : ActSea{}, run.act_clock);
+		if (stageLabel_.has<ui::Label>() && act != nullptr) {
+			const bool boss = run.stage >= static_cast<int>(act->stages.size());
+			stageLabel_.get_mut<ui::Label>().text =
+				boss ? std::format("{} · Boss Stage", act->title)
+					 : std::format("{} · {} Stage", act->title, act->stages[static_cast<size_t>(run.stage)].name);
+		}
 	}
 	UpdateResults(world);
 	UpdateMolt(world);
@@ -1081,6 +1097,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	timeLabel_ = {};
 	killsLabel_ = {};
 	waveLabel_ = {};
+	stageLabel_ = {};
 	telegraph_ = {};
 	bossLabel_ = {};
 	bossBar_ = {};

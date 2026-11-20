@@ -2,8 +2,8 @@
 
 Crabnado is a survivors-like made for a 1.5-day game jam on the theme **crabs and breezes**. You play a hermit crab
 on a shore ringed by a magic barrier while a crabnado (a tornado of crabs) flings crabs, shrimp and lobsters at you.
-Your weapons fire on their own. You steer, read the wind, and use the waves it drives against the horde. A run lasts
-about 5–6 minutes and ends in a boss fight won with waves, not weapons.
+Your weapons fire on their own. You steer, read the wind, and use the waves it drives against the horde. A run is a
+campaign of three Acts, about 12 minutes in all, each ending in a boss fight won mostly with waves, not weapons.
 
 This document describes the game as built. The jam's spec, its tickets, and the three.js prototype that set the
 feel of the horde and weapons are kept at the `crabnado-jam` tag.
@@ -12,16 +12,27 @@ feel of the horde and weapons are kept at the `crabnado-jam` tag.
 
 - **The breeze is a force, not decoration.** The wind drives the waves, and the waves are the player's strongest
   tool. Every big decision is about where you'll be when the next crest arrives.
-- **Readable chaos.** Waves start as one steady swell and get chaotic over the run. Every threat is telegraphed: a
-  wind shift, a big crest, a rogue wave, the boss.
-- **Short and complete.** A judge should finish a run in one sitting. There is no meta-progression; each run is
-  self-contained.
+- **Readable chaos.** Waves start as one steady swell and get chaotic over the campaign. Every threat is
+  telegraphed: a wind shift, a big crest, a rogue wave, an infested crest, a boss attack.
+- **The campaign fits one sitting.** A judge should finish all three Acts in about 12 minutes. There is no
+  meta-progression; each run is self-contained, and its build (molts and upgrades) carries from Act to Act.
 
 ## Glossary
 
 | Term | Meaning |
 |---|---|
-| **Crabnado** | The tornado that throws enemies. Outside a Boss Stage it circles just outside the barrier, untouchable; in the Boss Stage it comes ashore as the boss (5:00 in Act 1). |
+| **Campaign** | The whole run: three Acts, about 12 minutes, defined in `campaign.json`. |
+| **Act** | One chapter of the campaign: its own arena tint and rock count, sea escalation, enemy HP scaling, Stages and boss. It ends in a boss and a comic page. Its clock restarts each Act. |
+| **Stage** | A stretch of an Act with its own spawn table, spawn rate and gate. The **Boss Stage** is the last, one past the Act's normal Stages. |
+| **Gate** | What ends a Stage: a time, a kill quota, both, or a script. |
+| **Spawn source** | The spawner that brings an enemy in: the orbiting crabnado, the off-screen spawner, or an infested crest. |
+| **Crabnado** | The tornado that throws enemies. Outside a Boss Stage it circles just outside the barrier, untouchable; in a Boss Stage it comes ashore as the boss (Acts 1 and 2) or keeps throwing from its orbit (Act 3). |
+| **Orbit** | The crabnado's circling just outside the barrier, counterclockwise at first. A small arrow at the screen edge points at it while it is off-screen. |
+| **Breach** | The boss crabnado coming in through the barrier at the player's bearing, harmless and unhurtable for 1.5 s. |
+| **Retreat** | The beaten crabnado blown back out over the barrier to its orbit. |
+| **Twins** | The two halves of the crabnado after Captain Crab's **split** at 50% HP. They orbit opposite ways and each throw half the horde. |
+| **Infested crest** | A crest that carries seahorses in from upwind (Act 3). Its foam turns green and the HUD calls it out. |
+| **Beached** | A seahorse or Captain Crab stranded by the water leaving them: harmless to touch and open to weapons until a crest lifts them again. |
 | **Crest** | A band of raised water moving downwind. It pushes whatever it passes. |
 | **Set** | A group of crests about 6 s apart. Every third crest in a set is **big**. |
 | **Swell** | One train of crests along one bearing. Later in the run, two swells cross. |
@@ -40,12 +51,13 @@ feel of the horde and weapons are kept at the `crabnado-jam` tag.
 ```text
 Title ──Play──▶ intro (crab scurries off the island) ──▶ story comic (Next / Skip)
                                                               │
-                                                              ▼
-        ┌──────────────── Arena: 3-2-1-Go! countdown ─▶ run ──┬─▶ HP 0 ──▶ Results "Swept away"
-        │                                                     └─▶ boss beaten ──▶ next Act (3 Acts) ──▶ Results (victory)
-        │                                                              │
-        └────────────────────── Retry ◀────────────────────────────────┤
-Title ◀──────────────────────────────── Title ◀────────────────────────┘
+        ┌─────────────────────────────────────────────────────┘
+        ▼
+   Act n: 3-2-1-Go! ─▶ Stages ─▶ Boss Stage ──┬─▶ HP 0 ──▶ Results "Swept away" ──▶ Retry (back to Act 1) / Title
+        ▲                                     │
+        │                                     └─▶ boss beaten ──▶ ACT CLEAR ─▶ comic page ─┬─▶ Acts 1, 2: free molt ─┐
+        └────────────────────────────────────────────────────────────────────────────────│─────────────────────────┘
+                                                                                         └─▶ Act 3: ending comic ─▶ Results "Hermit Isle holds!"
 ```
 
 - **Title:** a tropical island in open ocean with the crabnado swaying offshore. The logo's C is a snapping claw.
@@ -79,8 +91,8 @@ Keyboard only, plus the mouse for menus.
 
 ## The run
 
-- **Clock:** counts up. The run is driven by `assets/data/crabnado/campaign.json`: Acts hold Stages (each ends at a
-  gate) and a Boss Stage. Act 1 is the Crab Stage (0:00–0:25), the Shrimp Stage (to 5:00) and then the boss.
+- **Clock:** counts up. The run is driven by `assets/data/crabnado/campaign.json` (see Campaign). Alongside the run
+  clock sit the Act clock and the Stage clock, which restart at each Act and Stage.
 - **The player:** 100 HP. Touching a landed enemy drains HP at that enemy's contact rate. The crab scuttles sideways
   when it moves. HP 0 ends the run.
 - **Spawning:** the crabnado circles the arena 78 units from the centre at about 6 units per second, counterclockwise
@@ -89,10 +101,10 @@ Keyboard only, plus the mouse for menus.
   12–45 units in from the barrier on the line toward the player, never past the player, ±10 jitter, and a dark shadow
   on the water grows to show where it will land. **An enemy in the air is harmless and can't be hit until it lands,
   and nothing can damage the orbiting crabnado.**
-- **Pressure:** each Stage lists its spawn table (enemy type to weight) and a rate: `base + growth * stage_clock`,
-  starting at 1.0 per second and growing by 0.035 per second, capped by the horde cap. The Boss Stage throws at 35% of
-  the last Stage's closing rate. Enemy HP grows by ×(1 + act time / 240) (the Act's `hp_scale`). The first throw comes
-  3 s in.
+- **Pressure:** each Stage lists its spawn table (enemy type to weight) and a rate: `base + growth * stage_clock`
+  spawns per second, capped by the horde cap. The Boss Stage throws at 35% of the last Stage's closing rate. Enemy HP
+  is the type's HP × the Act's `mult` × (1 + Act time / 240), and the Act clock restarts each Act, so the `mult`
+  (1.0, 1.6, 2.4) is what steps the horde up between Acts. The first throw comes 3 s into the Act.
 - **Spawners:** a spawn entry names the spawner that brings it in (a Stage's `source` is the default). `crabnado` throws
   from the orbiting crabnado. `offscreen` (Act 3's horde) throws volleys from an unseen point 85 units out: the rate
   fills a debt, and when it reaches the next volley's size (3-6) that many enemies land at once, from one bearing at
@@ -105,9 +117,51 @@ Keyboard only, plus the mouse for menus.
   that chance as it comes within 2.2 s of the upwind barrier, at most one at a time and `min_gap` seconds apart. The
   foam under it turns sickly green, the HUD says "INFESTED CREST!", and its riders (seahorses) spawn on it 15 units out
   and surf in across the barrier, one-way.
-- **Shells and molting:** the first molt needs 18 shells, and each molt after needs ×1.3 more. A molt pauses the run
+- **Shells and molting:** the first molt needs 35 shells, and each molt after needs ×1.4 more. The count carries
+  across Acts, and a `both` Stage's shells bonus pays through the same path. A molt pauses the run
   and offers 3 distinct upgrades. After the pick, "Ready…" and "Go!" hold the pause for about a second so you can get
   your hands back on the movement keys.
+
+## Campaign
+
+The run is three Acts, about 12 minutes, defined in `assets/data/crabnado/campaign.json` (reloaded on every Play). Each
+Act sets its own arena (rock counts and a water tint), `hp_scale`, `sea` escalation, Stage tables and boss. The numbers
+below are the shipped tuning; every one is data.
+
+| | Act 1: The Red Tide | Act 2: The Crabnado's Fury | Act 3: Captain Crab's Cavalry |
+|---|---|---|---|
+| Target length (boss included) | ~3:30 | ~4:00 | ~4:30 |
+| Stages | Crab: `both`, defeat 75 in 1:00, bonus shells. Shrimp: `time`, 1:30. | Shrimp: `time`, 1:30. Lobster: `both`, defeat 240 in 1:40, bonus heal. | Crab: `time`, 1:00. Seahorse: `quota`, defeat 130. Lobster: `both`, defeat 130 in 1:00, bonus reroll. |
+| Spawn source | Crabnado | Crabnado | Off-screen spawner (Seahorse Stage and boss add infested crests) |
+| Boss | The crabnado (3 slams), ~45-75 s | The enraged crabnado (120 HP), ~60 s | Captain Crab (240 HP), ~75-120 s |
+| Enemy HP `mult` | 1.0 | 1.6 | 2.4 |
+| Rocks (inner / outer) | 9 / 5 | 11 / 6 | 13 / 7 |
+| Sea escalation | Steady swell only | Crossing swells from 0:45 | Crossing swells from 0:20, rogue waves from 1:00 |
+| Molts (target) | about 4 | about 3 | about 3 |
+
+Notes on the tuning:
+
+- **A `both` Stage ends at whichever comes first**, so its time is a ceiling: meeting the quota early ends it early
+  and pays the bonus. The quotas are set so a competent player meets them near the time limit. Act lengths in the table
+  are for a player who doesn't.
+- **Gates by Act:** each Act has at least one `both` Stage so the challenge mechanic gets used. The bonuses are
+  shells (Act 1), a heal (Act 2) and a reroll (Act 3). The campaign's single `quota` Stage is Act 3's Seahorse Stage,
+  because kill pace varies there.
+- **Rates:** every Stage starts above where the last one closed, then grows (0.035 per second in Act 1, 0.03 after).
+  Act 3's horde comes in volleys from the off-screen spawner, so its Stages feel spikier at the same average rate.
+- **Difficulty is carried with the build:** HP scales with the Act's `mult` because the player keeps every molt. Boss HP
+  is set so a build made by taking the first offer at every molt clears the daze or beached windows in 3-5 windows.
+- **Molt curve:** the count above includes each Act's free molt. The shells curve is `kShellsFirstMolt` and
+  `kShellsGrowth` in `crabnado_constants.hpp`; Acts have no shell rules of their own.
+
+## Story
+
+A short golden-age comic frames the campaign. Warlord Snapjaw challenges the Hermit King, the King vows to fight, and
+the barrier goes up (the opening comic, before Act 1). Three pages follow each Act (see Flow): the crabnado limps back
+and Snapjaw enrages it; it spins off and Snapjaw summons Captain Crab, who claims it; the twins scatter, Captain Crab
+dives toward Snapjaw's realm and the barrier fades ("To be continued... beneath the waves?"). The comics never explain
+the barrier's rules or show lasting barrier damage. They end on a hook, not a resolution, so the game's last word is
+the victory Results.
 
 ## Wind and waves
 
@@ -124,13 +178,16 @@ One **wave field** answers "what is the water height and push here, now?" for ev
 bubbles, shells, the boss and the water visuals. Crests travel downwind as bands perpendicular to the wind, in sets
 of crests about 6 s apart, every third one big.
 
-**The ramp to chaos:**
+**The ramp to chaos** is spread across the campaign by each Act's `sea` block (Act time; a missing key never
+happens):
 
-| Act time (the Act's `sea` times; a missing one never happens) | Sea state |
+| Act | Sea state |
 |---|---|
-| 0:00–1:30 | One steady swell. |
-| 1:30–3:00 | After each wind shift, the old swell keeps running alongside the new one (fading over 45 s), so crests cross and their heights add. |
-| 3:00+ | Rogue waves, from within about 0.6 rad of the wind's bearing, with a 2.6 s warning. |
+| 1 | One steady swell throughout. |
+| 2 | One steady swell, then from 0:45 each wind shift leaves the old swell running alongside the new one (fading over 45 s), so crests cross and their heights add. |
+| 3 | Crossing swells from 0:20, and rogue waves from 1:00 (from within about 0.6 rad of the wind's bearing, with a 2.6 s warning). |
+
+The HUD's sea-state line reads "Steady swell", "Crossing swells" or "Rogue waves".
 
 Big crests are telegraphed about 2 s ahead by a foam line, a HUD label and a sound cue.
 
@@ -177,14 +234,18 @@ pools, the start point and each other. The layout and scatter rules live in `ass
 ## Enemies
 
 Defined in `assets/data/crabnado/enemies.json`. When a type appears and its relative spawn weight come from the Stage
-spawn tables in `campaign.json`; Act 1 uses crab and shrimp, and lobsters arrive with Act 2.
+spawn tables in `campaign.json`: Act 1 uses crab and shrimp, lobsters arrive with Act 2's Lobster Stage, and seahorses
+with Act 3's Seahorse Stage. Every landed enemy has the same three states beyond chasing the player: **ride** (a crest
+carries it downwind with no contact damage), **wind-up** (stopped and shivering, yellow) and **charge** (a red, dodgeable
+dash at where the player stood, then back to chasing); see "Tumble, slams and pools". The seahorse is the exception: it
+is never ridden but **surfs**.
 
 | Type | HP | Speed | Contact DPS | XP | Rides on | Role |
 |---|---|---|---|---|---|---|
-| Crab | 3 | 4.2 | 4 | 1 | any crest | The steady, sideways-walking base enemy (Act 1 weight 65). |
-| Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | Fast, fragile flankers, from 0:25 (weight 27). |
-| Lobster | 14 | 2.8 | 18 | 4 | big crests only | Slow tanks that make big waves matter. Not in Act 1's tables yet. |
-| Seahorse | 6 | 1.2 | 7 (�1.5 surfing) | 2 | never ridden: it *surfs* | Act 3 Seahorse Stage only, from infested crests. A surfer glows sea-blue, rides its crest and steers across it toward the player until the crest passes them, it hits the downwind barrier or the crest fades. Rocks block it, and a rock hit while surfing is a slam that kills it. Beached, it flops (can't be slammed) toward a pool within 15 units, else upwind, and the next crest re-grabs it; in a pool it swims at a player sharing the pool, else waits at the upwind edge. Weapons hurt it in every state. |
+| Crab | 3 | 4.2 | 4 | 1 | any crest | The steady, sideways-walking base enemy (weight 65 in the Crab Stage). |
+| Shrimp | 1.5 | 7.5 | 6 | 1 | any crest | Fast, fragile flankers, from Act 1's Shrimp Stage (weight 27). |
+| Lobster | 14 | 2.8 | 18 | 4 | big crests only | Slow tanks that make big waves matter. From Act 2's Lobster Stage. |
+| Seahorse | 6 | 1.2 | 7 (×1.5 surfing) | 2 | never ridden: it *surfs* | Act 3 only, from infested crests in the Seahorse and Boss Stages. A surfer glows sea-blue, rides its crest and steers across it toward the player until the crest passes them, it hits the downwind barrier or the crest fades. Rocks block it, and a rock hit while surfing is a slam that kills it. Beached, it flops (can't be slammed) toward a pool within 15 units, else upwind, and the next crest re-grabs it; in a pool it swims at a player sharing the pool, else waits at the upwind edge. Weapons hurt it in every state. |
 
 ## Upgrades
 
@@ -248,18 +309,26 @@ Stage's script loads with its Stage and starts fresh each time. Both are rebuilt
 - **Tests:** `tests/campaign_script_test.cpp` drives the events and calls on a fixture campaign (`tests/data/`), and
   checks that every script the shipped `campaign.json` names exists, compiles and defines only event handlers.
 
-## The boss
+## The bosses
 
-When the last Stage ends, the crabnado stops throwing for a fixed 5 s storm-up: it darkens, spins and sways harder, the HUD
-reads "The storm is rising!" and a warning sounds. The crabnado slides along its orbit to the point nearest the
-player and holds there. Then a banner announces the boss: the crabnado breaches the barrier at that point (the pieces
+Every Act ends in a Boss Stage, and none of the bosses can be beaten by shooting alone: the player has to use the
+waves (and, in Acts 2 and 3, hit the boss while a slam has left it open). When the last Stage ends, the crabnado stops
+throwing for a fixed 5 s storm-up: it darkens, spins and sways harder, the HUD reads "The storm is rising!" and a warning
+sounds. The crabnado slides along its orbit to the point nearest the player and holds there. The arena music plays
+throughout; the bosses have no themes of their own (cut, see ticket 12).
+
+### Act 1: the crabnado
+
+After the storm-up a banner announces the boss: the crabnado **breaches** the barrier at that point (the pieces
 beside it flare, and it can't hurt or be hurt for the 1.5 s it takes to arrive), then chases the player, throws from
 its own body at 35% of the rate, and deals 25 damage per second on contact.
 **You can't damage it directly.** A big crest that pushes it into a rock counts as one slam (2.5 s cooldown so one
 crest can't count twice). The HUD shows the slams left. **Three slams beat it:** the horde is swept away (no shells, no kills), every shell on the water flies to the
 player, and the crabnado is blown back out over the barrier to its orbit. That clears the Act.
 
-**Act 2's boss is the enraged crabnado** (`crabnado_enraged`, red-gray storm). It has 40 HP and a bar under the molt bar.
+### Act 2: the enraged crabnado
+
+The boss is the enraged crabnado (`crabnado_enraged`, red-gray storm). It has 120 HP and a bar under the molt bar.
 It chases for 2.5–4.5 s, then winds up one attack (never the same twice running) while its funnel strobes pale at about
 8 Hz, and recovers 0.6 s after. **Volley:** six crabs on a ring of 5 units around the player and one on the player are
 thrown from it and land after 1.4 s on yellow discs; a landing on the player costs 12 HP. **Suction:** a red ring at 30
@@ -269,7 +338,9 @@ pull and outrunning it (11 u/s) escapes. **Slams still happen the same way, but 
 snaps and bubbles hurt it (bubbles aim at it when it is in range); outside the daze weapons ignore it. A slam while dazed
 costs HP but doesn't extend the daze. At 0 HP it retreats like the Act 1 boss. Every number is in `bosses.json`.
 
-**Act 3's boss is Captain Crab** (`captain_crab`, behavior `captain`, purple storm). As the storm-up starts the crabnado
+### Act 3: Captain Crab
+
+The boss is Captain Crab (`captain_crab`, behavior `captain`, purple storm). As the storm-up starts the crabnado
 (he has claimed it) reappears and stops throwing, and the next crest is infested: it carries him in on a big seahorse
 with 3 seahorses. Most of the time he lands during the storm-up; crests are 6 s apart, so now and then he lands just
 after it. The crabnado never breaches: it keeps orbiting, untouchable, throwing the Boss Stage table at 35% of the rate,
@@ -296,7 +367,9 @@ CRAB") and is the only thing that takes boss damage.
   sea and sinks. Then ACT CLEAR, the ending comic and the victory Results. A Remote API playthrough holding the player
   beside him through every window took about 95 s of Boss Stage, with the split at about 27 s.
 
-**Between Acts** the scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page the Act's
+### Between Acts
+
+The scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page the Act's
 `comic_after` names (Next and Skip; a missing page is logged and skipped), then the arena resets (rocks re-scattered with the next Act's counts, water re-tinted,
 horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
 (it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
@@ -311,13 +384,16 @@ throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infe
   flashes are a short tint change.
 - **Water:** a grid of raised, tinted tiles whose height and color come from the wave field each frame, with foam on
   tall crests, over a seabed and a wider ocean ring.
-- **HUD:** HP top left. The shell bar top center, with the molt-level chip on its right. The wind compass and sea
-  state top right. Time and kills lower right. The loadout lower left: a slot per weapon with its level and a
+- **HUD:** HP top left. The shell bar top center, with the molt-level chip on its right. The wind compass top right, with
+  two lines under it: where you are in the campaign ("Act 2 · Lobster Stage", "Act 3 · Boss Stage") and the sea state.
+  Time and kills lower right. While an orbiting crabnado or twin is off-screen, a small arrow at the screen edge points
+  at it (the `offscreen` spawner has no source, so it gets none). The loadout lower left: a slot per weapon with its level and a
   cooldown shade, under the dig-in bar, which dims while exhausted.
 - **Font:** Lilita One.
 - **Audio:** an underwater music loop in the arena (ducked when a run ends), title music, a game-over loop, and
   generated sound effects for claw snaps (only on a hit), bubble pops, crests, rogue warnings, molts, enemy defeats,
-  rock crushes, boss slams, death and victory. Repeated sounds vary in pitch. Buttons click with a claw click. Sources and
+  rock crushes, boss slams, Stage changes, a cleared challenge, the storm-up, Captain Crab's split, death and victory.
+  The arena music plays through bosses too: boss themes were cut. Repeated sounds vary in pitch. Buttons click with a claw click. Sources and
   licenses: `CREDITS.md`.
 
 ## Technical notes
@@ -346,9 +422,10 @@ throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infe
 
 ## Open work
 
-- **Human balance playtest** (`issues/15-balance-pass.md`): a scripted bot died at about 1:40–1:50, so whether a person
-  reaches 3:00 and gets the first molt at 20–30 s is unconfirmed.
+- **Human balance playtest:** the campaign was tuned with a scripted bot (circling, always the first molt card, god mode
+  so it survives to the bosses) and by measuring boss windows, not with a person. Whether a person finds each Act's
+  difficulty right, and Act 3's boss at 240 HP, is unconfirmed.
 - **WASM pass:** the browser build hasn't been built or played, and the horde cap needs a browser FPS check (fall
-  back toward 400 if it can't hold 60 fps).
+  back toward 400 if it can't hold 60 fps). Ticket 13 does this.
 - **Crabnado surges:** a burst of throws every ~45 s for peaks in the run. Never built.
 - **Origin flash:** a new enemy may render at the origin for one frame (#33).

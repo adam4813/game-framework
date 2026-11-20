@@ -242,10 +242,11 @@ inline constexpr float kPlayerPickupRange = 5.0F;
 inline constexpr float kShellFlySpeed = 25.0F;
 // A flying shell is collected within this distance of the player.
 inline constexpr float kShellCollectRadius = 1.0F;
-// Shells needed per molt (first molt 6 -> 18, ticket 15): round(kShellsFirstMolt * kShellsGrowth^(level - 1)). Geometric because the kill rate rises
-// with the spawn rate; the old linear 6 + 5 per molt gave a 4th molt at 0:18 (ticket 15).
-inline constexpr int kShellsFirstMolt = 18;
-inline constexpr float kShellsGrowth = 1.3F;
+// Shells needed per molt: round(kShellsFirstMolt * kShellsGrowth^(level - 1)). Geometric because the kill rate rises
+// with the spawn rate. Tuned for the campaign (ticket 12): a carried-over build gets about 4 molts in Act 1, 3 in Act 2
+// and 3 in Act 3, counting the free molts between Acts (was 18 and 1.3, tuned in ticket 15 for a 5-minute run).
+inline constexpr int kShellsFirstMolt = 35;
+inline constexpr float kShellsGrowth = 1.4F;
 // Upgrade registry, relative to the asset directory.
 inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
 // The campaign (Acts, Stages) and the boss registry, relative to the asset directory.

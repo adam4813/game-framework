@@ -19,7 +19,9 @@ not logic changes. Tuning the "crabnado surges" burst (run.md story 9) is out of
 
 **Blocked by:** 03 (Shells and molting), 09 (Shrimp and lobsters), because enemy XP values change there.
 
-**Status:** needs-human-playtest
+**Status:** superseded by `.scratch/campaign-build/issues/12-tuning-balance-and-gdd.md` (2026-11-19). The campaign
+replaced the 5-minute run this ticket tuned, so its scope (the shells curve, spawn rates, HP growth) is retuned there for a
+12-minute, three-Act run. The comments below are the history of the old numbers.
 
 - [ ] The first molt lands at about 0:20–0:30 of normal play, and later molts come no faster than one every 25–40 s.
 - [ ] A player who stands still with no upgrades survives at least 30 s.

@@ -93,6 +93,7 @@ private:
 	flecs::entity timeLabel_;
 	flecs::entity killsLabel_;
 	flecs::entity waveLabel_;
+	flecs::entity stageLabel_;
 	flecs::entity staminaBar_;
 	flecs::entity stateLabel_;
 	flecs::entity telegraph_;

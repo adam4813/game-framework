@@ -57,15 +57,16 @@ TEST(CampaignData, ActOneIsCrabThenShrimpThenTheBoss) {
 	const Act& act = campaign.campaign.acts[0];
 	ASSERT_EQ(act.stages.size(), 2U);
 	EXPECT_EQ(act.stages[0].name, "Crab");
-	EXPECT_FLOAT_EQ(act.stages[0].gate.time, 25.0F);
+	// The Crab Stage is a `both` gate (defeat 75 in a minute for a shells bonus); the Shrimp Stage runs 90 s.
+	EXPECT_EQ(act.stages[0].gate.type, GateType::Both);
+	EXPECT_FLOAT_EQ(act.stages[0].gate.time, 60.0F);
+	EXPECT_EQ(act.stages[0].gate.kills, 75);
 	EXPECT_EQ(act.stages[0].spawns.size(), 1U);
 	EXPECT_EQ(act.stages[1].name, "Shrimp");
+	EXPECT_FLOAT_EQ(act.stages[1].gate.time, 90.0F);
 	EXPECT_EQ(act.stages[1].spawns.size(), 2U);
-	// Today's run: 1.0 + 0.035 * clock, so the Shrimp Stage starts where the Crab Stage ended.
-	EXPECT_FLOAT_EQ(SpawnRate(act.stages[0].rate, 25.0F), 1.875F);
-	EXPECT_FLOAT_EQ(SpawnRate(act.stages[1].rate, 0.0F), 1.875F);
-	// The boss runs at 0.35 of the rate at 300 s (1.0 + 0.035 * 300 = 11.5).
-	EXPECT_FLOAT_EQ(BossSpawnRate(act), 11.5F * 0.35F);
+	// The boss runs at 0.35 of the Shrimp Stage's closing rate (1.5 + 0.035 * 90 = 4.65).
+	EXPECT_FLOAT_EQ(BossSpawnRate(act), 4.65F * 0.35F);
 }
 
 TEST(CampaignParse, AnUnknownEnemyTypeDropsOnlyThatEntry) {
@@ -201,7 +202,7 @@ TEST(BossParse, TheShippedEnragedBossCarriesTheTicketsStartingValues) {
 	const auto found = std::ranges::find(result.registry.bosses, "crabnado_enraged", &BossDef::id);
 	ASSERT_NE(found, result.registry.bosses.end());
 	EXPECT_EQ(found->behavior, "enraged");
-	EXPECT_FLOAT_EQ(found->enraged.hp, 40.0F);
+	EXPECT_FLOAT_EQ(found->enraged.hp, 120.0F); // tuned in ticket 12 (was 40)
 	EXPECT_FLOAT_EQ(found->enraged.slam_damage, 10.0F);
 	EXPECT_FLOAT_EQ(found->enraged.daze_time, 4.0F);
 	EXPECT_EQ(found->enraged.volley_ring, 6);
