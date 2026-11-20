@@ -15,6 +15,11 @@ Working examples of engine features (scenes, level JSON, particles, nav graphs, 
   observers, reflection, scene `Load`/`Unload`) and before debugging a Flecs assert. It holds the Flecs 4 API patterns
   and the gotchas that have crashed this project.
 
+- **Put a game's assets in `games/<name>/assets/`, not the root `assets/`.** The root folder is for content shared by
+  several games. Keep the same relative path (`games/<name>/assets/audio/<name>/x.wav` loads as `audio/<name>/x.wav`).
+  Check where a new texture, sound, JSON or script file landed before committing, and point generator tools and tests
+  at the game's folder.
+
 - **Game Targets carry their own rules.** Before working on a game in `games/<name>/`, read `games/<name>/AGENTS.md`
   if it exists. Its rules take precedence over this file and `CODING_STANDARDS.md` for that game.
 
