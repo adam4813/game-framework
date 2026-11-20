@@ -98,10 +98,24 @@ struct ActSea {
 	std::optional<float> rogue_at;
 };
 
+// The `offscreen` spawner's tunables, from an Act's "offscreen" block: volleys of volley_min-volley_max enemies thrown
+// from one point `radius` units from the centre, each volley's bearing at least `min_turn_deg` degrees from the last.
+struct OffscreenSpawner {
+	int volley_min{3};
+	int volley_max{6};
+	float radius{85.0F};
+	float min_turn_deg{60.0F};
+};
+
 struct Act {
 	std::string id;
 	std::string name;
 	std::string title;
+	// False hides the crabnado through the Act's normal Stages (it returns for the Boss Stage); its spawner `crabnado` is
+	// then a bad reference in those Stages.
+	bool crabnado{true};
+	// Present when the Act authored an "offscreen" block; the spawner `offscreen` needs it.
+	std::optional<OffscreenSpawner> offscreen;
 	ActArena arena;
 	ActSea sea;
 	HpScale hp_scale;
@@ -164,7 +178,7 @@ struct CampaignParseResult {
 // "m:ss" for a number of seconds, rounded up (a clock counting down).
 [[nodiscard]] std::string FormatClock(float seconds);
 
-// The spawner ids the code registers. Tickets 09 and 10 add `offscreen` and `infested_crest`.
+// The spawner ids the code registers. Ticket 10 adds `infested_crest`.
 [[nodiscard]] std::span<const std::string_view> SpawnerIds();
 
 // Loads bosses.json then campaign.json (the CampaignSource paths, resolved against `assetDirectory`), replacing the BossRegistry and
@@ -209,6 +223,9 @@ struct SpawnPlan {
 // was refused, or an empty string when it did: refused unless this is the Act's Boss Stage, `bossId` is its boss and the
 // boss isn't up yet.
 [[nodiscard]] std::string_view CallBossNow(const flecs::world& world, std::string_view bossId);
+
+// Shows or hides the crabnado (an Act with `"crabnado": false` has none outside its Boss Stage). Called as a Stage begins.
+void SetCrabnadoPresent(const flecs::world& world, bool present);
 
 // Registers and reflects nothing but pre-registers the campaign singletons, and adds the CampaignDirector system.
 // Call from the module constructor after RegisterRun.

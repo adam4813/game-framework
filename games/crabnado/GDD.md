@@ -93,6 +93,14 @@ Keyboard only, plus the mouse for menus.
   starting at 1.0 per second and growing by 0.035 per second, capped by the horde cap. The Boss Stage throws at 35% of
   the last Stage's closing rate. Enemy HP grows by ×(1 + act time / 240) (the Act's `hp_scale`). The first throw comes
   3 s in.
+- **Spawners:** a spawn entry names the spawner that brings it in (a Stage's `source` is the default). `crabnado` throws
+  from the orbiting crabnado. `offscreen` (Act 3's horde) throws volleys from an unseen point 85 units out: the rate
+  fills a debt, and when it reaches the next volley's size (3-6) that many enemies land at once, from one bearing at
+  least 60° from the last volley's, each with its own landing jitter and flight time, under the usual landing shadows.
+  An Act sets these in an `"offscreen": {volley_min, volley_max, radius, min_turn_deg}` block, which an `offscreen`
+  entry needs. `"crabnado": false` on an Act hides the crabnado through its normal Stages (it returns for the storm-up
+  and the boss), and a `crabnado` entry in such a Stage is dropped as a bad reference. Normal Stages only: a Boss
+  Stage's enemies still come from the boss fight.
 - **Shells and molting:** the first molt needs 18 shells, and each molt after needs ×1.3 more. A molt pauses the run
   and offers 3 distinct upgrades. After the pick, "Ready…" and "Go!" hold the pause for about a second so you can get
   your hands back on the movement keys.
@@ -261,8 +269,8 @@ costs HP but doesn't extend the daze. At 0 HP it retreats like the Act 1 boss. E
 horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
 (it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
 upgrades, kills and the campaign clock carry over. After the last Act the ending comic leads to the victory Results.
-The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Act 3 is skeleton data
-(placeholder tables, the crabnado as boss) until tickets 09 and 11.
+The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Act 3's Crab and Lobster Stages
+throw from the off-screen spawner with no crabnado; its boss is still the crabnado until ticket 11 (ticket 10 adds a Seahorse Stage).
 
 ## Presentation
 

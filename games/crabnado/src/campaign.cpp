@@ -14,6 +14,7 @@
 
 #include "boss_registry.hpp"
 #include "campaign_script.hpp"
+#include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "enemy_types.hpp"
 #include "player.hpp"
@@ -30,7 +31,8 @@ using json = nlohmann::json;
 
 constexpr std::string_view kLogTag = "Campaign";
 constexpr std::string_view kDefaultSource = "crabnado";
-constexpr std::array<std::string_view, 1> kSpawnerIds{"crabnado"};
+constexpr std::string_view kOffscreenSource = "offscreen";
+constexpr std::array<std::string_view, 2> kSpawnerIds{"crabnado", kOffscreenSource};
 
 // What the parsers share. A fatal problem in a Stage or Act throws std::runtime_error, caught where that Stage or Act
 // is dropped; a droppable one (a bad spawn entry) goes straight into `errors`.
@@ -237,6 +239,41 @@ ActArena ParseArena(const json& j) {
 	return arena;
 }
 
+OffscreenSpawner ParseOffscreen(const json& j) {
+	const OffscreenSpawner defaults;
+	OffscreenSpawner spawner{
+		.volley_min = static_cast<int>(Number(j, "volley_min", static_cast<float>(defaults.volley_min))),
+		.volley_max = static_cast<int>(Number(j, "volley_max", static_cast<float>(defaults.volley_max))),
+		.radius = Number(j, "radius", defaults.radius),
+		.min_turn_deg = Number(j, "min_turn_deg", defaults.min_turn_deg),
+	};
+	if (spawner.volley_min < 1 || spawner.volley_max < spawner.volley_min) {
+		throw std::runtime_error("needs 1 <= volley_min <= volley_max");
+	}
+	if (spawner.radius <= constants::kArenaRadius) {
+		throw std::runtime_error(std::format("'radius' must be beyond the arena edge ({})", constants::kArenaRadius));
+	}
+	if (spawner.min_turn_deg < 0.0F || spawner.min_turn_deg > 180.0F) {
+		throw std::runtime_error("'min_turn_deg' must be 0-180");
+	}
+	return spawner;
+}
+
+// Drops the spawn entries whose spawner the Act can't supply, and says so.
+void DropBadSpawners(std::vector<SpawnEntry>& spawns, const Act& act, const bool normalStage, const std::string& where, Context& ctx) {
+	std::erase_if(spawns, [&](const SpawnEntry& entry) {
+		const bool noBlock = entry.source == kOffscreenSource && !act.offscreen;
+		const bool noCrabnado = entry.source == kDefaultSource && normalStage && !act.crabnado;
+		if (noBlock || noCrabnado) {
+			ctx.errors.push_back(std::format(
+				"{}: spawner '{}' has no {} in this Act, entry skipped", where, entry.source,
+				noBlock ? "\"offscreen\" block" : "crabnado (\"crabnado\": false)"
+			));
+		}
+		return noBlock || noCrabnado;
+	});
+}
+
 BossStage ParseBossStage(const json& j, const std::string& where, Context& ctx) {
 	BossStage boss;
 	boss.id = Text(j, "id");
@@ -262,6 +299,19 @@ Act ParseAct(const json& j, const std::string& where, Context& ctx) {
 	const json& sea = Object(j, "sea");
 	act.sea = {.cross_swell_at = OptionalNumber(sea, "cross_swell_at"), .rogue_at = OptionalNumber(sea, "rogue_at")};
 	act.hp_scale = ParseHpScale(Object(j, "hp_scale"));
+	if (j.contains("crabnado")) {
+		if (!j["crabnado"].is_boolean()) {
+			throw std::runtime_error("'crabnado' must be true or false");
+		}
+		act.crabnado = j["crabnado"].get<bool>();
+	}
+	if (j.contains("offscreen")) {
+		try {
+			act.offscreen = ParseOffscreen(Object(j, "offscreen"));
+		} catch (const std::exception& ex) {
+			ctx.errors.push_back(std::format("{} offscreen: {}, block skipped", where, ex.what()));
+		}
+	}
 
 	if (j.contains("stages")) {
 		if (!j["stages"].is_array()) {
@@ -271,7 +321,9 @@ Act ParseAct(const json& j, const std::string& where, Context& ctx) {
 		for (const json& entry : j["stages"]) {
 			const std::string stageWhere = std::format("{} stage {}", where, index++);
 			try {
-				act.stages.push_back(ParseStage(entry, stageWhere, ctx));
+				Stage stage = ParseStage(entry, stageWhere, ctx);
+				DropBadSpawners(stage.spawns, act, true, stageWhere, ctx);
+				act.stages.push_back(std::move(stage));
 			} catch (const std::exception& ex) {
 				ctx.errors.push_back(std::format("{}: {}, stage skipped", stageWhere, ex.what()));
 			}
@@ -281,6 +333,7 @@ Act ParseAct(const json& j, const std::string& where, Context& ctx) {
 		const std::string bossWhere = std::format("{} boss", where);
 		try {
 			BossStage boss = ParseBossStage(Object(j, "boss"), bossWhere, ctx);
+			DropBadSpawners(boss.spawns, act, false, bossWhere, ctx);
 			if (std::ranges::find(ctx.bossIds, boss.id) == ctx.bossIds.end()) {
 				ctx.errors.push_back(std::format("{}: unknown boss id '{}', the Act clears when its last Stage gates", bossWhere, boss.id));
 			} else {
@@ -328,6 +381,15 @@ CampaignParseResult ParseCampaign(
 
 std::span<const std::string_view> SpawnerIds() {
 	return kSpawnerIds;
+}
+
+void SetCrabnadoPresent(const flecs::world& world, const bool present) {
+	// A disabled entity is skipped by every system and render query, its funnel (its children) with it.
+	if (present) {
+		world.query_builder().with<Crabnado>().with(flecs::Disabled).build().each([](const flecs::entity crabnado) { crabnado.enable(); });
+		return;
+	}
+	world.query_builder<Crabnado>().build().each([](const flecs::entity crabnado, Crabnado&) { crabnado.disable(); });
 }
 
 std::string ResolveSourcePath(const std::string_view assetDirectory, const std::string& path) {
@@ -443,6 +505,7 @@ void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 	run.stage_kills_start = run.kills;
 	run.storm_up = 0.0F;
 	const bool normal = run.stage < static_cast<int>(act.stages.size());
+	SetCrabnadoPresent(world, act.crabnado || !normal);
 	LoadStageScript(world, normal ? std::string_view{act.stages[static_cast<size_t>(run.stage)].script} : std::string_view{});
 	if (normal) {
 		if (run.phase == RunPhase::Boss) {

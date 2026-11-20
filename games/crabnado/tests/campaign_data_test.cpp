@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -9,6 +10,7 @@
 #include "boss_registry.hpp"
 #include "campaign.hpp"
 #include "engine/engine.hpp"
+#include "offscreen.hpp"
 
 namespace {
 
@@ -85,6 +87,64 @@ TEST(CampaignParse, AnUnknownSpawnerDropsTheEntryAndAStageDefaultFallsBack) {
 	ASSERT_EQ(stage.spawns.size(), 1U);
 	EXPECT_EQ(stage.spawns[0].type, 1);
 	EXPECT_EQ(result.errors.size(), 2U);
+}
+
+TEST(CampaignParse, AnOffscreenEntryNeedsTheActsOffscreenBlock) {
+	const json doc = json::parse(R"({"acts":[
+		{"id":"with","offscreen":{"volley_min":2,"volley_max":4,"radius":90,"min_turn_deg":45},"stages":[
+			{"gate":{"type":"time","time":10},"source":"offscreen","spawns":{"crab":5}}]},
+		{"id":"without","stages":[
+			{"gate":{"type":"time","time":10},"source":"offscreen","spawns":{"crab":5}}]}]})");
+	const CampaignParseResult result = ParseCampaign(doc, std::vector<std::string>{"crab"}, std::vector<std::string>{}, SpawnerIds());
+	ASSERT_EQ(result.campaign.acts.size(), 2U);
+	const Act& with = result.campaign.acts[0];
+	ASSERT_TRUE(with.offscreen.has_value());
+	EXPECT_EQ(with.offscreen->volley_min, 2);
+	EXPECT_EQ(with.offscreen->volley_max, 4);
+	EXPECT_FLOAT_EQ(with.offscreen->radius, 90.0F);
+	EXPECT_FLOAT_EQ(with.offscreen->min_turn_deg, 45.0F);
+	EXPECT_EQ(with.stages[0].spawns.size(), 1U);
+	EXPECT_TRUE(result.campaign.acts[1].stages[0].spawns.empty());
+	EXPECT_EQ(result.errors.size(), 1U);
+}
+
+TEST(CampaignParse, AnActWithoutACrabnadoRejectsCrabnadoSpawnsInNormalStagesOnly) {
+	const json doc = json::parse(R"({"acts":[{"id":"a","crabnado":false,"offscreen":{},"stages":[
+		{"gate":{"type":"time","time":10},"spawns":{"crab":{"weight":5,"source":"crabnado"},"shrimp":{"weight":3,"source":"offscreen"}}}],
+		"boss":{"id":"crabnado","spawns":{"crab":5}}}]})");
+	const CampaignParseResult result =
+		ParseCampaign(doc, std::vector<std::string>{"crab", "shrimp"}, std::vector<std::string>{"crabnado"}, SpawnerIds());
+	const Act& act = result.campaign.acts.at(0);
+	EXPECT_FALSE(act.crabnado);
+	ASSERT_EQ(act.stages[0].spawns.size(), 1U);
+	EXPECT_EQ(act.stages[0].spawns[0].source, "offscreen");
+	ASSERT_TRUE(act.boss.has_value());
+	EXPECT_EQ(act.boss->spawns.size(), 1U);
+	EXPECT_EQ(result.errors.size(), 1U);
+}
+
+TEST(CampaignParse, ABadOffscreenBlockIsDroppedAndReported) {
+	const json doc = json::parse(R"({"acts":[{"id":"a","offscreen":{"volley_min":5,"volley_max":2},"stages":[
+		{"gate":{"type":"time","time":10},"source":"offscreen","spawns":{"crab":5}}]}]})");
+	const CampaignParseResult result = ParseCampaign(doc, std::vector<std::string>{"crab"}, std::vector<std::string>{}, SpawnerIds());
+	const Act& act = result.campaign.acts.at(0);
+	EXPECT_FALSE(act.offscreen.has_value());
+	EXPECT_TRUE(act.stages[0].spawns.empty());
+	EXPECT_EQ(result.errors.size(), 2U);
+}
+
+TEST(OffscreenSpawner, EachVolleyComesFromAtLeastTheMinimumTurnAwayFromTheLast) {
+	flecs::world world;
+	world.set<engine::ecs::RngState>({});
+	constexpr float kPi = 3.14159265F;
+	constexpr float kMinTurn = 60.0F;
+	float last = 0.0F;
+	for (int i = 0; i < 500; ++i) {
+		const float next = PickVolleyBearing(world, true, last, kMinTurn);
+		const float turnDeg = std::abs(std::remainder(next - last, 2.0F * kPi)) * 180.0F / kPi;
+		EXPECT_GE(turnDeg, kMinTurn - 0.01F);
+		last = next;
+	}
 }
 
 TEST(CampaignParse, AnUnknownBossIdLeavesTheActWithoutABossStage) {

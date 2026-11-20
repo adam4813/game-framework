@@ -95,6 +95,7 @@ void RegisterHorde(const flecs::world& world) {
 		.member<float>("windup")
 		.member<float>("charge")
 		.member<glm::vec2>("charge_dir");
+	world.component<OffscreenThrown>();
 	world.component<Airborne>().member<glm::vec3>("velocity").member<glm::vec2>("landing");
 	world.component<LandingShadow>().member<uint64_t>("enemy").member<float>("age").member<float>("duration");
 	world.component<HordeReadout>().member<int>("enemy_count").member<int>("fps");
@@ -358,8 +359,12 @@ void RegisterHorde(const flecs::world& world) {
 			auto& run = world.get_mut<RunState>();
 			++run.kills;
 			run.rock_kills += enemy.slammed ? 1 : 0;
-			// Every enemy comes in through the crabnado's throw for now; the spawners of tickets 09 and 10 will say otherwise.
-			FireCampaignEvent(world, "OnKill", {world.get<EnemyRegistry>().types[static_cast<size_t>(enemy.type)].id, std::string{"crabnado"}});
+			// Ticket 10's spawner will need its own source here too.
+			FireCampaignEvent(
+				world, "OnKill",
+				{world.get<EnemyRegistry>().types[static_cast<size_t>(enemy.type)].id,
+				 std::string{defeated.has<OffscreenThrown>() ? "offscreen" : "crabnado"}}
+			);
 			PlaySfx(world, enemy.slammed ? Sfx::RockCrush : Sfx::EnemyDefeat);
 			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
 			defeated.destruct();
@@ -414,11 +419,11 @@ glm::vec2 BodyLanding(const flecs::world& world, const glm::vec2 from, const glm
 	return ClampToRadius(from + heading * reach + jitter, constants::kArenaRadius - kLandingMargin);
 }
 
-void ThrowEnemy(
+flecs::entity ThrowEnemy(
 	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 landing
 ) {
 	const float flightTime = world.get_mut<ecs::RngState>().NextFloatRange(constants::kThrowMinTime, constants::kThrowMaxTime);
-	std::ignore = ThrowEnemyAt(world, parent, typeIndex, from, landing, flightTime);
+	return ThrowEnemyAt(world, parent, typeIndex, from, landing, flightTime);
 }
 
 flecs::entity ThrowEnemyAt(

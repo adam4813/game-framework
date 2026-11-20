@@ -59,6 +59,9 @@ struct LandingShadow {
 	float duration{1.0F};
 };
 
+// Tag on an enemy the `offscreen` spawner threw, so its defeat reports that source to the campaign scripts.
+struct OffscreenThrown {};
+
 // Singleton: live performance readout, refreshed each frame by the arena scene and read over the Remote
 // API during the horde performance check.
 struct HordeReadout {
@@ -81,8 +84,8 @@ void RegisterHorde(const flecs::world& world);
 
 // Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) to `landing`, as a child of
 // `parent` (so the scene's Unload destroys it), and puts a landing shadow under `parent` where it will come down.
-// Draws from the world's RngState; enemy HP grows with the run clock.
-void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing);
+// Draws from the world's RngState; enemy HP grows with the run clock. Returns the thrown enemy.
+flecs::entity ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing);
 
 // ThrowEnemy with the flight time, in seconds, chosen by the caller (the boss's volley lands on a timer). Returns the
 // thrown enemy.

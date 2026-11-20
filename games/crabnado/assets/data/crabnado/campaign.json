@@ -60,20 +60,22 @@
       "arena": { "rocks": { "inner": 13, "outer": 7 }, "tint": { "color": [40, 40, 90], "amount": 0.3 } },
       "sea": { "cross_swell_at": 30, "rogue_at": 100 },
       "hp_scale": { "mult": 1.4, "growth_seconds": 240 },
+      "crabnado": false,
+      "offscreen": { "volley_min": 3, "volley_max": 6, "radius": 85, "min_turn_deg": 60 },
       "stages": [
         {
           "name": "Crab",
           "gate": { "type": "time", "time": 60 },
           "spawns": { "crab": 65, "shrimp": 27 },
           "rate": { "base": 1.0, "growth": 0.035 },
-          "source": "crabnado"
+          "source": "offscreen"
         },
         {
-          "name": "Shrimp",
-          "gate": { "type": "time", "time": 120 },
-          "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 },
+          "name": "Lobster",
+          "gate": { "type": "time", "time": 90 },
+          "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 },
           "rate": { "base": 1.875, "growth": 0.035 },
-          "source": "crabnado"
+          "source": "offscreen"
         }
       ],
       "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 }, "rate_mult": 0.35 }
