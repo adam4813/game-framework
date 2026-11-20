@@ -64,6 +64,10 @@ struct ThrowsInto {};
 // FunnelTint systems.
 void RegisterCrabnado(const flecs::world& world);
 
+// Throws `count` enemies of EnemyRegistry type `typeIndex` from the crabnado at the player, as its own throws land (the
+// horde cap still applies). Does nothing with no crabnado. This is a script's Spawn().
+void ThrowEnemies(const flecs::world& world, int typeIndex, int count);
+
 // The point on the ground plane at `bearing` and `radius` from the arena centre, and the bearing of a ground point.
 [[nodiscard]] glm::vec2 OrbitPoint(float bearing, float radius);
 [[nodiscard]] float BearingOf(glm::vec2 point);

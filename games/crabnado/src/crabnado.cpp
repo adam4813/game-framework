@@ -75,12 +75,13 @@ float RingHeight(const int ring) {
 // The spawner id of the crabnado's own throw (a spawn table entry names the spawner that brings it in).
 constexpr std::string_view kThrowSource = "crabnado";
 
-// Throws up to `count` crabs from the crabnado toward the player, stopping at the horde cap.
-void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, const glm::vec3 position, int count) {
+// Throws up to `count` enemies from the crabnado toward the player, stopping at the horde cap. Each is drawn from the
+// current spawn table, or is `forcedType` (an EnemyRegistry index) when that isn't -1.
+void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, const glm::vec3 position, int count, const int forcedType = -1) {
 	count = std::min(count, constants::kHordeCap - world.count<Enemy>());
 	const flecs::entity horde = crabnado.target<ThrowsInto>();
 	const auto plan = CurrentSpawnPlan(world);
-	if (count <= 0 || !horde || !plan) {
+	if (count <= 0 || !horde || (!plan && forcedType < 0)) {
 		return;
 	}
 	const glm::vec2 from{position.x, position.z};
@@ -92,7 +93,7 @@ void ThrowAtPlayer(const flecs::world& world, const flecs::entity crabnado, cons
 	// From the orbit it lands in from the barrier; ashore, the body throws close by.
 	const bool fromBody = crabnado.get<Crabnado>().mode == CrabnadoMode::Fight;
 	for (int i = 0; i < count; ++i) {
-		const int type = PickEnemyType(world, *plan->spawns, kThrowSource);
+		const int type = forcedType >= 0 ? forcedType : PickEnemyType(world, *plan->spawns, kThrowSource);
 		if (type >= 0) {
 			ThrowEnemy(world, horde, type, from, fromBody ? BodyLanding(world, from, target) : EdgeLanding(world, from, target));
 		}
@@ -320,6 +321,14 @@ void RegisterCrabnado(const flecs::world& world) {
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
+}
+
+void ThrowEnemies(const flecs::world& world, const int typeIndex, const int count) {
+	world.query_builder<const Crabnado, const spatial::Transform>().build().each(
+		[&](const flecs::entity crabnado, const Crabnado&, const spatial::Transform& transform) {
+			ThrowAtPlayer(world, crabnado, transform.position, count, typeIndex);
+		}
+	);
 }
 
 void AddFunnel(const flecs::world& world, const flecs::entity crabnado) {

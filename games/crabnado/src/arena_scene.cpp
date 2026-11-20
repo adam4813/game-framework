@@ -11,6 +11,7 @@
 #include "boss_registry.hpp"
 #include "bubbles.hpp"
 #include "campaign.hpp"
+#include "campaign_script.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "arena.hpp"
@@ -173,6 +174,7 @@ void ArenaScene::Load(flecs::world& world) {
 				 .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true})
 				 .set<MusicLevel>({constants::kMusicVolume});
 	horde_ = world.entity().child_of(sceneRoot_);
+	ResetCampaignScripts(world, sceneRoot_);
 	BuildStage(world);
 	BuildUI(world);
 }
@@ -818,6 +820,8 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	std::string banner;
 	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
 		banner = "ACT CLEAR";
+	} else if (const auto& scripts = world.get<CampaignScripts>(); scripts.banner_timer > 0.0F) {
+		banner = scripts.banner;
 	} else if (boss && run.banner_timer > 0.0F) {
 		if (run.slams == 0) {
 			banner = "The crabnado comes ashore! Slam it into the rocks";
@@ -1031,6 +1035,7 @@ void ArenaScene::Unload(flecs::world& world) {
 	world.remove<scene::Paused>();
 	comic_.Release(world);
 	comicOpen_ = false;
+	UnloadCampaignScripts(world);
 	ClearArena(world);
 	for (flecs::entity* root : {&sceneRoot_, &uiRoot_}) {
 		if (*root) {

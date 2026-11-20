@@ -5,6 +5,7 @@
 #include <cmath>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <stdexcept>
 #include <utility>
 
@@ -12,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 #include "boss_registry.hpp"
+#include "campaign_script.hpp"
 #include "crabnado_constants.hpp"
 #include "enemy_types.hpp"
 #include "player.hpp"
@@ -36,6 +38,7 @@ struct Context {
 	std::span<const std::string> enemyIds;
 	std::span<const std::string> bossIds;
 	std::span<const std::string_view> spawnerIds;
+	const std::function<bool(std::string_view)>& scriptExists;
 	std::vector<std::string>& errors;
 };
 
@@ -123,8 +126,17 @@ Gate ParseGate(const json& j) {
 	}
 	gate.time = Number(j, "time", 0.0F);
 	gate.kills = static_cast<int>(Number(j, "kills", 0.0F));
-	gate.script = Text(j, "script");
 	return gate;
+}
+
+// The script id under `key`, empty when there is none or `scriptExists` rejects it (reported in `errors`).
+std::string ParseScriptId(const json& j, const char* key, const std::string& where, Context& ctx) {
+	std::string id = Text(j, key);
+	if (!id.empty() && ctx.scriptExists && !ctx.scriptExists(id)) {
+		ctx.errors.push_back(std::format("{}: unknown script '{}', script skipped", where, id));
+		return {};
+	}
+	return id;
 }
 
 // A spawn table: enemy id to a weight, or to {weight, source}. An unknown enemy type or spawner drops that entry.
@@ -172,6 +184,14 @@ Stage ParseStage(const json& j, const std::string& where, Context& ctx) {
 	Stage stage;
 	stage.name = Text(j, "name");
 	stage.gate = ParseGate(j.value("gate", json{}));
+	stage.script = ParseScriptId(j, "script", where, ctx);
+	// A `script` gate may also carry the script id, so `{"type": "script", "script": "x"}` reads naturally.
+	if (stage.script.empty() && stage.gate.type == GateType::Script) {
+		stage.script = ParseScriptId(j.value("gate", json{}), "script", where, ctx);
+	}
+	if (stage.gate.type == GateType::Script && stage.script.empty()) {
+		throw std::runtime_error("a script gate needs a 'script'");
+	}
 	stage.source = Text(j, "source");
 	if (stage.source.empty()) {
 		stage.source = kDefaultSource;
@@ -237,6 +257,7 @@ Act ParseAct(const json& j, const std::string& where, Context& ctx) {
 	act.name = Text(j, "name");
 	act.title = Text(j, "title");
 	act.comic_after = Text(j, "comic_after");
+	act.script = ParseScriptId(j, "script", where, ctx);
 	act.arena = ParseArena(Object(j, "arena"));
 	const json& sea = Object(j, "sea");
 	act.sea = {.cross_swell_at = OptionalNumber(sea, "cross_swell_at"), .rogue_at = OptionalNumber(sea, "rogue_at")};
@@ -281,10 +302,11 @@ CampaignParseResult ParseCampaign(
 	const json& doc,
 	const std::span<const std::string> enemyIds,
 	const std::span<const std::string> bossIds,
-	const std::span<const std::string_view> spawnerIds
+	const std::span<const std::string_view> spawnerIds,
+	const std::function<bool(std::string_view)>& scriptExists
 ) {
 	CampaignParseResult result;
-	Context ctx{enemyIds, bossIds, spawnerIds, result.errors};
+	Context ctx{enemyIds, bossIds, spawnerIds, scriptExists, result.errors};
 	if (!doc.is_object() || !doc.contains("acts") || !doc["acts"].is_array()) {
 		result.errors.emplace_back("campaign.json must be an object with an 'acts' array");
 		return result;
@@ -308,11 +330,13 @@ std::span<const std::string_view> SpawnerIds() {
 	return kSpawnerIds;
 }
 
+std::string ResolveSourcePath(const std::string_view assetDirectory, const std::string& path) {
+	return std::filesystem::path{path}.is_absolute() ? path : std::string{assetDirectory} + path;
+}
+
 void LoadCampaignData(const flecs::world& world, const std::string_view assetDirectory) {
 	const auto& source = world.get<CampaignSource>();
-	const auto resolve = [assetDirectory](const std::string& path) {
-		return std::filesystem::path{path}.is_absolute() ? path : std::string{assetDirectory} + path;
-	};
+	const auto resolve = [assetDirectory](const std::string& path) { return ResolveSourcePath(assetDirectory, path); };
 	LoadBosses(world, resolve(source.bosses_path));
 
 	std::vector<std::string> enemyIds;
@@ -325,9 +349,10 @@ void LoadCampaignData(const flecs::world& world, const std::string_view assetDir
 	}
 
 	const std::string path = resolve(source.campaign_path);
+	const auto scriptExists = [&world](const std::string_view id) { return std::filesystem::exists(ScriptPath(world, id)); };
 	CampaignParseResult result;
 	if (const auto doc = core::LoadJsonFile(path, kLogTag)) {
-		result = ParseCampaign(*doc, enemyIds, bossIds, SpawnerIds());
+		result = ParseCampaign(*doc, enemyIds, bossIds, SpawnerIds(), scriptExists);
 	}
 	for (const std::string& error : result.errors) {
 		spdlog::error("[{}] '{}': {}", kLogTag, path, error);
@@ -411,12 +436,15 @@ void PayBonus(const flecs::world& world, RunState& run, const GateBonus& bonus) 
 	}
 }
 
-// Enters the Stage RunState names: a normal Stage shows its banner, the Boss Stage starts the storm-up (or, with no
-// boss, clears the Act), and a normal Stage also ends a boss phase a jump left behind.
+// Enters the Stage RunState names: loads its script, then a normal Stage shows its banner, the Boss Stage starts the
+// storm-up (or, with no boss, clears the Act), and a normal Stage also ends a boss phase a jump left behind. Fires
+// OnStageStart.
 void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 	run.stage_kills_start = run.kills;
 	run.storm_up = 0.0F;
-	if (run.stage < static_cast<int>(act.stages.size())) {
+	const bool normal = run.stage < static_cast<int>(act.stages.size());
+	LoadStageScript(world, normal ? std::string_view{act.stages[static_cast<size_t>(run.stage)].script} : std::string_view{});
+	if (normal) {
 		if (run.phase == RunPhase::Boss) {
 			run.phase = RunPhase::Playing;
 			run.slams = 0;
@@ -424,6 +452,7 @@ void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 		run.stage_banner = constants::kStageBannerTime;
 		PlaySfx(world, Sfx::StageSting);
 		spdlog::info("[Run] Act {} Stage {} '{}' at {:.1f}s", run.act, run.stage, act.stages[static_cast<size_t>(run.stage)].name, run.clock);
+		FireCampaignEvent(world, "OnStageStart");
 		return;
 	}
 	run.stage_banner = 0.0F;
@@ -438,25 +467,55 @@ void EnterStage(const flecs::world& world, RunState& run, const Act& act) {
 		PlaySfx(world, Sfx::StormWarning);
 		spdlog::info("[Run] The storm rises at {:.1f}s", run.clock);
 	}
+	FireCampaignEvent(world, "OnStageStart");
+}
+
+// The boss comes ashore: the Boss phase starts with its banner, and OnBossStart fires.
+void BeginBoss(const flecs::world& world, RunState& run, const Act& act) {
+	run.phase = RunPhase::Boss;
+	run.banner_timer = constants::kBossBannerTime;
+	spdlog::info("[Run] The crabnado comes ashore at {:.1f}s", run.clock);
+	FireCampaignEvent(world, "OnBossStart", {act.boss ? act.boss->id : std::string{}});
 }
 
 // Whether a Stage's gate has opened, and whether it opened with a `both` gate's quota met (in time, or at the same
 // tick as the clock).
+// `reason` is what OnStageEnd tells a script: "time" or "quota".
 struct GateResult {
 	bool open{false};
 	bool challengeMet{false};
+	std::string_view reason{"time"};
 };
 
-GateResult EvaluateGate(const Gate& gate, const RunState& run) {
+// A `script` gate opens only through EndStage() (EndStageEarly), unless its script died: then it is a time gate of
+// kScriptGateFallbackTime, so a crashed script can't hold the run.
+GateResult EvaluateGate(const Gate& gate, const RunState& run, const bool scriptAlive) {
 	const bool timeUp = run.stage_clock >= gate.time;
 	const bool quotaMet = run.kills - run.stage_kills_start >= gate.kills;
 	switch (gate.type) {
 	case GateType::Time: return {.open = timeUp};
-	case GateType::Quota: return {.open = quotaMet};
-	case GateType::Both: return {.open = timeUp || quotaMet, .challengeMet = quotaMet};
-	case GateType::Script: break;
+	case GateType::Quota: return {.open = quotaMet, .reason = "quota"};
+	case GateType::Both: return {.open = timeUp || quotaMet, .challengeMet = quotaMet, .reason = quotaMet ? "quota" : "time"};
+	case GateType::Script: return {.open = !scriptAlive && run.stage_clock >= constants::kScriptGateFallbackTime};
 	}
 	return {};
+}
+
+// Ends the current Stage for `reason` and enters the next: pays a met `both` challenge's bonus, fires OnStageEnd to the
+// scripts, then moves on.
+void AdvanceStage(const flecs::world& world, RunState& run, const Act& act, const std::string_view reason, const bool challengeMet) {
+	if (challengeMet) {
+		const Stage& stage = act.stages[static_cast<size_t>(run.stage)];
+		PayBonus(world, run, stage.gate.bonus);
+		run.challenge_cleared = constants::kChallengeClearedTime;
+		PlaySfx(world, Sfx::ChallengeCleared);
+		spdlog::info("[Run] Challenge cleared in Stage {} at {:.1f}s", run.stage, run.clock);
+	}
+	FireCampaignEvent(world, "OnStageEnd", {std::string{reason}});
+	++run.stage;
+	world.get_mut<DirectorApplied>().stage = run.stage;
+	run.stage_clock = 0.0F;
+	EnterStage(world, run, act);
 }
 
 // One director tick: enter the Stage RunState names if it differs from the last applied pair; in the Boss Stage count
@@ -471,11 +530,16 @@ void StepDirector(const flecs::world& world, RunState& run, const float dt) {
 	}
 	auto& applied = world.get_mut<DirectorApplied>();
 	if (run.act != applied.act || run.stage != applied.stage) {
-		if (run.act != applied.act) {
+		const bool actChanged = run.act != applied.act;
+		if (actChanged) {
 			run.act_clock = 0.0F;
+			LoadActScript(world, act->script);
 		}
 		applied = {.act = run.act, .stage = run.stage};
 		run.stage_clock = 0.0F;
+		if (actChanged) {
+			FireCampaignEvent(world, "OnActStart");
+		}
 		EnterStage(world, run, *act);
 		return;
 	}
@@ -484,30 +548,56 @@ void StepDirector(const flecs::world& world, RunState& run, const float dt) {
 		if (run.storm_up > 0.0F && run.phase == RunPhase::Playing) {
 			run.storm_up = std::max(0.0F, run.storm_up - dt);
 			if (run.storm_up <= 0.0F) {
-				run.phase = RunPhase::Boss;
-				run.banner_timer = constants::kBossBannerTime;
-				spdlog::info("[Run] The crabnado comes ashore at {:.1f}s", run.clock);
+				BeginBoss(world, run, *act);
 			}
 		}
 		return;
 	}
-	const GateResult gate = EvaluateGate(stage->gate, run);
-	if (!gate.open) {
-		return;
+	const GateResult gate = EvaluateGate(stage->gate, run, StageScriptAlive(world));
+	if (gate.open) {
+		AdvanceStage(world, run, *act, gate.reason, gate.challengeMet);
 	}
-	if (gate.challengeMet) {
-		PayBonus(world, run, stage->gate.bonus);
-		run.challenge_cleared = constants::kChallengeClearedTime;
-		PlaySfx(world, Sfx::ChallengeCleared);
-		spdlog::info("[Run] Challenge cleared in Stage {} at {:.1f}s", run.stage, run.clock);
-	}
-	++run.stage;
-	applied.stage = run.stage;
-	run.stage_clock = 0.0F;
-	EnterStage(world, run, *act);
 }
 
 } // namespace
+
+std::string_view EndStageEarly(const flecs::world& world) {
+	auto& run = world.get_mut<RunState>();
+	if (IsMolting(run.phase, run.step)) {
+		return "in a molt";
+	}
+	if (run.phase == RunPhase::Transition) {
+		return "in a transition";
+	}
+	const Act* act = CurrentAct(world);
+	const Stage* stage = CurrentStage(world);
+	if (act == nullptr || stage == nullptr) {
+		return "in a Boss Stage";
+	}
+	if (run.phase != RunPhase::Playing) {
+		return "the run isn't playing";
+	}
+	const bool quotaMet = stage->gate.type == GateType::Both && run.kills - run.stage_kills_start >= stage->gate.kills;
+	AdvanceStage(world, run, *act, "script", quotaMet);
+	return {};
+}
+
+std::string_view CallBossNow(const flecs::world& world, const std::string_view bossId) {
+	auto& run = world.get_mut<RunState>();
+	const Act* act = CurrentAct(world);
+	if (act == nullptr || !InBossStage(world) || !act->boss) {
+		return "not in the Act's Boss Stage";
+	}
+	if (act->boss->id != bossId) {
+		return "not this Act's boss";
+	}
+	if (run.phase != RunPhase::Playing) {
+		return run.phase == RunPhase::Boss ? "the boss is already up" : "the run isn't playing";
+	}
+	run.storm_up = 0.0F;
+	BeginBoss(world, run, *act);
+	return {};
+}
 
 std::string FormatClock(const float seconds) {
 	const int whole = std::max(0, static_cast<int>(std::ceil(seconds)));
@@ -521,7 +611,10 @@ std::string ChallengeText(const Gate& gate) {
 void RegisterCampaign(const flecs::world& world) {
 	world.component<Campaign>();
 	world.component<DirectorApplied>();
-	world.component<CampaignSource>().member<std::string>("campaign_path").member<std::string>("bosses_path");
+	world.component<CampaignSource>()
+		.member<std::string>("campaign_path")
+		.member<std::string>("bosses_path")
+		.member<std::string>("scripts_path");
 	world.set<CampaignSource>({});
 	world.component<BossRegistry>();
 	world.set<Campaign>({});
@@ -532,7 +625,10 @@ void RegisterCampaign(const flecs::world& world) {
 		.term_at(0)
 		.src<RunState>()
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, RunState& run) { StepDirector(it.world(), run, it.delta_time()); })
+		.each([](const flecs::iter& it, size_t, RunState& run) {
+			StepDirector(it.world(), run, it.delta_time());
+			StepCampaignScripts(it.world(), it.delta_time());
+		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 }

@@ -8,6 +8,7 @@
 #include "boss.hpp"
 #include "bubbles.hpp"
 #include "campaign.hpp"
+#include "campaign_script.hpp"
 #include "claw_snap.hpp"
 #include "controls.hpp"
 #include "crabnado.hpp"
@@ -44,6 +45,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterControls(world);
 	RegisterRun(world);
 	RegisterCampaign(world);
+	RegisterCampaignScripts(world);
 	RegisterTransition(world);
 	RegisterWind(world);
 	RegisterWaves(world);

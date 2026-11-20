@@ -10,6 +10,7 @@
 
 #include "arena.hpp"
 #include "boss_registry.hpp"
+#include "campaign_script.hpp"
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
@@ -56,6 +57,9 @@ void Defeat(const flecs::world& world, Crabnado& crabnado, const spatial::Transf
 	const glm::vec2 position{transform.position.x, transform.position.z};
 	crabnado.mode = CrabnadoMode::Retreat;
 	crabnado.mode_time = 0.0F;
+	if (const BossDef* boss = CurrentBoss(world)) {
+		FireCampaignEvent(world, "OnBossDefeated", {boss->id});
+	}
 	crabnado.bearing = BearingOf(position);
 	crabnado.radius = glm::length(position);
 	crabnado.leg_from = crabnado.radius;
@@ -302,6 +306,8 @@ void StepBoss(
 			run.banner_timer = constants::kBossBannerTime;
 			crabnado.knock *= tune.slam_bounce;
 			PlaySfx(world, Sfx::BossSlam);
+			// Each slam is a new phase of the fight: phase 2 after the first, and so on.
+			FireCampaignEvent(world, "OnBossPhase", {boss->id, run.slams + 1});
 			if (enraged) {
 				SlamEnraged(world, boss->enraged, state);
 				spdlog::info("[Run] Slam {}: boss HP {:.0f}/{:.0f}", run.slams, state.hp, state.max_hp);

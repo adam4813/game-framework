@@ -57,6 +57,15 @@ void LoadSfx(const flecs::world& world) {
 	ui::SetDefaultClickSound(world, assets::ResolveAsset(world, "audio/crabnado/claw_click.wav"));
 }
 
+std::optional<Sfx> FindSfx(const std::string_view name) {
+	for (size_t i = 0; i < kFiles.size(); ++i) {
+		if (std::string_view{kFiles[i]}.substr(0, std::string_view{kFiles[i]}.rfind('.')) == name) {
+			return static_cast<Sfx>(i);
+		}
+	}
+	return std::nullopt;
+}
+
 void PlaySfx(const flecs::world& world, const Sfx sfx) {
 	auto& bank = world.get_mut<SfxBank>();
 	const auto index = static_cast<size_t>(sfx);

@@ -201,6 +201,40 @@ nothing). Any enemy death counts toward Y. Every Stage change shows a 2 s banner
 "Challenge cleared!". A reroll adds a "Reroll (n)" button to the molt modal. Gates run on the Stage's own clock, which
 (like the run clock) stands still during molts and countdowns.
 
+A fourth gate, `script`, ends only when the Stage's script calls `EndStage()` (see Campaign scripts). A `script` Stage
+must name a `script`, and if that script dies it ends after 60 s instead, so a crashed script can't hold the run.
+
+## Campaign scripts
+
+An Act or a Stage can name an AngelScript file in `campaign.json` (`"script": "act3"` loads
+`assets/scripts/crabnado/act3.as`). A script reacts to discrete events and can end the Stage, bring the boss, spawn
+enemies and show a banner or sting, but it can't change data: there are no setters for spawn tables, rates, HP or enemy
+stats. Nothing runs per frame. The Act's script loads at Act start and keeps its globals through the Act's Stages; a
+Stage's script loads with its Stage and starts fresh each time. Both are rebuilt on every arena Load.
+
+- **Events** (a script defines only the handlers it wants, written exactly like this; parameter names are free):
+  `void OnActStart()`, `void OnStageStart()` (the Boss Stage too), `void OnStageEnd(const string &in reason)` (`"time"`,
+  `"quota"`, `"script"` or `"boss"`), `void OnBossStart(const string &in id)`, `void OnBossPhase(const string &in id, int
+  phase)` (phase 2 after the first slam, and so on), `void OnBossDefeated(const string &in id)`,
+  `void OnKill(const string &in enemyType, const string &in source)` and `void OnTimer(const string &in name)`.
+  The Act's handler runs first, then the Stage's. A handler whose parameters match no event is logged at load and never
+  runs.
+- **Calls:** `EndStage()`, `SpawnBoss(id)`, `Spawn(type, count, source)`, `Banner(text)`, `Sting(id)` (a sound file's
+  name without `.wav`) and `After(seconds, name)`, which fires `OnTimer(name)` on the script that set it. Read-only:
+  `StageClock()`, `Kills()` (the run's total), `Act()` and `Stage()` (0-based, like `RunState`). Calls queue and apply in
+  order at the end of the campaign tick. A call that doesn't fit is logged and ignored: `EndStage` in a Boss Stage, a
+  molt or a Transition (in a normal Stage it ends it early, and a `both` bonus is paid only if the quota is met);
+  `SpawnBoss` unless it's the Act's Boss Stage, that Act's boss id and the boss isn't up yet (it skips the rest of the
+  storm-up); `Spawn` in a molt or between Acts, or for an unknown type or spawner.
+- **Errors:** a script that doesn't compile is logged and skipped. A handler that throws is logged once and disables
+  that script for the run.
+- **Debugging:** `RunState.active_scripts` lists the loaded scripts that are still alive and `last_script_call` the last
+  call a script made (with `(refused: why)` if it was ignored). Write `CampaignScripts.fire_event` (plus `fire_arg0`
+  and `fire_arg1`) over the Remote API to fire any event by name on the next tick; `CampaignScripts.banner` is the text a
+  script's `Banner()` is showing.
+- **Tests:** `tests/campaign_script_test.cpp` drives the events and calls on a fixture campaign (`tests/data/`), and
+  checks that every script the shipped `campaign.json` names exists, compiles and defines only event handlers.
+
 ## The boss
 
 When the last Stage ends, the crabnado stops throwing for a fixed 5 s storm-up: it darkens, spins and sways harder, the HUD

@@ -32,3 +32,9 @@ add_crabnado_test(crabnado_campaign_data_test
 add_crabnado_test(crabnado_campaign_director_test
     campaign_director_test.cpp
 )
+
+# Campaign scripts: events and calls dispatched headlessly on a fixture campaign, refused calls, a script that throws or
+# doesn't compile, the Remote API's event hook, and the shipped scripts' handlers against the event table
+add_crabnado_test(crabnado_campaign_script_test
+    campaign_script_test.cpp
+)

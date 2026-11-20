@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -20,8 +21,8 @@
 namespace crabnado {
 
 // How a Stage ends: `Time` at `time` seconds on the Stage clock, `Quota` at `kills` defeats in the Stage, `Both` at
-// whichever comes first (reaching the quota in time pays the bonus), `Script` only when a script says so (not yet
-// evaluated).
+// whichever comes first (reaching the quota in time pays the bonus), `Script` only when the Stage's script calls
+// EndStage() (see campaign_script.hpp; a Stage whose script died ends at kScriptGateFallbackTime instead).
 enum class GateType { Time, Quota, Both, Script };
 
 // What a `both` gate pays for meeting its quota in time: shells (through the same path a pickup uses, so it can
@@ -39,7 +40,6 @@ struct Gate {
 	float time{0.0F};
 	int kills{0};
 	GateBonus bonus;
-	std::string script;
 };
 
 // One entry of a spawn table: an enemy type (an index into the EnemyRegistry), its relative weight, and the id of the
@@ -72,6 +72,8 @@ struct Stage {
 	std::string source;
 	// Replaces the Act's HpScale as a whole; still runs on the Act clock.
 	std::optional<HpScale> hp_scale;
+	// The id of this Stage's script (assets/scripts/crabnado/<id>.as), loaded while the Stage runs. A `script` gate needs one.
+	std::string script;
 };
 
 struct BossStage {
@@ -108,6 +110,8 @@ struct Act {
 	std::optional<BossStage> boss;
 	// The id of the comic page shown after this Act (the last Act's is the ending). Ticket 06 makes the pages real.
 	std::string comic_after;
+	// The id of this Act's script, loaded for the Act and keeping its state through its Stages.
+	std::string script;
 };
 
 // Singleton: the loaded campaign.
@@ -122,13 +126,17 @@ struct DirectorApplied {
 	int stage{-1};
 };
 
-// Singleton, reflected: where the arena loads its campaign and bosses from. A relative path resolves against the
-// asset directory; an absolute one is used as is, so a test can point the arena at a fixture. Set it before the
-// arena scene loads.
+// Singleton, reflected: where the arena loads its campaign, bosses and scripts from. A relative path resolves against the
+// asset directory; an absolute one is used as is, so a test can point the arena at a fixture. `scripts_path` is a
+// directory ending in '/', holding `<id>.as`. Set it before the arena scene loads.
 struct CampaignSource {
 	std::string campaign_path{constants::kCampaignPath};
 	std::string bosses_path{constants::kBossesPath};
+	std::string scripts_path{constants::kScriptsDir};
 };
+
+// `path` as a CampaignSource names it: used as is when absolute, else relative to `assetDirectory`.
+[[nodiscard]] std::string ResolveSourcePath(std::string_view assetDirectory, const std::string& path);
 
 struct CampaignParseResult {
 	Campaign campaign;
@@ -139,13 +147,15 @@ struct CampaignParseResult {
 // Parses a campaign.json document. `enemyIds` are the enemy type ids in EnemyRegistry order (an entry's `type` is its
 // position), `bossIds` the registered bosses and `spawnerIds` the known spawners. An unknown enemy type or spawner
 // drops that spawn entry (an unknown Stage source falls back to "crabnado"), and an unknown boss id drops the Boss
-// Stage, so a typo can never soft-lock a run. Every case is reported in `errors`. Pure, so tests call it without the
-// engine.
+// Stage, so a typo can never soft-lock a run. A script id `scriptExists` rejects is dropped from its Act or Stage, and a
+// `script` gate with no usable script drops the Stage; no `scriptExists` means script ids aren't checked. Every case is
+// reported in `errors`. Pure, so tests call it without the engine.
 [[nodiscard]] CampaignParseResult ParseCampaign(
 	const nlohmann::json& doc,
 	std::span<const std::string> enemyIds,
 	std::span<const std::string> bossIds,
-	std::span<const std::string_view> spawnerIds
+	std::span<const std::string_view> spawnerIds,
+	const std::function<bool(std::string_view)>& scriptExists = {}
 );
 
 // The text of a Stage's challenge banner line, "Defeat 40 in 1:00!". Empty unless the gate is `both`.
@@ -189,6 +199,16 @@ struct SpawnPlan {
 
 // The HP multiplier enemies spawned now get.
 [[nodiscard]] float CurrentEnemyHpScale(const flecs::world& world);
+
+// Ends the current Stage early, as a script's EndStage() does: the Stage's `both` bonus is paid only if its quota is met.
+// Returns why it was refused, or an empty string when it ended the Stage: refused in a Boss Stage, a molt, a Transition
+// or when the run isn't playing.
+[[nodiscard]] std::string_view EndStageEarly(const flecs::world& world);
+
+// Brings the Act's boss ashore now, skipping the rest of the storm-up, as a script's SpawnBoss(id) does. Returns why it
+// was refused, or an empty string when it did: refused unless this is the Act's Boss Stage, `bossId` is its boss and the
+// boss isn't up yet.
+[[nodiscard]] std::string_view CallBossNow(const flecs::world& world, std::string_view bossId);
 
 // Registers and reflects nothing but pre-registers the campaign singletons, and adds the CampaignDirector system.
 // Call from the module constructor after RegisterRun.

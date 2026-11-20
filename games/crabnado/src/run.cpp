@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include "campaign.hpp"
+#include "campaign_script.hpp"
 #include "crabnado_constants.hpp"
 #include "controls.hpp"
 #include "engine/engine.hpp"
@@ -54,7 +55,9 @@ void RegisterRun(const flecs::world& world) {
 		.member<int>("rerolls")
 		.member<TransitionStep>("step")
 		.member<float>("transition_timer")
-		.member<float>("splits", kSplitCount);
+		.member<float>("splits", kSplitCount)
+		.member<std::string>("active_scripts")
+		.member<std::string>("last_script_call");
 	world.set<RunState>({});
 
 	world.system<RunState>("RunClock")
@@ -159,6 +162,7 @@ void ClearAct(const flecs::world& world) {
 	world.add<scene::Paused>();
 	PlaySfx(world, Sfx::Victory);
 	spdlog::info("[Run] Act {} cleared at {:.1f}s with {} kills", run.act, run.clock, run.kills);
+	EndActScripts(world);
 }
 
 void WinRun(const flecs::world& world) {

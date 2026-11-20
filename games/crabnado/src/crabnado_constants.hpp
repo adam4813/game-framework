@@ -238,6 +238,16 @@ inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
 inline constexpr std::string_view kCampaignPath = "/data/crabnado/campaign.json";
 inline constexpr std::string_view kBossesPath = "/data/crabnado/bosses.json";
 inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
+// Campaign scripts: `<id>.as` in this directory, relative to the asset directory.
+inline constexpr std::string_view kScriptsDir = "/scripts/crabnado/";
+// Seconds a script's Banner() shows.
+inline constexpr float kScriptBannerTime = 3.0F;
+// Seconds a `script`-gate Stage lasts when its script died, so a crashed script can't soft-lock the run (the fallback is a time gate).
+inline constexpr float kScriptGateFallbackTime = 60.0F;
+// A script can have this many After() timers pending; more are refused.
+inline constexpr int kMaxScriptTimers = 64;
+// Calls a handler queues can themselves fire events (EndStage ends a Stage, which starts the next); this many rounds apply per tick.
+inline constexpr int kMaxScriptApplyRounds = 8;
 
 // ── Claw snap ──
 inline constexpr float kClawDamage = 2.0F;

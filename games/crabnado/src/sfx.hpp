@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <string_view>
 
 #include <flecs.h>
 
@@ -22,6 +24,9 @@ struct SfxBank {
 // Loads every sound into the SfxBank singleton and makes ClawClick the default UI button click. The sounds stay
 // loaded for the life of the app.
 void LoadSfx(const flecs::world& world);
+
+// The Sfx whose sound file is `name` without its extension ("boss_slam"), or nullopt: how a script's Sting(id) names one.
+[[nodiscard]] std::optional<Sfx> FindSfx(std::string_view name);
 
 // Plays `sfx` once. Does nothing if it didn't load, or if a crowded sound (a snap, defeat or crush) played moments ago.
 void PlaySfx(const flecs::world& world, Sfx sfx);

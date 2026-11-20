@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 #include <flecs.h>
 
@@ -46,7 +47,9 @@ inline constexpr int kSplitCount = 3;
 // gates, `stage` moves to the Boss Stage with `phase` still Playing while `storm_up` counts down from kStormUpTime;
 // at 0 the phase becomes Boss. `resume_phase` is the phase a molt returns to when its countdown ends. `rerolls` is the
 // molt rerolls in hand. In a Transition `step` says where it is and `transition_timer` is the seconds left of the ACT
-// CLEAR label. `splits` holds the campaign clock at each Act's clear (0 for an Act not cleared yet).
+// CLEAR label. `splits` holds the campaign clock at each Act's clear (0 for an Act not cleared yet). `active_scripts` lists the
+// ids of the campaign scripts loaded and still running (comma separated), `last_script_call` the last call a script
+// made, with why it was refused if it was (see campaign_script.hpp).
 struct RunState {
 	RunPhase phase{RunPhase::Playing};
 	float clock{0.0F};
@@ -74,6 +77,8 @@ struct RunState {
 	TransitionStep step{TransitionStep::ActClear};
 	float transition_timer{0.0F};
 	std::array<float, kSplitCount> splits{};
+	std::string active_scripts;
+	std::string last_script_call;
 };
 
 // Shells needed for the molt after `moltLevel` (geometric: kShellsFirstMolt * kShellsGrowth^(level - 1)).

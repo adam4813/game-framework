@@ -5,6 +5,7 @@
 #include <numbers>
 
 #include "arena.hpp"
+#include "campaign_script.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
 #include "enemy_types.hpp"
@@ -357,6 +358,8 @@ void RegisterHorde(const flecs::world& world) {
 			auto& run = world.get_mut<RunState>();
 			++run.kills;
 			run.rock_kills += enemy.slammed ? 1 : 0;
+			// Every enemy comes in through the crabnado's throw for now; the spawners of tickets 09 and 10 will say otherwise.
+			FireCampaignEvent(world, "OnKill", {world.get<EnemyRegistry>().types[static_cast<size_t>(enemy.type)].id, std::string{"crabnado"}});
 			PlaySfx(world, enemy.slammed ? Sfx::RockCrush : Sfx::EnemyDefeat);
 			DropShell(world, defeated.parent(), {transform.position.x, transform.position.z}, enemy.xp);
 			defeated.destruct();
