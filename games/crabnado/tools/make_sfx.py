@@ -194,6 +194,21 @@ def storm_warning(rng):
     return out
 
 
+def split(rng):
+    # A tearing crack of noise, then two detuned tones sliding apart: the crabnado tearing in two.
+    out = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n(1.2)):
+        t = i / RATE
+        crack = rng.uniform(-1, 1) * math.exp(-14 * t)
+        phase_a += 2 * math.pi * (220 + 160 * t) / RATE
+        phase_b += 2 * math.pi * (220 - 90 * t) / RATE
+        tones = (math.sin(phase_a) + math.sin(phase_b)) * min(1.0, t * 20) * math.exp(-2.2 * t)
+        out.append(crack + 0.6 * tones)
+    return out
+
+
 def main():
     rng = random.Random(7)
     write("claw_click.wav", click_pair(rng, 0.045))
@@ -210,6 +225,7 @@ def main():
     write("stage_sting.wav", stage_sting(rng), 0.5)
     write("challenge_cleared.wav", challenge_cleared(rng), 0.6)
     write("storm_warning.wav", storm_warning(rng), 0.7)
+    write("split.wav", split(rng), 0.8)
 
 
 if __name__ == "__main__":

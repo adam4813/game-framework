@@ -24,7 +24,7 @@ inline constexpr std::string_view kEnragedBehavior = "enraged";
 // its knock decays. It is a circle of `radius` against rocks, stays `edge_margin` inside the arena edge, and within
 // `contact_range` of the player it drains `contact_dps` HP per second. Knocked into a rock faster than `slam_min_speed`
 // it takes a slam (`slam_cooldown` seconds apart; knock * `slam_bounce`); `slams_to_win` beat it (not read by the
-// `enraged` behavior, which dies of HP). `storm_color` is the grey its funnel darkens to in the storm.
+// `enraged` and `captain` behaviors, which die of HP). `storm_color` is the grey its funnel darkens to in the storm.
 // Every field is required: a missing one is a validation error and the entry is skipped.
 struct SlamTunables {
 	float orbit_radius{0.0F};
@@ -68,15 +68,66 @@ struct EnragedTunables {
 	float suction_time{0.0F};
 };
 
-// One boss: `tunables` is the entry as authored, `slam` its parsed slam fields (both behaviors have them) and
-// `enraged` the extra fields when `behavior` is "enraged".
+// The `behavior` of Act 3's Captain Crab (see CaptainTunables).
+inline constexpr std::string_view kCaptainBehavior = "captain";
+
+// The extra tunables of the `captain` behavior (Act 3's Captain Crab, see captain.hpp). Of the `slam` fields it reads
+// `orbit_*`, `gust_speed_mult` and `storm_color` for the claimed crabnado, and `radius`, `edge_margin`, `contact_range`,
+// `contact_dps`, `slam_min_speed` and `slam_cooldown` for him. He has `hp`; at `split_at` of it the crabnado splits.
+// Surfing: a crest above `surf_min_height` carries him at wave speed, steering `surf_steer` units per second toward the
+// player, for `surf_dps_mult` contact damage. A rock hit while surfing or lunging costs `slam_damage` and beaches him.
+// Beached (the weapon window): only a crest taller than `grab_height` picks him up (a pool calms those), and after
+// `beach_max` seconds a lift crest of `lift_amp` rises under him `lift_lead` seconds later. For `immune` seconds after
+// leaving a crest no crest grabs him, and after boarding one no rock hit is a slam. Within `lunge_range` of the player while surfing, at most every
+// `lunge_cooldown` seconds, he winds up `lunge_windup` seconds (the tracking lane), then dashes `lunge_dist` at
+// `lunge_speed` for `lunge_dps_mult` contact damage, then `recover`s. At the split the twins hold their throws
+// `split_pause` seconds while they slide apart; then every `twin_gap` seconds one twin strobes `twin_windup` seconds and
+// throws a volley (`volley_*`, as EnragedTunables) or summons a rogue of `rogue_amp`. He arrives with `entry_riders`
+// seahorses and escapes over `escape_time` seconds once beaten.
+struct CaptainTunables {
+	float hp{0.0F};
+	float split_at{0.0F};
+	float slam_damage{0.0F};
+	float surf_min_height{0.0F};
+	float surf_steer{0.0F};
+	float surf_dps_mult{0.0F};
+	float grab_height{0.0F};
+	float beach_max{0.0F};
+	float lift_lead{0.0F};
+	float lift_amp{0.0F};
+	float immune{0.0F};
+	float lunge_range{0.0F};
+	float lunge_cooldown{0.0F};
+	float lunge_windup{0.0F};
+	float lunge_speed{0.0F};
+	float lunge_dist{0.0F};
+	float lunge_dps_mult{0.0F};
+	float recover{0.0F};
+	float split_pause{0.0F};
+	float twin_gap{0.0F};
+	float twin_windup{0.0F};
+	float rogue_amp{0.0F};
+	float volley_radius{0.0F};
+	float volley_flight{0.0F};
+	float volley_impact{0.0F};
+	float escape_time{0.0F};
+	int volley_ring{0};
+	int entry_riders{0};
+};
+
+// One boss: `tunables` is the entry as authored, `slam` its parsed slam fields (every behavior has them), `enraged` the
+// extra fields when `behavior` is "enraged" and `captain` when it is "captain".
 struct BossDef {
 	std::string id;
 	std::string behavior;
 	nlohmann::json tunables;
 	SlamTunables slam;
 	EnragedTunables enraged;
+	CaptainTunables captain;
 };
+
+// Whether the boss has an HP bar (the enraged crabnado and Captain Crab) rather than a slam count.
+[[nodiscard]] bool HasBossHp(const BossDef& boss);
 
 // Singleton: every valid boss, in id order.
 struct BossRegistry {

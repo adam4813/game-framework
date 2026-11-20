@@ -61,6 +61,7 @@
       "sea": { "cross_swell_at": 30, "rogue_at": 100 },
       "hp_scale": { "mult": 1.4, "growth_seconds": 240 },
       "crabnado": false,
+      "script": "act3",
       "offscreen": { "volley_min": 3, "volley_max": 6, "radius": 85, "min_turn_deg": 60 },
       "stages": [
         {
@@ -90,7 +91,16 @@
           "source": "offscreen"
         }
       ],
-      "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 }, "rate_mult": 0.35 }
+      "boss": {
+        "id": "captain_crab",
+        "spawns": {
+          "crab": 65,
+          "shrimp": 27,
+          "lobster": 20,
+          "seahorse": { "source": "infested_crest", "chance": 0.35, "riders": [3, 5], "min_gap": 14 }
+        },
+        "rate_mult": 0.35
+      }
     }
   ]
 }

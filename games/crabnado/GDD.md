@@ -100,7 +100,7 @@ Keyboard only, plus the mouse for menus.
   An Act sets these in an `"offscreen": {volley_min, volley_max, radius, min_turn_deg}` block, which an `offscreen`
   entry needs. `"crabnado": false` on an Act hides the crabnado through its normal Stages (it returns for the storm-up
   and the boss), and a `crabnado` entry in such a Stage is dropped as a bad reference. Normal Stages only: a Boss
-  Stage's enemies still come from the boss fight. `infested_crest` (Act 3's Seahorse Stage) has no weight: an entry
+  Stage's enemies still come from the boss fight. `infested_crest` (Act 3's Seahorse and Boss Stages) has no weight: an entry
   `{"source": "infested_crest", "chance", "riders": [min, max], "min_gap"}` infests a crest of the primary swell with
   that chance as it comes within 2.2 s of the upwind barrier, at most one at a time and `min_gap` seconds apart. The
   foam under it turns sickly green, the HUD says "INFESTED CREST!", and its riders (seahorses) spawn on it 15 units out
@@ -228,7 +228,7 @@ Stage's script loads with its Stage and starts fresh each time. Both are rebuilt
 - **Events** (a script defines only the handlers it wants, written exactly like this; parameter names are free):
   `void OnActStart()`, `void OnStageStart()` (the Boss Stage too), `void OnStageEnd(const string &in reason)` (`"time"`,
   `"quota"`, `"script"` or `"boss"`), `void OnBossStart(const string &in id)`, `void OnBossPhase(const string &in id, int
-  phase)` (phase 2 after the first slam, and so on), `void OnBossDefeated(const string &in id)`,
+  phase)` (for the crabnado, phase 2 after the first slam, and so on; for Captain Crab, phase 2 is the split), `void OnBossDefeated(const string &in id)`,
   `void OnKill(const string &in enemyType, const string &in source)` and `void OnTimer(const string &in name)`.
   The Act's handler runs first, then the Stage's. A handler whose parameters match no event is logged at load and never
   runs.
@@ -269,13 +269,40 @@ pull and outrunning it (11 u/s) escapes. **Slams still happen the same way, but 
 snaps and bubbles hurt it (bubbles aim at it when it is in range); outside the daze weapons ignore it. A slam while dazed
 costs HP but doesn't extend the daze. At 0 HP it retreats like the Act 1 boss. Every number is in `bosses.json`.
 
+**Act 3's boss is Captain Crab** (`captain_crab`, behavior `captain`, purple storm). As the storm-up starts the crabnado
+(he has claimed it) reappears and stops throwing, and the next crest is infested: it carries him in on a big seahorse
+with 3 seahorses. Most of the time he lands during the storm-up; crests are 6 s apart, so now and then he lands just
+after it. The crabnado never breaches: it keeps orbiting, untouchable, throwing the Boss Stage table at 35% of the rate,
+and infested crests keep bringing seahorses. The `offscreen` spawner is off. He has **240 HP** on the boss bar ("CAPTAIN
+CRAB") and is the only thing that takes boss damage.
+- **Surfing** (the seahorse glows sea-blue): a crest carries him at wave speed, working toward its peak and steering
+  toward the player at 5 u/s, for 30 contact damage per second (1.5 times 20). He leaves the crest once it has passed
+  the player.
+- **Lunge:** surfing within 20 units of the player (at most every 5 s), he stops and a yellow lane tracks the player for
+  1 s (he turns yellow), then he dashes 22 units along it at 24 u/s for 40 contact damage per second (he turns red).
+- **Slams:** a rock hit while surfing or dashing faster than 6 u/s costs **20 HP** and beaches him. A crest that has
+  just picked him up can't slam him for 1 s, so a crest rising beside a rock isn't a free slam.
+- **Beached is the weapon window** ("BEACHED! 3.2" beside the bar; he lies over, tinted pale): no contact damage, and
+  claw snaps and bubbles hurt him. Ordinary swell crests don't pick him up; only a crest taller than 2.4 (a rogue) does,
+  and a tide pool calms those, so a pool keeps the window open. After 5 s a small crest (a rogue of amp 1.4) rises
+  under him 1.2 s later and carries him at the player. A missed lunge ends the same way, without a window.
+- **Split at 50% HP:** the crabnado tears in two (both flash). The twins slide a quarter turn apart over 2 s, to opposite
+  bearings, and orbit opposite ways, each throwing half the horde; they hold their throws for those 2 s. C++ fires
+  `OnBossPhase("captain_crab", 2)` and `act3.as` shows "THE CRABNADO SPLITS!" with the `split` sting.
+- **Phase 2:** every 5 s one twin strobes pale for 1 s, then throws a volley (as Act 2's) or summons a rogue crest
+  (amp 2.6) that rises at the barrier below it and rolls at the player. The twin and the attack alternate, so each twin
+  does both. A rogue that carries Captain Crab into a rock is a slam like any other. No suction.
+- **Win:** at 0 HP the horde is swept and shells vacuumed, the twins shrink away together over 2.5 s, and he swims out to
+  sea and sinks. Then ACT CLEAR, the ending comic and the victory Results. A Remote API playthrough holding the player
+  beside him through every window took about 95 s of Boss Stage, with the split at about 27 s.
+
 **Between Acts** the scene stays paused and every clock stands still: "ACT CLEAR" (2.5 s), the comic page the Act's
 `comic_after` names (Next and Skip; a missing page is logged and skipped), then the arena resets (rocks re-scattered with the next Act's counts, water re-tinted,
 horde and shells cleared, HP and stamina full, the player centered, the crabnado back on its orbit) and a free molt pick
 (it doesn't change the molt level or shells). A 3-2-1-Go countdown with the Act's title card starts the next Act. Molts,
 upgrades, kills and the campaign clock carry over. After the last Act the ending comic leads to the victory Results.
 The Acts are "The Red Tide", "The Crabnado's Fury" and "Captain Crab's Cavalry"; Act 3's Crab, Seahorse and Lobster Stages
-throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infested crests); its boss is still the crabnado until ticket 11.
+throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infested crests); its boss is Captain Crab.
 
 ## Presentation
 
@@ -309,8 +336,9 @@ throw from the off-screen spawner with no crabnado (the Seahorse Stage adds infe
 - **Reflection:** every gameplay component and singleton is reflected, so the Flecs Remote API (port 27751) can read
   and set it. For example, set `RunState.act` and `RunState.stage` to jump to a Stage: Act 1's Boss Stage is `stage` 2 (a Stage's index is its
   position in the Act; the Boss Stage is one past the last). Writing `stage_clock` alone only moves the gate.
-  `DevCheats.god` keeps the player above 0 HP so a fight can be watched, and `BossState` shows the enraged boss's action,
-  HP and timers (set `gap` to 0 to make it attack now).
+  `DevCheats.god` keeps the player above 0 HP so a fight can be watched, and `BossState` shows the action, HP and timers of the boss
+  with an HP bar (set `gap` to 0 to make the enraged crabnado attack now; set `hp` to see Captain Crab split).
+  `CaptainState` shows his fight's progress: arrival, the lift, the split, the twins' turns and the escape.
 - **Tuning** lives in `src/crabnado_constants.hpp` and the two JSON registries.
 - **Assets:** generated by `tools/make_sfx.py` (sound effects), `tools/make_icons.py` (card and HUD icons) and
   `tools/make_story.py` (comic panels).

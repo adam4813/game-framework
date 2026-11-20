@@ -217,6 +217,35 @@ TEST(BossParse, AnEnragedBossMissingAnAttackTunableIsSkipped) {
 	EXPECT_EQ(std::ranges::count(result.registry.bosses, "crabnado_enraged", &BossDef::id), 0);
 }
 
+TEST(BossParse, CaptainCrabSplitsAtHalfHpAndIsActThreesBoss) {
+	const BossParseResult result = ParseBosses(LoadShipped("bosses.json"));
+	const auto found = std::ranges::find(result.registry.bosses, "captain_crab", &BossDef::id);
+	ASSERT_NE(found, result.registry.bosses.end());
+	EXPECT_EQ(found->behavior, "captain");
+	EXPECT_TRUE(HasBossHp(*found));
+	EXPECT_FLOAT_EQ(found->captain.split_at, 0.5F);
+	EXPECT_FLOAT_EQ(found->captain.beach_max, 5.0F);
+
+	const json enemies = LoadShipped("enemies.json");
+	const CampaignParseResult campaign =
+		ParseCampaign(LoadShipped("campaign.json"), KeysOf(enemies), std::vector<std::string>{"crabnado", "crabnado_enraged", "captain_crab"}, SpawnerIds());
+	ASSERT_EQ(campaign.campaign.acts.size(), 3U);
+	const Act& act = campaign.campaign.acts[2];
+	ASSERT_TRUE(act.boss.has_value());
+	EXPECT_EQ(act.boss->id, "captain_crab");
+	EXPECT_EQ(act.script, "act3");
+	// Infested crests keep bringing seahorses through the Boss Stage.
+	EXPECT_EQ(std::ranges::count(act.boss->spawns, std::string{"infested_crest"}, &SpawnEntry::source), 1);
+}
+
+TEST(BossParse, ACaptainMissingATunableIsSkipped) {
+	json doc = LoadShipped("bosses.json");
+	doc["captain_crab"].erase("beach_max");
+	const BossParseResult result = ParseBosses(doc);
+	EXPECT_EQ(result.errors.size(), 1U);
+	EXPECT_EQ(std::ranges::count(result.registry.bosses, "captain_crab", &BossDef::id), 0);
+}
+
 TEST(Rates, AMissingMaxMeansNoCapAndAMaxCaps) {
 	EXPECT_FLOAT_EQ(SpawnRate({.base = 1.0F, .growth = 1.0F, .max = std::nullopt}, 1000.0F), 1001.0F);
 	EXPECT_FLOAT_EQ(SpawnRate({.base = 1.0F, .growth = 1.0F, .max = 10.0F}, 1000.0F), 10.0F);

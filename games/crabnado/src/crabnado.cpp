@@ -112,6 +112,11 @@ float EaseBearing(const float current, const float target, const float fraction)
 void StepOrbit(const flecs::world& world, Crabnado& crabnado, const SlamTunables& tune, const float dt) {
 	const auto& run = world.get<RunState>();
 	crabnado.radius = tune.orbit_radius;
+	if (crabnado.slide_left > 0.0F) {
+		crabnado.bearing = EaseBearing(crabnado.bearing, crabnado.slide_to, dt / crabnado.slide_left);
+		crabnado.slide_left = std::max(0.0F, crabnado.slide_left - dt);
+		return;
+	}
 	if (InBossStage(world) && run.storm_up > 0.0F) {
 		const float slideLeft = run.storm_up - constants::kStormHoldTime;
 		const flecs::entity player = FindPlayer(world);
@@ -177,7 +182,11 @@ void RegisterCrabnado(const flecs::world& world) {
 		.member<float>("leg_from")
 		.member<int>("shifts_seen")
 		.member<float>("spawn_debt")
-		.member<glm::vec2>("knock");
+		.member<glm::vec2>("knock")
+		.member<float>("share")
+		.member<float>("hold")
+		.member<float>("slide_to")
+		.member<float>("slide_left");
 	world.component<ThrowsInto>().add(flecs::Exclusive);
 	world.component<FunnelRing>().member<float>("lift").member<float>("time");
 	world.component<FunnelStorm>()
@@ -264,7 +273,9 @@ void RegisterCrabnado(const flecs::world& world) {
 			if (!InBossStage(world) && crabnado.mode != CrabnadoMode::Orbit) {
 				crabnado.mode = CrabnadoMode::Orbit;
 			}
-			if (crabnado.mode == CrabnadoMode::Orbit && InBossStage(world) && run.phase == RunPhase::Boss) {
+			// Captain Crab's crabnado stays on its orbit through his fight.
+			if (crabnado.mode == CrabnadoMode::Orbit && InBossStage(world) && run.phase == RunPhase::Boss &&
+				boss->behavior != kCaptainBehavior) {
 				crabnado.mode = CrabnadoMode::Breach;
 				crabnado.mode_time = 0.0F;
 				crabnado.leg_from = crabnado.radius;
@@ -309,12 +320,17 @@ void RegisterCrabnado(const flecs::world& world) {
 			const flecs::world world = it.world();
 			const auto& run = world.get<RunState>();
 			const auto plan = CurrentSpawnPlan(world);
-			// No new throws while the storm rises, and none from a crabnado that isn't throwing: breaching or retreating.
-			const bool throwing = run.phase != RunPhase::Boss || crabnado.mode == CrabnadoMode::Fight;
-			if (!IsRunning(run.phase) || run.act_clock < constants::kFirstThrowDelay || run.storm_up > 0.0F || !throwing || !plan) {
+			// No new throws while the storm rises, and none from a crabnado that isn't throwing: breaching, retreating or
+			// held. Captain Crab's crabnado throws from its orbit.
+			const BossDef* boss = CurrentBoss(world);
+			const bool orbitThrows = boss != nullptr && boss->behavior == kCaptainBehavior;
+			const bool throwing = run.phase != RunPhase::Boss || crabnado.mode == CrabnadoMode::Fight || orbitThrows;
+			crabnado.hold = std::max(0.0F, crabnado.hold - it.delta_time());
+			if (!IsRunning(run.phase) || run.act_clock < constants::kFirstThrowDelay || run.storm_up > 0.0F || !throwing ||
+				crabnado.hold > 0.0F || !plan) {
 				return;
 			}
-			crabnado.spawn_debt += plan->rate * it.delta_time();
+			crabnado.spawn_debt += plan->rate * crabnado.share * it.delta_time();
 			const int throws = static_cast<int>(crabnado.spawn_debt);
 			crabnado.spawn_debt -= static_cast<float>(throws);
 			ThrowAtPlayer(world, it.entity(i), transform.position, throws);
@@ -436,6 +452,29 @@ flecs::entity SpawnCrabnado(const flecs::world& world, const flecs::entity paren
 
 	AddFunnel(world, crabnado);
 	return crabnado;
+}
+
+flecs::entity SpawnTwin(const flecs::world& world, const flecs::entity original, const float slideTo, const float slideTime) {
+	const auto& source = original.get<Crabnado>();
+	const glm::vec3 position = original.get<spatial::Transform>().position;
+	const flecs::entity twin =
+		world.entity("CrabnadoTwin")
+			.child_of(original.parent())
+			.set<Crabnado>(
+				{.bearing = source.bearing,
+				 .direction = -source.direction,
+				 .radius = source.radius,
+				 .shifts_seen = source.shifts_seen,
+				 .share = 0.5F,
+				 .hold = slideTime,
+				 .slide_to = slideTo,
+				 .slide_left = slideTime}
+			)
+			.add<ThrowsInto>(original.target<ThrowsInto>())
+			.set<FunnelStorm>({.storm = 1.0F, .flash = 1.0F})
+			.set<spatial::Transform>({.position = position});
+	AddFunnel(world, twin);
+	return twin;
 }
 
 void ThrowBurst(const flecs::entity crabnado, const int count) {

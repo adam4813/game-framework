@@ -21,10 +21,11 @@ enum class BossAction { Chase, Windup, Active, Recover, Dazed };
 
 enum class BossAttack { None, Volley, Suction };
 
-// Singleton, reflected: the enraged crabnado's live state, readable over the Remote API. `timer` counts down the current
-// Windup, Active, Recover or Dazed; `gap` the Chase seconds left before the next attack. `last_attack` keeps the picker
-// from repeating. `hp` and `max_hp` are its health; `position` and `radius` where it stands and how big it is, for the
-// weapons that hit it. It is reset whenever the Boss phase isn't running.
+// Singleton, reflected: the live state of the boss with an HP bar, readable over the Remote API. `timer` counts down the
+// current Windup, Active, Recover or Dazed; `gap` the Chase seconds left before the next attack. `last_attack` keeps the
+// picker from repeating. `hp` and `max_hp` are its health; `position` and `radius` where it stands and how big it is, for
+// the weapons that hit it. It is reset whenever the Boss phase isn't running. Captain Crab (captain.hpp) uses the same
+// actions: Chase is surfing, Windup and Active the lunge's lane and dash, Dazed beached.
 struct BossState {
 	BossAction action{BossAction::Chase};
 	BossAttack attack{BossAttack::None};
@@ -49,10 +50,27 @@ struct VolleyDisc {
 // Tag on the red ring that warns of a suction, a child of the crabnado.
 struct BossRing {};
 
-// The enraged crabnado's state when it is dazed and can be hurt, else nullptr.
+// A volley: `ring` crabs on a circle of `radius` round the target plus one on it, landing after `flight` seconds; a
+// landing on the player costs `impact` HP.
+struct VolleySpec {
+	int ring{0};
+	float radius{0.0F};
+	float flight{0.0F};
+	float impact{0.0F};
+};
+
+// Throws a volley from `from` at `target` into the horde, each crab with a yellow disc where it lands. Does nothing
+// without a horde.
+void ThrowVolley(const flecs::world& world, glm::vec2 from, glm::vec2 target, const VolleySpec& spec);
+
+// A beaten boss's sweep: the horde is removed (no shells, no kills, no XP), every shell on the water is vacuumed to the
+// player and the suction ring goes.
+void SweepBossField(const flecs::world& world);
+
+// The boss with an HP bar (the enraged crabnado or Captain Crab) when it is dazed or beached and can be hurt, else nullptr.
 [[nodiscard]] const BossState* DazedBoss(const flecs::world& world);
 
-// Takes `amount` HP off the enraged crabnado; the BossUpdate system finishes it at 0. Callers check DazedBoss first.
+// Takes `amount` HP off the boss; its update system finishes it at 0. Callers check DazedBoss first.
 void DamageBoss(const flecs::world& world, float amount);
 
 // Registers and reflects the boss components and the BossUpdate and VolleyDiscLand systems. Call from the module

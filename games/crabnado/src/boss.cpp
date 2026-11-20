@@ -45,14 +45,7 @@ constexpr float kRingBeadOverlap = 1.1F;
 // The last slam: the horde is swept away (no shells, no kills, no XP), every shell on the water is vacuumed to the
 // player, and the crabnado starts its retreat back over the barrier from where it stands.
 void Defeat(const flecs::world& world, Crabnado& crabnado, const spatial::Transform& transform) {
-	// Collected first: destroying while a query iterates would change the tables under it.
-	std::vector<flecs::entity> horde;
-	world.query_builder<const Enemy>().build().each([&horde](const flecs::entity enemy, const Enemy&) { horde.push_back(enemy); });
-	for (const flecs::entity enemy : horde) {
-		enemy.destruct();
-	}
-	world.query_builder<Shell>().build().each([](Shell& shell) { shell.flying = true; });
-	world.delete_with<BossRing>();
+	SweepBossField(world);
 
 	const glm::vec2 position{transform.position.x, transform.position.z};
 	crabnado.mode = CrabnadoMode::Retreat;
@@ -115,40 +108,6 @@ void AddSuctionRing(const flecs::world& world, const flecs::entity crabnado, con
 	}
 }
 
-// Throws the volley: a ring of crabs round the player plus one on the player, each with a yellow disc where it lands.
-void ThrowVolley(const flecs::world& world, const EnragedTunables& tune, const Foes& foes) {
-	const flecs::entity horde = foes.crabnado.target<ThrowsInto>();
-	const int typeIndex = static_cast<int>(
-		std::ranges::find(world.get<EnemyRegistry>().types, kVolleyEnemy, &EnemyType::id) - world.get<EnemyRegistry>().types.begin()
-	);
-	if (!horde || typeIndex >= static_cast<int>(world.get<EnemyRegistry>().types.size())) {
-		return;
-	}
-	const float discRadius = world.get<EnemyRegistry>().types[static_cast<size_t>(typeIndex)].radius + constants::kVolleyDiscMargin;
-	const float spin = world.get_mut<ecs::RngState>().NextFloatRange(0.0F, 2.0F * std::numbers::pi_v<float>);
-	const float reach = constants::kArenaRadius - kVolleyEdgeMargin;
-	for (int i = 0; i <= tune.volley_ring; ++i) {
-		glm::vec2 at = foes.playerPosition;
-		if (i < tune.volley_ring) {
-			const float angle = spin + 2.0F * std::numbers::pi_v<float> * static_cast<float>(i) / static_cast<float>(tune.volley_ring);
-			at += glm::vec2{std::cos(angle), std::sin(angle)} * tune.volley_radius;
-		}
-		if (glm::length(at) > reach) {
-			at *= reach / glm::length(at);
-		}
-		const flecs::entity crab = ThrowEnemyAt(world, horde, typeIndex, foes.position, at, tune.volley_flight);
-		std::ignore = world.entity()
-						  .child_of(horde)
-						  .set<spatial::Transform>(
-							  {.position = {at.x, kDiscHeight, at.y}, .scale = {discRadius, kDiscThickness, discRadius}}
-						  )
-						  .set<VolleyDisc>({.enemy = crab.id(), .landing = at, .radius = discRadius, .damage = tune.volley_impact})
-						  .set<render::SpherePrimitive>({.radius = 1.0F})
-						  .set<render::Material>({.color = kDiscColor, .cast_shadow = false, .unlit = true})
-						  .add<render::Translucent>();
-	}
-}
-
 void StartWindup(const flecs::world& world, const EnragedTunables& tune, BossState& state, const Foes& foes) {
 	state.attack = PickAttack(world, state.last_attack);
 	state.last_attack = state.attack;
@@ -156,7 +115,10 @@ void StartWindup(const flecs::world& world, const EnragedTunables& tune, BossSta
 	if (state.attack == BossAttack::Volley) {
 		// The throws fly during the wind-up: the discs are the telegraph.
 		state.timer = tune.volley_flight;
-		ThrowVolley(world, tune, foes);
+		ThrowVolley(
+			world, foes.position, foes.playerPosition,
+			{.ring = tune.volley_ring, .radius = tune.volley_radius, .flight = tune.volley_flight, .impact = tune.volley_impact}
+		);
 	} else {
 		state.timer = tune.suction_warn;
 		AddSuctionRing(world, foes.crabnado, tune.suction_radius);
@@ -326,6 +288,50 @@ void StepBoss(
 }
 
 } // namespace
+
+void ThrowVolley(const flecs::world& world, const glm::vec2 from, const glm::vec2 target, const VolleySpec& spec) {
+	const flecs::entity horde = FindHorde(world);
+	const auto& types = world.get<EnemyRegistry>().types;
+	const auto type = std::ranges::find(types, kVolleyEnemy, &EnemyType::id);
+	if (!horde || type == types.end()) {
+		return;
+	}
+	const int typeIndex = static_cast<int>(type - types.begin());
+	const float discRadius = type->radius + constants::kVolleyDiscMargin;
+	const float spin = world.get_mut<ecs::RngState>().NextFloatRange(0.0F, 2.0F * std::numbers::pi_v<float>);
+	const float reach = constants::kArenaRadius - kVolleyEdgeMargin;
+	for (int i = 0; i <= spec.ring; ++i) {
+		glm::vec2 at = target;
+		if (i < spec.ring) {
+			const float angle = spin + 2.0F * std::numbers::pi_v<float> * static_cast<float>(i) / static_cast<float>(spec.ring);
+			at += glm::vec2{std::cos(angle), std::sin(angle)} * spec.radius;
+		}
+		if (glm::length(at) > reach) {
+			at *= reach / glm::length(at);
+		}
+		const flecs::entity crab = ThrowEnemyAt(world, horde, typeIndex, from, at, spec.flight);
+		std::ignore = world.entity()
+						  .child_of(horde)
+						  .set<spatial::Transform>(
+							  {.position = {at.x, kDiscHeight, at.y}, .scale = {discRadius, kDiscThickness, discRadius}}
+						  )
+						  .set<VolleyDisc>({.enemy = crab.id(), .landing = at, .radius = discRadius, .damage = spec.impact})
+						  .set<render::SpherePrimitive>({.radius = 1.0F})
+						  .set<render::Material>({.color = kDiscColor, .cast_shadow = false, .unlit = true})
+						  .add<render::Translucent>();
+	}
+}
+
+void SweepBossField(const flecs::world& world) {
+	// Collected first: destroying while a query iterates would change the tables under it.
+	std::vector<flecs::entity> horde;
+	world.query_builder<const Enemy>().build().each([&horde](const flecs::entity enemy, const Enemy&) { horde.push_back(enemy); });
+	for (const flecs::entity enemy : horde) {
+		enemy.destruct();
+	}
+	world.query_builder<Shell>().build().each([](Shell& shell) { shell.flying = true; });
+	world.delete_with<BossRing>();
+}
 
 const BossState* DazedBoss(const flecs::world& world) {
 	const auto& state = world.get<BossState>();

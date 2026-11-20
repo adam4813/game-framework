@@ -4,9 +4,11 @@
 #include <cmath>
 
 #include "campaign.hpp"
+#include "captain.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
+#include "player.hpp"
 #include "run.hpp"
 
 using namespace engine;
@@ -20,13 +22,17 @@ constexpr std::string_view kSource = "infested_crest";
 constexpr float kRollReach = constants::kArenaRadius + constants::kWaveSpeed * constants::kBigCrestWarning;
 constexpr float kSpawnAlong = -(constants::kArenaRadius + constants::kInfestedSpawnReach);
 
+constexpr float kCrestSpacing = constants::kWaveSpeed * constants::kWavePeriod;
+// The captain's crest must be at least this far short of the spawn point, so its riders don't spawn on the same frame.
+constexpr float kCaptainCrestLead = 5.0F;
+
 const SpawnEntry* FindEntry(const flecs::world& world) {
-	const Stage* stage = CurrentStage(world);
-	if (stage == nullptr || !IsRunning(world.get<RunState>().phase)) {
+	const auto plan = CurrentSpawnPlan(world);
+	if (!plan || !IsRunning(world.get<RunState>().phase)) {
 		return nullptr;
 	}
-	const auto found = std::ranges::find_if(stage->spawns, [](const SpawnEntry& entry) { return entry.source == kSource; });
-	return found == stage->spawns.end() ? nullptr : &*found;
+	const auto found = std::ranges::find_if(*plan->spawns, [](const SpawnEntry& entry) { return entry.source == kSource; });
+	return found == plan->spawns->end() ? nullptr : &*found;
 }
 
 // Puts the infested crest's seahorses evenly along the part of its front that will cross the arena.
@@ -34,12 +40,21 @@ void SpawnRiders(const flecs::world& world, InfestState& state, const CrestFront
 	const flecs::entity horde = FindHorde(world);
 	const int count = std::min(state.riders, constants::kHordeCap - world.count<Enemy>());
 	state.riders_out = true;
+	const glm::vec2 side{-front.direction.y, front.direction.x};
+	const float half = constants::kArenaRadius * constants::kInfestedChordFill;
+	if (state.captain && horde) {
+		// He rides in on the stretch of the crest that will cross the player.
+		float across = 0.0F;
+		if (const flecs::entity player = FindPlayer(world)) {
+			const glm::vec3 p = player.get<spatial::Transform>().position;
+			across = std::clamp(glm::dot(glm::vec2{p.x, p.z}, side), -half, half);
+		}
+		SpawnCaptain(world, horde.parent(), front.direction * front.along + side * across, front.direction);
+	}
 	if (!horde || count <= 0) {
 		return;
 	}
 	auto& rng = world.get_mut<ecs::RngState>();
-	const glm::vec2 side{-front.direction.y, front.direction.x};
-	const float half = constants::kArenaRadius * constants::kInfestedChordFill;
 	for (int i = 0; i < count; ++i) {
 		const float across = -half + 2.0F * half * (static_cast<float>(i) + 0.5F) / static_cast<float>(count);
 		const glm::vec2 jitter{
@@ -95,6 +110,7 @@ void StepInfested(const flecs::world& world) {
 		return;
 	}
 	state.active = true;
+	state.captain = false;
 	state.riders_out = false;
 	state.last_infest = field.time;
 	state.crest_swell = swell;
@@ -105,6 +121,27 @@ void StepInfested(const flecs::world& world) {
 }
 
 } // namespace
+
+bool InfestForCaptain(const flecs::world& world, const int riderType, const int riders) {
+	const auto& field = world.get<WaveField>();
+	int swell = 0;
+	if (!PrimaryPhaseUpwind(field, kRollReach, swell)) {
+		return false;
+	}
+	// Crest n's front is at kWaveSpeed * (time - t0) - n * spacing: the first n whose front is still short of the spawn point.
+	const float travelled = constants::kWaveSpeed * (field.time - field.swells[static_cast<size_t>(swell)].t0);
+	const int n = static_cast<int>(std::floor((travelled - kSpawnAlong + kCaptainCrestLead) / kCrestSpacing)) + 1;
+	auto& state = world.get_mut<InfestState>();
+	state.active = true;
+	state.captain = true;
+	state.riders_out = false;
+	state.last_infest = field.time;
+	state.crest_swell = swell;
+	state.crest_n = n;
+	state.rider_type = riderType;
+	state.riders = riders;
+	return true;
+}
 
 std::optional<float> InfestedCrestIn(const flecs::world& world) {
 	const auto& state = world.get<InfestState>();
@@ -143,7 +180,8 @@ void RegisterInfested(const flecs::world& world) {
 		.member<bool>("riders_out")
 		.member<int>("rider_type")
 		.member<int>("riders")
-		.member<float>("stamp");
+		.member<float>("stamp")
+		.member<bool>("captain");
 	world.set<InfestState>({});
 
 	world.system("InfestedCrest")

@@ -7,7 +7,8 @@
 #include <flecs.h>
 
 // The crabnado outside a Boss Stage circles just outside the barrier, untouchable, and throws crabs at the player. In
-// the Boss Stage it breaches nearest the player, fights, and once beaten retreats to its orbit.
+// the Boss Stage it breaches nearest the player, fights, and once beaten retreats to its orbit. Captain Crab's claimed
+// crabnado (the `captain` behavior) never breaches: it keeps circling and throwing the Boss Stage table.
 namespace crabnado {
 
 // What the crabnado is doing. Orbit: circling (and, during the storm-up, sliding to the player's bearing). Breach: moving
@@ -19,7 +20,9 @@ enum class CrabnadoMode { Orbit, Breach, Fight, Retreat };
 // clockwise on the north-up map, like BarrierGlow::angle), and `radius` its distance from the centre. `direction` is
 // +1 to circle counterclockwise and -1 clockwise; it flips on each wind shift (`shifts_seen` is the Wind::shifts already
 // reacted to). `mode_time` is the seconds spent in Breach or Retreat and `leg_from` the radius that leg started at.
-// `spawn_debt` accumulates the spawn rate; each whole unit is one throw.
+// `spawn_debt` accumulates the spawn rate times `share` (Captain Crab's twins each throw half); each whole unit is one
+// throw. It doesn't throw while `hold` seconds remain. While `slide_left` seconds remain it eases along the orbit to
+// bearing `slide_to` instead of circling (the twins moving apart).
 struct Crabnado {
 	float bearing{0.0F};
 	int direction{1};
@@ -30,6 +33,10 @@ struct Crabnado {
 	int shifts_seen{0};
 	float spawn_debt{0.0F};
 	glm::vec2 knock{0.0F}; // the boss phase's wave knock, in units per second
+	float share{1.0F};
+	float hold{0.0F};
+	float slide_to{0.0F};
+	float slide_left{0.0F};
 };
 
 // The arena crabnado's storm: `storm` rises from 0 to 1 over the boss wind-up and stays 1 through the boss,
@@ -82,6 +89,11 @@ void AddFunnel(const flecs::world& world, flecs::entity crabnado);
 // Spawns the crabnado on its orbit, at PickOrbitBearing, as a child of `parent`, throwing enemies into `horde`. The
 // player must already exist.
 flecs::entity SpawnCrabnado(const flecs::world& world, flecs::entity parent, flecs::entity horde);
+
+// Spawns Captain Crab's twin: a second crabnado named "CrabnadoTwin" beside `original` (same parent, bearing and horde),
+// circling the other way at full storm, throwing half the table, sliding to `slideTo` and holding its throws for
+// `slideTime` seconds. Captain Crab's split calls it.
+flecs::entity SpawnTwin(const flecs::world& world, flecs::entity original, float slideTo, float slideTime);
 
 // Throws up to `count` crabs at the player at once, stopping at the horde cap. The debug spawn control
 // uses it.

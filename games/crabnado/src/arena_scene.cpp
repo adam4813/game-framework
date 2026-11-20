@@ -12,6 +12,7 @@
 #include "bubbles.hpp"
 #include "campaign.hpp"
 #include "campaign_script.hpp"
+#include "captain.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "arena.hpp"
@@ -177,6 +178,7 @@ void ArenaScene::Load(flecs::world& world) {
 				 .set<MusicLevel>({constants::kMusicVolume});
 	horde_ = world.entity().child_of(sceneRoot_);
 	ResetCampaignScripts(world, sceneRoot_);
+	ResetCaptain(world);
 	BuildStage(world);
 	BuildUI(world);
 }
@@ -799,31 +801,40 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	const BossDef* def = CurrentBoss(world);
 	const bool boss = run.phase == RunPhase::Boss && def != nullptr;
 	const bool enraged = boss && def->behavior == kEnragedBehavior;
+	const auto& state = world.get<BossState>();
+	// Captain Crab may ride in while the storm is still rising, so his bar shows from his arrival.
+	const bool captain = def != nullptr && def->behavior == kCaptainBehavior && InBossStage(world) &&
+		world.get<CaptainState>().arrived && state.hp > 0.0F;
 	const int slamsToWin = def != nullptr ? def->slam.slams_to_win : 0;
 	const bool stormRising = run.phase == RunPhase::Playing && run.storm_up > 0.0F && InBossStage(world);
 	std::string bossText = stormRising ? "The storm is rising!" : "";
-	if (enraged) {
+	if (captain) {
+		bossText = "CAPTAIN CRAB";
+	} else if (enraged) {
 		bossText = "CRABNADO";
-	} else if (boss) {
+	} else if (boss && !HasBossHp(*def)) {
 		bossText = std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams);
 	}
 	bossLabel_.get_mut<ui::Label>().text = bossText;
-	// The enraged boss's HP bar, and the daze countdown while its weapons window is open.
-	const auto& state = world.get<BossState>();
+	// The HP bar, and the countdown of the weapon window while it is open (dazed, or beached for Captain Crab).
 	if (bossBar_.has<ui::ProgressBar>() && bossBar_.has<ui::UIElement>() && dazeLabel_.has<ui::Label>()) {
-		const bool showBar = enraged && state.hp > 0.0F;
+		const bool showBar = (enraged && state.hp > 0.0F) || captain;
 		bossBar_.get_mut<ui::UIElement>().visible = showBar;
 		auto& bar = bossBar_.get_mut<ui::ProgressBar>();
 		bar.max = state.max_hp;
 		bar.value = std::max(0.0F, state.hp);
 		dazeLabel_.get_mut<ui::Label>().text =
-			showBar && state.action == BossAction::Dazed ? std::format("DAZED! {:.1f}", std::max(0.0F, state.timer)) : "";
+			showBar && state.action == BossAction::Dazed
+				? std::format("{} {:.1f}", captain ? "BEACHED!" : "DAZED!", std::max(0.0F, state.timer))
+				: "";
 	}
 	std::string banner;
 	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
 		banner = "ACT CLEAR";
 	} else if (const auto& scripts = world.get<CampaignScripts>(); scripts.banner_timer > 0.0F) {
 		banner = scripts.banner;
+	} else if (boss && run.banner_timer > 0.0F && def->behavior == kCaptainBehavior) {
+		banner = run.slams == 0 ? "Captain Crab rides in! Hit him while he's beached" : "SLAM! Hit him while he's beached";
 	} else if (boss && run.banner_timer > 0.0F) {
 		if (run.slams == 0) {
 			banner = "The crabnado comes ashore! Slam it into the rocks";

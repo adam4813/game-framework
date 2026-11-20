@@ -98,7 +98,59 @@ std::string ParseEnraged(const nlohmann::json& entry, EnragedTunables& out) {
 	return missing.empty() ? std::string{} : std::format("missing or non-numeric tunables:{}", missing);
 }
 
+// Reads the extra tunables of the captain behavior, naming any that is missing.
+std::string ParseCaptain(const nlohmann::json& entry, CaptainTunables& out) {
+	const std::array<std::pair<const char*, float*>, 26> floats{{
+		{"hp", &out.hp},
+		{"split_at", &out.split_at},
+		{"slam_damage", &out.slam_damage},
+		{"surf_min_height", &out.surf_min_height},
+		{"surf_steer", &out.surf_steer},
+		{"surf_dps_mult", &out.surf_dps_mult},
+		{"grab_height", &out.grab_height},
+		{"beach_max", &out.beach_max},
+		{"lift_lead", &out.lift_lead},
+		{"lift_amp", &out.lift_amp},
+		{"immune", &out.immune},
+		{"lunge_range", &out.lunge_range},
+		{"lunge_cooldown", &out.lunge_cooldown},
+		{"lunge_windup", &out.lunge_windup},
+		{"lunge_speed", &out.lunge_speed},
+		{"lunge_dist", &out.lunge_dist},
+		{"lunge_dps_mult", &out.lunge_dps_mult},
+		{"recover", &out.recover},
+		{"split_pause", &out.split_pause},
+		{"twin_gap", &out.twin_gap},
+		{"twin_windup", &out.twin_windup},
+		{"rogue_amp", &out.rogue_amp},
+		{"volley_radius", &out.volley_radius},
+		{"volley_flight", &out.volley_flight},
+		{"volley_impact", &out.volley_impact},
+		{"escape_time", &out.escape_time},
+	}};
+	std::string missing;
+	for (const auto& [key, field] : floats) {
+		if (!entry.contains(key) || !entry[key].is_number()) {
+			missing += std::format(" {}", key);
+			continue;
+		}
+		*field = entry[key].get<float>();
+	}
+	for (const auto& [key, field] : std::array<std::pair<const char*, int*>, 2>{{{"volley_ring", &out.volley_ring}, {"entry_riders", &out.entry_riders}}}) {
+		if (!entry.contains(key) || !entry[key].is_number_integer()) {
+			missing += std::format(" {}", key);
+			continue;
+		}
+		*field = entry[key].get<int>();
+	}
+	return missing.empty() ? std::string{} : std::format("missing or non-numeric tunables:{}", missing);
+}
+
 } // namespace
+
+bool HasBossHp(const BossDef& boss) {
+	return boss.behavior == kEnragedBehavior || boss.behavior == kCaptainBehavior;
+}
 
 BossParseResult ParseBosses(const nlohmann::json& doc) {
 	BossParseResult result;
@@ -112,15 +164,19 @@ BossParseResult ParseBosses(const nlohmann::json& doc) {
 			continue;
 		}
 		const bool named = entry.contains("behavior") && entry["behavior"].is_string();
-		BossDef def{.id = id, .behavior = named ? entry["behavior"].get<std::string>() : std::string{}, .tunables = entry, .slam = {}, .enraged = {}};
+		BossDef def{.id = id, .behavior = named ? entry["behavior"].get<std::string>() : std::string{}, .tunables = entry};
 		const bool enraged = def.behavior == kEnragedBehavior;
-		if (def.behavior != kSlamBehavior && !enraged) {
+		const bool captain = def.behavior == kCaptainBehavior;
+		if (def.behavior != kSlamBehavior && !enraged && !captain) {
 			result.errors.push_back(std::format("boss '{}': unknown behavior '{}'", id, def.behavior));
 			continue;
 		}
-		std::string error = ParseSlam(entry, !enraged, def.slam);
+		std::string error = ParseSlam(entry, !HasBossHp(def), def.slam);
 		if (error.empty() && enraged) {
 			error = ParseEnraged(entry, def.enraged);
+		}
+		if (error.empty() && captain) {
+			error = ParseCaptain(entry, def.captain);
 		}
 		if (!error.empty()) {
 			result.errors.push_back(std::format("boss '{}': {}", id, error));

@@ -7,6 +7,7 @@
 #include "arena_scene.hpp"
 #include "boss.hpp"
 #include "bubbles.hpp"
+#include "captain.hpp"
 #include "campaign.hpp"
 #include "campaign_script.hpp"
 #include "claw_snap.hpp"
@@ -54,6 +55,7 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	RegisterPlayer(world);
 	RegisterCrabnado(world);
 	RegisterBoss(world);
+	RegisterCaptain(world);
 	RegisterHorde(world);
 	RegisterOffscreen(world);
 	RegisterInfested(world);
