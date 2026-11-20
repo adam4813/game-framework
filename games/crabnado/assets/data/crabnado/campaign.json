@@ -45,12 +45,12 @@
         {
           "name": "Lobster",
           "gate": { "type": "time", "time": 120 },
-          "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 },
+          "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 },
           "rate": { "base": 1.875, "growth": 0.035 },
           "source": "crabnado"
         }
       ],
-      "boss": { "id": "crabnado", "spawns": { "crab": 65, "shrimp": 27, "lobster": 20 }, "rate_mult": 0.35 }
+      "boss": { "id": "crabnado_enraged", "spawns": { "crab": 50, "shrimp": 25, "lobster": 25 }, "rate_mult": 0.35 }
     },
     {
       "id": "act3",

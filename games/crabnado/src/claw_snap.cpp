@@ -3,6 +3,7 @@
 #include <cmath>
 #include <numbers>
 
+#include "boss.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
 #include "engine/engine.hpp"
@@ -57,6 +58,12 @@ void RegisterClawSnap(const flecs::world& world) {
 					hit = true;
 				}
 			});
+			// Only a dazed boss feels the claw.
+			if (const BossState* boss = DazedBoss(world);
+				boss != nullptr && glm::length(boss->position - position) < claw.radius + boss->radius) {
+				DamageBoss(world, claw.damage);
+				hit = true;
+			}
 			if (hit) {
 				PlaySfx(world, Sfx::ClawSnap);
 			}

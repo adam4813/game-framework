@@ -414,11 +414,17 @@ glm::vec2 BodyLanding(const flecs::world& world, const glm::vec2 from, const glm
 void ThrowEnemy(
 	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 landing
 ) {
+	const float flightTime = world.get_mut<ecs::RngState>().NextFloatRange(constants::kThrowMinTime, constants::kThrowMaxTime);
+	std::ignore = ThrowEnemyAt(world, parent, typeIndex, from, landing, flightTime);
+}
+
+flecs::entity ThrowEnemyAt(
+	const flecs::world& world, const flecs::entity parent, const int typeIndex, const glm::vec2 from, const glm::vec2 landing,
+	const float flightTime
+) {
 	const EnemyType& type = world.get<EnemyRegistry>().types.at(static_cast<size_t>(typeIndex));
-	auto& rng = world.get_mut<ecs::RngState>();
 
 	// Launch speed for a flight time T from height y0 under gravity G (the prototype's formula).
-	const float flightTime = rng.NextFloatRange(constants::kThrowMinTime, constants::kThrowMaxTime);
 	const float y0 = constants::kThrowHeight;
 	const glm::vec2 ground = (landing - from) / flightTime;
 	const float vy = (0.5F * constants::kGravity * flightTime * flightTime - y0) / flightTime;
@@ -458,6 +464,7 @@ void ThrowEnemy(
 					  .set<render::SpherePrimitive>({.radius = scale * kShadowRadiusK})
 					  .set<render::Material>({.color = kShadowColor, .cast_shadow = false, .unlit = true})
 					  .add<render::Translucent>();
+	return enemy;
 }
 
 void DamageEnemy(const flecs::entity enemy, const float amount) {

@@ -34,11 +34,13 @@ struct Crabnado {
 
 // The arena crabnado's storm: `storm` rises from 0 to 1 over the boss wind-up and stays 1 through the boss,
 // darkening the funnel and making it spin and sway harder. `flash` jumps to 1 on each slam and fades, paling the
-// funnel. `slams_seen` is the RunState::slams already flashed for. The title's crabnado has none, so it stays calm.
+// funnel. `slams_seen` is the RunState::slams already flashed for. `storm_color` is the grey it darkens to, taken from
+// the Act's boss entry. The title's crabnado has no storm, so it stays calm.
 struct FunnelStorm {
 	float storm{0.0F};
 	float flash{0.0F};
 	int slams_seen{0};
+	engine::core::Rgba storm_color{.r = 62, .g = 70, .b = 86, .a = 255};
 };
 
 // A funnel part the storm darkens: its calm colour, which FunnelTint blends toward storm grey.

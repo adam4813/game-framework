@@ -97,6 +97,8 @@ private:
 	flecs::entity stateLabel_;
 	flecs::entity telegraph_;
 	flecs::entity bossLabel_;
+	flecs::entity bossBar_;
+	flecs::entity dazeLabel_;
 	flecs::entity bannerLabel_;
 	flecs::entity countdownLabel_;
 	flecs::entity actCardLabel_;

@@ -196,6 +196,11 @@ inline constexpr float kStormSpin = 2.0F;
 inline constexpr float kStormSwayRate = 1.8F;
 inline constexpr float kStormSwayReach = 1.6F;
 inline constexpr float kStormFlashFade = 2.5F;
+// The enraged crabnado: its funnel strobes pale between 0 and 1 at kWindupStrobeHz while it winds up an attack and holds
+// at kDazedFlash while dazed. A volley disc is as wide as the landing crab's radius plus kVolleyDiscMargin.
+inline constexpr float kWindupStrobeHz = 8.0F;
+inline constexpr float kDazedFlash = 0.6F;
+inline constexpr float kVolleyDiscMargin = 0.9F;
 
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;

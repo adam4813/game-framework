@@ -23,7 +23,7 @@ constexpr std::string_view kSlamBehavior = "slam";
 
 // Reads every tunable of the slam behavior. A missing or non-numeric one is named in the returned error, with no
 // default to fall back on.
-std::string ParseSlam(const nlohmann::json& entry, SlamTunables& out) {
+std::string ParseSlam(const nlohmann::json& entry, const bool needsSlams, SlamTunables& out) {
 	const std::array<std::pair<const char*, float*>, 13> floats{{
 		{"orbit_radius", &out.orbit_radius},
 		{"orbit_speed", &out.orbit_speed},
@@ -47,10 +47,53 @@ std::string ParseSlam(const nlohmann::json& entry, SlamTunables& out) {
 		}
 		*field = entry[key].get<float>();
 	}
-	if (!entry.contains("slams_to_win") || !entry["slams_to_win"].is_number_integer()) {
-		missing += " slams_to_win";
+	if (needsSlams) {
+		if (!entry.contains("slams_to_win") || !entry["slams_to_win"].is_number_integer()) {
+			missing += " slams_to_win";
+		} else {
+			out.slams_to_win = entry["slams_to_win"].get<int>();
+		}
+	}
+	const bool colored = entry.contains("storm_color") && entry["storm_color"].is_array() && entry["storm_color"].size() == 3 &&
+		std::ranges::all_of(entry["storm_color"], [](const nlohmann::json& v) { return v.is_number_integer(); });
+	if (!colored) {
+		missing += " storm_color";
 	} else {
-		out.slams_to_win = entry["slams_to_win"].get<int>();
+		const auto channel = [&](const size_t i) { return static_cast<uint8_t>(std::clamp(entry["storm_color"][i].get<int>(), 0, 255)); };
+		out.storm_color = {.r = channel(0), .g = channel(1), .b = channel(2), .a = 255};
+	}
+	return missing.empty() ? std::string{} : std::format("missing or non-numeric tunables:{}", missing);
+}
+
+// Reads the extra tunables of the enraged behavior, naming any that is missing.
+std::string ParseEnraged(const nlohmann::json& entry, EnragedTunables& out) {
+	const std::array<std::pair<const char*, float*>, 13> floats{{
+		{"hp", &out.hp},
+		{"slam_damage", &out.slam_damage},
+		{"daze_time", &out.daze_time},
+		{"chase_min", &out.chase_min},
+		{"chase_max", &out.chase_max},
+		{"recover", &out.recover},
+		{"volley_radius", &out.volley_radius},
+		{"volley_flight", &out.volley_flight},
+		{"volley_impact", &out.volley_impact},
+		{"suction_radius", &out.suction_radius},
+		{"suction_warn", &out.suction_warn},
+		{"suction_speed", &out.suction_speed},
+		{"suction_time", &out.suction_time},
+	}};
+	std::string missing;
+	for (const auto& [key, field] : floats) {
+		if (!entry.contains(key) || !entry[key].is_number()) {
+			missing += std::format(" {}", key);
+			continue;
+		}
+		*field = entry[key].get<float>();
+	}
+	if (!entry.contains("volley_ring") || !entry["volley_ring"].is_number_integer()) {
+		missing += " volley_ring";
+	} else {
+		out.volley_ring = entry["volley_ring"].get<int>();
 	}
 	return missing.empty() ? std::string{} : std::format("missing or non-numeric tunables:{}", missing);
 }
@@ -69,12 +112,17 @@ BossParseResult ParseBosses(const nlohmann::json& doc) {
 			continue;
 		}
 		const bool named = entry.contains("behavior") && entry["behavior"].is_string();
-		BossDef def{.id = id, .behavior = named ? entry["behavior"].get<std::string>() : std::string{}, .tunables = entry, .slam = {}};
-		if (def.behavior != kSlamBehavior) {
+		BossDef def{.id = id, .behavior = named ? entry["behavior"].get<std::string>() : std::string{}, .tunables = entry, .slam = {}, .enraged = {}};
+		const bool enraged = def.behavior == kEnragedBehavior;
+		if (def.behavior != kSlamBehavior && !enraged) {
 			result.errors.push_back(std::format("boss '{}': unknown behavior '{}'", id, def.behavior));
 			continue;
 		}
-		if (const std::string error = ParseSlam(entry, def.slam); !error.empty()) {
+		std::string error = ParseSlam(entry, !enraged, def.slam);
+		if (error.empty() && enraged) {
+			error = ParseEnraged(entry, def.enraged);
+		}
+		if (!error.empty()) {
 			result.errors.push_back(std::format("boss '{}': {}", id, error));
 			continue;
 		}

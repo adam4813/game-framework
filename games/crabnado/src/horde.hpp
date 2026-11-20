@@ -84,6 +84,12 @@ void RegisterHorde(const flecs::world& world);
 // Draws from the world's RngState; enemy HP grows with the run clock.
 void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing);
 
+// ThrowEnemy with the flight time, in seconds, chosen by the caller (the boss's volley lands on a timer). Returns the
+// thrown enemy.
+flecs::entity ThrowEnemyAt(
+	const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing, float flightTime
+);
+
 // Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
 // its shell.
 void DamageEnemy(flecs::entity enemy, float amount);

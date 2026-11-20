@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -133,6 +134,27 @@ TEST(BossParse, AMissingTunableSkipsTheBossWithNoDefault) {
 	const BossParseResult result = ParseBosses(doc);
 	EXPECT_TRUE(result.registry.bosses.empty());
 	EXPECT_EQ(result.errors.size(), 1U);
+}
+
+TEST(BossParse, TheShippedEnragedBossCarriesTheTicketsStartingValues) {
+	const BossParseResult result = ParseBosses(LoadShipped("bosses.json"));
+	const auto found = std::ranges::find(result.registry.bosses, "crabnado_enraged", &BossDef::id);
+	ASSERT_NE(found, result.registry.bosses.end());
+	EXPECT_EQ(found->behavior, "enraged");
+	EXPECT_FLOAT_EQ(found->enraged.hp, 40.0F);
+	EXPECT_FLOAT_EQ(found->enraged.slam_damage, 10.0F);
+	EXPECT_FLOAT_EQ(found->enraged.daze_time, 4.0F);
+	EXPECT_EQ(found->enraged.volley_ring, 6);
+	EXPECT_FLOAT_EQ(found->enraged.suction_radius, 30.0F);
+	EXPECT_EQ(found->slam.storm_color.r, 120);
+}
+
+TEST(BossParse, AnEnragedBossMissingAnAttackTunableIsSkipped) {
+	json doc = LoadShipped("bosses.json");
+	doc["crabnado_enraged"].erase("suction_time");
+	const BossParseResult result = ParseBosses(doc);
+	EXPECT_EQ(result.errors.size(), 1U);
+	EXPECT_EQ(std::ranges::count(result.registry.bosses, "crabnado_enraged", &BossDef::id), 0);
 }
 
 TEST(Rates, AMissingMaxMeansNoCapAndAMaxCaps) {

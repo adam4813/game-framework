@@ -27,8 +27,6 @@ namespace {
 // specks are caught in it. The whole crabnado spins, which swirls the strands and carries the specks round.
 constexpr core::Rgba kFunnelColor{.r = 196, .g = 210, .b = 220, .a = 255};
 constexpr core::Rgba kWispColor{.r = 245, .g = 249, .b = 252, .a = 255};
-// The colour the storm darkens the funnel toward.
-constexpr core::Rgba kStormColor{.r = 62, .g = 70, .b = 86, .a = 255};
 constexpr core::Rgba kSpeckColor{.r = 216, .g = 69, .b = 43, .a = 255};
 constexpr int kFunnelRings = 18;
 constexpr int kWispsPerRing = 7;
@@ -181,7 +179,11 @@ void RegisterCrabnado(const flecs::world& world) {
 		.member<glm::vec2>("knock");
 	world.component<ThrowsInto>().add(flecs::Exclusive);
 	world.component<FunnelRing>().member<float>("lift").member<float>("time");
-	world.component<FunnelStorm>().member<float>("storm").member<float>("flash").member<int>("slams_seen");
+	world.component<FunnelStorm>()
+		.member<float>("storm")
+		.member<float>("flash")
+		.member<int>("slams_seen")
+		.member<core::Rgba>("storm_color");
 	world.component<FunnelTint>().member<core::Rgba>("base");
 
 	// The spin lives here, not in CrabnadoOrbit, because it speeds up with the storm.
@@ -190,6 +192,9 @@ void RegisterCrabnado(const flecs::world& world) {
 		.each([](const flecs::iter& it, size_t, Crabnado& crabnado, FunnelStorm& storm, spatial::Transform& transform) {
 			const float dt = it.delta_time();
 			const auto& run = it.world().get<RunState>();
+			if (const BossDef* boss = CurrentBoss(it.world())) {
+				storm.storm_color = boss->slam.storm_color;
+			}
 			// The storm calms as the beaten crabnado is blown back out.
 			storm.storm = crabnado.mode == CrabnadoMode::Retreat ? std::max(0.0F, storm.storm - dt / constants::kRetreatTime)
 																  : StormLevel(it.world());
@@ -213,9 +218,9 @@ void RegisterCrabnado(const flecs::world& world) {
 			const auto mix = [dark](const uint8_t from, const uint8_t to) {
 				return static_cast<uint8_t>(static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * dark);
 			};
-			material.color = {.r = mix(tint.base.r, kStormColor.r),
-				.g = mix(tint.base.g, kStormColor.g),
-				.b = mix(tint.base.b, kStormColor.b),
+			material.color = {.r = mix(tint.base.r, storm.storm_color.r),
+				.g = mix(tint.base.g, storm.storm_color.g),
+				.b = mix(tint.base.b, storm.storm_color.b),
 				.a = 255};
 		})
 		.add<scene::GameScene>();

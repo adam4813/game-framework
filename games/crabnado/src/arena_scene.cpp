@@ -7,6 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "boss.hpp"
 #include "boss_registry.hpp"
 #include "bubbles.hpp"
 #include "campaign.hpp"
@@ -68,6 +69,9 @@ constexpr core::Rgba kDimmedTextColor{.r = 150, .g = 150, .b = 150, .a = 255};
 constexpr float kMoltBarWidth = 400.0F;
 constexpr float kMoltBarTop = 16.0F;
 constexpr float kMoltBarHeight = 26.0F;
+// The enraged boss's HP bar, under the boss label.
+constexpr float kBossBarTop = 116.0F;
+constexpr float kBossBarHeight = 16.0F;
 constexpr float kChipOverlap = 10.0F;
 constexpr float kChipRise = 4.0F; // how far a chip sticks out above and below the bar
 constexpr float kMoltChipWidth = 48.0F; // room for two digits
@@ -262,6 +266,28 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 	bossLabel_ = ui::CreateLabel(world, {.x = barX, .y = 84.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 24.0F)
 					 .set<ui::Label>({.font_size = 24.0F, .color = kBossColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
 					 .set_name("BossLabel")
+					 .child_of(uiRoot_);
+	// The enraged boss's HP bar under its name, with the daze countdown beside it. Hidden until the boss fight.
+	const core::Rect bossBarRect{.x = barX, .y = kBossBarTop, .w = kMoltBarWidth, .h = kBossBarHeight};
+	bossBar_ = ui::CreateProgressBar(
+				   world,
+				   bossBarRect,
+				   {.fill_color = kBossColor, .track_color = kMoltTrackColor, .border_color = kChipColor, .roundness = 0.5F}
+	)
+				   .set<ui::UIElement>({.visible = false})
+				   .set_name("BossBar")
+				   .child_of(uiRoot_);
+	dazeLabel_ = ui::CreateLabel(
+					 world, {.x = barX + kMoltBarWidth + 12.0F, .y = kBossBarTop - 6.0F, .w = 220.0F, .h = 28.0F}, "", 24.0F
+	)
+					 .set<ui::Label>(
+						 {.font_size = 24.0F,
+						  .color = kBannerColor,
+						  .align = ui::TextAlign::Left,
+						  .outline = kHudOutline,
+						  .outline_color = kHudOutlineColor}
+					 )
+					 .set_name("DazeLabel")
 					 .child_of(uiRoot_);
 	challengeLabel_ = ui::CreateLabel(world, {.x = barX, .y = 84.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 24.0F)
 						  .set<ui::Label>({.font_size = 24.0F, .color = kBannerColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
@@ -768,16 +794,36 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	const auto& run = world.get<RunState>();
 	const BossDef* def = CurrentBoss(world);
 	const bool boss = run.phase == RunPhase::Boss && def != nullptr;
+	const bool enraged = boss && def->behavior == kEnragedBehavior;
 	const int slamsToWin = def != nullptr ? def->slam.slams_to_win : 0;
 	const bool stormRising = run.phase == RunPhase::Playing && run.storm_up > 0.0F && InBossStage(world);
-	bossLabel_.get_mut<ui::Label>().text = boss ? std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams)
-												: (stormRising ? "The storm is rising!" : "");
+	std::string bossText = stormRising ? "The storm is rising!" : "";
+	if (enraged) {
+		bossText = "CRABNADO";
+	} else if (boss) {
+		bossText = std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams);
+	}
+	bossLabel_.get_mut<ui::Label>().text = bossText;
+	// The enraged boss's HP bar, and the daze countdown while its weapons window is open.
+	const auto& state = world.get<BossState>();
+	if (bossBar_.has<ui::ProgressBar>() && bossBar_.has<ui::UIElement>() && dazeLabel_.has<ui::Label>()) {
+		const bool showBar = enraged && state.hp > 0.0F;
+		bossBar_.get_mut<ui::UIElement>().visible = showBar;
+		auto& bar = bossBar_.get_mut<ui::ProgressBar>();
+		bar.max = state.max_hp;
+		bar.value = std::max(0.0F, state.hp);
+		dazeLabel_.get_mut<ui::Label>().text =
+			showBar && state.action == BossAction::Dazed ? std::format("DAZED! {:.1f}", std::max(0.0F, state.timer)) : "";
+	}
 	std::string banner;
 	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
 		banner = "ACT CLEAR";
 	} else if (boss && run.banner_timer > 0.0F) {
-		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
-								: std::format("SLAM! {}/{}", run.slams, slamsToWin);
+		if (run.slams == 0) {
+			banner = "The crabnado comes ashore! Slam it into the rocks";
+		} else {
+			banner = enraged ? "SLAM! Hit it while it's dazed" : std::format("SLAM! {}/{}", run.slams, slamsToWin);
+		}
 	} else if (const Stage* stage = CurrentStage(world); stage != nullptr && run.stage_banner > 0.0F && run.phase == RunPhase::Playing) {
 		banner = std::format("{} Stage", stage->name);
 		if (const std::string challenge = ChallengeText(stage->gate); !challenge.empty()) {
@@ -1015,6 +1061,8 @@ void ArenaScene::Unload(flecs::world& world) {
 	waveLabel_ = {};
 	telegraph_ = {};
 	bossLabel_ = {};
+	bossBar_ = {};
+	dazeLabel_ = {};
 	challengeLabel_ = {};
 	rerollButton_ = {};
 	bannerLabel_ = {};

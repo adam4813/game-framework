@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "arena.hpp"
+#include "boss.hpp"
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
@@ -22,8 +23,13 @@ namespace {
 constexpr core::Rgba kBubbleColor{.r = 191, .g = 243, .b = 255, .a = 255};
 constexpr float kBubbleHeight = 1.0F;
 
-// The nearest landed enemy within kBubbleRange of `from`, by a linear scan. Returns false when there is none.
+// The target within kBubbleRange of `from`: a dazed boss in range first, else the nearest landed enemy by a linear scan.
+// Returns false when there is none.
 bool FindTarget(const flecs::world& world, const glm::vec2 from, glm::vec2& target) {
+	if (const BossState* boss = DazedBoss(world); boss != nullptr && glm::length(boss->position - from) < constants::kBubbleRange) {
+		target = boss->position;
+		return true;
+	}
 	float best = constants::kBubbleRange;
 	bool found = false;
 	for (const CrowdEntry& e : world.get<CrowdGrid>().entries) {
@@ -111,6 +117,11 @@ void RegisterBubbles(const flecs::world& world) {
 			}
 			const float damage = player.get<Bubbles>().damage;
 			bool popped = false;
+			if (const BossState* boss = DazedBoss(world);
+				boss != nullptr && glm::length(boss->position - position) < constants::kBubbleRadius + boss->radius) {
+				DamageBoss(world, damage);
+				popped = true;
+			}
 			grid.ForEachNear(position, constants::kBubbleRadius + grid.max_radius, [&](const CrowdEntry& e) {
 				if (!popped && glm::length(e.position - position) < e.radius + constants::kBubbleRadius) {
 					DamageEnemy(world.entity(e.entity), damage);
