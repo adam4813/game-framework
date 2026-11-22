@@ -175,7 +175,7 @@ void Split(const flecs::world& world, const BossDef& boss, CaptainState& cap) {
 			storm.flash = 1.0F;
 		}
 	);
-	ecs::WorldLog(world).info("[Run] The crabnado splits at {:.0f} HP", world.get<BossState>().hp);
+	ecs::Log(world).info("[Run] The crabnado splits at {:.0f} HP", world.get<BossState>().hp);
 	FireCampaignEvent(world, "OnBossPhase", {boss.id, kSplitPhase});
 }
 
@@ -187,7 +187,7 @@ void Defeat(const flecs::world& world, const BossDef& boss, CaptainState& cap) {
 	SweepBossField(world);
 	world.query_builder<Crabnado>().build().each([](Crabnado& crabnado) { crabnado.hold = 1.0e9F; });
 	PlaySfx(world, Sfx::BossSlam);
-	ecs::WorldLog(world).info("[Run] Captain Crab is beaten at {:.1f}s", world.get<RunState>().clock);
+	ecs::Log(world).info("[Run] Captain Crab is beaten at {:.1f}s", world.get<RunState>().clock);
 	FireCampaignEvent(world, "OnBossDefeated", {boss.id});
 }
 
@@ -353,7 +353,7 @@ void StepCaptain(
 		++run.slams;
 		run.banner_timer = constants::kBossBannerTime;
 		PlaySfx(world, Sfx::BossSlam);
-		ecs::WorldLog(world).info("[Run] Captain Crab slammed: HP {:.0f}/{:.0f}", state.hp, state.max_hp);
+		ecs::Log(world).info("[Run] Captain Crab slammed: HP {:.0f}/{:.0f}", state.hp, state.max_hp);
 		Beach(world, captain, tune, state, cap);
 	}
 	if (target.player && target.distance < body.contact_range && contact > 0.0F) {
@@ -388,7 +388,7 @@ void CallEntry(const flecs::world& world, const BossDef& boss) {
 	if (InfestForCaptain(world, riderType, riders)) {
 		return;
 	}
-	ecs::WorldLog(world).warn("[Run] No swell to carry Captain Crab: he lands at the barrier");
+	ecs::Log(world).warn("[Run] No swell to carry Captain Crab: he lands at the barrier");
 	const glm::vec2 downwind = WindDirection(world.get<Wind>());
 	if (const flecs::entity horde = FindHorde(world)) {
 		SpawnCaptain(world, horde.parent(), -downwind * (constants::kArenaRadius - boss.slam.edge_margin), downwind);
@@ -546,7 +546,7 @@ void SpawnCaptain(
 	std::ignore = part({-1.0F, 3.3F, 0.2F}, {0.35F, 0.35F, 0.35F}, kCrabColor);
 	std::ignore = part({1.0F, 4.0F, 0.2F}, {0.35F, 0.35F, 0.35F}, kCrabColor);
 	std::ignore = part({0.0F, 3.65F, -0.4F}, {0.6F, 0.25F, 0.6F}, kHatColor);
-	ecs::WorldLog(world).info("[Run] Captain Crab rides in at {:.1f}s", world.get<RunState>().clock);
+	ecs::Log(world).info("[Run] Captain Crab rides in at {:.1f}s", world.get<RunState>().clock);
 }
 
 void ResetCaptain(const flecs::world& world) { world.set<CaptainState>({}); }

@@ -155,7 +155,7 @@ ParticlesModule::ParticlesModule(const flecs::world& world) {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 
-	spdlog::info("[ParticlesModule] Registered particle emit/update systems with Flecs");
+	ecs::Log(world).info("[ParticlesModule] Registered particle emit/update systems with Flecs");
 }
 
 } // namespace engine::particles

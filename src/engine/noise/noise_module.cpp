@@ -6,8 +6,8 @@
 
 #include <flecs.h>
 #include <glm/glm.hpp>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/scripting/scripting.hpp"
 
 // TODO(scripting): AngelScript supports real namespaces via SetDefaultNamespace / SetNamespace.
@@ -216,7 +216,7 @@ NoiseModule::NoiseModule(const flecs::world& world) {
 		}
 	);
 
-	spdlog::info("[NoiseModule] Initialized");
+	ecs::Log(world).info("[NoiseModule] Initialized");
 }
 
 } // namespace engine::noise

@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 
-#include <spdlog/spdlog.h>
+#include "engine/ecs/world_logger.hpp"
 
 namespace engine::scripting {
 
@@ -34,13 +34,14 @@ namespace {
 std::pair<flecs::id_t, void*> ResolveMutableComponent(const flecs::entity entity, const std::string& component_name) {
 	const flecs::entity comp = entity.world().lookup(component_name.c_str());
 	if (!comp.is_valid()) {
-		spdlog::warn("[Script] Unknown component '{}'", component_name);
+		ecs::Log(entity.world()).warn("[Script] Unknown component '{}'", component_name);
 		return {0, nullptr};
 	}
 
 	void* ptr = entity.try_get_mut(comp.id());
 	if (!ptr) {
-		spdlog::warn("[Script] Entity '{}' does not have component '{}'", entity.name().c_str(), component_name);
+		ecs::Log(entity.world())
+			.warn("[Script] Entity '{}' does not have component '{}'", entity.name().c_str(), component_name);
 		return {0, nullptr};
 	}
 	return {comp.id(), ptr};
@@ -50,7 +51,7 @@ std::pair<flecs::id_t, const void*>
 ResolveConstComponent(const flecs::entity entity, const std::string& component_name) {
 	const flecs::entity comp = entity.world().lookup(component_name.c_str());
 	if (!comp.is_valid()) {
-		spdlog::warn("[Script] Unknown component '{}'", component_name);
+		ecs::Log(entity.world()).warn("[Script] Unknown component '{}'", component_name);
 		return {0, nullptr};
 	}
 
@@ -75,7 +76,7 @@ float ScriptEntityRef::GetFloat(const std::string& component, const std::string&
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, const_cast<void*>(ptr));
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return 0.0f;
 	}
 	return static_cast<float>(ecs_meta_get_float(&cur));
@@ -89,7 +90,7 @@ void ScriptEntityRef::SetFloat(const std::string& component, const std::string& 
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, ptr);
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return;
 	}
 	ecs_meta_set_float(&cur, value);
@@ -107,7 +108,7 @@ int ScriptEntityRef::GetInt(const std::string& component, const std::string& fie
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, const_cast<void*>(ptr));
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return 0;
 	}
 	return static_cast<int>(ecs_meta_get_int(&cur));
@@ -121,7 +122,7 @@ void ScriptEntityRef::SetInt(const std::string& component, const std::string& fi
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, ptr);
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return;
 	}
 	ecs_meta_set_int(&cur, value);
@@ -139,7 +140,7 @@ bool ScriptEntityRef::GetBool(const std::string& component, const std::string& f
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, const_cast<void*>(ptr));
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return false;
 	}
 	return ecs_meta_get_bool(&cur);
@@ -153,7 +154,7 @@ void ScriptEntityRef::SetBool(const std::string& component, const std::string& f
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, ptr);
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return;
 	}
 	ecs_meta_set_bool(&cur, value);
@@ -171,7 +172,7 @@ std::string ScriptEntityRef::GetString(const std::string& component, const std::
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, const_cast<void*>(ptr));
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return {};
 	}
 
@@ -191,7 +192,7 @@ void ScriptEntityRef::SetString(
 
 	ecs_meta_cursor_t cur = ecs_meta_cursor(entity_.world(), comp_id, ptr);
 	if (ecs_meta_member(&cur, field.c_str()) != 0) {
-		spdlog::warn("[Script] Unknown field '{}.{}'", component, field);
+		ecs::Log(entity_.world()).warn("[Script] Unknown field '{}.{}'", component, field);
 		return;
 	}
 
@@ -208,11 +209,12 @@ void ScriptEntityRef::RegisterObserver(const std::string& event_component, const
 	// Intentionally no-op at this layer. The backend replaces this behavior
 	// by registering observer_factory on the ScriptingModule singleton and
 	// calling it from within the language-specific type binding.
-	spdlog::warn(
-		"[Script] RegisterObserver('{}', '{}') called but no backend factory is bound.",
-		event_component,
-		callback_fn_name
-	);
+	ecs::Log(entity_.world())
+		.warn(
+			"[Script] RegisterObserver('{}', '{}') called but no backend factory is bound.",
+			event_component,
+			callback_fn_name
+		);
 }
 
 } // namespace engine::scripting

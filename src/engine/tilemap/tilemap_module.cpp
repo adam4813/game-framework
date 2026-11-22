@@ -6,8 +6,8 @@
 #include <ranges>
 
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "grid_movement.hpp"
 #include "tilemap_callbacks.hpp"
 #include "tilemap_components.hpp"
@@ -55,7 +55,7 @@ void RegisterTilemapLevelLoaders(const flecs::world& world) {
 
 		const auto spec = ParseTilemapSpec(map_path);
 		if (!spec) {
-			spdlog::error("[TilemapSpec] Failed to parse spec from '{}'", map_path);
+			ecs::Log(e.world()).error("[TilemapSpec] Failed to parse spec from '{}'", map_path);
 			return;
 		}
 		e.set<TilemapSpec>(*spec);
@@ -435,7 +435,7 @@ TilemapModule::TilemapModule(const flecs::world& world) {
 			})
 			.add<scene::GameScene>();
 
-	spdlog::info("[TilemapModule] Registered tilemap components and systems with Flecs");
+	ecs::Log(world).info("[TilemapModule] Registered tilemap components and systems with Flecs");
 }
 
 } // namespace engine::tilemap

@@ -9,7 +9,7 @@
 namespace engine::ecs {
 
 // Singleton: the world's own named logger, so every line a world writes says which world wrote it. Set it with
-// SetWorldLogger and read it with WorldLog; a world without one logs through spdlog's default logger.
+// SetWorldLogger and read it with Log; a world without one logs through spdlog's default logger.
 struct WorldLogger {
 	std::shared_ptr<spdlog::logger> logger;
 };
@@ -32,6 +32,6 @@ void SetWorldLogger(flecs::world& world, const std::string& name);
  * Safe inside a system (`it.world()` is a stage). EngineContext registers WorldLogger; a bare world that calls this
  * from a multi-threaded system registers it first (`world.component<WorldLogger>()`).
  */
-spdlog::logger& WorldLog(const flecs::world& world);
+spdlog::logger& Log(const flecs::world& world);
 
 } // namespace engine::ecs

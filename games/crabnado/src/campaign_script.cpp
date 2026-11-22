@@ -130,7 +130,7 @@ void LoadSlot(const flecs::world& world, const int slot, const std::string_view 
 	const std::string path = ScriptPath(world, id);
 	LoadedScript script{.id = std::string{id}};
 	script.instance = backend->CreateInstanceFromFile(path, host.host);
-	auto& log = ecs::WorldLog(world);
+	auto& log = ecs::Log(world);
 	if (script.instance == nullptr) {
 		log.error("[Campaign] {} script '{}' ('{}') didn't load, skipped", kSlotNames[static_cast<size_t>(slot)], id, path);
 		return;
@@ -160,7 +160,7 @@ void DispatchTo(
 	host.dispatching = -1;
 	if (result == scripting::ScriptCallResult::Failed) {
 		script.dead = true;
-		ecs::WorldLog(world).error("[Campaign] script '{}' disabled: {} failed: {}", script.id, kEvents[static_cast<size_t>(index)].name, error);
+		ecs::Log(world).error("[Campaign] script '{}' disabled: {} failed: {}", script.id, kEvents[static_cast<size_t>(index)].name, error);
 		RefreshActive(world, host);
 	}
 }
@@ -169,7 +169,7 @@ void DispatchTo(
 void QueueCall(flecs::world& world, ScriptCall call) {
 	auto& host = world.get_mut<CampaignScriptHost>();
 	if (host.dispatching < 0) {
-		ecs::WorldLog(world).warn("[Campaign] {} called outside a campaign event handler, ignored", call.label);
+		ecs::Log(world).warn("[Campaign] {} called outside a campaign event handler, ignored", call.label);
 		return;
 	}
 	call.label = std::format("{}: {}", host.slots[static_cast<size_t>(host.dispatching)].id, call.label);
@@ -240,7 +240,7 @@ void ApplyQueue(const flecs::world& world) {
 				continue;
 			}
 			run.last_script_call = std::format("{} (refused: {})", call.label, refusal);
-			ecs::WorldLog(world).warn("[Campaign] {} refused: {}", call.label, refusal);
+			ecs::Log(world).warn("[Campaign] {} refused: {}", call.label, refusal);
 		}
 	}
 }
@@ -263,7 +263,7 @@ void FireRequested(const flecs::world& world) {
 	const std::string event = std::exchange(scripts.fire_event, {});
 	const int index = EventIndex(event);
 	if (index < 0) {
-		ecs::WorldLog(world).warn("[Campaign] fire_event '{}' is not a campaign event", event);
+		ecs::Log(world).warn("[Campaign] fire_event '{}' is not a campaign event", event);
 		return;
 	}
 	const std::string_view kinds = kEvents[static_cast<size_t>(index)].argKinds;
@@ -334,7 +334,7 @@ void RegisterApi(const flecs::world& world) {
 			const float delay = ctx.GetArgFloat(0);
 			const std::string name = ctx.GetArgString(1);
 			if (host.dispatching < 0 || delay <= 0.0F || static_cast<int>(host.timers.size()) >= constants::kMaxScriptTimers) {
-				ecs::WorldLog(w).warn("[Campaign] After({}, \"{}\") refused: outside a handler, a non-positive delay or too many timers", delay, name);
+				ecs::Log(w).warn("[Campaign] After({}, \"{}\") refused: outside a handler, a non-positive delay or too many timers", delay, name);
 				return;
 			}
 			host.timers.push_back({.left = delay, .name = name, .slot = host.dispatching});
@@ -434,7 +434,7 @@ void EndActScripts(const flecs::world& world) {
 void FireCampaignEvent(const flecs::world& world, const std::string_view event, const std::span<const scripting::ScriptArg> args) {
 	const int index = EventIndex(event);
 	if (index < 0) {
-		ecs::WorldLog(world).warn("[Campaign] '{}' is not a campaign event", event);
+		ecs::Log(world).warn("[Campaign] '{}' is not a campaign event", event);
 		return;
 	}
 	auto& host = world.get_mut<CampaignScriptHost>();

@@ -137,7 +137,7 @@ TimerModule::TimerModule(const flecs::world& world) {
 					  })
 					  .add<ecs::Pausable>();
 
-	spdlog::info("[TimerModule] Registered timer, cooldown and tween systems with Flecs");
+	ecs::Log(world).info("[TimerModule] Registered timer, cooldown and tween systems with Flecs");
 }
 
 } // namespace engine::timer

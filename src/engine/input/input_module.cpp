@@ -95,10 +95,11 @@ InputModule::InputModule(const flecs::world& world) {
 	world.set<KeyOverride>({});
 	world.observer<const KeyOverride>("KeyOverrideNameCheck")
 		.event(flecs::OnSet)
-		.each([](const KeyOverride& keyOverride) {
+		.each([](const flecs::iter& it, size_t, const KeyOverride& keyOverride) {
 			for (const auto name : OverrideKeyNames(keyOverride)) {
 				if (!KeyCodeFromName(name)) {
-					spdlog::warn("[InputModule] KeyOverride names unknown key '{}' (use a KeyCode name)", name);
+					ecs::Log(it.world())
+						.warn("[InputModule] KeyOverride names unknown key '{}' (use a KeyCode name)", name);
 				}
 			}
 		});
@@ -255,7 +256,7 @@ InputModule::InputModule(const flecs::world& world) {
 		raw.scroll = {};
 	});
 
-	spdlog::info("[InputModule] Registered input systems with Flecs");
+	ecs::Log(world).info("[InputModule] Registered input systems with Flecs");
 }
 
 } // namespace engine::input

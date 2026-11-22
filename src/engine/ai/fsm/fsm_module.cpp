@@ -114,7 +114,7 @@ FSMModule::FSMModule(const flecs::world& world) {
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
 
-	spdlog::info("[FSMModule] Registered FSM update system");
+	ecs::Log(world).info("[FSMModule] Registered FSM update system");
 }
 
 } // namespace engine::ai

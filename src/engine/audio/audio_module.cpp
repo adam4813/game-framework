@@ -3,10 +3,10 @@
 #include <string>
 
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
 #include "audio_components.hpp"
 #include "engine/assets/assets_module.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/scripting/scripting.hpp"
@@ -82,7 +82,7 @@ AudioModule::AudioModule(const flecs::world& world) {
 		}
 	);
 
-	spdlog::info("[AudioModule] Registered audio registry, components, resolve observers, and script globals");
+	ecs::Log(world).info("[AudioModule] Registered audio registry, components, resolve observers, and script globals");
 }
 
 } // namespace engine::audio

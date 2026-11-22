@@ -1,8 +1,6 @@
 #include "angelscript_backend.hpp"
 #include "angelscript_helpers.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <string>
 #include <cstring>
 
@@ -48,7 +46,7 @@ void RegisterReflectedMembers(
 		if (!member_name || *member_name == '\0') return;
 		const char* member_type_name = ResolveMemberTypeName(engine, world, member->type);
 		if (!member_type_name) {
-			spdlog::warn("[AngelScript] Skipping unsupported member '{}.{}'", type_name, member_name);
+			ecs::Log(world).warn("[AngelScript] Skipping unsupported member '{}.{}'", type_name, member_name);
 			return;
 		}
 		engine->RegisterObjectProperty(
@@ -147,7 +145,7 @@ void AngelScriptBackend::RegisterComponentType(const flecs::entity component_ent
 
 	const asITypeInfo* entity_type = engine_->GetTypeInfoByName("Entity");
 	if (!entity_type) {
-		spdlog::error("[AngelScript] Entity type not registered before component '{}'", component_name);
+		EngineLog(engine_).error("[AngelScript] Entity type not registered before component '{}'", component_name);
 		return;
 	}
 
@@ -227,21 +225,29 @@ void AngelScriptBackend::RegisterComponentMethod(
 
 	const char* type_name = component_entity.name();
 	if (!type_name || *type_name == '\0') {
-		spdlog::warn("[AngelScript] Cannot register method on unnamed component {}", component_entity.id());
+		EngineLog(engine_).warn("[AngelScript] Cannot register method on unnamed component {}", component_entity.id());
 		return;
 	}
 
 	if (engine_->GetTypeIdByDecl(type_name) < 0) {
 		RegisterValueTypeFromMeta(component_entity);
 		if (engine_->GetTypeIdByDecl(type_name) < 0) {
-			spdlog::warn("[AngelScript] Cannot register method '{}' on unregistered type '{}'", sig.name, type_name);
+			EngineLog(engine_).warn(
+				"[AngelScript] Cannot register method '{}' on unregistered type '{}'",
+				sig.name,
+				type_name
+			);
 			return;
 		}
 	}
 
 	const std::string declaration = BuildMethodDeclaration(component_entity.world(), sig);
 	if (declaration.empty()) {
-		spdlog::warn("[AngelScript] Skipping method '{}::{}' — unresolved parameter/return type", type_name, sig.name);
+		EngineLog(engine_).warn(
+			"[AngelScript] Skipping method '{}::{}' — unresolved parameter/return type",
+			type_name,
+			sig.name
+		);
 		return;
 	}
 	if (engine_->RegisterObjectMethod(
@@ -252,7 +258,7 @@ void AngelScriptBackend::RegisterComponentMethod(
 			reinterpret_cast<void*>(thunk)
 		)
 		< 0) {
-		spdlog::error("[AngelScript] Failed to register method '{}' on '{}'", sig.name, type_name);
+		EngineLog(engine_).error("[AngelScript] Failed to register method '{}' on '{}'", sig.name, type_name);
 	}
 }
 
@@ -261,7 +267,7 @@ void AngelScriptBackend::RegisterValueTypeFromMeta(const flecs::entity type_enti
 
 	const char* type_name = type_entity.name();
 	if (!type_name || *type_name == '\0') {
-		spdlog::warn("[AngelScript] Skipping unnamed reflected type {}", type_entity.id());
+		EngineLog(engine_).warn("[AngelScript] Skipping unnamed reflected type {}", type_entity.id());
 		return;
 	}
 	if (engine_->GetTypeIdByDecl(type_name) >= 0) return; // already registered
@@ -269,14 +275,17 @@ void AngelScriptBackend::RegisterValueTypeFromMeta(const flecs::entity type_enti
 	const flecs::world world = type_entity.world();
 	const ecs_type_info_t* type_info = ecs_get_type_info(world, type_entity.id());
 	if (!type_info) {
-		spdlog::warn("[AngelScript] Reflected type '{}' has no type info", type_name);
+		ecs::Log(world).warn("[AngelScript] Reflected type '{}' has no type info", type_name);
 		return;
 	}
 
 	const ecs_type_hooks_t& hooks = type_info->hooks;
 	const bool trivially_copyable = !hooks.copy && !hooks.copy_ctor && !hooks.move && !hooks.move_ctor && !hooks.dtor;
 	if (!trivially_copyable) {
-		spdlog::warn("[AngelScript] Type '{}' is not trivially copyable and cannot be exposed to scripts", type_name);
+		ecs::Log(world).warn(
+			"[AngelScript] Type '{}' is not trivially copyable and cannot be exposed to scripts",
+			type_name
+		);
 		return;
 	}
 
@@ -291,12 +300,12 @@ void AngelScriptBackend::RegisterValueTypeFromMeta(const flecs::entity type_enti
 			const_cast<ecs_type_info_t*>(type_info)
 		)
 		< 0) {
-		spdlog::error("[AngelScript] Failed to register default constructor for '{}'", type_name);
+		ecs::Log(world).error("[AngelScript] Failed to register default constructor for '{}'", type_name);
 	}
 
 	RegisterReflectedMembers(engine_, world, type_name, type_entity);
 
-	spdlog::debug("[AngelScript] Registered reflected type '{}' ({} bytes)", type_name, type_info->size);
+	ecs::Log(world).debug("[AngelScript] Registered reflected type '{}' ({} bytes)", type_name, type_info->size);
 }
 
 void AngelScriptBackend::RegisterObjectConstructor(
@@ -309,7 +318,10 @@ void AngelScriptBackend::RegisterObjectConstructor(
 
 	const char* type_name = type_entity.name();
 	if (!type_name || engine_->GetTypeIdByDecl(type_name) < 0) {
-		spdlog::warn("[AngelScript] RegisterObjectConstructor: type '{}' not registered", type_name ? type_name : "?");
+		EngineLog(engine_).warn(
+			"[AngelScript] RegisterObjectConstructor: type '{}' not registered",
+			type_name ? type_name : "?"
+		);
 		return;
 	}
 
@@ -323,7 +335,7 @@ void AngelScriptBackend::RegisterObjectConstructor(
 			reinterpret_cast<void*>(ctor_thunk)
 		)
 		< 0) {
-		spdlog::error("[AngelScript] Failed to register constructor '{}::{}'", type_name, ctor_sig);
+		EngineLog(engine_).error("[AngelScript] Failed to register constructor '{}::{}'", type_name, ctor_sig);
 	}
 
 	if (dtor_thunk) {
@@ -336,13 +348,13 @@ void AngelScriptBackend::RegisterObjectConstructor(
 				reinterpret_cast<void*>(dtor_thunk)
 			)
 			< 0) {
-			spdlog::error("[AngelScript] Failed to register destructor for '{}'", type_name);
+			EngineLog(engine_).error("[AngelScript] Failed to register destructor for '{}'", type_name);
 		}
 	}
 	else {
 		const int type_id = engine_->GetTypeIdByDecl(type_name);
 		if (const asITypeInfo* ti = engine_->GetTypeInfoById(type_id); ti && !(ti->GetFlags() & asOBJ_POD)) {
-			spdlog::warn(
+			EngineLog(engine_).warn(
 				"[AngelScript] '{}' is non-POD but no dtor thunk provided — resource leak possible",
 				type_name
 			);
@@ -366,11 +378,16 @@ void AngelScriptBackend::RegisterGlobalConstants(const std::vector<ScriptConstan
 				}
 			}
 			if (decl.empty()) {
-				spdlog::warn("[AngelScript] RegisterGlobalConstants: could not resolve Object type for '{}'", c.name);
+				EngineLog(engine_).warn(
+					"[AngelScript] RegisterGlobalConstants: could not resolve Object type for '{}'",
+					c.name
+				);
 				continue;
 			}
 			break;
-		default: spdlog::warn("[AngelScript] RegisterGlobalConstants: unsupported kind for '{}'", c.name); continue;
+		default:
+			EngineLog(engine_).warn("[AngelScript] RegisterGlobalConstants: unsupported kind for '{}'", c.name);
+			continue;
 		}
 		constants_preamble_ += decl + "\n";
 	}

@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include <spdlog/spdlog.h>
+#include "engine/ecs/ecs.hpp"
 
 #include "../noise_registry.hpp"
 #include "perlin_strategy.hpp"
@@ -20,7 +20,7 @@ BuiltinNoiseModule::BuiltinNoiseModule(const flecs::world& world) {
 	registry.Register("worley_f1", [] { return std::make_unique<WorkleyGenerator>(WorkleyMode::F1); });
 	registry.Register("worley_f2", [] { return std::make_unique<WorkleyGenerator>(WorkleyMode::F2); });
 	registry.Register("worley_f2_f1", [] { return std::make_unique<WorkleyGenerator>(WorkleyMode::F2MinusF1); });
-	spdlog::info("[BuiltinNoiseModule] Registered generators: perlin, simplex, value, worley_f1/f2/f2_f1");
+	ecs::Log(world).info("[BuiltinNoiseModule] Registered generators: perlin, simplex, value, worley_f1/f2/f2_f1");
 }
 
 } // namespace engine::noise::builtin

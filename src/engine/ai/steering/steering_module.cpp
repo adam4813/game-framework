@@ -257,7 +257,7 @@ SteeringModule::SteeringModule(const flecs::world& world) {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 
-	spdlog::info("[SteeringModule] Registered steering system");
+	ecs::Log(world).info("[SteeringModule] Registered steering system");
 }
 
 } // namespace engine::ai

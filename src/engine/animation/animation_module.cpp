@@ -62,7 +62,7 @@ AnimationModule::AnimationModule(const flecs::world& world) {
 			const auto name = std::string{it.entity(i).name().c_str()};
 			if (count <= 0) {
 				// Bind to an empty clip so the player stops looking unbound; nothing is drawn for it.
-				spdlog::warn("[Animation] '{}' has a SkeletalAnimationSet with no clips", name);
+				ecs::Log(it.world()).warn("[Animation] '{}' has a SkeletalAnimationSet with no clips", name);
 				player.clip_index = 0;
 				return;
 			}
@@ -73,12 +73,13 @@ AnimationModule::AnimationModule(const flecs::world& world) {
 					break;
 				}
 				if (c == count - 1) {
-					spdlog::warn(
-						"[Animation] '{}' has no clip '{}'; playing '{}'",
-						name,
-						player.clip,
-						platform.SkeletalClipName(set.handle, 0)
-					);
+					ecs::Log(it.world())
+						.warn(
+							"[Animation] '{}' has no clip '{}'; playing '{}'",
+							name,
+							player.clip,
+							platform.SkeletalClipName(set.handle, 0)
+						);
 				}
 			}
 			player.clip_index = index;
@@ -94,16 +95,17 @@ AnimationModule::AnimationModule(const flecs::world& world) {
 			if (AdvanceAnimation(player, it.delta_time())) return;
 			const auto entity = it.entity(i);
 			if (entity.has<UnboundAnimationWarned>()) return;
-			spdlog::warn(
-				"[Animation] '{}' has an AnimationPlayer no Animation Kind has bound; it will not play",
-				std::string{entity.name().c_str()}
-			);
+			ecs::Log(it.world())
+				.warn(
+					"[Animation] '{}' has an AnimationPlayer no Animation Kind has bound; it will not play",
+					std::string{entity.name().c_str()}
+				);
 			entity.add<UnboundAnimationWarned>();
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	spdlog::info("[AnimationModule] Registered animation systems with Flecs");
+	ecs::Log(world).info("[AnimationModule] Registered animation systems with Flecs");
 }
 
 } // namespace engine::animation

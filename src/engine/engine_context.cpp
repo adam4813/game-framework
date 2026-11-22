@@ -37,7 +37,7 @@ EngineContext::EngineContext(std::unique_ptr<platform::Platform> platform) :
 	world_.set<platform::PlatformRef>({platform_.get()});
 	world_.set<EngineContextRef>({this});
 	world_.set<ecs::RngState>({});
-	// Registered up front because WorldLog looks it up from systems, even on a world never given a logger.
+	// Registered up front because Log looks it up from systems, even on a world never given a logger.
 	world_.component<ecs::WorldLogger>();
 	// Registered before any module tags a system with them (InputPoll, the physics step).
 	world_.component<ecs::FixedStep>();

@@ -510,29 +510,29 @@ PathfindingModule::PathfindingModule(const flecs::world& world) {
 			.add<scene::GameScene>();
 
 	if (!debug_draw_sys.disable()) {
-		spdlog::warn("[PathfindingModule] Failed to disable PathDebugDrawSystem initially");
+		ecs::Log(world).warn("[PathfindingModule] Failed to disable PathDebugDrawSystem initially");
 	}
 
 	std::ignore = world.system<const input::InputState>("PathDebugToggle")
 					  .kind(flecs::OnUpdate)
 					  .term_at<input::InputState>()
 					  .src<input::InputState>()
-					  .each([debug_draw_sys](const flecs::iter&, size_t, const input::InputState& input) {
+					  .each([debug_draw_sys](const flecs::iter& it, size_t, const input::InputState& input) {
 						  if (!input.keys[input::kDebugRenderKey].pressed) return;
 						  if (debug_draw_sys.enabled()) {
 							  if (!debug_draw_sys.disable()) {
-								  spdlog::warn("[PathDebugToggle] Failed to disable");
+								  ecs::Log(it.world()).warn("[PathDebugToggle] Failed to disable");
 							  }
 						  }
 						  else {
 							  if (!debug_draw_sys.enable()) {
-								  spdlog::warn("[PathDebugToggle] Failed to enable");
+								  ecs::Log(it.world()).warn("[PathDebugToggle] Failed to enable");
 							  }
 						  }
 					  })
 					  .add<scene::GameScene>();
 
-	spdlog::info("[PathfindingModule] Registered pathfinding systems with Flecs");
+	ecs::Log(world).info("[PathfindingModule] Registered pathfinding systems with Flecs");
 
 	// Reset per-frame cache counters at the start of every frame, before PathRequestSystem runs.
 	std::ignore = world.system("PathCacheStatsReset")

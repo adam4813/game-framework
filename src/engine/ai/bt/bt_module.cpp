@@ -119,7 +119,7 @@ BTStatus TickBTNode(
 			result = it->second(e, bb, dt);
 		}
 		else {
-			spdlog::warn("[BT] Action handler not found: '{}'", handler_key);
+			ecs::Log(e.world()).warn("[BT] Action handler not found: '{}'", handler_key);
 		}
 		break;
 	}
@@ -129,7 +129,7 @@ BTStatus TickBTNode(
 			result = it->second(e, bb) ? BTStatus::Success : BTStatus::Failure;
 		}
 		else {
-			spdlog::warn("[BT] Condition handler not found: '{}'", handler_key);
+			ecs::Log(e.world()).warn("[BT] Condition handler not found: '{}'", handler_key);
 		}
 		break;
 	}
@@ -205,7 +205,7 @@ BTModule::BTModule(flecs::world& world) {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 
-	spdlog::info("[BTModule] Registered Behavior Tree systems");
+	ecs::Log(world).info("[BTModule] Registered Behavior Tree systems");
 }
 
 } // namespace engine::ai

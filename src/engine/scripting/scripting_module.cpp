@@ -27,14 +27,14 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 	{
 		IScriptBackend* backend = GetBackend(world);
 		if (!backend) {
-			spdlog::error(
+			ecs::Log(world).error(
 				"[ScriptingModule] No ScriptBackendSingleton found. Use ScriptingModule::Import<TBackend>()."
 			);
 			return;
 		}
 
 		if (!backend->Init(world)) {
-			spdlog::error("[ScriptingModule] Backend Init() failed");
+			ecs::Log(world).error("[ScriptingModule] Backend Init() failed");
 			return;
 		}
 	}
@@ -59,7 +59,7 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 				if (!sc.instance) {
 					sc.error = ScriptError::CompileFailed;
 					sc.error_message = "Failed to compile script from file '" + sc.source_path + "'";
-					spdlog::error("[ScriptingModule] {}", sc.error_message);
+					ecs::Log(w).error("[ScriptingModule] {}", sc.error_message);
 				}
 			}
 			else if (!sc.inline_source.empty()) {
@@ -69,11 +69,11 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 					sc.error = ScriptError::CompileFailed;
 					sc.error_message =
 						"Failed to compile inline script on entity '" + std::string(e.name() ? e.name() : "") + "'";
-					spdlog::error("[ScriptingModule] {}", sc.error_message);
+					ecs::Log(w).error("[ScriptingModule] {}", sc.error_message);
 				}
 			}
 			else {
-				spdlog::warn(
+				ecs::Log(w).warn(
 					"[ScriptingModule] ScriptComponent set on '{}' with no source_path or inline_source",
 					e.name() ? e.name() : "(unnamed)"
 				);
@@ -107,7 +107,7 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 	// RegisterObservers(world);
 	RegisterSystems(world);
 
-	spdlog::info("[ScriptingModule] Initialized");
+	ecs::Log(world).info("[ScriptingModule] Initialized");
 }
 
 void ScriptingModule::RegisterSystems(const flecs::world& world) {

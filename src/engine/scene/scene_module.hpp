@@ -4,8 +4,8 @@
 #include <vector>
 
 #include <flecs.h>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/world_logger.hpp"
 #include "scene_components.hpp"
 
 namespace engine::scene {
@@ -62,7 +62,7 @@ template<typename SceneTag>
 void ActivateScene(const flecs::world& world) {
 	const flecs::entity target = FindScene<SceneTag>(world);
 	if (!target) {
-		spdlog::error("[SceneManagement] ActivateScene: no scene registered for tag");
+		ecs::Log(world).error("[SceneManagement] ActivateScene: no scene registered for tag");
 		return;
 	}
 	if (target.has<Active>()) {
@@ -93,7 +93,7 @@ void ReloadScene(const flecs::world& world) {
 	if (!target || !target.has<Active>()) {
 		return; // not active — nothing to reload
 	}
-	spdlog::info("[SceneManagement] ReloadScene: reloading scene");
+	ecs::Log(world).info("[SceneManagement] ReloadScene: reloading scene");
 	// Remove then re-add Active in order. When called from inside a system the two commands are
 	// deferred and applied at the next merge: the OnRemove observer fires first (Unload), then the
 	// OnAdd observer fires (Load), giving a clean tear-down + rebuild of all scene entities.

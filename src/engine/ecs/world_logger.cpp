@@ -14,7 +14,7 @@ void SetWorldLogger(flecs::world& world, const std::string& name) {
 	world.set<WorldLogger>({std::move(logger)});
 }
 
-spdlog::logger& WorldLog(const flecs::world& world) {
+spdlog::logger& Log(const flecs::world& world) {
 	if (const auto* own = world.try_get<WorldLogger>(); own != nullptr && own->logger) {
 		return *own->logger;
 	}

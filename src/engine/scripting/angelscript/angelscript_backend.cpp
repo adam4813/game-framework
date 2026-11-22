@@ -105,7 +105,7 @@ public:
 		asITypeInfo* array_type =
 			element_name ? engine->GetTypeInfoByDecl(("array<" + std::string{element_name} + ">").c_str()) : nullptr;
 		if (!array_type || !type_info) {
-			auto& log = world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+			auto& log = world ? ecs::Log(*world) : *spdlog::default_logger();
 			log.error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
 			return;
 		}
@@ -205,12 +205,19 @@ public:
 				ctx->SetArgObject(idx, const_cast<void*>(args[i]));
 				break;
 			default:
-				spdlog::warn("[AngelScript] Unsupported callback arg kind {}", static_cast<int>(params_[i].type.kind));
+				EngineLog(engine_).warn(
+					"[AngelScript] Unsupported callback arg kind {}",
+					static_cast<int>(params_[i].type.kind)
+				);
 				break;
 			}
 		}
 		if (ctx->Execute() == asEXECUTION_EXCEPTION) {
-			spdlog::error("[AngelScript] Exception in callback '{}': {}", fn_->GetName(), ctx->GetExceptionString());
+			EngineLog(engine_).error(
+				"[AngelScript] Exception in callback '{}': {}",
+				fn_->GetName(),
+				ctx->GetExceptionString()
+			);
 		}
 		ctx->Unprepare();
 		ctx->Release();
@@ -234,7 +241,7 @@ AngelScriptBackend::~AngelScriptBackend() { Shutdown(); }
 bool AngelScriptBackend::Init(flecs::world& world) {
 	engine_ = asCreateScriptEngine();
 	if (!engine_) {
-		spdlog::error("[AngelScript] asCreateScriptEngine() failed");
+		ecs::Log(world).error("[AngelScript] asCreateScriptEngine() failed");
 		return false;
 	}
 
@@ -258,7 +265,7 @@ bool AngelScriptBackend::Init(flecs::world& world) {
 			return s->value(flecs::Entity, &id);
 		});
 
-	spdlog::info("[AngelScript] Engine initialized");
+	ecs::Log(world).info("[AngelScript] Engine initialized");
 	return true;
 }
 
@@ -294,7 +301,7 @@ void AngelScriptBackend::Shutdown() {
 IScriptInstance* AngelScriptBackend::CreateInstanceFromFile(std::string_view path, const flecs::entity entity) {
 	const std::ifstream file{std::string{path}};
 	if (!file.is_open()) {
-		spdlog::error("[AngelScript] Cannot open script file '{}'", path);
+		EngineLog(engine_).error("[AngelScript] Cannot open script file '{}'", path);
 		return nullptr;
 	}
 
@@ -459,11 +466,13 @@ void AngelScriptBackend::ComponentGetRefGeneric(asIScriptGeneric* gen) {
 	}
 
 	if (ptr == nullptr) {
-		spdlog::warn(
-			"[AngelScript] GetT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
-			host.name().c_str(),
-			component_id
-		);
+		ecs::Log(host.world())
+			.warn(
+				"[AngelScript] GetT: entity '{}' does not have component id {}; returning null handle — call AddT() "
+				"first",
+				host.name().c_str(),
+				component_id
+			);
 	}
 	gen->SetReturnAddress(ptr);
 }
@@ -498,11 +507,13 @@ void AngelScriptBackend::ComponentGetMutRefGeneric(asIScriptGeneric* gen) {
 	}
 
 	if (ptr == nullptr) {
-		spdlog::warn(
-			"[AngelScript] MutT: entity '{}' does not have component id {}; returning null handle — call AddT() first",
-			host.name().c_str(),
-			component_id
-		);
+		ecs::Log(host.world())
+			.warn(
+				"[AngelScript] MutT: entity '{}' does not have component id {}; returning null handle — call AddT() "
+				"first",
+				host.name().c_str(),
+				component_id
+			);
 	}
 	else {
 		host.modified(component_id);
@@ -539,11 +550,12 @@ void AngelScriptBackend::ComponentGetConstRefGeneric(asIScriptGeneric* gen) {
 	}
 
 	if (ptr == nullptr) {
-		spdlog::warn(
-			"[AngelScript] GetT (const): entity '{}' does not have component id {}; returning null handle",
-			host.name().c_str(),
-			component_id
-		);
+		ecs::Log(host.world())
+			.warn(
+				"[AngelScript] GetT (const): entity '{}' does not have component id {}; returning null handle",
+				host.name().c_str(),
+				component_id
+			);
 	}
 	gen->SetReturnAddress(const_cast<void*>(ptr));
 }
@@ -580,7 +592,8 @@ void AngelScriptBackend::ComponentSetGeneric(asIScriptGeneric* gen) {
 
 	const auto* component_info = GetComponentInfo(host.world(), component_id);
 	if (!component_info) {
-		spdlog::warn("[AngelScript] ComponentSetGeneric: component_id {} has no type info", component_id);
+		ecs::Log(host.world())
+			.warn("[AngelScript] ComponentSetGeneric: component_id {} has no type info", component_id);
 		return;
 	}
 
@@ -658,7 +671,10 @@ void AngelScriptBackend::RegisterGlobalFunction(const ScriptMethodSignature& sig
 
 	const std::string declaration = BuildMethodDeclaration(*world_, sig);
 	if (declaration.empty()) {
-		spdlog::warn("[AngelScript] Skipping global function '{}' — unresolved parameter/return type", sig.name);
+		ecs::Log(*world_).warn(
+			"[AngelScript] Skipping global function '{}' — unresolved parameter/return type",
+			sig.name
+		);
 		return;
 	}
 
@@ -677,7 +693,7 @@ void AngelScriptBackend::RegisterGlobalFunction(const ScriptMethodSignature& sig
 			thunk_ptr.get()
 		)
 		< 0) {
-		spdlog::error("[AngelScript] Failed to register global function '{}'", sig.name);
+		ecs::Log(*world_).error("[AngelScript] Failed to register global function '{}'", sig.name);
 		return;
 	}
 	global_thunks_[declaration] = std::move(thunk_ptr);
@@ -716,7 +732,7 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 
 	const std::string& fdname = desc.callback.funcdef_name;
 	if (fdname.empty()) {
-		spdlog::warn("[AngelScript] Callback function '{}' has no funcdef name", desc.name);
+		ecs::Log(*world_).warn("[AngelScript] Callback function '{}' has no funcdef name", desc.name);
 		return;
 	}
 
@@ -728,11 +744,11 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 	if (!registered_funcdefs_.contains(fdname)) {
 		const std::string fdecl = BuildFuncdefDeclaration(*world_, fdname, desc.callback.params);
 		if (fdecl.empty()) {
-			spdlog::error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
+			ecs::Log(*world_).error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
 			return;
 		}
 		if (engine_->RegisterFuncdef(fdecl.c_str()) < 0) {
-			spdlog::error("[AngelScript] Failed to register funcdef '{}'", fdecl);
+			ecs::Log(*world_).error("[AngelScript] Failed to register funcdef '{}'", fdecl);
 			return;
 		}
 		registered_funcdefs_.insert(fdname);
@@ -743,7 +759,10 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 	for (size_t i = 0; i < desc.fixed_params.size(); ++i) {
 		const std::string frag = format_param(desc.fixed_params[i]);
 		if (frag.empty()) {
-			spdlog::warn("[AngelScript] Skipping callback function '{}' — unresolved parameter type", desc.name);
+			ecs::Log(*world_).warn(
+				"[AngelScript] Skipping callback function '{}' — unresolved parameter type",
+				desc.name
+			);
 			return;
 		}
 		decl += (i == 0 ? "" : ", ") + frag;
@@ -772,7 +791,7 @@ void AngelScriptBackend::RegisterCallbackFunction(const ScriptCallbackFunctionDe
 			binding.get()
 		)
 		< 0) {
-		spdlog::error("[AngelScript] Failed to register callback function '{}'", desc.name);
+		ecs::Log(*world_).error("[AngelScript] Failed to register callback function '{}'", desc.name);
 		return;
 	}
 	callback_bindings_[decl] = std::move(binding);
@@ -850,7 +869,7 @@ void AngelScriptBackend::RegisterCallbackViewType(
 	if (!is_re_registration) {
 		for (const auto& [decl, offset] : fields) {
 			if (engine_->RegisterObjectProperty(type_name, decl.c_str(), offset) < 0) {
-				spdlog::error("[AngelScript] Failed to register property '{}' on '{}'", decl, type_name);
+				ecs::Log(*world_).error("[AngelScript] Failed to register property '{}' on '{}'", decl, type_name);
 			}
 		}
 	}
@@ -864,11 +883,11 @@ void AngelScriptBackend::RegisterCallbackViewType(
 		if (!registered_funcdefs_.contains(fdname)) {
 			const std::string fdecl = BuildFuncdefDeclaration(*world_, fdname, prop.params);
 			if (fdecl.empty()) {
-				spdlog::error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
+				ecs::Log(*world_).error("[AngelScript] Unresolved callback param type for funcdef '{}'", fdname);
 				return;
 			}
 			if (engine_->RegisterFuncdef(fdecl.c_str()) < 0) {
-				spdlog::error("[AngelScript] Failed to register funcdef '{}'", fdecl);
+				ecs::Log(*world_).error("[AngelScript] Failed to register funcdef '{}'", fdecl);
 				return;
 			}
 			registered_funcdefs_.insert(fdname);
@@ -902,7 +921,11 @@ void AngelScriptBackend::RegisterCallbackViewType(
 				state.get()
 			)
 			< 0) {
-			spdlog::error("[AngelScript] Failed to register callback setter '{}' on '{}'", prop.name, type_name);
+			ecs::Log(*world_).error(
+				"[AngelScript] Failed to register callback setter '{}' on '{}'",
+				prop.name,
+				type_name
+			);
 			return;
 		}
 
@@ -913,7 +936,11 @@ void AngelScriptBackend::RegisterCallbackViewType(
 			for (size_t i = 0; i < prop.params.size(); ++i) {
 				const std::string frag = FormatParam(*world_, prop.params[i]);
 				if (frag.empty()) {
-					spdlog::error("[AngelScript] Unresolved invoke param type for '{}.{}'", type_name, prop.name);
+					ecs::Log(*world_).error(
+						"[AngelScript] Unresolved invoke param type for '{}.{}'",
+						type_name,
+						prop.name
+					);
 					return;
 				}
 				invoke_decl += (i == 0 ? "" : ", ") + frag;
@@ -927,7 +954,11 @@ void AngelScriptBackend::RegisterCallbackViewType(
 					state.get()
 				)
 				< 0) {
-				spdlog::error("[AngelScript] Failed to register callback invoker '{}' on '{}'", prop.name, type_name);
+				ecs::Log(*world_).error(
+					"[AngelScript] Failed to register callback invoker '{}' on '{}'",
+					prop.name,
+					type_name
+				);
 				return;
 			}
 		}
@@ -953,7 +984,7 @@ asIScriptModule* AngelScriptBackend::CompileSource(std::string_view module_name,
 
 	module->AddScriptSection(std::string{module_name}.c_str(), source.data(), source.size());
 	if (const int result = module->Build(); result < 0) {
-		spdlog::error("[AngelScript] Compile failed for module '{}' (error {})", module_name, result);
+		EngineLog(engine_).error("[AngelScript] Compile failed for module '{}' (error {})", module_name, result);
 		engine_->DiscardModule(unique_name.c_str());
 		return nullptr;
 	}
@@ -1030,11 +1061,11 @@ AngelScriptInstance::CallFunction(const std::string_view declaration, const std:
 	if (!fn) {
 		return ScriptCallResult::NotDefined;
 	}
-	const auto fail = [error, &declaration](const std::string& message) {
+	const auto fail = [this, error, &declaration](const std::string& message) {
 		if (error) {
 			*error = message;
 		}
-		spdlog::error("[AngelScript] '{}': {}", declaration, message);
+		EngineLog(engine_).error("[AngelScript] '{}': {}", declaration, message);
 		return ScriptCallResult::Failed;
 	};
 	if (const int prep = ctx_->Prepare(fn); prep < 0) {
@@ -1072,7 +1103,7 @@ void AngelScriptInstance::Call(asIScriptFunction* fn, flecs::entity /*entity*/, 
 	}
 
 	if (const int prep = ctx_->Prepare(fn); prep < 0) {
-		spdlog::error("[AngelScript] Prepare failed for '{}' (error {})", fn->GetName(), prep);
+		EngineLog(engine_).error("[AngelScript] Prepare failed for '{}' (error {})", fn->GetName(), prep);
 		return;
 	}
 
@@ -1089,10 +1120,10 @@ void AngelScriptInstance::Call(asIScriptFunction* fn, flecs::entity /*entity*/, 
 	t_current_instance = nullptr;
 
 	if (result == asEXECUTION_EXCEPTION) {
-		spdlog::error("[AngelScript] Exception in '{}': {}", fn->GetName(), ctx_->GetExceptionString());
+		EngineLog(engine_).error("[AngelScript] Exception in '{}': {}", fn->GetName(), ctx_->GetExceptionString());
 	}
 	else if (result < 0) {
-		spdlog::error("[AngelScript] Execute failed for '{}' (error {})", fn->GetName(), result);
+		EngineLog(engine_).error("[AngelScript] Execute failed for '{}' (error {})", fn->GetName(), result);
 	}
 	// Unprepare after each call so the context doesn't retain a reference to fn via
 	// m_initialFunction between ticks, avoiding shutdown warnings.

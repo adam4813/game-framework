@@ -1,9 +1,8 @@
 #include "save_module.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <flecs.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "save_registry.hpp"
 
 namespace engine::save {
@@ -13,7 +12,7 @@ SaveModule::SaveModule(const flecs::world& world) {
 	// plain owned singleton the game mutates during setup.
 	world.set<SaveRegistry>({});
 
-	spdlog::info("[SaveModule] Registered save registry");
+	ecs::Log(world).info("[SaveModule] Registered save registry");
 }
 
 } // namespace engine::save

@@ -3,15 +3,24 @@
 // Internal helpers shared by angelscript_backend.cpp and angelscript_type_registration.cpp.
 // Not part of the public scripting API.
 
+#include "engine/ecs/world_logger.hpp"
 #include "engine/scripting/script_method.hpp"
 
 #include <angelscript.h>
 #include <flecs.h>
+#include <spdlog/spdlog.h>
 
 #include <string>
 #include <vector>
 
 namespace engine::scripting::angelscript {
+
+// The logger for code that holds the script engine but no world: the world Init() stored in the engine's user data
+// slot 1, or spdlog's default logger when there is none.
+inline spdlog::logger& EngineLog(const asIScriptEngine* engine) {
+	const auto* world = engine ? static_cast<const flecs::world*>(engine->GetUserData(1)) : nullptr;
+	return world ? ecs::Log(*world) : *spdlog::default_logger();
+}
 
 // Resolve the AngelScript type name for a value slot.
 // Returns an empty string when the object type has no registered name.

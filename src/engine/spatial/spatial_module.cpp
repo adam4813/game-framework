@@ -3,9 +3,9 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <spdlog/spdlog.h>
 
 #include "engine/core/core.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
 #include "engine/physics/physics.hpp"
 #include "engine/scene/scene_components.hpp"
@@ -140,7 +140,7 @@ SpatialModule::SpatialModule(const flecs::world& world) {
 						  e.set<WorldTransform>(world_transform);
 					  });
 
-	spdlog::info("[SpatialModule] Registered spatial and transform systems with Flecs");
+	ecs::Log(world).info("[SpatialModule] Registered spatial and transform systems with Flecs");
 }
 
 } // namespace engine::spatial

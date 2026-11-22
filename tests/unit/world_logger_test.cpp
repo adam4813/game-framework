@@ -13,7 +13,7 @@
 #include "engine/engine_context.hpp"
 
 using engine::ecs::SetWorldLogger;
-using engine::ecs::WorldLog;
+using engine::ecs::Log;
 
 namespace {
 
@@ -49,7 +49,7 @@ TEST(WorldLogger, AWorldsLoggerLabelsItsLinesWithItsName) {
 	flecs::world world;
 	SetWorldLogger(world, "server");
 
-	WorldLog(world).info("tick");
+	Log(world).info("tick");
 
 	EXPECT_EQ(log.Output(), "[server] tick\n");
 }
@@ -61,10 +61,10 @@ TEST(WorldLogger, TwoWorldsWriteInterleavedToTheDefaultSinks) {
 	SetWorldLogger(client, "client");
 	SetWorldLogger(server, "server");
 
-	WorldLog(client).info("one");
-	WorldLog(server).info("two");
+	Log(client).info("one");
+	Log(server).info("two");
 	spdlog::info("three");
-	WorldLog(client).info("four");
+	Log(client).info("four");
 
 	EXPECT_EQ(log.Output(), "[client] one\n[server] two\n[default] three\n[client] four\n");
 }
@@ -73,7 +73,7 @@ TEST(WorldLogger, AWorldWithoutALoggerFallsBackToTheDefaultLogger) {
 	const ScopedDefaultLogger log;
 	const flecs::world world;
 
-	WorldLog(world).info("hello");
+	Log(world).info("hello");
 
 	EXPECT_EQ(log.Output(), "[default] hello\n");
 }
@@ -84,8 +84,8 @@ TEST(WorldLogger, AWorldsLoggerLogsAtTheDefaultLoggersLevel) {
 	flecs::world world;
 	SetWorldLogger(world, "server");
 
-	WorldLog(world).info("hidden");
-	WorldLog(world).warn("shown");
+	Log(world).info("hidden");
+	Log(world).warn("shown");
 
 	EXPECT_EQ(log.Output(), "[server] shown\n");
 }
@@ -98,7 +98,7 @@ TEST(WorldLogger, ASystemOnAMultiThreadedEngineWorldWithoutALoggerFallsBackToThe
 	world.set_threads(2);
 	world.system("LogOnce").kind(flecs::OnUpdate).multi_threaded().run([](flecs::iter& it) {
 		while (it.next()) {}
-		WorldLog(it.world()).info("from a system");
+		Log(it.world()).info("from a system");
 	});
 	const ScopedDefaultLogger log;
 

@@ -59,7 +59,7 @@ void RunFrame(flecs::world& world, const float dt) {
 		auto& state = world.get_mut<FixedStepState>();
 		if (state.accumulator >= due) {
 			const double dropped = std::floor(state.accumulator / tick_dt + kTickSlack);
-			ecs::WorldLog(world).debug(
+			ecs::Log(world).debug(
 				"[FixedStep] Frame ran its cap of {} Ticks; dropping {} more ({:.3f}s)",
 				config.max_catch_up_ticks,
 				dropped,
