@@ -17,9 +17,6 @@ struct ScriptProbe {
 	std::string text;
 };
 
-// The script throws when `ticks` reaches this, so a disabled script stops there.
-constexpr int kThrowOnTick = 2;
-
 // A world with a "Host" entity carrying a ScriptProbe and one script child running `source`.
 struct ScriptWorld {
 	std::unique_ptr<engine::EngineContext> ctx =
@@ -58,7 +55,7 @@ struct ScriptWorld {
 	}
 };
 
-// Counts ticks on its host (self) and throws on tick kThrowOnTick; OnDestroy marks the probe.
+// Counts ticks on its host (self) and throws on the second; OnDestroy marks the probe.
 constexpr auto kThrowsInTick = R"(
 	void Tick(Entity self, float dt) {
 		ScriptProbe@ p = self.GetScriptProbe();
@@ -79,7 +76,7 @@ TEST(ScriptLifecycle, ScriptSelfIsTheHostEntity) {
 TEST(ScriptLifecycle, AScriptThatThrowsInTickIsDisabledAndNotCalledAgain) {
 	const ScriptWorld w(kThrowsInTick);
 	w.RunFrames(5);
-	EXPECT_EQ(w.Probe().ticks, kThrowOnTick);
+	EXPECT_EQ(w.Probe().ticks, 2); // the tick that threw was its last
 	EXPECT_EQ(w.Component().error, engine::scripting::ScriptError::RuntimeError);
 	EXPECT_NE(w.Component().error_message.find("Tick"), std::string::npos) << w.Component().error_message;
 }

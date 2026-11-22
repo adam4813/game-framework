@@ -23,8 +23,9 @@ the host's parent.
 `OnInit`, `PreTick` and `Tick` run immediately: a component a script adds or sets there exists at once. `PostTick` is
 the reactive phase and runs deferred, so what a script changes there applies at the next merge.
 
-A script that throws (a null handle dereferenced, an array index out of range) is logged with the line and disabled:
-its `ScriptComponent.error` becomes `RuntimeError` and no entry point, `OnDestroy` included, runs again.
+A script whose entry point throws (a null handle dereferenced, an array index out of range) is logged with the line and
+disabled: its `ScriptComponent.error` becomes `RuntimeError` and no entry point, `OnDestroy` included, runs again. A
+callback the script bound (a `SetOnClick` handler) that throws is only logged, and the callback stays bound.
 
 ## Component access API
 

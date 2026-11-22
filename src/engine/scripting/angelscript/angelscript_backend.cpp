@@ -13,6 +13,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <tuple>
 
 namespace engine::scripting::angelscript {
 
@@ -43,9 +45,40 @@ private:
 	AngelScriptInstance* previous_;
 };
 
-// asIScriptEngine user-data slots: 1 holds the flecs::world* (read by the generics throughout
-// this backend), 2 the AngelScriptBackend* for state the static generics keep.
+// asIScriptEngine user-data slots: the flecs::world* the generics act on, and the
+// AngelScriptBackend* for state the static generics keep.
+constexpr asPWORD kWorldUserDataSlot = 1;
 constexpr asPWORD kBackendUserDataSlot = 2;
+
+// The logger of the world `engine` serves (spdlog's default before Init sets the world).
+spdlog::logger& EngineLog(asIScriptEngine* engine) {
+	const auto* world = static_cast<flecs::world*>(engine->GetUserData(kWorldUserDataSlot));
+	return world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+}
+
+// Executes the prepared `ctx` as `owner`'s script (see CurrentInstanceScope) and logs an
+// exception, with its line, or a failure to run. `what` names the call in the log. Returns the
+// asIScriptContext::Execute result.
+int ExecuteAs(asIScriptContext* ctx, AngelScriptInstance* owner, const std::string_view what) {
+	int result = 0;
+	{
+		const CurrentInstanceScope scope{owner};
+		result = ctx->Execute();
+	}
+	if (result == asEXECUTION_EXCEPTION) {
+		EngineLog(ctx->GetEngine())
+			.error(
+				"[AngelScript] Exception in {} (line {}): {}",
+				what,
+				ctx->GetExceptionLineNumber(),
+				ctx->GetExceptionString()
+			);
+	}
+	else if (result < 0) {
+		EngineLog(ctx->GetEngine()).error("[AngelScript] Execute failed for {} (error {})", what, result);
+	}
+	return result;
+}
 
 void MessageCallback(const asSMessageInfo* msg, void* /*param*/) {
 	switch (msg->type) {
@@ -119,14 +152,13 @@ public:
 
 	void SetReturnArray(const flecs::entity_t element_type, const void* elements, const size_t count) override {
 		asIScriptEngine* engine = gen_->GetEngine();
-		const auto* world = static_cast<flecs::world*>(engine->GetUserData(1));
+		const auto* world = static_cast<flecs::world*>(engine->GetUserData(kWorldUserDataSlot));
 		const char* element_name = world ? world->entity(element_type).name().c_str() : nullptr;
 		const ecs_type_info_t* type_info = world ? ecs_get_type_info(*world, element_type) : nullptr;
 		asITypeInfo* array_type =
 			element_name ? engine->GetTypeInfoByDecl(("array<" + std::string{element_name} + ">").c_str()) : nullptr;
 		if (!array_type || !type_info) {
-			auto& log = world ? ecs::Log(*world) : *spdlog::default_logger();
-			log.error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
+			EngineLog(engine).error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
 			return;
 		}
 		CScriptArray* array = CScriptArray::Create(array_type, static_cast<asUINT>(count));
@@ -232,21 +264,10 @@ public:
 				break;
 			}
 		}
-		int result = 0;
-		{
-			// The callback runs as its own script: a handle it creates (e.g. a click handler that
-			// binds another handler) belongs to the owner's module, not to whatever called Invoke.
-			const CurrentInstanceScope scope{owner_};
-			result = ctx->Execute();
-		}
-		if (result == asEXECUTION_EXCEPTION) {
-			EngineLog(engine_).error(
-				"[AngelScript] Exception in callback '{}' (line {}): {}",
-				fn_->GetName(),
-				ctx->GetExceptionLineNumber(),
-				ctx->GetExceptionString()
-			);
-		}
+		// The callback runs as its own script: a handle it creates (e.g. a click handler that binds
+		// another handler) belongs to the owner's module, not to whatever called Invoke. A callback
+		// that throws is logged only; its script keeps running.
+		std::ignore = ExecuteAs(ctx, owner_, "callback '" + std::string{fn_->GetName()} + "'");
 		ctx->Unprepare();
 		ctx->Release();
 	}
@@ -275,7 +296,7 @@ bool AngelScriptBackend::Init(flecs::world& world) {
 
 	world_ = &world;
 	engine_->SetMessageCallback(asFUNCTION(MessageCallback), nullptr, asCALL_CDECL);
-	engine_->SetUserData(world_, 1);
+	engine_->SetUserData(world_, kWorldUserDataSlot);
 	engine_->SetUserData(this, kBackendUserDataSlot);
 	RegisterStdString(engine_);
 	// Default array: scripts can write `T[]` for `array<T>`. Query results (RaycastAll) come back as arrays.
@@ -590,7 +611,7 @@ void AngelScriptBackend::WarnMissingComponentOnce(
 	ecs::Log(host.world())
 		.warn(
 			"[AngelScript] {}{}(): entity '{}' has no {}; returning a null handle (call Add{}() first, or check "
-			"Has{}()). Warned once per entity.",
+			"Has{}()). Warned once per entity and component.",
 			accessor,
 			component_name,
 			host.name().c_str(),
@@ -659,7 +680,7 @@ void AngelScriptBackend::SingletonGetGeneric(asIScriptGeneric* gen) {
 		return;
 	}
 
-	const auto* world = static_cast<flecs::world*>(ctx->GetEngine()->GetUserData(1));
+	const auto* world = static_cast<flecs::world*>(ctx->GetEngine()->GetUserData(kWorldUserDataSlot));
 	if (world == nullptr) {
 		return;
 	}
@@ -695,7 +716,7 @@ void AngelScriptBackend::GlobalFunctionGeneric(asIScriptGeneric* gen) {
 	// its own callable without a secondary lookup. The world pointer is retrieved from the engine
 	// user data (slot 1) — the same channel used by IsKeyDownFn.
 	const auto* thunk = static_cast<GlobalFunctionThunk*>(gen->GetAuxiliary());
-	auto* world = static_cast<flecs::world*>(gen->GetEngine()->GetUserData(1));
+	auto* world = static_cast<flecs::world*>(gen->GetEngine()->GetUserData(kWorldUserDataSlot));
 	if (thunk == nullptr || world == nullptr) {
 		return;
 	}
@@ -742,7 +763,7 @@ void AngelScriptBackend::CallbackFunctionGeneric(asIScriptGeneric* gen) {
 	// The binding (sink + callback signature) is carried as the auxiliary; the world comes from
 	// engine user data (slot 1). The trailing argument is always the script function handle.
 	const auto* binding = static_cast<CallbackBinding*>(gen->GetAuxiliary());
-	auto* world = static_cast<flecs::world*>(gen->GetEngine()->GetUserData(1));
+	auto* world = static_cast<flecs::world*>(gen->GetEngine()->GetUserData(kWorldUserDataSlot));
 	if (binding == nullptr || !binding->sink || world == nullptr) {
 		return;
 	}
@@ -1146,6 +1167,13 @@ bool AngelScriptInstance::Call(asIScriptFunction* fn, const float dt, const bool
 	if (!ctx_) {
 		return false;
 	}
+	// Re-entry: this instance's script is already running and called C++ that calls one of its
+	// entry points again. Its one context can't run two calls, so the inner one is skipped; that
+	// isn't the script throwing, so it reports success.
+	if (ctx_->GetState() == asEXECUTION_ACTIVE) {
+		EngineLog(engine_).warn("[AngelScript] '{}' skipped: its script is already running", fn->GetName());
+		return true;
+	}
 
 	if (const int prep = ctx_->Prepare(fn); prep < 0) {
 		EngineLog(engine_).error("[AngelScript] Prepare failed for '{}' (error {})", fn->GetName(), prep);
@@ -1158,25 +1186,9 @@ bool AngelScriptInstance::Call(asIScriptFunction* fn, const float dt, const bool
 		ctx_->SetArgFloat(1, dt);
 	}
 
-	int result = 0;
-	{
-		// Publish this instance so that callback generics (SetOnClick etc.) can track any
-		// script function handles they create back to this module for cleanup on discard.
-		const CurrentInstanceScope scope{this};
-		result = ctx_->Execute();
-	}
-
-	if (result == asEXECUTION_EXCEPTION) {
-		EngineLog(engine_).error(
-			"[AngelScript] Exception in '{}' (line {}): {}",
-			fn->GetName(),
-			ctx_->GetExceptionLineNumber(),
-			ctx_->GetExceptionString()
-		);
-	}
-	else if (result < 0) {
-		EngineLog(engine_).error("[AngelScript] Execute failed for '{}' (error {})", fn->GetName(), result);
-	}
+	// Run as this instance so callback generics (SetOnClick etc.) can track any script function
+	// handles they create back to this module for cleanup on discard.
+	const int result = ExecuteAs(ctx_, this, "'" + std::string{fn->GetName()} + "'");
 	// Unprepare after each call so the context doesn't retain a reference to fn via
 	// m_initialFunction between ticks, avoiding shutdown warnings.
 	ctx_->Unprepare();

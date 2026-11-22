@@ -129,8 +129,9 @@ The three tick systems carry `ecs::Pausable`, so script logic halts while the ga
 `ScriptTickPhase::Pre/On/Post`. `OnInit`, `PreTick` and `Tick` run undeferred, so their changes apply at once;
 `PostTick` runs deferred, so its changes apply at the next merge.
 
-A script that throws is logged with the line and disabled: `ScriptComponent.error` becomes `RuntimeError` and none of
-its entry points, `OnDestroy` included, runs again.
+A script whose entry point throws is logged with the line and disabled: `ScriptComponent.error` becomes `RuntimeError`
+and none of its entry points, `OnDestroy` included, runs again. A callback the script bound (a `SetOnClick` handler) that
+throws is only logged, and the callback stays bound.
 
 ## Extending the API from C++
 
