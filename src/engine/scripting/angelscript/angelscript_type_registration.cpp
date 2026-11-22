@@ -1,8 +1,9 @@
 #include "angelscript_backend.hpp"
 #include "angelscript_helpers.hpp"
 
-#include <string>
 #include <cstring>
+#include <string>
+#include <string_view>
 
 namespace engine::scripting::angelscript {
 
@@ -69,6 +70,23 @@ void ReflectedValueConstruct(asIScriptGeneric* gen) {
 	else {
 		std::memset(self, 0, static_cast<size_t>(type_info->size));
 	}
+}
+
+// `text` as an AngelScript string literal: quoted, with the characters that would end it or
+// break the line escaped, so a constant's value can't inject source into the preamble.
+std::string QuoteStringLiteral(const std::string_view text) {
+	std::string literal = "\"";
+	for (const char c : text) {
+		switch (c) {
+		case '"': literal += "\\\""; break;
+		case '\\': literal += "\\\\"; break;
+		case '\n': literal += "\\n"; break;
+		case '\r': literal += "\\r"; break;
+		case '\t': literal += "\\t"; break;
+		default: literal += c; break;
+		}
+	}
+	return literal + "\"";
 }
 
 // Layout classification for generating AngelScript ABI hints (ALLINTS/ALLFLOATS/ALIGN8).
@@ -369,7 +387,9 @@ void AngelScriptBackend::RegisterGlobalConstants(const std::vector<ScriptConstan
 		case ScriptValueKind::Int: decl = "const int " + c.name + " = " + c.value_str + ";"; break;
 		case ScriptValueKind::Float: decl = "const float " + c.name + " = " + c.value_str + "f;"; break;
 		case ScriptValueKind::Bool: decl = "const bool " + c.name + " = " + c.value_str + ";"; break;
-		case ScriptValueKind::String: decl = "const string " + c.name + " = \"" + c.value_str + "\";"; break;
+		case ScriptValueKind::String:
+			decl = "const string " + c.name + " = " + QuoteStringLiteral(c.value_str) + ";";
+			break;
 		case ScriptValueKind::Object:
 			if (world_ && c.type.object_type != 0) {
 				const char* type_name = world_->entity(c.type.object_type).name();

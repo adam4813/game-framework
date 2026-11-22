@@ -6,6 +6,7 @@
 #include <flecs.h>
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -156,11 +157,21 @@ inline void RegisterCallbackViewTypeForScripts(
 	}
 }
 
-// Free helper — calculate the byte offset of a member field within a class/struct.
+// Free helper — the byte offset of a member field within a class/struct, for registering fields
+// by offset (RegisterCallbackViewTypeForScripts). offsetof covers only standard-layout types, and
+// the descriptors this serves hold std::function members, so the offset is measured on raw
+// storage instead: the union never constructs a ClassType, so the type needn't be
+// default-constructible and no constructor or destructor runs.
 template<typename ClassType, typename FieldType>
 int CalculateOffset(FieldType ClassType::* field) {
-	ClassType dummy;
-	return static_cast<int>(reinterpret_cast<const char*>(&(dummy.*field)) - reinterpret_cast<const char*>(&dummy));
+	union Storage {
+		Storage() {}
+		~Storage() {}
+		ClassType object;
+	} storage;
+	return static_cast<int>(
+		reinterpret_cast<const std::byte*>(&(storage.object.*field)) - reinterpret_cast<const std::byte*>(&storage)
+	);
 }
 
 // Free helper — register a component/value-type method backed by a custom thunk (rather than a

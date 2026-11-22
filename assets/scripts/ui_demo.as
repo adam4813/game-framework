@@ -8,8 +8,8 @@
 float g_t = 0.0f;
 
 void OnInit(Entity self) {
-    // Component getters resolve to the host (this script's parent), so GetParent() names it.
-    Print("[ui_demo] Driving ProgressBar on '" + self.GetParent().GetName() + "'");
+    // `self` is the host, the progress-bar entity.
+    Print("[ui_demo] Driving ProgressBar on '" + self.GetName() + "'");
 }
 
 void Tick(Entity self, float dt) {

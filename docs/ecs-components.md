@@ -40,7 +40,6 @@ Access pattern is uniform: `world.get<T>()` for read, `world.get_mut<T>()` for w
 | `scene::GameScene`, `scene::MenuScene` | **systems** (filter) and pipelines | Scene scoping; a scene pipeline uses `.without<OtherScene>()`.     |
 | `scene::Active`                        | a **scene entity**                 | Marks the one active scene (`flecs::Exclusive`).                   |
 | `scene::Paused`                        | the **world**                      | Switches the active scene to its paused pipeline.                  |
-| `scripting::ScriptHost`                | a **host entity**                  | Present when the entity has at least one script child.             |
 | `ui::UIClickRequest`                   | a **Button entity**                | Fires that button's click programmatically.                        |
 | `timer::TimerExpired`                  | a timer entity                     | Marker for expiry.                                                 |
 | `input::InputEnabled`                  | filter                             | Gate systems that require input.                                   |
@@ -111,8 +110,7 @@ namespace, tag `InputEnabled`.
 
 ### scripting (`src/engine/scripting/script_component.hpp`)
 
-`ScriptComponent` (`source_path` **xor** `inline_source`, backend-owned `instance`), tag
-`ScriptHost`, enum `ScriptTickPhase`. See [scripting-api.md](scripting-api.md).
+`ScriptComponent` (`source_path` **xor** `inline_source`, backend-owned `instance`), enum `ScriptTickPhase`. See [scripting-api.md](scripting-api.md).
 
 ### tilemap (`src/engine/tilemap/tilemap_components.hpp`)
 

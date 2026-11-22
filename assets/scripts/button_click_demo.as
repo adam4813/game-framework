@@ -1,5 +1,5 @@
 // Button click demo: binds a script function as the "Script Button" onClick handler.
-// This script is attached as a child of the button entity, so self.GetParent() is the button.
+// The script is a ScriptComponent on a child of the button entity, so `self` is the button.
 //
 // SetOnClick wraps the handler into the button's OnClick component (the same storage C++ callers
 // use), so the normal UI interaction and UIClickRequest paths fire it. The handler is entity-first
