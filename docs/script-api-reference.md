@@ -168,10 +168,10 @@ body is built.
 
 `Camera.projection`.
 
-| Constant                 | Value |
-|--------------------------|-------|
-| `Projection_Perspective` | 0     |
-| `Projection_Orthographic`| 1     |
+| Constant                  | Value |
+|---------------------------|-------|
+| `Projection_Perspective`  | 0     |
+| `Projection_Orthographic` | 1     |
 
 ### PathFollowMode constants
 
