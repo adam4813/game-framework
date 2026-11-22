@@ -68,12 +68,16 @@ struct PhysicsWorld {
 TEST(TwoPhysicsWorlds, EachWorldLandsItsOwnCrate) {
 	const PhysicsWorld a;
 	const PhysicsWorld b;
+	std::string trajectory; // the crate's height every 20 frames, so a CI failure shows how it moved, not only where it ended
 	for (int i = 0; i < kFramesToSettle; ++i) {
 		a.Step(1);
 		b.Step(1);
+		if (i % 20 == 0) {
+			trajectory += std::to_string(a.CrateY()) + " ";
+		}
 	}
 
-	EXPECT_NEAR(a.CrateY(), kRestingCrateY, kRestTolerance);
+	EXPECT_NEAR(a.CrateY(), kRestingCrateY, kRestTolerance) << "crate y every 20 frames: " << trajectory;
 	EXPECT_NEAR(b.CrateY(), kRestingCrateY, kRestTolerance);
 }
 

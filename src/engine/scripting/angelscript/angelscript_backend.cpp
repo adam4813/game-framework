@@ -1013,6 +1013,59 @@ void AngelScriptInstance::Tick(flecs::entity /*entity*/, const float dt, const S
 
 void AngelScriptInstance::OnDestroy(flecs::entity /*entity*/) { Call(fn_on_destroy_, entity_ref_.GetEntity()); }
 
+std::vector<std::string> AngelScriptInstance::FunctionDeclarations() const {
+	std::vector<std::string> declarations;
+	if (!module_) {
+		return declarations;
+	}
+	for (asUINT i = 0; i < module_->GetFunctionCount(); ++i) {
+		declarations.emplace_back(module_->GetFunctionByIndex(i)->GetDeclaration(false, false, false));
+	}
+	return declarations;
+}
+
+ScriptCallResult
+AngelScriptInstance::CallFunction(const std::string_view declaration, const std::span<const ScriptArg> args, std::string* error) {
+	asIScriptFunction* fn = module_ ? module_->GetFunctionByDecl(std::string{declaration}.c_str()) : nullptr;
+	if (!fn) {
+		return ScriptCallResult::NotDefined;
+	}
+	const auto fail = [error, &declaration](const std::string& message) {
+		if (error) {
+			*error = message;
+		}
+		spdlog::error("[AngelScript] '{}': {}", declaration, message);
+		return ScriptCallResult::Failed;
+	};
+	if (const int prep = ctx_->Prepare(fn); prep < 0) {
+		return fail("Prepare failed (error " + std::to_string(prep) + ")");
+	}
+	for (size_t i = 0; i < args.size(); ++i) {
+		const auto index = static_cast<asUINT>(i);
+		if (const auto* number = std::get_if<int>(&args[i])) {
+			ctx_->SetArgDWord(index, static_cast<asDWORD>(*number));
+		}
+		else if (const auto* real = std::get_if<float>(&args[i])) {
+			ctx_->SetArgFloat(index, *real);
+		}
+		else {
+			ctx_->SetArgObject(index, const_cast<std::string*>(&std::get<std::string>(args[i])));
+		}
+	}
+	t_current_instance = this;
+	const int result = ctx_->Execute();
+	t_current_instance = nullptr;
+	ScriptCallResult outcome = ScriptCallResult::Ok;
+	if (result == asEXECUTION_EXCEPTION) {
+		outcome = fail(std::string{ctx_->GetExceptionString()} + " (line " + std::to_string(ctx_->GetExceptionLineNumber()) + ")");
+	}
+	else if (result < 0) {
+		outcome = fail("Execute failed (error " + std::to_string(result) + ")");
+	}
+	ctx_->Unprepare();
+	return outcome;
+}
+
 void AngelScriptInstance::Call(asIScriptFunction* fn, flecs::entity /*entity*/, const float dt, const bool pass_dt) {
 	if (!fn || !ctx_) {
 		return;

@@ -28,6 +28,11 @@ inline constexpr float kCountdownTime = 3.0F;
 inline constexpr float kGoTime = 0.7F;
 // After a molt, play resumes after kResumeTime seconds of "Ready...", then the same "Go!".
 inline constexpr float kResumeTime = 1.0F;
+// Between Acts, "ACT CLEAR" shows for kActClearTime seconds before the comic page.
+inline constexpr float kActClearTime = 2.5F;
+
+// Scattered rocks keep this clear of the player's start (the centre).
+inline constexpr float kStartClearance = 5.0F;
 
 // ── Horde ──
 // Most enemies alive at once, from ticket 01's desktop performance check (about 60 fps at 1,000).
@@ -37,31 +42,38 @@ inline constexpr int kHordeDebugBatch = 100;
 inline constexpr int kHordeDebugMax = 1000;
 inline constexpr float kArenaRadius = 70.0F;
 
-// Enemy HP grows over the run: hp * (1 + clock / kEnemyHpGrowthSeconds).
-inline constexpr float kEnemyHpGrowthSeconds = 240.0F;
 // Each frame a landed enemy moves out of this fraction of its overlap with its neighbours.
 inline constexpr float kSeparationRelax = 0.5F;
 // Spatial grid cell size for crowding and hit checks.
 inline constexpr float kCrowdCellSize = 2.2F;
 
 // ── Crabnado ──
-inline constexpr float kCrabnadoSpeed = 6.0F;
-// Waypoints are picked inside this fraction of the arena radius, so the crabnado never parks at the edge.
-inline constexpr float kCrabnadoRoamFraction = 0.6F;
-inline constexpr float kCrabnadoArriveRadius = 2.0F;
-// Spawns per second: kSpawnRateBase + kSpawnRateGrowth * clock seconds.
-// Base 1.6 -> 1.0 and growth 0.09 -> 0.035 (ticket 15): scripted circling runs died at 0:70-0:100 on the old curve.
-inline constexpr float kSpawnRateBase = 1.0F;
-inline constexpr float kSpawnRateGrowth = 0.035F;
-// No throws for this many seconds at the start of a run (ticket 15).
+// The orbit's radius, speed and gust response are the `crabnado` entry's in bosses.json. The crabnado spawns at
+// kOrbitFallbackRadius until the first orbit tick reads them. Its start bearing is at least kOrbitStartMinAngle
+// (90 degrees) from the player's.
+inline constexpr float kOrbitFallbackRadius = 78.0F;
+inline constexpr float kOrbitStartMinAngle = 1.5708F;
+// The spawn tables and rates are the Stages' in campaign.json. No throws for this many seconds of the Act (ticket 15).
 inline constexpr float kFirstThrowDelay = 3.0F;
-// Throw: the landing point is 6–32 units from the crabnado toward the player, ±10 units of jitter.
+// The storm-up's last kStormHoldTime seconds hold the crabnado still at the orbit point nearest the player; before
+// that it slides there.
+inline constexpr float kStormHoldTime = 2.0F;
+// The breach: the crabnado moves from the orbit to the arena edge over kBreachTime seconds, and back out over
+// kRetreatTime once beaten. Barrier pieces within kBarrierFlareArc radians (20 degrees) of its bearing flare.
+inline constexpr float kBreachTime = 1.5F;
+inline constexpr float kRetreatTime = 2.0F;
+inline constexpr float kBarrierFlareArc = 0.349F;
+// Orbit throw: the landing point is kLandingMin-kLandingMax units in from the barrier on the line toward the player,
+// never past the player, with kThrowJitter units of jitter. The Boss Stage's body throw lands kThrowMinDistance-
+// kThrowMaxDistance units from the crabnado toward the player instead.
+inline constexpr float kLandingMin = 12.0F;
+inline constexpr float kLandingMax = 45.0F;
 inline constexpr float kThrowMinDistance = 6.0F;
 inline constexpr float kThrowMaxDistance = 32.0F;
 inline constexpr float kThrowJitter = 10.0F;
 inline constexpr float kThrowHeight = 16.0F;
-inline constexpr float kThrowMinTime = 1.1F;
-inline constexpr float kThrowMaxTime = 1.6F;
+inline constexpr float kThrowMinTime = 1.5F;
+inline constexpr float kThrowMaxTime = 2.2F;
 inline constexpr float kGravity = 30.0F;
 
 // ── Wind (prototype values) ──
@@ -84,8 +96,6 @@ inline constexpr float kWindGustFade = 0.25F;
 // Wind push per unit of strength, in units per second. Waves, not wind, are the main force.
 inline constexpr float kPlayerWindPush = 1.5F;
 inline constexpr float kEnemyWindPush = 1.2F;
-// The crabnado's next waypoint shifts this far downwind per unit of strength.
-inline constexpr float kCrabnadoWindBias = 14.0F;
 // How many wind lines are drawn, as a share of the full count: the arena's streaks and the title's breeze
 // lines. 1 is the original density.
 inline constexpr float kWindLineDensity = 0.25F;
@@ -99,14 +109,13 @@ inline constexpr float kWavePeriod = 6.0F;
 inline constexpr float kWaveWidth = 3.4F;
 inline constexpr float kWaveBigAmp = 2.2F;
 inline constexpr float kWavePushK = 9.0F;
-// The ramp to chaos, in run-clock seconds: from kCrossSwellAt a wind shift adds a cross-swell and the old swells
+// The ramp to chaos, in Act-clock seconds (the Act's `sea` times in campaign.json): from `cross_swell_at` a wind shift
+// adds a cross-swell and the old swells
 // fade (amp falls by dt / kSwellFadeTime; a new swell grows over kSwellGrowTime and shows its notice for
-// kCrossSwellNotice seconds). From kRogueAt rogue waves arrive: the first after kRogueFirstMin..Max seconds, then
+// kCrossSwellNotice seconds). From `rogue_at` rogue waves arrive: the first after kRogueFirstMin..Max seconds, then
 // every kRogueGapMin..Max. A rogue's bearing is the wind's +/- kRogueSpread, its amp kRogueAmp and its width
 // kWaveWidth * sqrt(kRogueWidthK). It rises at the upwind edge of the open ocean (kOceanFarReach), rolls in across the
 // arena, is warned of kRogueWarning seconds before it reaches the player, and is removed at the downwind edge.
-inline constexpr float kCrossSwellAt = 90.0F;
-inline constexpr float kRogueAt = 180.0F;
 inline constexpr float kSwellFadeTime = 45.0F;
 inline constexpr float kSwellGrowTime = 4.0F;
 inline constexpr float kCrossSwellNotice = 2.0F;
@@ -139,11 +148,41 @@ inline constexpr float kFoamMinHeight = 0.35F;
 inline constexpr float kFoamRamp = 1.3F;
 // The HUD warns of a big crest this many seconds before it reaches the player.
 inline constexpr float kBigCrestWarning = 2.2F;
+// An infested crest is rolled kBigCrestWarning seconds before it reaches the upwind barrier (the HUD and foam telegraph
+// start then). Its seahorses spawn when it is kInfestedSpawnReach units outside the barrier, spread over the middle
+// kInfestedChordFill of the chord it will cross with ±kInfestedJitter units of jitter, and it stays infested until it
+// is kInfestedEndMargin units past the downwind barrier. The foam tint at full strength is kInfestedTintMax.
+inline constexpr float kInfestedSpawnReach = 15.0F;
+inline constexpr float kInfestedChordFill = 0.8F;
+inline constexpr float kInfestedJitter = 2.0F;
+inline constexpr float kInfestedEndMargin = 10.0F;
+inline constexpr float kInfestedTintMax = 0.85F;
+// A beached seahorse flops at its speed times max(0, sin(t * kFlopRate)), toward a tide pool whose edge is within
+// kFlopWaterReach units, else upwind. In a pool it waits kPoolWaitInset of the radius from the centre, upwind.
+inline constexpr float kFlopRate = 6.0F;
+inline constexpr float kFlopWaterReach = 15.0F;
+inline constexpr float kPoolWaitInset = 0.85F;
 // Shells drift with this fraction of the wave push until they fly to the player.
 inline constexpr float kShellWavePush = 0.4F;
-// Enemies over their type's tumble_min wave height are tumbled for kTumbleTime seconds, spinning at kTumbleSpin radians per
-// second. Their knock decays by exp(-kKnockDecay * dt) once the crest has passed.
-inline constexpr float kTumbleTime = 0.9F;
+// A crest over an enemy type's tumble_min grabs it and carries it (a ride) for kRideBase + kRidePerHeight * (peak - tumble_min)
+// seconds, at most kRideMax, at kRidePush of the crest's push. Afterwards no crest can grab it for kImmune seconds (it
+// still gets kImmunePush of the push). It then winds up for kWindup seconds and charges the player's position at
+// kChargeMult times its speed, decaying linearly to 1x over kChargeTime seconds, dealing kChargeDpsMult times its contact
+// damage. Each enemy type can override these in enemies.json. The ride spins at kTumbleSpin radians per second and its
+// knock decays by exp(-kKnockDecay * dt) once the crest has passed.
+inline constexpr float kRideBase = 0.5F;
+inline constexpr float kRidePerHeight = 0.6F;
+inline constexpr float kRideMax = 2.0F;
+inline constexpr float kRidePush = 1.0F;
+inline constexpr float kImmune = 1.5F;
+inline constexpr float kImmunePush = 0.0F;
+inline constexpr float kWindup = 0.35F;
+inline constexpr float kChargeMult = 2.2F;
+inline constexpr float kChargeTime = 1.2F;
+inline constexpr float kChargeDpsMult = 1.5F;
+inline constexpr float kWindupCrouch = 0.15F;
+inline constexpr float kWindupShiver = 0.25F;
+inline constexpr float kWindupShiverRate = 60.0F;
 inline constexpr float kTumbleSpin = 9.0F;
 inline constexpr float kKnockDecay = 3.0F;
 
@@ -155,36 +194,27 @@ inline constexpr float kSlamDamage = 1.6F;
 inline constexpr float kSlamFlashTime = 0.2F;
 inline constexpr float kSlamBounce = -0.2F;
 
-// ── Boss (prototype values) ──
-// At kBossAt seconds the crabnado comes ashore and chases the player at kBossSpeed. A wave higher than
-// kBossKnockMinHeight carries it at kBossKnockPush of the wave push, else its knock decays by exp(-kKnockDecay * dt).
-// It is a circle of kBossRadius against rocks and stays kBossEdgeMargin inside the arena edge, and within
-// kBossContactRange of the player it drains kBossContactDps HP per second. Knocked into a rock faster than
-// kBossSlamMinSpeed it takes a slam (kBossSlamCooldown seconds apart; knock * kBossSlamBounce); kBossSlamsToWin win.
-// Spawns run at kBossSpawnFactor of the normal rate. Banners show for kBossBannerTime seconds.
-inline constexpr float kBossAt = 300.0F;
-inline constexpr float kBossSpeed = 5.0F;
-inline constexpr float kBossKnockMinHeight = 1.3F;
-inline constexpr float kBossKnockPush = 0.9F;
-inline constexpr float kBossRadius = 3.0F;
-inline constexpr float kBossEdgeMargin = 8.0F;
-inline constexpr float kBossContactRange = 4.0F;
-inline constexpr float kBossContactDps = 25.0F;
-inline constexpr float kBossSlamMinSpeed = 6.0F;
-inline constexpr float kBossSlamCooldown = 2.5F;
-inline constexpr float kBossSlamBounce = -0.3F;
-inline constexpr int kBossSlamsToWin = 3;
-inline constexpr float kBossSpawnFactor = 0.35F;
+// ── Boss (presentation) ──
+// The boss's behavior tunables live in bosses.json. Banners show for kBossBannerTime seconds.
 inline constexpr float kBossBannerTime = 3.0F;
-// The storm wind-up: from kBossWindUpAt to kBossAt the crabnado darkens to storm grey and spins and sways harder,
-// then stays that way through the boss. At full storm it spins kStormSpin times faster, and its rings sway
-// kStormSwayRate times faster and kStormSwayReach times wider. Each slam flashes it pale, fading over
+// Every Stage change shows its banner for kStageBannerTime seconds, and "Challenge cleared!" shows for
+// kChallengeClearedTime.
+inline constexpr float kStageBannerTime = 2.0F;
+inline constexpr float kChallengeClearedTime = 2.0F;
+// The storm wind-up: when the last normal Stage gates, the crabnado stops throwing for kStormUpTime seconds while it
+// darkens to storm grey and spins and sways harder, then the boss lands and it stays that way. At full storm it spins kStormSpin times faster, and its
+// rings sway kStormSwayRate times faster and kStormSwayReach times wider. Each slam flashes it pale, fading over
 // 1 / kStormFlashFade seconds.
-inline constexpr float kBossWindUpAt = 270.0F;
+inline constexpr float kStormUpTime = 5.0F;
 inline constexpr float kStormSpin = 2.0F;
 inline constexpr float kStormSwayRate = 1.8F;
 inline constexpr float kStormSwayReach = 1.6F;
 inline constexpr float kStormFlashFade = 2.5F;
+// The enraged crabnado: its funnel strobes pale between 0 and 1 at kWindupStrobeHz while it winds up an attack and holds
+// at kDazedFlash while dazed. A volley disc is as wide as the landing crab's radius plus kVolleyDiscMargin.
+inline constexpr float kWindupStrobeHz = 8.0F;
+inline constexpr float kDazedFlash = 0.6F;
+inline constexpr float kVolleyDiscMargin = 0.9F;
 
 // ── Player ──
 inline constexpr float kPlayerSpeed = 11.0F;
@@ -212,13 +242,28 @@ inline constexpr float kPlayerPickupRange = 5.0F;
 inline constexpr float kShellFlySpeed = 25.0F;
 // A flying shell is collected within this distance of the player.
 inline constexpr float kShellCollectRadius = 1.0F;
-// Shells needed per molt (first molt 6 -> 18, ticket 15): round(kShellsFirstMolt * kShellsGrowth^(level - 1)). Geometric because the kill rate rises
-// with the spawn rate; the old linear 6 + 5 per molt gave a 4th molt at 0:18 (ticket 15).
-inline constexpr int kShellsFirstMolt = 18;
-inline constexpr float kShellsGrowth = 1.3F;
+// Shells needed per molt: round(kShellsFirstMolt * kShellsGrowth^(level - 1)). Geometric because the kill rate rises
+// with the spawn rate. Tuned for the campaign (ticket 12): a carried-over build gets about 4 molts in Act 1, 3 in Act 2
+// and 3 in Act 3, counting the free molts between Acts (was 18 and 1.3, tuned in ticket 15 for a 5-minute run).
+inline constexpr int kShellsFirstMolt = 35;
+inline constexpr float kShellsGrowth = 1.4F;
 // Upgrade registry, relative to the asset directory.
 inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
+// The campaign (Acts, Stages) and the boss registry, relative to the asset directory. No leading slash: on POSIX that
+// would make them absolute paths, which `ResolveSourcePath` uses as is.
+inline constexpr std::string_view kCampaignPath = "data/crabnado/campaign.json";
+inline constexpr std::string_view kBossesPath = "data/crabnado/bosses.json";
 inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
+// Campaign scripts: `<id>.as` in this directory, relative to the asset directory.
+inline constexpr std::string_view kScriptsDir = "scripts/crabnado/";
+// Seconds a script's Banner() shows.
+inline constexpr float kScriptBannerTime = 3.0F;
+// Seconds a `script`-gate Stage lasts when its script died, so a crashed script can't soft-lock the run (the fallback is a time gate).
+inline constexpr float kScriptGateFallbackTime = 60.0F;
+// A script can have this many After() timers pending; more are refused.
+inline constexpr int kMaxScriptTimers = 64;
+// Calls a handler queues can themselves fire events (EndStage ends a Stage, which starts the next); this many rounds apply per tick.
+inline constexpr int kMaxScriptApplyRounds = 8;
 
 // ── Claw snap ──
 inline constexpr float kClawDamage = 2.0F;

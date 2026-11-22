@@ -729,9 +729,13 @@ RenderModule::RenderModule(const flecs::world& world) {
 				cull.valid = false;
 
 				if (!camera_query.is_true()) {
-					spdlog::warn("[Render3DBegin] No camera found; skipping 3D pass");
+					if (!cull.warned_no_camera) {
+						cull.warned_no_camera = true;
+						spdlog::warn("[Render3DBegin] No camera found; skipping 3D pass");
+					}
 					return;
 				}
+				cull.warned_no_camera = false;
 
 				const auto camera = camera_query.first();
 				const auto eye = camera.get<const spatial::WorldTransform>();

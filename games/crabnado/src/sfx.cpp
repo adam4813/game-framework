@@ -12,7 +12,8 @@ namespace {
 
 constexpr std::array<const char*, static_cast<size_t>(Sfx::Count)> kFiles{
 	"claw_click.wav", "claw_snap.wav", "bubble_pop.wav", "crest.wav", "molt.wav", "boss_slam.wav", "rogue_warning.wav",
-	"enemy_defeat.wav", "rock_crush.wav", "player_death.wav", "victory.wav",
+	"enemy_defeat.wav", "rock_crush.wav", "player_death.wav", "victory.wav", "stage_sting.wav", "challenge_cleared.wav",
+	"storm_warning.wav", "split.wav",
 };
 
 // Defeats come in crowds, so they get a minimum gap between plays (seconds).
@@ -54,6 +55,15 @@ void LoadSfx(const flecs::world& world) {
 	}
 	world.set<SfxBank>(bank);
 	ui::SetDefaultClickSound(world, assets::ResolveAsset(world, "audio/crabnado/claw_click.wav"));
+}
+
+std::optional<Sfx> FindSfx(const std::string_view name) {
+	for (size_t i = 0; i < kFiles.size(); ++i) {
+		if (std::string_view{kFiles[i]}.substr(0, std::string_view{kFiles[i]}.rfind('.')) == name) {
+			return static_cast<Sfx>(i);
+		}
+	}
+	return std::nullopt;
 }
 
 void PlaySfx(const flecs::world& world, const Sfx sfx) {

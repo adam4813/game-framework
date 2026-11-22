@@ -5,7 +5,7 @@
 #include <flecs.h>
 
 // The wind: weather that shifts direction every 20–30 s with a warning, gusts now and then, and pushes
-// the player, the horde and the crabnado's roaming slightly downwind. Its state is one reflected
+// the player and the horde slightly downwind, and reverses the crabnado's orbit. Its state is one reflected
 // singleton, so the Remote API can read and set it. Wind streaks and a north-up HUD compass show it.
 namespace crabnado {
 

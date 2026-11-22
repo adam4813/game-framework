@@ -35,6 +35,8 @@ void AddPart(const flecs::world& world, const flecs::entity crab, const glm::vec
 
 void RegisterPlayer(const flecs::world& world) {
 	world.component<Player>();
+	world.component<DevCheats>().member<bool>("god");
+	world.set<DevCheats>({});
 	world.component<PlayerStats>()
 		.member<float>("speed")
 		.member<float>("hp")
@@ -125,7 +127,9 @@ void RegisterPlayer(const flecs::world& world) {
 		.with<Player>()
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, size_t, PlayerStats& stats) {
-			if (stats.hp <= 0.0F) {
+			if (stats.hp <= 0.0F && it.world().get<DevCheats>().god) {
+				stats.hp = 1.0F;
+			} else if (stats.hp <= 0.0F) {
 				stats.hp = 0.0F;
 				LoseRun(it.world());
 			}

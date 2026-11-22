@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 #include <flecs.h>
 
 #include "engine/engine.hpp"
+#include "waves.hpp"
 
 // The horde: enemies the crabnado throws at the player. Each enemy is a root entity carrying Enemy and
 // a Transform, with its body and claws as child sphere primitives that carry their own inline Material
@@ -26,18 +29,49 @@ struct Enemy {
 	bool walks_sideways{true};
 	float flash{0.0F};
 	engine::core::Rgba color{};
-	// Seconds left of a wave tumble: no chasing and no contact damage. `knock` is the velocity the crest
-	// carries it with, in units per second; the root spins on its local x axis meanwhile.
+	// Seconds left of a wave ride: no chasing and no contact damage. `knock` is the velocity the crest
+	// carries it with, in units per second; the root spins on its local x axis meanwhile. `ride_age` is the
+	// seconds into the ride and `ride_peak` the tallest crest ridden, which sets the ride's length.
 	float tumble{0.0F};
 	glm::vec2 knock{0.0F};
+	float ride_age{0.0F};
+	float ride_peak{0.0F};
+	// Seconds a fresh crest can't grab it after a ride, seconds of charge wind-up left (stopped, tinted yellow),
+	// seconds of charge left (tinted red) and the charge's direction, locked at launch.
+	float immune{0.0F};
+	float windup{0.0F};
+	float charge{0.0F};
+	glm::vec2 charge_dir{0.0F};
 	// Set once a rock slam has hurt it, so its defeat counts as a rock kill.
 	bool slammed{false};
+	// A surfer (type `surfs`) riding crest `surf_n` of swell `surf_swell`: no tumble, no immunity, a sea-blue glow and
+	// surf_dps_mult contact damage. `outside` is set on a rider that spawned beyond the barrier: it is exempt from the
+	// arena clamp while it surfs outside, so the barrier is one-way. `immune` also stops a crest re-grabbing it at once.
+	bool surfing{false};
+	int surf_swell{0};
+	int surf_n{0};
+	bool outside{false};
 };
 
-// An enemy in flight on its ballistic arc. Removed when it lands.
+// An enemy in flight on its ballistic arc. Removed when it lands. `landing` is where it will come down.
 struct Airborne {
 	glm::vec3 velocity{0.0F};
+	glm::vec2 landing{0.0F};
 };
+
+// The dark disc on the water that marks where an airborne enemy will land. It grows from half size to full over the
+// flight (`age` of `duration` seconds) and goes when the enemy lands or dies. `enemy` is the id of the enemy it marks.
+struct LandingShadow {
+	uint64_t enemy{0};
+	float age{0.0F};
+	float duration{1.0F};
+};
+
+// Tag on an enemy the `offscreen` spawner threw, so its defeat reports that source to the campaign scripts.
+struct OffscreenThrown {};
+
+// Tag on a seahorse an infested crest carried in, so its defeat reports the `infested_crest` source to the scripts.
+struct InfestedRider {};
 
 // Singleton: live performance readout, refreshed each frame by the arena scene and read over the Remote
 // API during the horde performance check.
@@ -50,10 +84,33 @@ struct HordeReadout {
 // crowding chase, contact damage, defeat, hit flash). Call from the module constructor.
 void RegisterHorde(const flecs::world& world);
 
-// Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) toward a landing point between it and `target`, as a
-// child of `parent` (so the scene's Unload destroys it). Draws from the world's RngState; enemy HP grows
-// with the run clock.
-void ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 target);
+// The orbit spawner's landing rule: from where the line from `from` (outside the arena) to `target` (the player)
+// crosses the arena edge, kLandingMin-kLandingMax units in along it, never past `target`, plus kThrowJitter jitter,
+// held inside the arena. Draws from the world's RngState.
+[[nodiscard]] glm::vec2 EdgeLanding(const flecs::world& world, glm::vec2 from, glm::vec2 target);
+
+// The Boss Stage's body-throw landing rule: kThrowMinDistance-kThrowMaxDistance units from `from` toward `target`,
+// plus kThrowJitter jitter, held inside the arena. Draws from the world's RngState.
+[[nodiscard]] glm::vec2 BodyLanding(const flecs::world& world, glm::vec2 from, glm::vec2 target);
+
+// Throws one enemy of registry type `typeIndex` from `from` (the crabnado's base) to `landing`, as a child of
+// `parent` (so the scene's Unload destroys it), and puts a landing shadow under `parent` where it will come down.
+// Draws from the world's RngState; enemy HP grows with the run clock. Returns the thrown enemy.
+flecs::entity ThrowEnemy(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing);
+
+// ThrowEnemy with the flight time, in seconds, chosen by the caller (the boss's volley lands on a timer). Returns the
+// thrown enemy.
+flecs::entity ThrowEnemyAt(
+	const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 from, glm::vec2 landing, float flightTime
+);
+
+// The horde root enemies are thrown into: the crabnado's ThrowsInto target (the crabnado may be disabled, which a plain
+// query skips). Invalid before the arena has loaded.
+[[nodiscard]] flecs::entity FindHorde(const flecs::world& world);
+
+// Puts an enemy of registry type `typeIndex` straight onto the water at `position` (x, z) as a surfer riding `crest`, a
+// child of `parent`. It starts beyond the barrier and is tagged InfestedRider. Enemy HP grows with the run clock.
+flecs::entity SpawnSurfer(const flecs::world& world, flecs::entity parent, int typeIndex, glm::vec2 position, CrestRef crest);
 
 // Damages a landed enemy and starts its hit flash. At 0 HP the EnemyDefeat system removes it and drops
 // its shell.

@@ -31,6 +31,8 @@ public:
 	void OnInit(flecs::entity entity) override;
 	void Tick(flecs::entity entity, float dt, ScriptTickPhase phase) override;
 	void OnDestroy(flecs::entity entity) override;
+	[[nodiscard]] std::vector<std::string> FunctionDeclarations() const override;
+	ScriptCallResult CallFunction(std::string_view declaration, std::span<const ScriptArg> args, std::string* error) override;
 
 	// Track a handle created from a script function in this instance's module.
 	// On instance destruction, all tracked handles have their AS function reference released

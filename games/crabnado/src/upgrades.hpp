@@ -89,15 +89,24 @@ void RegisterUpgrades(const flecs::world& world, std::string_view path);
 // whose stat the player doesn't have are left out.
 [[nodiscard]] std::vector<StatPreview> PreviewUpgrade(const flecs::world& world, const Upgrade& upgrade);
 
-// Selects the offered upgrade in slot `choice` (0-based). Does nothing unless the run is molting and the slot
+// Opens the molt modal for an Act's free pick, during a Transition: it rolls with the current molt level and leaves
+// `molt_level`, `shells` and `shells_needed` alone. Choosing an upgrade then starts the Act's countdown. With nothing
+// to offer it starts the countdown at once.
+void OfferFreeMolt(const flecs::world& world);
+
+// Selects the offered upgrade in slot `choice` (0-based). Does nothing unless the run is molting (see IsMolting) and the slot
 // holds an upgrade.
 void SelectUpgrade(const flecs::world& world, int choice);
 
 // Applies the selected upgrade (see ChooseUpgrade). Does nothing when none is selected.
 void ConfirmUpgrade(const flecs::world& world);
 
+// Spends one of RunState::rerolls to roll a new set of offers. Does nothing unless the run is molting (see IsMolting) and a reroll is
+// in hand.
+void RerollMolt(const flecs::world& world);
+
 // Applies the offered upgrade in slot `choice` (0-based) to the player and resumes the run. Does nothing
-// unless the run is molting and the slot holds an upgrade.
+// unless the run is molting (see IsMolting) and the slot holds an upgrade.
 void ChooseUpgrade(const flecs::world& world, int choice);
 
 } // namespace crabnado

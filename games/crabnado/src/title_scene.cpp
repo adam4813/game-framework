@@ -135,7 +135,7 @@ void TitleScene::Load(flecs::world& world) {
 							.set_name("SettingsButton")
 							.child_of(uiRoot_), settingsTop, 1.0F);
 	settingsModal_ = BuildSettingsModal(world, uiRoot_, w, h);
-	story_.Build(world, uiRoot_, w, h);
+	story_.Build(world, uiRoot_, w, h, "opening", "Fight!");
 }
 
 void TitleScene::BuildCreditsModal(const flecs::world& world, const float width, const float height) {

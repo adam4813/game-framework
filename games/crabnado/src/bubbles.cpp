@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "arena.hpp"
+#include "boss.hpp"
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "crowd_grid.hpp"
@@ -22,8 +23,13 @@ namespace {
 constexpr core::Rgba kBubbleColor{.r = 191, .g = 243, .b = 255, .a = 255};
 constexpr float kBubbleHeight = 1.0F;
 
-// The nearest landed enemy within kBubbleRange of `from`, by a linear scan. Returns false when there is none.
+// The target within kBubbleRange of `from`: a dazed boss in range first, else the nearest landed enemy by a linear scan.
+// Returns false when there is none.
 bool FindTarget(const flecs::world& world, const glm::vec2 from, glm::vec2& target) {
+	if (const BossState* boss = DazedBoss(world); boss != nullptr && glm::length(boss->position - from) < constants::kBubbleRange) {
+		target = boss->position;
+		return true;
+	}
 	float best = constants::kBubbleRange;
 	bool found = false;
 	for (const CrowdEntry& e : world.get<CrowdGrid>().entries) {
@@ -37,13 +43,6 @@ bool FindTarget(const flecs::world& world, const glm::vec2 from, glm::vec2& targ
 	return found;
 }
 
-// The horde root the crabnado throws into, or an invalid entity when there is no crabnado.
-flecs::entity FindHorde(const flecs::world& world) {
-	flecs::entity horde;
-	world.each([&](const flecs::entity crabnado, const Crabnado&) { horde = crabnado.target<ThrowsInto>(); });
-	return horde;
-}
-
 } // namespace
 
 void RegisterBubbles(const flecs::world& world) {
@@ -52,15 +51,14 @@ void RegisterBubbles(const flecs::world& world) {
 		.member<float>("cooldown")
 		.member<int>("count")
 		.member<float>("speed")
-		.member<float>("timer")
 		.member<float>("level");
 	world.component<Bubble>().member<glm::vec2>("velocity").member<float>("life");
 
 	world.system<Bubbles, const spatial::Transform>("BubbleFire")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, Bubbles& bubbles, const spatial::Transform& transform) {
-			bubbles.timer = std::max(0.0F, bubbles.timer - it.delta_time());
-			if (bubbles.timer > 0.0F) {
+		.each([](const flecs::iter& it, const size_t i, Bubbles& bubbles, const spatial::Transform& transform) {
+			auto& cooldown = it.entity(i).lookup(kBubbleCooldownName).get_mut<timer::Cooldown>();
+			if (!cooldown.Ready()) {
 				return;
 			}
 			const flecs::world world = it.world();
@@ -70,7 +68,8 @@ void RegisterBubbles(const flecs::world& world) {
 			if (!horde || !FindTarget(world, position, target)) {
 				return;
 			}
-			bubbles.timer = bubbles.cooldown;
+			cooldown.duration = bubbles.cooldown;
+			cooldown.remaining = bubbles.cooldown;
 			const glm::vec2 toTarget = target - position;
 			const float base = std::atan2(toTarget.x, toTarget.y);
 			const int room = constants::kBubbleCap - world.count<Bubble>();
@@ -111,6 +110,11 @@ void RegisterBubbles(const flecs::world& world) {
 			}
 			const float damage = player.get<Bubbles>().damage;
 			bool popped = false;
+			if (const BossState* boss = DazedBoss(world);
+				boss != nullptr && glm::length(boss->position - position) < constants::kBubbleRadius + boss->radius) {
+				DamageBoss(world, damage);
+				popped = true;
+			}
 			grid.ForEachNear(position, constants::kBubbleRadius + grid.max_radius, [&](const CrowdEntry& e) {
 				if (!popped && glm::length(e.position - position) < e.radius + constants::kBubbleRadius) {
 					DamageEnemy(world.entity(e.entity), damage);
@@ -126,14 +130,18 @@ void RegisterBubbles(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
-void AddBubbles(const flecs::entity player) {
+void AddBubbles(const flecs::world& world, const flecs::entity player) {
 	player.set<Bubbles>(
 		{.damage = constants::kBubbleDamage,
 		 .cooldown = constants::kBubbleCooldown,
 		 .count = 1,
-		 .speed = constants::kBubbleSpeed,
-		 .timer = 0.0F}
+		 .speed = constants::kBubbleSpeed}
 	);
+	// Ready from the start: the first volley fires as soon as a target is in range.
+	std::ignore = world.entity()
+					  .child_of(player)
+					  .set_name(kBubbleCooldownName)
+					  .set<timer::Cooldown>({.remaining = 0.0F, .duration = constants::kBubbleCooldown});
 }
 
 } // namespace crabnado

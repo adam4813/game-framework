@@ -66,6 +66,8 @@ struct Frustum {
 struct CameraFrustum {
 	Frustum frustum{};
 	bool valid{false};
+	// Set once Render3DBegin has logged that no camera exists, so a scene without one logs it once, not every frame.
+	bool warned_no_camera{false};
 };
 
 } // namespace engine::render

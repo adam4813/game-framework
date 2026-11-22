@@ -38,7 +38,7 @@
 			"platform": "emscripten"
 		}
 	],
-	"builtin-baseline": "3d22b64585ca026e881728fd87e541c23a611a43",
+	"builtin-baseline": "2f42d24513a18cc81fdbd99ccd74a3cc5dae93bb",
 	"overrides": [
 		{
 			"$comment": "2.39.0's upstream tag archive no longer matches the port's SHA512 (vcpkg PR #54979). Drop once vcpkg fixes the hash.",

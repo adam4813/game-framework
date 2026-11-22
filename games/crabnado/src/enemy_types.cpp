@@ -1,9 +1,12 @@
 #include "enemy_types.hpp"
 
+#include <algorithm>
 #include <vector>
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+
+#include "campaign.hpp"
 
 using namespace engine;
 
@@ -26,8 +29,20 @@ EnemyType ParseEnemyType(const std::string& id, const nlohmann::json& entry) {
 		.color = core::JRgba(entry, "color", def.color),
 		.walks_sideways = entry.value("walks_sideways", def.walks_sideways),
 		.tumble_min = entry.value("tumble_min", def.tumble_min),
-		.appears_at = entry.value("appears_at", def.appears_at),
-		.weight = entry.value("weight", def.weight)
+		.ride_base = entry.value("ride_base", def.ride_base),
+		.ride_per_height = entry.value("ride_per_height", def.ride_per_height),
+		.ride_max = entry.value("ride_max", def.ride_max),
+		.ride_push = entry.value("ride_push", def.ride_push),
+		.immune = entry.value("immune", def.immune),
+		.windup = entry.value("windup", def.windup),
+		.charge_mult = entry.value("charge_mult", def.charge_mult),
+		.charge_time = entry.value("charge_time", def.charge_time),
+		.charge_dps_mult = entry.value("charge_dps_mult", def.charge_dps_mult),
+		.charges = entry.value("charges", def.charges),
+		.surfs = entry.value("surfs", def.surfs),
+		.surf_dps_mult = entry.value("surf_dps_mult", def.surf_dps_mult),
+		.surf_steer = entry.value("surf_steer", def.surf_steer),
+		.pool_speed = entry.value("pool_speed", def.pool_speed)
 	};
 }
 
@@ -53,14 +68,18 @@ void LoadEnemyTypes(const flecs::world& world, const std::string_view path) {
 	world.set<EnemyRegistry>(std::move(registry));
 }
 
-int PickEnemyType(const flecs::world& world, const float clock) {
-	const auto& types = world.get<EnemyRegistry>().types;
+float RideDuration(const EnemyType& type, const float peak) {
+	return std::clamp(type.ride_base + type.ride_per_height * std::max(0.0F, peak - type.tumble_min), 0.0F, type.ride_max);
+}
+
+int PickEnemyType(const flecs::world& world, const std::vector<SpawnEntry>& spawns, const std::string_view source) {
 	std::vector<float> weights;
-	weights.reserve(types.size());
-	for (const EnemyType& type : types) {
-		weights.push_back(type.appears_at <= clock ? type.weight : 0.0F);
+	weights.reserve(spawns.size());
+	for (const SpawnEntry& entry : spawns) {
+		weights.push_back(entry.source == source ? entry.weight : 0.0F);
 	}
-	return world.get_mut<ecs::RngState>().WeightedIndex(weights);
+	const int picked = world.get_mut<ecs::RngState>().WeightedIndex(weights);
+	return picked < 0 ? -1 : spawns[static_cast<size_t>(picked)].type;
 }
 
 } // namespace crabnado

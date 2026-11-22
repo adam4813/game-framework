@@ -142,6 +142,12 @@ add_engine_test(raycast_script_test
     raycast_script_test.cpp
 )
 
+# Calling a named script function from C++ (IScriptInstance::CallFunction): arguments, script state, an undefined
+# function, an exception's message and line, and the declaration list
+add_engine_test(script_call_function_test
+    script_call_function_test.cpp
+)
+
 # RigidBody / CollisionShape set after the body exists: motion type, mass and layer update in place, a static body
 # turned dynamic or a new shape recreates it, and a repeated set changes nothing
 add_engine_test(rigid_body_update_test

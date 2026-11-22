@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace engine::scripting {
@@ -137,6 +138,18 @@ struct ScriptConstant {
 	ScriptValueType type;
 	std::string value_str; // textual representation of the value, e.g. "32", "3.14", "true"
 };
+
+// -------------------------------------------------------------------------
+// Named function calls into a script
+// -------------------------------------------------------------------------
+
+// One argument of a call into a script (see IScriptInstance::CallFunction). A string reaches the script as
+// `const string &in`.
+using ScriptArg = std::variant<int, float, std::string>;
+
+// How a call into a script went. NotDefined: the script has no function with that declaration. Failed: the function
+// ran into an exception (or could not start); the error text says why.
+enum class ScriptCallResult : uint8_t { Ok, NotDefined, Failed };
 
 // -------------------------------------------------------------------------
 // Callback binding support

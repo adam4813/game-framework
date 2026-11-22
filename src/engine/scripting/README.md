@@ -204,3 +204,15 @@ td.SetOnEnter(@OnPromptTileEnter);   // ✓ direct function handle
 
 `self` is the **script child entity**; component accessors resolve to the **parent (host)
 entity** automatically.
+
+### Event-driven scripts (`CallFunction`)
+
+A host that has no per-frame work for a script can skip `ScriptComponent` and drive an instance itself: create it with
+`IScriptBackend::CreateInstanceFromFile`, then call `IScriptInstance::CallFunction(declaration, args)` for each discrete
+event. The declaration is the exact signature (`"void OnKill(const string &in)"`; parameter names don't matter), and
+`args` is a `std::span<const ScriptArg>` of `int`, `float` or `std::string`. The result is `Ok`, `NotDefined` (the script
+doesn't define that handler) or `Failed` (the script threw; the message and line go in the optional `error` out
+parameter, and the backend logs it). `FunctionDeclarations()` lists the script's global functions, so a test can check
+that a script's handlers match the entry points a host dispatches. Crabnado's campaign scripts are the first user
+(`games/crabnado/src/campaign_script.hpp`).
+

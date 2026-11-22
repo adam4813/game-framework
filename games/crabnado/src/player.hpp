@@ -41,6 +41,12 @@ struct FollowCamera {
 	glm::vec3 offset{0.0F};
 };
 
+// Singleton, reflected: testing aids set over the Remote API. With `god` the player's HP never drops below 1, so a
+// boss fight can be watched without dying.
+struct DevCheats {
+	bool god{false};
+};
+
 // Registers and reflects the player components and the PlayerStamina, PlayerMove, PlayerDefeat and CameraFollow
 // systems. Call from the module constructor.
 void RegisterPlayer(const flecs::world& world);

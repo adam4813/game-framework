@@ -42,7 +42,7 @@ struct RockBand {
 };
 
 // Singleton from the level's "rock_scatter": the bands rocks are rolled into each run. Rocks keep `gap` clear of
-// each other and of pools, so crabs can pass between them.
+// each other and of pools, so crabs can pass between them. The current Act's `arena.rocks` override the band counts.
 struct RockScatter {
 	RockBand inner;
 	RockBand outer;
@@ -55,6 +55,13 @@ struct BarrierGlow {
 	float angle{0.0F};
 	float rest_y{0.0F};
 	float bob{0.0F};
+};
+
+// Singleton: where the crabnado is breaching. Barrier pieces within kBarrierFlareArc of `bearing` (the same angle as
+// BarrierGlow::angle) flare brighter by `strength`, 0 to 1. Written by the crabnado's orbit system.
+struct BarrierFlare {
+	float bearing{0.0F};
+	float strength{0.0F};
 };
 
 struct RockCircle {
@@ -78,6 +85,11 @@ void RegisterArena(const flecs::world& world);
 // fills the Rocks and TidePools caches. `keepClear` are points (with a radius) no rock may cover. The caller must not be deferring (see ArenaScene::BuildStage), or the level's entities won't exist yet.
 // Call before SpawnWaterTiles, which tints the pools.
 void BuildArena(const flecs::world& world, flecs::entity parent, std::span<const RockCircle> keepClear);
+
+// Destroys the "ScatteredRocks" group under `parent` and scatters a new one from RngState with the current Act's rock
+// counts, then rebuilds the Rocks cache. Safe to call inside a system, where the old rocks outlive the call until the
+// next merge. The level's tide pools and hand-placed rocks stay.
+void RescatterRocks(const flecs::world& world, flecs::entity parent, std::span<const RockCircle> keepClear);
 
 // Empties the Rocks and TidePools caches (the level entities go with the scene root).
 void ClearArena(const flecs::world& world);

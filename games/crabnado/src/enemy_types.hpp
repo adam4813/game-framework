@@ -6,6 +6,8 @@
 
 #include <flecs.h>
 
+#include "campaign.hpp"
+#include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 
 // The enemy-type registry: a string-keyed JSON file (crab, shrimp, lobster, ...) holding each type's stats, so a
@@ -24,9 +26,25 @@ struct EnemyType {
 	bool walks_sideways{true};
 	// Wave height above which a crest tumbles this type.
 	float tumble_min{0.55F};
-	// Run clock (seconds) from which the crabnado throws this type, and its weight in the weighted pick.
-	float appears_at{0.0F};
-	float weight{1.0F};
+	// The ride, immunity, wind-up and charge levers (see crabnado_constants.hpp). `charges` false skips the wind-up
+	// and charge, so the type just resumes chasing after a ride.
+	float ride_base{constants::kRideBase};
+	float ride_per_height{constants::kRidePerHeight};
+	float ride_max{constants::kRideMax};
+	float ride_push{constants::kRidePush};
+	float immune{constants::kImmune};
+	float windup{constants::kWindup};
+	float charge_mult{constants::kChargeMult};
+	float charge_time{constants::kChargeTime};
+	float charge_dps_mult{constants::kChargeDpsMult};
+	bool charges{true};
+	// A surfer (the seahorse) is carried by a crest it joins and steers along it, never ridden, stunned or charged. Its
+	// contact damage is multiplied by surf_dps_mult while it surfs, it steers across the crest at surf_steer units per
+	// second and it swims at pool_speed in a tide pool. `tumble_min` is the crest height that grabs and keeps it.
+	bool surfs{false};
+	float surf_dps_mult{1.0F};
+	float surf_steer{5.0F};
+	float pool_speed{3.0F};
 };
 
 // Singleton: every enemy type, in id order. An Enemy's `type` indexes into it.
@@ -38,7 +56,12 @@ struct EnemyRegistry {
 // logged and skipped.
 void LoadEnemyTypes(const flecs::world& world, std::string_view path);
 
-// Index of a type drawn by weight from those with appears_at <= `clock`, or -1 if none is unlocked.
-[[nodiscard]] int PickEnemyType(const flecs::world& world, float clock);
+// Seconds a crest of `peak` height carries an enemy of `type`: ride_base + ride_per_height * (peak - tumble_min),
+// capped at ride_max. A ride's peak only ever rises, so a taller crest mid-ride extends it but never restarts it.
+[[nodiscard]] float RideDuration(const EnemyType& type, float peak);
+
+// Index of an enemy type drawn by weight from the spawn table entries whose spawner is `source` (what a Stage's spawn
+// table lists, see campaign.hpp), or -1 if the table has none.
+[[nodiscard]] int PickEnemyType(const flecs::world& world, const std::vector<SpawnEntry>& spawns, std::string_view source);
 
 } // namespace crabnado

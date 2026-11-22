@@ -2,22 +2,30 @@
 
 #include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <flecs.h>
 
 namespace crabnado {
 
-// The story comic between the title and the arena: a golden-age comic page (assets/textures/crabnado/story/, drawn by
-// tools/make_story.py) that fades in over the title's backdrop, then shows its panels one at a time. Next (or Space or
-// Enter) shows the next panel, and on the last one reads "Fight!" and finishes the comic; Skip (or Esc) finishes it at
-// once. The title scene owns it: Build() in Load(), Release() in Unload().
+// A story comic: a golden-age comic page (assets/textures/crabnado/story/<page id>/, drawn by tools/make_story.py) that fades in over the title's backdrop, then shows its panels one at a time. Next (or Space or
+// Enter) shows the next panel, and on the last one reads the finish label ("Fight!", "Continue") and finishes the comic; Skip (or
+// Esc) finishes it at once. The title scene owns the opening page (Build() in Load(), Release() in Unload()); the arena
+// scene builds and releases one for each page that follows an Act.
 class StoryComic {
 public:
 	static constexpr int kPanelCount = 3;
 
-	// Builds the page, its panels and the Skip and Next buttons, hidden, as children of `parent` (a w x h screen).
-	void Build(const flecs::world& world, flecs::entity parent, float width, float height);
+	// Whether the page's art is on disk, so a data typo skips the page instead of showing nothing.
+	[[nodiscard]] static bool PageExists(const flecs::world& world, std::string_view pageId);
+
+	// Builds page `pageId`, its panels and the Skip and Next buttons, hidden, as children of `parent` (a w x h screen).
+	// `finishLabel` is the Next button's label on the last panel.
+	void Build(
+		const flecs::world& world, flecs::entity parent, float width, float height, std::string_view pageId,
+		std::string finishLabel
+	);
 	// Frees the comic's textures. Its entities go with their parent.
 	void Release(const flecs::world& world);
 
@@ -40,6 +48,7 @@ private:
 	flecs::entity nextButton_;
 	flecs::entity skipButton_;
 	std::vector<std::string> textures_;
+	std::string finishLabel_;
 
 	bool started_{false};
 	bool finished_{false};

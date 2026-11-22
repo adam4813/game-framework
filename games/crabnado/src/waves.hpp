@@ -8,6 +8,7 @@
 
 #include <flecs.h>
 
+#include "campaign.hpp"
 #include "engine/engine.hpp"
 
 // The waves: crests that travel downwind in sets, drawn as a grid of raised, tinted water tiles and tumbling
@@ -90,14 +91,40 @@ std::optional<float> BoostNextCrest(WaveField& field, glm::vec2 position, float 
 // Seconds until the boosted crest of the primary swell reaches `position`, if it is still ahead and within `within`.
 [[nodiscard]] std::optional<float> BoostedCrestIn(const WaveField& field, glm::vec2 position, float within);
 
+// One crest of one swell: `swell` indexes WaveField::swells, `n` is the crest index (it reaches a point when the
+// swell's phase there equals n). A swell removed or shifted in the array invalidates a CrestRef; CrestFrontOf says so.
+struct CrestRef {
+	int swell{0};
+	int n{0};
+};
+
+// Where a crest's front line is: it travels along `direction` (a unit vector) and its front is the set of points whose
+// dot product with `direction` equals `along`.
+struct CrestFront {
+	glm::vec2 direction{0.0F};
+	float along{0.0F};
+};
+
+// The primary swell's crest nearest to `position` (the one that passes it soonest or just has), or nullopt with no swell.
+[[nodiscard]] std::optional<CrestRef> NearestPrimaryCrest(const WaveField& field, glm::vec2 position);
+
+// The primary swell's crests that reach the upwind point `reach` units out along the swell's reverse bearing: its phase
+// there, so floor(phase) rising means crest floor(phase) just arrived. nullopt with no swell. `swell` gets its index.
+[[nodiscard]] std::optional<float> PrimaryPhaseUpwind(const WaveField& field, float reach, int& swell);
+
+// The front of `crest` now, or nullopt when its swell no longer exists or has faded out.
+[[nodiscard]] std::optional<CrestFront> CrestFrontOf(const WaveField& field, CrestRef crest);
+
 // Seconds until the next rogue wave reaches `position`, if it is within `within` seconds.
 [[nodiscard]] std::optional<float> NextRogueIn(const WaveField& field, glm::vec2 position, float within);
 
-// The HUD name of the wave stage at run clock `clock`: "Steady swell", "Crossing swells" or "Rogue waves".
-[[nodiscard]] const char* WaveStageName(float clock);
+// The HUD name of the wave stage at Act clock `actClock`: "Steady swell", "Crossing swells" or "Rogue waves". The Act's
+// `sea` times say when each begins; a missing one never does.
+[[nodiscard]] const char* WaveStageName(const ActSea& sea, float actClock);
 
 // Spawns the water tiles as children of `parent`: a fine grid over the arena, then coarser tiles out across the open
-// ocean to kOceanFarReach. Tiles inside a TidePools pool are tinted darker, and those past the barrier deeper blue.
+// ocean to kOceanFarReach. Tiles inside a TidePools pool are tinted darker, and those past the barrier deeper blue; the
+// current Act's arena tint then lerps every tile's base color.
 void SpawnWaterTiles(const flecs::world& world, flecs::entity parent);
 
 } // namespace crabnado

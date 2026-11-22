@@ -10,7 +10,7 @@ import wave
 from pathlib import Path
 
 RATE = 44100
-OUT = Path(__file__).resolve().parents[3] / "assets" / "audio" / "crabnado"
+OUT = Path(__file__).resolve().parents[1] / "assets" / "audio" / "crabnado"
 
 
 def write(name, samples, gain=0.8):
@@ -158,6 +158,57 @@ def victory(rng):
     return out
 
 
+def stage_sting(rng):
+    # Two quick bell notes, the second a fourth up: "next up".
+    out = [0.0] * n(0.5)
+    for start, freq in ((0.0, 659.3), (0.11, 880.0)):
+        for i in range(n(0.35)):
+            t = i / RATE
+            env = min(1.0, t * 300) * math.exp(-9 * t)
+            out[n(start) + i] += (math.sin(2 * math.pi * freq * t) + 0.25 * math.sin(2 * math.pi * 2.76 * freq * t)) * env
+    return out
+
+
+def challenge_cleared(rng):
+    # A bright rising triad that ends on a held top note.
+    out = [0.0] * n(0.9)
+    for start, freq in ((0.0, 659.3), (0.08, 830.6), (0.16, 987.8), (0.24, 1318.5)):
+        for i in range(n(0.6)):
+            t = i / RATE
+            env = min(1.0, t * 250) * math.exp(-5 * t)
+            out[n(start) + i] += (math.sin(2 * math.pi * freq * t) + 0.3 * math.sin(2 * math.pi * 2 * freq * t)) * env
+    return out
+
+
+def storm_warning(rng):
+    # A low rumble that swells and ends in a falling horn tone.
+    out = []
+    phase = 0.0
+    low = 0.0
+    for i in range(n(1.4)):
+        t = i / RATE
+        low += 0.02 * (rng.uniform(-1, 1) - low)
+        swell = math.sin(math.pi * min(1.0, t / 1.4)) ** 2
+        phase += 2 * math.pi * (140 - 40 * t) / RATE
+        out.append(low * 6 * swell + math.sin(phase) * swell * 0.5)
+    return out
+
+
+def split(rng):
+    # A tearing crack of noise, then two detuned tones sliding apart: the crabnado tearing in two.
+    out = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n(1.2)):
+        t = i / RATE
+        crack = rng.uniform(-1, 1) * math.exp(-14 * t)
+        phase_a += 2 * math.pi * (220 + 160 * t) / RATE
+        phase_b += 2 * math.pi * (220 - 90 * t) / RATE
+        tones = (math.sin(phase_a) + math.sin(phase_b)) * min(1.0, t * 20) * math.exp(-2.2 * t)
+        out.append(crack + 0.6 * tones)
+    return out
+
+
 def main():
     rng = random.Random(7)
     write("claw_click.wav", click_pair(rng, 0.045))
@@ -171,6 +222,10 @@ def main():
     write("rock_crush.wav", rock_crush(rng), 0.6)
     write("player_death.wav", player_death(rng), 0.7)
     write("victory.wav", victory(rng), 0.7)
+    write("stage_sting.wav", stage_sting(rng), 0.5)
+    write("challenge_cleared.wav", challenge_cleared(rng), 0.6)
+    write("storm_warning.wav", storm_warning(rng), 0.7)
+    write("split.wav", split(rng), 0.8)
 
 
 if __name__ == "__main__":

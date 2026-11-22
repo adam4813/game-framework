@@ -19,6 +19,10 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 - **Tuning constants are `constexpr` in a shared header** (`constants.hpp`, a game's `*_constants.hpp`) or in a data
   file when designers tune them. Implementation constants that only one algorithm uses (iteration counts, epsilons)
   sit at the top of that `.cpp`'s anonymous namespace. Repeating a magic number across files means it wants a header.
+- **Game-specific assets live in the game's own `games/<name>/assets/`.** Its JSON, textures, audio, fonts, scripts and
+  levels go there, never in the root `assets/`, which holds only content more than one Game Target uses. The build
+  layers both under one runtime asset directory, so code and data refer to a file by the same path wherever it sits
+  on disk (e.g. `audio/crabnado/split.wav`). Tests and asset-generating tools point at the game's folder too.
 - **JSON goes through the shared helpers.** Engine code uses `engine::core` (`LoadJsonFile`, the `J*` field parsers);
   a game routes every JSON load through one reader of its own. Load errors name the file and the bad entry.
 

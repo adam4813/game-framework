@@ -5,8 +5,10 @@
 #include <cmath>
 
 #include "arena.hpp"
+#include "campaign.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
+#include "infested.hpp"
 #include "run.hpp"
 #include "wind.hpp"
 
@@ -21,6 +23,8 @@ constexpr core::Rgba kWaterColor{.r = 0x2f, .g = 0x8f, .b = 0xa8, .a = 255};
 constexpr core::Rgba kOceanColor{.r = 0x22, .g = 0x6e, .b = 0x8e, .a = 255}; // past the barrier
 constexpr core::Rgba kPoolColor{.r = 0x1d, .g = 0x66, .b = 0x80, .a = 255};
 constexpr core::Rgba kFoamColor{.r = 0xea, .g = 0xf7, .b = 0xfa, .a = 255};
+// The foam under an infested crest lerps toward this.
+constexpr core::Rgba kInfestedFoamColor{.r = 150, .g = 220, .b = 120, .a = 255};
 // Water tile sizes: the fine arena grid, then the near and far open ocean (see kOceanNearReach).
 constexpr int kOceanLevels = 3;
 // How far past the primary swell's crest a crest still counts as "arriving" for the warning.
@@ -53,7 +57,7 @@ void RemoveSwell(WaveField& field, const int index) {
 	--field.swell_count;
 }
 
-// A wind shift past kCrossSwellAt: every swell stops following and fades, and a new one builds along the
+// A wind shift past the Act's `cross_swell_at`: every swell stops following and fades, and a new one builds along the
 // shift's target bearing. Before then the one swell just follows the turning wind.
 void AddCrossSwell(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 	for (int i = 0; i < field.swell_count; ++i) {
@@ -90,9 +94,16 @@ void AddRogue(WaveField& field, const Wind& wind, ecs::RngState& rng) {
 		.amp = constants::kRogueAmp};
 }
 
+// Whether the Act clock has reached an optional sea time; a missing one never comes.
+bool SeaEventDue(const std::optional<float> at, const float actClock) {
+	return at && actClock >= *at;
+}
+
 void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
-	const float clock = world.get<RunState>().clock;
+	const float clock = world.get<RunState>().act_clock;
 	const RunPhase phase = world.get<RunState>().phase;
+	const Act* act = CurrentAct(world);
+	const ActSea sea = act != nullptr ? act->sea : ActSea{};
 	const auto& wind = world.get<Wind>();
 	auto& rng = world.get_mut<ecs::RngState>();
 	field.time += dt;
@@ -100,7 +111,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 
 	if (wind.shifts != field.last_shifts) {
 		field.last_shifts = wind.shifts;
-		if (clock >= constants::kCrossSwellAt && phase != RunPhase::Boss) {
+		if (SeaEventDue(sea.cross_swell_at, clock) && phase != RunPhase::Boss) {
 			AddCrossSwell(field, wind, rng);
 		}
 	}
@@ -124,7 +135,7 @@ void StepWaves(const flecs::world& world, WaveField& field, const float dt) {
 		}
 	}
 
-	if (clock >= constants::kRogueAt && phase != RunPhase::Boss) {
+	if (SeaEventDue(sea.rogue_at, clock) && phase != RunPhase::Boss) {
 		field.rogue_timer -= dt;
 		if (field.rogue_timer <= 0.0F) {
 			field.rogue_timer = rng.NextFloatRange(constants::kRogueGapMin, constants::kRogueGapMax);
@@ -219,6 +230,11 @@ void RegisterWaves(const flecs::world& world) {
 			transform.position.y = height * constants::kWaterHeightScale - constants::kWaterTileThickness / 2.0F;
 			const float foam = std::clamp((height - constants::kFoamMinHeight) / constants::kFoamRamp, 0.0F, 1.0F);
 			material.color = Lerp(tile.base, kFoamColor, foam);
+			const auto& infested = it.world().get<InfestState>();
+			if (infested.active) {
+				const float tint = InfestedTint(infested, field, {transform.position.x, transform.position.z});
+				material.color = Lerp(material.color, kInfestedFoamColor, tint);
+			}
 		})
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
@@ -321,6 +337,38 @@ std::optional<float> BoostedCrestIn(const WaveField& field, const glm::vec2 posi
 	return seconds > 0.0F && seconds <= within ? std::optional{seconds} : std::nullopt;
 }
 
+std::optional<CrestRef> NearestPrimaryCrest(const WaveField& field, const glm::vec2 position) {
+	const Swell* swell = PrimarySwell(field);
+	if (swell == nullptr) {
+		return std::nullopt;
+	}
+	return CrestRef{
+		.swell = static_cast<int>(swell - field.swells.data()),
+		.n = static_cast<int>(std::round(Phase(*swell, field.time, position)))};
+}
+
+std::optional<float> PrimaryPhaseUpwind(const WaveField& field, const float reach, int& swellIndex) {
+	const Swell* swell = PrimarySwell(field);
+	if (swell == nullptr) {
+		return std::nullopt;
+	}
+	swellIndex = static_cast<int>(swell - field.swells.data());
+	return Phase(*swell, field.time, -BearingDirection(swell->direction) * reach);
+}
+
+std::optional<CrestFront> CrestFrontOf(const WaveField& field, const CrestRef crest) {
+	if (crest.swell < 0 || crest.swell >= field.swell_count) {
+		return std::nullopt;
+	}
+	const Swell& swell = field.swells[static_cast<size_t>(crest.swell)];
+	if (swell.amp < 0.01F) {
+		return std::nullopt;
+	}
+	return CrestFront{
+		.direction = BearingDirection(swell.direction),
+		.along = constants::kWaveSpeed * (field.time - swell.t0) - static_cast<float>(crest.n) * kCrestSpacing};
+}
+
 std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 position, const float within) {
 	std::optional<float> soonest;
 	for (int i = 0; i < field.rogue_count; ++i) {
@@ -334,22 +382,27 @@ std::optional<float> NextRogueIn(const WaveField& field, const glm::vec2 positio
 	return soonest;
 }
 
-const char* WaveStageName(const float clock) {
-	if (clock < constants::kCrossSwellAt) {
-		return "Steady swell";
+const char* WaveStageName(const ActSea& sea, const float actClock) {
+	if (SeaEventDue(sea.rogue_at, actClock)) {
+		return "Rogue waves";
 	}
-	return clock < constants::kRogueAt ? "Crossing swells" : "Rogue waves";
+	return SeaEventDue(sea.cross_swell_at, actClock) ? "Crossing swells" : "Steady swell";
 }
 
 void SpawnWaterTiles(const flecs::world& world, const flecs::entity parent) {
 	const flecs::entity water = world.entity("Water").child_of(parent);
 	const auto& pools = world.get<TidePools>().pools;
+	const Act* act = CurrentAct(world);
+	const ActArena* tint = act != nullptr ? &act->arena : nullptr;
 	const auto spawnTile = [&](const glm::vec2 center, const float cell) {
 		core::Rgba base = kWaterColor;
 		if (glm::length(center) > constants::kArenaRadius) {
 			base = kOceanColor;
 		} else if (std::ranges::any_of(pools, [&](const TidePool& pool) { return glm::length(center - pool.center) < pool.radius; })) {
 			base = kPoolColor;
+		}
+		if (tint != nullptr) {
+			base = Lerp(base, tint->tint_color, tint->tint_amount);
 		}
 		const float size = cell * constants::kWaterFill;
 		std::ignore = world.entity()

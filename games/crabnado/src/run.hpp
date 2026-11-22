@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <string>
 
 #include <flecs.h>
 
@@ -9,12 +11,25 @@
 namespace crabnado {
 
 // Countdown holds the scene paused before play starts (3-2-1) and after a molt (a short "Ready..."), then hands over to
-// Playing, or to Boss once the boss is due. It comes first so `phase >= Boss` still means the boss or the run's end.
-enum class RunPhase { Countdown, Playing, Molting, Boss, Won, Lost };
+// Playing, or to Boss once the boss is due. It comes first so `phase >= Boss` still means "not normal play" (the boss,
+// the break between Acts, or the run's end). Transition is the scene paused between a beaten boss and the next Act.
+enum class RunPhase { Countdown, Playing, Molting, Boss, Transition, Won, Lost };
+
+// Where a Transition is: ActClear shows the "ACT CLEAR" label, Comic is the story page (the arena scene plays it),
+// Molt is the Act's free molt pick. The Transition then hands over to a Countdown (or to Won after the last Act).
+enum class TransitionStep { ActClear, Comic, Molt };
+
+// How many Acts RunState::splits holds a split for.
+inline constexpr int kSplitCount = 3;
 
 // Whether the run is live: the clock counts, enemies spawn and the player can be hurt.
 [[nodiscard]] constexpr bool IsRunning(const RunPhase phase) {
 	return phase == RunPhase::Playing || phase == RunPhase::Boss;
+}
+
+// Whether the molt modal is up: a molt the shells paid for, or an Act's free molt.
+[[nodiscard]] constexpr bool IsMolting(const RunPhase phase, const TransitionStep step) {
+	return phase == RunPhase::Molting || (phase == RunPhase::Transition && step == TransitionStep::Molt);
 }
 
 // Singleton: the current run. `menu_paused` is the Esc pause menu, separate from `phase` so pausing mid-run
@@ -23,6 +38,18 @@ enum class RunPhase { Countdown, Playing, Molting, Boss, Won, Lost };
 // toward the next molt, which needs `shells_needed`; `molt_level` starts at 1. `seed` is the RngState
 // seed the run started from, so a run can be replayed. `countdown` is the seconds left of the start countdown; it
 // runs on below 0, to -kGoTime, while "Go!" shows.
+// `act` and `stage` (both 0-based; `stage == stages.size()` is the Boss Stage) say where the campaign director has the
+// run. The Remote API jumps to a Stage by writing both; the director then enters it with `stage_clock` 0. Writing
+// `stage_clock` alone just moves the Stage's gate. `stage_clock` and `act_clock` count up next to `clock`, which stays
+// the campaign clock; all of them stand still unless the run is live (molts and countdowns pause them).
+// `stage_kills_start` is `kills` when the Stage began, so a quota counts `kills - stage_kills_start`. `stage_banner` is
+// the seconds left of the Stage-change banner, `challenge_cleared` of "Challenge cleared!". When the last normal Stage
+// gates, `stage` moves to the Boss Stage with `phase` still Playing while `storm_up` counts down from kStormUpTime;
+// at 0 the phase becomes Boss. `resume_phase` is the phase a molt returns to when its countdown ends. `rerolls` is the
+// molt rerolls in hand. In a Transition `step` says where it is and `transition_timer` is the seconds left of the ACT
+// CLEAR label. `splits` holds the campaign clock at each Act's clear (0 for an Act not cleared yet). `active_scripts` lists the
+// ids of the campaign scripts loaded and still running (comma separated), `last_script_call` the last call a script
+// made, with why it was refused if it was (see campaign_script.hpp).
 struct RunState {
 	RunPhase phase{RunPhase::Playing};
 	float clock{0.0F};
@@ -37,6 +64,21 @@ struct RunState {
 	float banner_timer{0.0F};
 	uint64_t seed{0};
 	float countdown{0.0F};
+	int act{0};
+	int stage{0};
+	float stage_clock{0.0F};
+	float act_clock{0.0F};
+	int stage_kills_start{0};
+	float stage_banner{0.0F};
+	float challenge_cleared{0.0F};
+	float storm_up{0.0F};
+	RunPhase resume_phase{RunPhase::Playing};
+	int rerolls{0};
+	TransitionStep step{TransitionStep::ActClear};
+	float transition_timer{0.0F};
+	std::array<float, kSplitCount> splits{};
+	std::string active_scripts;
+	std::string last_script_call;
 };
 
 // Shells needed for the molt after `moltLevel` (geometric: kShellsFirstMolt * kShellsGrowth^(level - 1)).
@@ -52,7 +94,11 @@ void StartRun(const flecs::world& world);
 // Opens or closes the pause menu (pausing the scene). Does nothing unless the run is live.
 void SetMenuPaused(const flecs::world& world, bool paused);
 
-// Ends the run as won (the third boss slam) and pauses the scene. Does nothing unless the boss phase is running.
+// Clears the current Act when its beaten boss finishes its retreat: records the split, pauses the scene and starts the
+// Transition at ACT CLEAR (see transition.hpp). Does nothing unless the boss phase is running.
+void ClearAct(const flecs::world& world);
+
+// Ends the run as won (after the last Act's ending) and keeps the scene paused.
 void WinRun(const flecs::world& world);
 
 // Ends the run as lost and pauses the scene. Does nothing unless the run is live.

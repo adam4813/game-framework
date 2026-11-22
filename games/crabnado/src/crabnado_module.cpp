@@ -7,12 +7,17 @@
 #include "arena_scene.hpp"
 #include "boss.hpp"
 #include "bubbles.hpp"
+#include "captain.hpp"
+#include "campaign.hpp"
+#include "campaign_script.hpp"
 #include "claw_snap.hpp"
 #include "controls.hpp"
 #include "crabnado.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "horde.hpp"
+#include "infested.hpp"
+#include "offscreen.hpp"
 #include "player.hpp"
 #include "riptide.hpp"
 #include "run.hpp"
@@ -22,6 +27,7 @@
 #include "title_backdrop.hpp"
 #include "title_logo.hpp"
 #include "title_scene.hpp"
+#include "transition.hpp"
 #include "ui_theme.hpp"
 #include "upgrades.hpp"
 #include "waves.hpp"
@@ -41,12 +47,18 @@ CrabnadoModule::CrabnadoModule(flecs::world& world) {
 	// (whose grid the claw snap reads), then shells and molting.
 	RegisterControls(world);
 	RegisterRun(world);
+	RegisterCampaign(world);
+	RegisterCampaignScripts(world);
+	RegisterTransition(world);
 	RegisterWind(world);
 	RegisterWaves(world);
 	RegisterPlayer(world);
 	RegisterCrabnado(world);
 	RegisterBoss(world);
+	RegisterCaptain(world);
 	RegisterHorde(world);
+	RegisterOffscreen(world);
+	RegisterInfested(world);
 	RegisterClawSnap(world);
 	RegisterBubbles(world);
 	RegisterRiptide(world);

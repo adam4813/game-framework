@@ -5,18 +5,27 @@
 #include <format>
 #include <string>
 
+#include <spdlog/spdlog.h>
+
+#include "boss.hpp"
+#include "boss_registry.hpp"
 #include "bubbles.hpp"
+#include "campaign.hpp"
+#include "campaign_script.hpp"
+#include "captain.hpp"
 #include "crabnado_constants.hpp"
 #include "engine/engine.hpp"
 #include "arena.hpp"
 #include "claw_snap.hpp"
 #include "crabnado.hpp"
 #include "horde.hpp"
+#include "infested.hpp"
 #include "player.hpp"
 #include "run.hpp"
 #include "settings.hpp"
 #include "settings_menu.hpp"
 #include "sfx.hpp"
+#include "transition.hpp"
 #include "ui_theme.hpp"
 #include "enemy_types.hpp"
 #include "upgrades.hpp"
@@ -41,6 +50,7 @@ constexpr core::Rgba kBannerColor{.r = 255, .g = 244, .b = 220, .a = 255};
 constexpr float kCountdownFontSize = 120.0F;
 constexpr float kCountdownPop = 0.5F;
 constexpr core::Rgba kRogueColor{.r = 235, .g = 60, .b = 50, .a = 255};
+constexpr core::Rgba kInfestedColor{.r = 150, .g = 220, .b = 120, .a = 255};
 constexpr core::Rgba kStaminaBarColor{.r = 120, .g = 200, .b = 230, .a = 255};
 constexpr core::Rgba kExhaustedBarColor{.r = 140, .g = 140, .b = 140, .a = 255};
 // The loadout in the lower left: a row of weapon slots, with the dig-in bar above it. A slot is the weapon's
@@ -63,6 +73,9 @@ constexpr core::Rgba kDimmedTextColor{.r = 150, .g = 150, .b = 150, .a = 255};
 constexpr float kMoltBarWidth = 400.0F;
 constexpr float kMoltBarTop = 16.0F;
 constexpr float kMoltBarHeight = 26.0F;
+// The enraged boss's HP bar, under the boss label.
+constexpr float kBossBarTop = 116.0F;
+constexpr float kBossBarHeight = 16.0F;
 constexpr float kChipOverlap = 10.0F;
 constexpr float kChipRise = 4.0F; // how far a chip sticks out above and below the bar
 constexpr float kMoltChipWidth = 48.0F; // room for two digits
@@ -115,7 +128,7 @@ const ui::Button kCardStyle{
 	.border_thickness = 3.0F,
 };
 constexpr float kResultsModalWidth = 520.0F;
-constexpr float kResultsModalHeight = 380.0F;
+constexpr float kResultsModalHeight = 470.0F;
 constexpr float kPauseModalWidth = 360.0F;
 constexpr float kPauseModalHeight = 312.0F;
 constexpr float kModalButtonWidth = 200.0F;
@@ -126,10 +139,6 @@ constexpr float kBossCrestLookahead = 3.0F * constants::kWavePeriod;
 constexpr float kCompassRadius = 56.0F;
 constexpr float kCompassMargin = 30.0F;
 constexpr float kCompassTop = 20.0F;
-// Where the crabnado starts, away from the player at the centre.
-constexpr glm::vec2 kCrabnadoStart{30.0F, -25.0F};
-// Scattered rocks keep this clear of the player's start (the centre) and the crabnado's.
-constexpr float kStartClearance = 5.0F;
 
 // A stat value with at most two decimals and no trailing zeros: "100", "3.6", "0.96".
 std::string FormatStat(const float value) {
@@ -155,7 +164,9 @@ void ArenaScene::RegisterLoaders(const flecs::world& world) {
 
 void ArenaScene::Load(flecs::world& world) {
 	StartRun(world);
-	LoadEnemyTypes(world, world.get<platform::PlatformRef>().ptr->AssetDirectory() + std::string{constants::kEnemiesPath});
+	const std::string assetDirectory = world.get<platform::PlatformRef>().ptr->AssetDirectory();
+	LoadEnemyTypes(world, assetDirectory + std::string{constants::kEnemiesPath});
+	LoadCampaignData(world, assetDirectory);
 	StartWind(world);
 	StartWaves(world);
 	sceneRoot_ = world.entity("Arena");
@@ -166,6 +177,8 @@ void ArenaScene::Load(flecs::world& world) {
 				 .set<audio::Music>({.path = assets::ResolveAsset(world, "audio/crabnado/music.ogg"), .loop = true})
 				 .set<MusicLevel>({constants::kMusicVolume});
 	horde_ = world.entity().child_of(sceneRoot_);
+	ResetCampaignScripts(world, sceneRoot_);
+	ResetCaptain(world);
 	BuildStage(world);
 	BuildUI(world);
 }
@@ -178,17 +191,16 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	if (deferred) {
 		world.defer_suspend();
 	}
-	const std::array<RockCircle, 2> keepClear{
-		{{.center = glm::vec2{0.0F}, .radius = kStartClearance}, {.center = kCrabnadoStart, .radius = kStartClearance}}};
+	const std::array<RockCircle, 1> keepClear{{{.center = glm::vec2{0.0F}, .radius = constants::kStartClearance}}};
 	BuildArena(world, sceneRoot_, keepClear);
 	if (deferred) {
 		world.defer_resume();
 	}
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
-	AddBubbles(player);
-	AddRiptide(player);
-	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_, kCrabnadoStart);
+	AddBubbles(world, player);
+	AddRiptide(world, player);
+	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_);
 	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);
 
@@ -261,7 +273,33 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 					 .set<ui::Label>({.font_size = 24.0F, .color = kBossColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
 					 .set_name("BossLabel")
 					 .child_of(uiRoot_);
-	bannerLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.28F, .w = w, .h = 44.0F}, "", 38.0F)
+	// The enraged boss's HP bar under its name, with the daze countdown beside it. Hidden until the boss fight.
+	const core::Rect bossBarRect{.x = barX, .y = kBossBarTop, .w = kMoltBarWidth, .h = kBossBarHeight};
+	bossBar_ = ui::CreateProgressBar(
+				   world,
+				   bossBarRect,
+				   {.fill_color = kBossColor, .track_color = kMoltTrackColor, .border_color = kChipColor, .roundness = 0.5F}
+	)
+				   .set<ui::UIElement>({.visible = false})
+				   .set_name("BossBar")
+				   .child_of(uiRoot_);
+	dazeLabel_ = ui::CreateLabel(
+					 world, {.x = barX + kMoltBarWidth + 12.0F, .y = kBossBarTop - 6.0F, .w = 220.0F, .h = 28.0F}, "", 24.0F
+	)
+					 .set<ui::Label>(
+						 {.font_size = 24.0F,
+						  .color = kBannerColor,
+						  .align = ui::TextAlign::Left,
+						  .outline = kHudOutline,
+						  .outline_color = kHudOutlineColor}
+					 )
+					 .set_name("DazeLabel")
+					 .child_of(uiRoot_);
+	challengeLabel_ = ui::CreateLabel(world, {.x = barX, .y = 84.0F, .w = kMoltBarWidth, .h = 28.0F}, "", 24.0F)
+						  .set<ui::Label>({.font_size = 24.0F, .color = kBannerColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
+						  .set_name("ChallengeLabel")
+						  .child_of(uiRoot_);
+	bannerLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.28F, .w = w, .h = 88.0F}, "", 38.0F)
 					   .set<ui::Label>({.font_size = 38.0F, .color = kBannerColor, .outline = 3.0F, .outline_color = kHudOutlineColor})
 					   .set_name("BannerLabel")
 					   .child_of(uiRoot_);
@@ -269,6 +307,11 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 						  .set<ui::Label>({.font_size = kCountdownFontSize, .color = kBannerColor, .outline = 6.0F, .outline_color = kHudOutlineColor})
 						  .set_name("CountdownLabel")
 						  .child_of(uiRoot_);
+	// The Act's title card, under the countdown number.
+	actCardLabel_ = ui::CreateLabel(world, {.x = 0.0F, .y = h * 0.3F + kCountdownFontSize * 1.7F, .w = w, .h = 90.0F}, "", 40.0F)
+						.set<ui::Label>({.font_size = 40.0F, .color = kBannerColor, .outline = 3.0F, .outline_color = kHudOutlineColor})
+						.set_name("ActCardLabel")
+						.child_of(uiRoot_);
 	BuildLoadout(world, h);
 	BuildMoltModal(world, w, h);
 
@@ -277,10 +320,20 @@ void ArenaScene::BuildUI(const flecs::world& world) {
 	std::ignore = world.entity("WindCompass")
 					  .child_of(uiRoot_)
 					  .set<WindCompass>({.center = compassCenter, .radius = kCompassRadius});
-	// The sea state, under the compass (the compass draws its shift warning below this).
+	// "Act 2 · Lobster Stage" under the compass, then the sea state below it (the compass draws its shift warning
+	// below that).
+	stageLabel_ = ui::CreateLabel(
+					  world,
+					  {.x = compassCenter.x - 130.0F, .y = compassCenter.y + kCompassRadius + 6.0F, .w = 260.0F, .h = 26.0F},
+					  "",
+					  20.0F
+	)
+					  .set<ui::Label>({.font_size = 20.0F, .color = kBannerColor, .outline = kHudOutline, .outline_color = kHudOutlineColor})
+					  .set_name("StageLabel")
+					  .child_of(uiRoot_);
 	waveLabel_ = ui::CreateLabel(
 					 world,
-					 {.x = compassCenter.x - 110.0F, .y = compassCenter.y + kCompassRadius + 6.0F, .w = 220.0F, .h = 26.0F},
+					 {.x = compassCenter.x - 110.0F, .y = compassCenter.y + kCompassRadius + 30.0F, .w = 220.0F, .h = 26.0F},
 					 "",
 					 20.0F
 	)
@@ -373,10 +426,11 @@ void ArenaScene::UpdateWeapons(const flecs::entity player) const {
 	const auto& claw = player.get<ClawSnap>();
 	const auto& bubbles = player.get<Bubbles>();
 	const auto& riptide = player.get<Riptide>();
+	const auto remaining = [&player](const char* name) { return player.lookup(name).get<timer::Cooldown>().remaining; };
 	const std::array<Charge, kWeaponCount> charges{
-		Charge{claw.level, claw.timer, claw.cooldown},
-		Charge{bubbles.level, bubbles.timer, bubbles.cooldown},
-		Charge{riptide.level, riptide.timer, riptide.cooldown},
+		Charge{claw.level, remaining(kClawCooldownName), claw.cooldown},
+		Charge{bubbles.level, remaining(kBubbleCooldownName), bubbles.cooldown},
+		Charge{riptide.level, remaining(kRiptideCooldownName), riptide.cooldown},
 	};
 	// A locked weapon (level 0: Riptide before its upgrade) is hidden. It's the last slot, so no gap opens.
 	for (int i = 0; i < kWeaponCount; ++i) {
@@ -496,6 +550,16 @@ void ArenaScene::BuildMoltModal(const flecs::world& world, const float width, co
 	)
 						 .set_name("ConfirmButton")
 						 .child_of(moltModal_);
+	// Shown only while a reroll is in hand (UpdateMolt).
+	rerollButton_ = ui::CreateButton(
+						world,
+						{.x = x + kMoltModalWidth - kConfirmWidth - 24.0F, .y = top + kCardHeight + 20.0F, .w = kConfirmWidth, .h = kModalButtonHeight},
+						"Reroll",
+						[](const flecs::entity button) { RerollMolt(button.world()); }
+	)
+						.set<ui::UIElement>({})
+						.set_name("RerollButton")
+						.child_of(moltModal_);
 }
 
 void ArenaScene::BuildResultsModal(const flecs::world& world, const float width, const float height) {
@@ -509,8 +573,8 @@ void ArenaScene::BuildResultsModal(const flecs::world& world, const float width,
 						  .set<ui::Label>({.font_size = 48.0F, .color = kResultsHeadingColor})
 						  .child_of(resultsModal_);
 	resultsStats_ =
-		ui::CreateLabel(world, {.x = x, .y = y + 96.0F, .w = kResultsModalWidth, .h = 120.0F}, "", 26.0F)
-			.set<ui::Label>({.font_size = 26.0F, .color = kPanelTextColor})
+		ui::CreateLabel(world, {.x = x, .y = y + 96.0F, .w = kResultsModalWidth, .h = 220.0F}, "", 24.0F)
+			.set<ui::Label>({.font_size = 24.0F, .color = kPanelTextColor})
 			.child_of(resultsModal_);
 
 	const float rowWidth = 2.0F * kModalButtonWidth + kChoiceGap;
@@ -614,15 +678,31 @@ void ArenaScene::UpdateResults(const flecs::world& world) const {
 	}
 	const int seconds = static_cast<int>(run.clock);
 	auto& heading = resultsHeading_.get_mut<ui::Label>();
-	heading.text = won ? "Victory!" : "Swept away";
+	heading.text = won ? "Hermit Isle holds!" : "Swept away";
 	heading.color = won ? kVictoryHeadingColor : kResultsHeadingColor;
+	// A loss says where the run ended; a victory lists the campaign clock at each Act's clear.
+	std::string where;
+	if (won) {
+		const int acts = std::min(kSplitCount, static_cast<int>(world.get<Campaign>().acts.size()));
+		for (int i = 0; i < acts; ++i) {
+			// The splits are cumulative clock readings; each Act's own time is the difference from the one before.
+			const auto at = static_cast<size_t>(i);
+			const int split = static_cast<int>(run.splits[at] - (i > 0 ? run.splits[at - 1] : 0.0F));
+			where += std::format("\nAct {}  {}:{:02}", i + 1, split / 60, split % 60);
+		}
+	} else if (const Act* act = CurrentAct(world)) {
+		const Stage* stage = CurrentStage(world);
+		where = std::format("{}: {}, {} Stage\n", act->title, act->name, stage != nullptr ? stage->name : "Boss");
+	}
 	resultsStats_.get_mut<ui::Label>().text = std::format(
-		"{}Time {}  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}", won ? "The crabnado breaks apart!\n" : "",
-		won ? "to win" : "survived", seconds / 60, seconds % 60, run.kills, run.rock_kills, run.molt_level
+		"{}Time {}  {}:{:02}\nKills  {}\nRock slams  {}\nMolt level  {}{}", won ? "" : where, won ? "to win" : "survived",
+		seconds / 60, seconds % 60, run.kills, run.rock_kills, run.molt_level, won ? where : ""
 	);
 }
 
-void ArenaScene::Tick(const flecs::world& world, float) {
+void ArenaScene::Tick(const flecs::world& world, const float deltaTime) {
+	// Ticks while the scene is paused, like the countdown, so the page runs between Acts.
+	UpdateComic(world, deltaTime);
 	auto* platform = world.get<platform::PlatformRef>().ptr;
 	const int enemyCount = world.count<Enemy>();
 	world.set<HordeReadout>({.enemy_count = enemyCount, .fps = platform->Fps()});
@@ -648,6 +728,38 @@ void ArenaScene::Tick(const flecs::world& world, float) {
 	}
 }
 
+void ArenaScene::UpdateComic(const flecs::world& world, const float deltaTime) {
+	const auto& run = world.get<RunState>();
+	const bool wanted = run.phase == RunPhase::Transition && run.step == TransitionStep::Comic;
+	if (!comicOpen_) {
+		if (!wanted) {
+			return;
+		}
+		const Act* act = CurrentAct(world);
+		const std::string page = act != nullptr ? act->comic_after : std::string{};
+		if (page.empty() || !StoryComic::PageExists(world, page)) {
+			spdlog::warn("[Campaign] no comic page '{}'; skipping it", page);
+			FinishComic(world);
+			return;
+		}
+		const auto* platform = world.get<platform::PlatformRef>().ptr;
+		const bool last = run.act + 1 >= static_cast<int>(world.get<Campaign>().acts.size());
+		comic_.Build(world, uiRoot_, static_cast<float>(platform->Width()), static_cast<float>(platform->Height()), page, last ? "Continue" : "Fight!");
+		// Tick runs inside a system, so the page's entities exist only after this frame: it starts on the next one.
+		comicOpen_ = true;
+		return;
+	}
+	comic_.Start();
+	comic_.Tick(world, deltaTime);
+	if (comic_.Finished() || !wanted) {
+		comic_.Release(world);
+		comicOpen_ = false;
+		if (wanted) {
+			FinishComic(world);
+		}
+	}
+}
+
 void ArenaScene::UpdateHud(const flecs::world& world) const {
 	const auto& run = world.get<RunState>();
 	const flecs::entity player = FindPlayer(world);
@@ -662,7 +774,14 @@ void ArenaScene::UpdateHud(const flecs::world& world) const {
 	if (timeLabel_.has<ui::Label>() && killsLabel_.has<ui::Label>() && waveLabel_.has<ui::Label>()) {
 		timeLabel_.get_mut<ui::Label>().text = std::format("{}:{:02}", seconds / 60, seconds % 60);
 		killsLabel_.get_mut<ui::Label>().text = std::format("{}", run.kills);
-		waveLabel_.get_mut<ui::Label>().text = WaveStageName(run.clock);
+		const Act* act = CurrentAct(world);
+		waveLabel_.get_mut<ui::Label>().text = WaveStageName(act != nullptr ? act->sea : ActSea{}, run.act_clock);
+		if (stageLabel_.has<ui::Label>() && act != nullptr) {
+			const bool boss = run.stage >= static_cast<int>(act->stages.size());
+			stageLabel_.get_mut<ui::Label>().text =
+				boss ? std::format("{} · Boss Stage", act->title)
+					 : std::format("{} · {} Stage", act->title, act->stages[static_cast<size_t>(run.stage)].name);
+		}
 	}
 	UpdateResults(world);
 	UpdateMolt(world);
@@ -696,15 +815,69 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 		return;
 	}
 	const auto& run = world.get<RunState>();
-	const bool boss = run.phase == RunPhase::Boss;
-	bossLabel_.get_mut<ui::Label>().text =
-		boss ? std::format("CRABNADO \xC2\xB7 slams left {}", constants::kBossSlamsToWin - run.slams) : "";
+	const BossDef* def = CurrentBoss(world);
+	const bool boss = run.phase == RunPhase::Boss && def != nullptr;
+	const bool enraged = boss && def->behavior == kEnragedBehavior;
+	const auto& state = world.get<BossState>();
+	// Captain Crab may ride in while the storm is still rising, so his bar shows from his arrival.
+	const bool captain = def != nullptr && def->behavior == kCaptainBehavior && InBossStage(world) &&
+		world.get<CaptainState>().arrived && state.hp > 0.0F;
+	const int slamsToWin = def != nullptr ? def->slam.slams_to_win : 0;
+	const bool stormRising = run.phase == RunPhase::Playing && run.storm_up > 0.0F && InBossStage(world);
+	std::string bossText = stormRising ? "The storm is rising!" : "";
+	if (captain) {
+		bossText = "CAPTAIN CRAB";
+	} else if (enraged) {
+		bossText = "CRABNADO";
+	} else if (boss && !HasBossHp(*def)) {
+		bossText = std::format("CRABNADO \xC2\xB7 slams left {}", slamsToWin - run.slams);
+	}
+	bossLabel_.get_mut<ui::Label>().text = bossText;
+	// The HP bar, and the countdown of the weapon window while it is open (dazed, or beached for Captain Crab).
+	if (bossBar_.has<ui::ProgressBar>() && bossBar_.has<ui::UIElement>() && dazeLabel_.has<ui::Label>()) {
+		const bool showBar = (enraged && state.hp > 0.0F) || captain;
+		bossBar_.get_mut<ui::UIElement>().visible = showBar;
+		auto& bar = bossBar_.get_mut<ui::ProgressBar>();
+		bar.max = state.max_hp;
+		bar.value = std::max(0.0F, state.hp);
+		dazeLabel_.get_mut<ui::Label>().text =
+			showBar && state.action == BossAction::Dazed
+				? std::format("{} {:.1f}", captain ? "BEACHED!" : "DAZED!", std::max(0.0F, state.timer))
+				: "";
+	}
 	std::string banner;
-	if (boss && run.banner_timer > 0.0F) {
-		banner = run.slams == 0 ? "The crabnado comes ashore! Slam it into the rocks"
-								: std::format("SLAM! {}/{}", run.slams, constants::kBossSlamsToWin);
+	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
+		banner = "ACT CLEAR";
+	} else if (const auto& scripts = world.get<CampaignScripts>(); !world.lookup(kScriptBannerName).get<timer::Cooldown>().Ready()) {
+		banner = scripts.banner;
+	} else if (boss && run.banner_timer > 0.0F && def->behavior == kCaptainBehavior) {
+		banner = run.slams == 0 ? "Captain Crab rides in! Hit him while he's beached" : "SLAM! Hit him while he's beached";
+	} else if (boss && run.banner_timer > 0.0F) {
+		if (run.slams == 0) {
+			banner = "The crabnado comes ashore! Slam it into the rocks";
+		} else {
+			banner = enraged ? "SLAM! Hit it while it's dazed" : std::format("SLAM! {}/{}", run.slams, slamsToWin);
+		}
+	} else if (const Stage* stage = CurrentStage(world); stage != nullptr && run.stage_banner > 0.0F && run.phase == RunPhase::Playing) {
+		banner = std::format("{} Stage", stage->name);
+		if (const std::string challenge = ChallengeText(stage->gate); !challenge.empty()) {
+			banner += "\n" + challenge;
+		}
 	}
 	bannerLabel_.get_mut<ui::Label>().text = banner;
+	if (challengeLabel_.has<ui::Label>()) {
+		const Stage* stage = CurrentStage(world);
+		std::string challenge;
+		if (run.challenge_cleared > 0.0F) {
+			challenge = "Challenge cleared!";
+		} else if (stage != nullptr && stage->gate.type == GateType::Both) {
+			challenge = std::format(
+				"Challenge {}/{} \xC2\xB7 {}", std::min(run.kills - run.stage_kills_start, stage->gate.kills), stage->gate.kills,
+				FormatClock(stage->gate.time - run.stage_clock)
+			);
+		}
+		challengeLabel_.get_mut<ui::Label>().text = challenge;
+	}
 }
 
 void ArenaScene::UpdateCountdown(const flecs::world& world) const {
@@ -714,18 +887,24 @@ void ArenaScene::UpdateCountdown(const flecs::world& world) const {
 	const auto& run = world.get<RunState>();
 	const float countdown = run.countdown;
 	auto& label = countdownLabel_.get_mut<ui::Label>();
+	// The Act's title card shows with its opening 3-2-1; the Act clock only stands at 0 before play starts.
+	if (actCardLabel_.has<ui::Label>()) {
+		const Act* act = CurrentAct(world);
+		const bool card = act != nullptr && countdown > 0.0F && run.act_clock == 0.0F && run.phase == RunPhase::Countdown;
+		actCardLabel_.get_mut<ui::Label>().text = card ? act->title + '\n' + act->name : "";
+	}
 	if (countdown <= -constants::kGoTime) {
 		label.text.clear();
 		return;
 	}
 	// Each number lands big and settles over its second; "Go!" does the same over kGoTime.
 	const float settle = countdown > 0.0F ? countdown - std::ceil(countdown) + 1.0F : 1.0F + countdown / constants::kGoTime;
-	// The clock only stands at 0 before the first countdown ends, so a later countdown is the resume after a molt.
+	// The Act clock only stands at 0 before an Act's play starts, so a later countdown is the resume after a molt.
 	if (countdown <= 0.0F) {
 		label.text = "Go!";
 	}
 	else {
-		label.text = run.clock > 0.0F ? "Ready..." : std::format("{}", static_cast<int>(std::ceil(countdown)));
+		label.text = run.act_clock > 0.0F ? "Ready..." : std::format("{}", static_cast<int>(std::ceil(countdown)));
 	}
 	label.font_size = kCountdownFontSize * (1.0F + kCountdownPop * settle * settle * settle);
 }
@@ -739,7 +918,8 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 	const glm::vec2 position{p.x, p.z};
 	auto& label = telegraph_.get_mut<ui::Label>();
 	label.color = kTelegraphColor;
-	const bool crestComing = NextBigCrestIn(field, position, constants::kBigCrestWarning).has_value();
+	const auto infested = InfestedCrestIn(world);
+	const bool crestComing = infested.has_value() || NextBigCrestIn(field, position, constants::kBigCrestWarning).has_value();
 	if (crestComing && !crestCued_) {
 		PlaySfx(world, Sfx::Crest);
 	}
@@ -754,6 +934,9 @@ void ArenaScene::UpdateTelegraph(const flecs::world& world, const flecs::entity 
 		label.color = kRogueColor;
 	} else if (const auto riptide = BoostedCrestIn(field, position, constants::kBigCrestWarning)) {
 		label.text = std::format("RIPTIDE CREST in {:.1f} s", *riptide);
+	} else if (infested) {
+		label.text = "INFESTED CREST!";
+		label.color = kInfestedColor;
 	} else if (const auto crest = NextBigCrestIn(
 				   field, position, world.get<RunState>().phase == RunPhase::Boss ? kBossCrestLookahead : constants::kBigCrestWarning
 			   )) {
@@ -776,7 +959,7 @@ void ArenaScene::UpdateMolt(const flecs::world& world) const {
 		moltChip_.get_mut<ui::Label>().text = std::format("{}", run.molt_level);
 	}
 
-	const bool molting = run.phase == RunPhase::Molting;
+	const bool molting = IsMolting(run.phase, run.step);
 	moltModal_.get_mut<ui::Modal>().open = molting;
 	if (!molting) {
 		return;
@@ -784,6 +967,10 @@ void ArenaScene::UpdateMolt(const flecs::world& world) const {
 	const auto& offer = world.get<MoltOffer>();
 	for (int i = 0; i < kMoltChoices; ++i) {
 		UpdateMoltCard(world, moltCards_[i], FindUpgrade(world, offer.ids[i]), offer.selected == i);
+	}
+	if (rerollButton_.has<ui::Button>() && rerollButton_.has<ui::UIElement>()) {
+		rerollButton_.get_mut<ui::UIElement>().visible = run.rerolls > 0;
+		rerollButton_.get_mut<ui::Button>().label = std::format("Reroll ({})", run.rerolls);
 	}
 	if (confirmButton_.has<ui::Button>()) {
 		// Greyed out until a card is selected; ConfirmUpgrade ignores the click until then.
@@ -880,6 +1067,9 @@ void ArenaScene::ClearHorde(const flecs::world& world) {
 void ArenaScene::Unload(flecs::world& world) {
 	// A lost run paused the scene; the next scene starts unpaused.
 	world.remove<scene::Paused>();
+	comic_.Release(world);
+	comicOpen_ = false;
+	UnloadCampaignScripts(world);
 	ClearArena(world);
 	for (flecs::entity* root : {&sceneRoot_, &uiRoot_}) {
 		if (*root) {
@@ -908,10 +1098,16 @@ void ArenaScene::Unload(flecs::world& world) {
 	timeLabel_ = {};
 	killsLabel_ = {};
 	waveLabel_ = {};
+	stageLabel_ = {};
 	telegraph_ = {};
 	bossLabel_ = {};
+	bossBar_ = {};
+	dazeLabel_ = {};
+	challengeLabel_ = {};
+	rerollButton_ = {};
 	bannerLabel_ = {};
 	countdownLabel_ = {};
+	actCardLabel_ = {};
 	moltModal_ = {};
 	moltCards_ = {};
 	confirmButton_ = {};

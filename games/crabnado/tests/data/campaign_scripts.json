@@ -1,0 +1,19 @@
+{
+  "acts": [
+    {
+      "id": "scripted",
+      "name": "Script Fixture",
+      "title": "Test Act",
+      "script": "act_probe",
+      "hp_scale": { "mult": 1.0, "growth_seconds": 0 },
+      "stages": [
+        { "name": "Scripted", "gate": { "type": "script" }, "script": "gate_stage", "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        { "name": "Timed", "gate": { "type": "time", "time": 5 }, "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        { "name": "Stuck", "gate": { "type": "script" }, "script": "stuck_stage", "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        { "name": "Dying", "gate": { "type": "script" }, "script": "dying_stage", "spawns": { "crab": 1 }, "rate": { "base": 0 } },
+        { "name": "Broken", "gate": { "type": "time", "time": 5 }, "script": "broken_stage", "spawns": { "crab": 1 }, "rate": { "base": 0 } }
+      ],
+      "boss": { "id": "crabnado", "spawns": { "crab": 1 }, "rate_mult": 1.0 }
+    }
+  ]
+}
