@@ -1,6 +1,6 @@
 # Crabnado Game Target (ADR-0006). Everything except main.cpp goes into crabnado_lib so the game
 # executable and its tests link the same code.
-project(crabnado VERSION 0.1.0 LANGUAGES CXX)
+project(crabnado VERSION 1.0.0 LANGUAGES CXX)
 
 # Built from the framework root this target already exists; a standalone checkout finds the installed package.
 if (NOT TARGET game_framework::engine_lib)
