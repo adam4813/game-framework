@@ -88,7 +88,7 @@ None. Saving/loading is invoked explicitly by game code via `SaveToJson` / `Load
   `DeleteSave`/`ListSaves`) — a file per slot on desktop, a `localStorage` entry on the web.
 * Script-facing verbs (`SaveGame(name)`, `LoadGame(name)`, `DeleteSave(name)`, `AddParlorTokens`,
   `UnlockUpgrade`, …) exposed via `RegisterGlobalFunctionForScripts`, driven by
-  `assets/scripts/save_demo.as`.
+  `games/sandbox/assets/scripts/save_demo.as`.
 * A demonstrative save-management UI (`games/sandbox/src/game/save_ui.{hpp,cpp}`): a **New Save** button plus a scrollable list of
   slots, each with **Load** and **Delete**, rebuilt live as slots change.
 

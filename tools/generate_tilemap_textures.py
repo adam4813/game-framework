@@ -6,9 +6,9 @@ Usage:
     python Tools/generate_tilemap_textures.py
 
 Generates:
-    - assets/textures/tileset_basic.png (256x256, 8-tile grid, 2x4)
-    - assets/textures/player_sprite.png (64x64)
-    - assets/textures/tilemap_bg.png (512x512)
+    - games/sandbox/assets/textures/tileset_basic.png (256x256, 8-tile grid, 2x4)
+    - games/sandbox/assets/textures/player_sprite.png (64x64)
+    - games/sandbox/assets/textures/tilemap_bg.png (512x512)
 """
 
 import os
@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 import numpy as np
 
 
-OUTPUT_DIR = "assets/textures"
+OUTPUT_DIR = "games/sandbox/assets/textures"
 
 
 def create_directory_if_needed():

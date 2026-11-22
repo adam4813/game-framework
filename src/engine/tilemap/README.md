@@ -198,10 +198,10 @@ world.entity("Tilemap").child_of(sceneRoot)
     .set<engine::tilemap::TilemapSpec>(std::move(*spec));
 ```
 
-The **map file** (`assets/data/maps/*.json`) declares `width`/`height`, `tile_size_px`,
+The **map file** (`games/sandbox/assets/data/maps/*.json`) declares `width`/`height`, `tile_size_px`,
 `pixels_per_world_unit`, a default `fill` tile, reusable `brushes`, and an `ops` list of grid
 primitives — `rect`, `hline`, `vline`, `set`, and `stamp`. Tiles are referenced by name (resolved via the `TileSet`) or
-numeric id. The **tileset file** (`assets/data/tilesets/*.json`) declares the texture path, atlas dimensions, and
+numeric id. The **tileset file** (`games/sandbox/assets/data/tilesets/*.json`) declares the texture path, atlas dimensions, and
 per-tile `id`/`name`/`color`/`tex_coords`/`walkable`.
 
 ## Script integration

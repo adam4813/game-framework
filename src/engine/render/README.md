@@ -119,7 +119,7 @@ variant for WebGL).
   load since raylib's loader drops it. The flags combine: `true` on the entity's `Material` makes the whole model
   double-sided, but `false` can't turn off an asset's flag; fix that in the asset. Alpha-cutout surfaces are fine;
   **blended** double-sided surfaces draw their two faces in no fixed order and can show sorting artifacts. Desktop and
-  WebGL alike. Sandbox example: `DoubleSidedSign` beside a culled `SingleSidedSign` in `assets/levels/demo.level.json`.
+  WebGL alike. Sandbox example: `DoubleSidedSign` beside a culled `SingleSidedSign` in `games/sandbox/assets/levels/demo.level.json`.
 - **Textures** — `AlbedoMap { path, handle }` on the material entity is resolved to a platform handle via the
   `RegisterPathAsset<AlbedoMap>()` observer. `ShaderMap { stages, handle }` similarly loads a custom GLSL shader.
 - **Runtime textures** — an `AlbedoMap` with an empty `path` keeps the `handle` it is set with, so a lit mesh can show
@@ -187,7 +187,7 @@ Limits:
   off for a ghostly preview.
 
 Sandbox example: `TranslucentScene` (`games/sandbox/src/game/translucent_scene.cpp`,
-`assets/levels/translucent_demo.level.json`).
+`games/sandbox/assets/levels/translucent_demo.level.json`).
 
 ### Occluder fade
 

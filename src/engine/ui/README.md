@@ -166,7 +166,7 @@ Not yet: nine-slice for `Panel`/`Button`, and an icon slot on `Button` (tracked 
 `.level.json` (entity tree + `components`/`children`/`refs`). Component keys: `ui_rect`, `ui_element`,
 `panel`, `image`, `label`, `button`, `progress_bar`, `slider`, `spinner`, `stack`, `scroll_rect`, `modal`,
 `checkbox`, `radio`, `text_input`, `text_area`, `dropdown`, and `data_binding` (whose source entity is
-wired by the `binding_source` ref). See `assets/levels/ui_widgets_demo.level.json` for a bound-widget
+wired by the `binding_source` ref). See `games/sandbox/assets/levels/ui_widgets_demo.level.json` for a bound-widget
 example loaded by the title screen's "UI Demo" button.
 
 ```json
@@ -183,7 +183,7 @@ example loaded by the title screen's "UI Demo" button.
 ## Scripting
 
 Every registered component gets `self.GetT()` / `AddT()` / `SetT()` accessors in scripts, and the getters resolve to the
-host (the script entity's parent). `assets/scripts/ui_demo.as` drives a
+host (the script entity's parent). `games/sandbox/assets/scripts/ui_demo.as` drives a
 `ProgressBar` live:
 
 ```angelscript
@@ -194,7 +194,7 @@ void Tick(Entity self, float dt) {
 ```
 
 Scripts can also **build** UI via the `Create*` factory globals (`RegisterUIScriptFactories`), which take a
-parent `Entity` + rect (+ widget args) and return the created `Entity` (see `assets/scripts/ui_factory_demo.as`):
+parent `Entity` + rect (+ widget args) and return the created `Entity` (see `games/sandbox/assets/scripts/ui_factory_demo.as`):
 
 ```angelscript
 Entity panel = CreatePanel(self, 20, 20, 240, 120);
