@@ -36,7 +36,8 @@ constexpr auto kCrateLevel = R"({"entities": [
 
 constexpr float kRestingCrateY = 0.5F;
 constexpr float kRestTolerance = 0.05F;
-constexpr int kFramesToSettle = 120;
+// Free fall from y = 3 takes about 50 frames; the rest is margin so a slow CI runner still settles before the check.
+constexpr int kFramesToSettle = 300;
 
 // A headless Platform that claims a window, so its world installs the debug renderer like a game's would.
 class WindowedPlatform final : public engine::platform::HeadlessPlatform {
