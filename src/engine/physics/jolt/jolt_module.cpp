@@ -274,7 +274,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 					  .each([](const flecs::entity e, const RigidBody& rb, JoltBackend& sys) {
 						  const auto* cs = e.try_get<CollisionShape>();
 						  if (!cs) {
-							  ecs::WorldLog(e.world()).warn(
+							  ecs::Log(e.world()).warn(
 								  "[Physics] Entity '{}' has RigidBody but no CollisionShape — body creation "
 								  "deferred until CollisionShape is added.",
 								  EntityLabel(e)

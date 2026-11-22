@@ -105,7 +105,7 @@ public:
 		asITypeInfo* array_type =
 			element_name ? engine->GetTypeInfoByDecl(("array<" + std::string{element_name} + ">").c_str()) : nullptr;
 		if (!array_type || !type_info) {
-			auto& log = world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+			auto& log = world ? ecs::Log(*world) : *spdlog::default_logger();
 			log.error("[AngelScript] SetReturnArray: no array type for element type id {}", element_type);
 			return;
 		}

@@ -141,7 +141,7 @@ Flecs code. Decisions with history behind them are in `docs/adr/`.
 
 ## Logging
 
-- **Code holding a world logs through `ecs::WorldLog(world)`** (`it.world()` in a system), not `spdlog::info` and
+- **Code holding a world logs through `ecs::Log(world)`** (`it.world()` in a system), not `spdlog::info` and
   friends, so with two worlds in one process each line says which world wrote it (the World Logger, see
   `src/engine/ecs/README.md`). Only code with no world in reach (`main`, a free helper taking none) calls `spdlog::*`
   directly; don't add a `flecs::world` parameter just to log. Older Framework code still calls `spdlog::*`: convert a

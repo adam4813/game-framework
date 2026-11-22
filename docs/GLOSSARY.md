@@ -65,7 +65,7 @@ A Component stored on the world entity itself (`world.set<T>({})`) rather than o
 _Avoid_: global component, world component
 
 **World Logger**:
-A world's own named spdlog logger (`ecs::WorldLogger` Singleton, read through `ecs::WorldLog(world)`). It writes to the default logger's sinks, so two worlds in one process (a client and an integrated server) share one log, each line labeled with the world that wrote it. A world without one logs through the default logger.
+A world's own named spdlog logger (`ecs::WorldLogger` Singleton, read through `ecs::Log(world)`). It writes to the default logger's sinks, so two worlds in one process (a client and an integrated server) share one log, each line labeled with the world that wrote it. A world without one logs through the default logger.
 _Avoid_: per-world sink (a World Logger shares the default sinks)
 
 **Tag**:
