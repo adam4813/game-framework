@@ -249,12 +249,13 @@ inline constexpr int kShellsFirstMolt = 35;
 inline constexpr float kShellsGrowth = 1.4F;
 // Upgrade registry, relative to the asset directory.
 inline constexpr std::string_view kEnemiesPath = "/data/crabnado/enemies.json";
-// The campaign (Acts, Stages) and the boss registry, relative to the asset directory.
-inline constexpr std::string_view kCampaignPath = "/data/crabnado/campaign.json";
-inline constexpr std::string_view kBossesPath = "/data/crabnado/bosses.json";
+// The campaign (Acts, Stages) and the boss registry, relative to the asset directory. No leading slash: on POSIX that
+// would make them absolute paths, which `ResolveSourcePath` uses as is.
+inline constexpr std::string_view kCampaignPath = "data/crabnado/campaign.json";
+inline constexpr std::string_view kBossesPath = "data/crabnado/bosses.json";
 inline constexpr std::string_view kUpgradesPath = "/data/crabnado/upgrades.json";
 // Campaign scripts: `<id>.as` in this directory, relative to the asset directory.
-inline constexpr std::string_view kScriptsDir = "/scripts/crabnado/";
+inline constexpr std::string_view kScriptsDir = "scripts/crabnado/";
 // Seconds a script's Banner() shows.
 inline constexpr float kScriptBannerTime = 3.0F;
 // Seconds a `script`-gate Stage lasts when its script died, so a crashed script can't soft-lock the run (the fallback is a time gate).

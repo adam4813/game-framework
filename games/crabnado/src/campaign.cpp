@@ -431,7 +431,7 @@ void SetCrabnadoPresent(const flecs::world& world, const bool present) {
 }
 
 std::string ResolveSourcePath(const std::string_view assetDirectory, const std::string& path) {
-	return std::filesystem::path{path}.is_absolute() ? path : std::string{assetDirectory} + path;
+	return std::filesystem::path{path}.is_absolute() ? path : std::string{assetDirectory} + "/" + path;
 }
 
 void LoadCampaignData(const flecs::world& world, const std::string_view assetDirectory) {

@@ -297,7 +297,7 @@ TEST(CampaignScriptData, TheTypoFixtureCompilesButItsMismatchedHandlerIsReported
 TEST(CampaignScriptData, EveryScriptTheShippedCampaignNamesExistsCompilesAndDefinesOnlyEventHandlers) {
 	const ScriptWorld game;
 	const std::string assets = CRABNADO_TEST_ASSET_DIR;
-	const auto doc = core::LoadJsonFile(assets + std::string{constants::kCampaignPath}, "campaign_script_test");
+	const auto doc = core::LoadJsonFile(ResolveSourcePath(assets, std::string{constants::kCampaignPath}), "campaign_script_test");
 	ASSERT_TRUE(doc.has_value());
 	const CampaignParseResult campaign = ParseCampaign(*doc, std::vector<std::string>{"crab", "shrimp", "lobster"}, std::vector<std::string>{"crabnado", "crabnado_enraged", "captain_crab"}, SpawnerIds());
 
