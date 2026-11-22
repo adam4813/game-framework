@@ -32,12 +32,11 @@ void HueToRgb(float h, float &out r, float &out g, float &out b) {
 }
 
 void OnInit(Entity self) {
-    // GetParent() navigates to the host entity this script is attached to.
+    // `self` is the host entity this script is attached to.
     // GetName() and GetId() demonstrate the Entity identity API.
     // HasComponent() shows a defensive presence-check pattern.
-    Entity parent = self.GetParent();
-    Print("[SunCycleScript] Host: '" + parent.GetName() + "' (id=" + parent.GetId() + ")");
-    Print("[SunCycleScript] HasComponent DirectionalLight: " + parent.HasComponent("DirectionalLight"));
+    Print("[SunCycleScript] Host: '" + self.GetName() + "' (id=" + self.GetId() + ")");
+    Print("[SunCycleScript] HasComponent DirectionalLight: " + self.HasComponent("DirectionalLight"));
 }
 
 void Tick(Entity self, float dt) {

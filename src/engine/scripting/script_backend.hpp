@@ -13,22 +13,26 @@
 namespace engine::scripting {
 
 // Per-entity script execution handle. The backend creates one instance per
-// (entity, script) pair and owns its lifetime. ScriptComponent stores a raw
+// (host entity, script) pair and owns its lifetime. ScriptComponent stores a raw
 // non-owning pointer so systems can dispatch directly — no backend lookup in
 // the hot path, just one vtable call.
+//
+// The instance is bound at creation to its host entity, which every entry point receives as
+// `self`. OnInit and Tick return false when the script threw (the backend logs the exception);
+// the scripting module then marks the ScriptComponent RuntimeError and stops calling it.
 class IScriptInstance {
 public:
 	virtual ~IScriptInstance() = default;
 
 	// Called once on the first PreUpdate tick after the entity's ScriptComponent is set.
-	virtual void OnInit(flecs::entity entity) = 0;
+	[[nodiscard]] virtual bool OnInit() = 0;
 
 	// Called each frame for each phase (Pre → On → Post).
-	// entity is the script child entity; call entity.parent() for the host.
-	virtual void Tick(flecs::entity entity, float dt, ScriptTickPhase phase) = 0;
+	[[nodiscard]] virtual bool Tick(float dt, ScriptTickPhase phase) = 0;
 
-	// Called when the ScriptComponent is removed or the entity is destroyed.
-	virtual void OnDestroy(flecs::entity entity) = 0;
+	// Called when the ScriptComponent is removed or the entity is destroyed, unless the script
+	// has already failed.
+	virtual void OnDestroy() = 0;
 
 	// The declarations of the script's global functions, without parameter names ("void OnKill(const string&in)", the backend's own spelling).
 	// A host uses it to check that a script's handlers match the entry points it dispatches.
@@ -57,12 +61,12 @@ public:
 	// Called on ScriptingModule destruction. Release all backend resources.
 	virtual void Shutdown() = 0;
 
-	// Compile a script from disk and return a backend-owned instance for entity.
-	// Returns nullptr on failure.
+	// Compile a script from disk and return a backend-owned instance bound to `entity`, the host
+	// the script receives as `self`. Returns nullptr on failure.
 	virtual IScriptInstance* CreateInstanceFromFile(std::string_view path, flecs::entity entity) = 0;
 
 	// Compile a script from an inline source string and return a backend-owned
-	// instance for entity. module_name is used as a unique identifier.
+	// instance bound to `entity` (as above). module_name labels the script in diagnostics.
 	// Returns nullptr on failure.
 	virtual IScriptInstance*
 	CreateInstanceFromSource(std::string_view module_name, std::string_view source, flecs::entity entity) = 0;

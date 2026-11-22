@@ -1007,8 +1007,10 @@ json BuildScriptWorld() {
 		if (!script_component->instance) {
 			throw std::runtime_error("Inline scene script instance was not created");
 		}
-		script_component->instance->OnInit(scene_root);
 		script_component->initialized = true;
+		if (!script_component->instance->OnInit()) {
+			throw std::runtime_error("Inline scene script threw in OnInit");
+		}
 	}
 	else {
 		throw std::runtime_error("SceneInitScript missing ScriptComponent after setup");

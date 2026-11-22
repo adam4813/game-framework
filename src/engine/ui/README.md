@@ -197,7 +197,7 @@ Scripts can also **build** UI via the `Create*` factory globals (`RegisterUIScri
 parent `Entity` + rect (+ widget args) and return the created `Entity` (see `assets/scripts/ui_factory_demo.as`):
 
 ```angelscript
-Entity panel = CreatePanel(self.GetParent(), 20, 20, 240, 120);
+Entity panel = CreatePanel(self, 20, 20, 240, 120);
 Entity ok    = CreateButton(panel, 32, 70, 160, 40, "OK");
 SetOnClick(ok, @OnOk);
 ```

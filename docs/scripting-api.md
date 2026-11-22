@@ -18,7 +18,8 @@ s.set<engine::scripting::ScriptComponent>({ .source_path = "scripts/foo.as" });
 ```
 
 The backend's `ScriptComponent.OnSet` observer compiles/instantiates the script; `OnRemove` tears it down. In scripts,
-`self` is the **script child entity**, but component accessors resolve to the **parent (host)** entity automatically.
+`self` is the **host entity**: the script is the `ScriptComponent`, and the child that carries it holds nothing else, so
+`self.GetTransform()` reads the host's `Transform` and `self.GetParent()` is the host's parent.
 
 ## Component access API
 
@@ -121,11 +122,15 @@ All entry points are optional; implement any subset:
 | `OnInit(Entity self)`             | First `PreUpdate` tick          | One-time setup, cache initial values. |
 | `PreTick(Entity self, float dt)`  | `PreUpdate` (`ScriptPreTick`)   | Input pre-processing.                 |
 | `Tick(Entity self, float dt)`     | `OnUpdate` (`ScriptOnTick`)     | Main game logic.                      |
-| `PostTick(Entity self, float dt)` | `PostUpdate` (`ScriptPostTick`) | Cleanup, deferred actions.            |
+| `PostTick(Entity self, float dt)` | `PostUpdate` (`ScriptPostTick`) | Reacting to the frame's changes.      |
 | `OnDestroy(Entity self)`          | On `ScriptComponent` remove     | Teardown.                             |
 
 The three tick systems carry `ecs::Pausable`, so script logic halts while the game is paused. They map to
-`ScriptTickPhase::Pre/On/Post`.
+`ScriptTickPhase::Pre/On/Post`. `OnInit`, `PreTick` and `Tick` run undeferred, so their changes apply at once;
+`PostTick` runs deferred, so its changes apply at the next merge.
+
+A script that throws is logged with the line and disabled: `ScriptComponent.error` becomes `RuntimeError` and none of
+its entry points, `OnDestroy` included, runs again.
 
 ## Extending the API from C++
 

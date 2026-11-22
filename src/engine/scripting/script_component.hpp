@@ -23,7 +23,7 @@ enum class ScriptError : uint8_t {
 	None,          // No error; script is valid
 	LoadFailed,    // File read error
 	CompileFailed, // Syntax or compile-time error
-	RuntimeError,  // Initialization or execution error
+	RuntimeError,  // The script threw in OnInit or a Tick; it is not called again
 };
 
 // Attached as a component on a *child* entity of the host entity.
@@ -32,20 +32,24 @@ enum class ScriptError : uint8_t {
 //   auto s = world.entity("FooScript").child_of(host);
 //   s.set<ScriptComponent>({ .source_path = "scripts/foo.as" });
 //
+// The script itself is the component, so its `self` is the host (the child's parent): the entity
+// whose components it reads and writes. The child only carries the ScriptComponent.
+//
 // source_path and inline_source are mutually exclusive:
 //   - source_path:   backend reads and compiles the file.
 //   - inline_source: raw script text for dynamically generated scripts.
 //
 // instance is filled by the backend's OnSet observer. Tick systems dispatch
 // directly through it — no backend involvement in the hot path. error tracks
-// failures during compilation or initialization so callers can detect issues.
+// failures during compilation or execution so callers can detect issues; a script with an
+// error is never called again.
 struct ScriptComponent {
 	std::string source_path;   // path on disk (empty when using inline source)
 	std::string inline_source; // raw script text (empty when using a file path)
 
 	IScriptInstance* instance{nullptr};   // backend-owned; direct dispatch target
 	bool initialized{false};              // true after IScriptInstance::OnInit has been called
-	ScriptError error{ScriptError::None}; // tracks compilation/init failures
+	ScriptError error{ScriptError::None}; // compilation or runtime failure; None while the script runs
 	std::string error_message;            // human-readable error detail
 };
 

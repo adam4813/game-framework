@@ -1,8 +1,30 @@
 # Scripting System
 
-Backend-agnostic ECS scripting layer. Scripts run as child entities of a host and interact with the ECS world through a
-reflection-driven API. The active backend (currently AngelScript) is chosen at startup; see `angelscript/` for
-implementation notes.
+Backend-agnostic ECS scripting layer. A script is a `ScriptComponent` on a child entity of its host and interacts with
+the ECS world through a reflection-driven API. The active backend (currently AngelScript) is chosen at startup; see
+`angelscript/` for implementation notes.
+
+## Script lifecycle
+
+A script defines any of these entry points; each one it leaves out is skipped.
+
+| Function                          | Phase                   | Typical use                            |
+|-----------------------------------|-------------------------|----------------------------------------|
+| `OnInit(Entity self)`             | First PreUpdate tick    | One-time setup, caching initial values |
+| `PreTick(Entity self, float dt)`  | Per-frame, before main  | Input pre-processing                   |
+| `Tick(Entity self, float dt)`     | Per-frame, main         | Game logic                             |
+| `PostTick(Entity self, float dt)` | Per-frame, after main   | Reacting to the frame's changes        |
+| `OnDestroy(Entity self)`          | ScriptComponent removed | Teardown                               |
+
+`self` is the **host entity**. The script is the `ScriptComponent`; the child entity that carries it holds nothing else,
+so `self` is the entity whose components the script reads and writes (`self.GetTransform()`), and `self.GetParent()` is
+the host's parent.
+
+`OnInit`, `PreTick` and `Tick` run immediately: a component a script adds or sets there exists at once. `PostTick` is
+the reactive phase and runs deferred, so what a script changes there applies at the next merge.
+
+A script that throws (a null handle dereferenced, an array index out of range) is logged with the line and disabled:
+its `ScriptComponent.error` becomes `RuntimeError` and no entry point, `OnDestroy` included, runs again.
 
 ## Component access API
 
@@ -159,8 +181,8 @@ scripting::RegisterCallbackFunctionForScripts(world,
 ```
 
 ```angelscript
-// script: bind self's parent button to a handler
-SetOnClick(self.GetParent(), @OnClicked);
+// script on a button: bind self (the button) to a handler
+SetOnClick(self, @OnClicked);
 void OnClicked(Entity button) { Print("clicked " + button.GetName()); }
 ```
 
@@ -194,17 +216,6 @@ td.SetOnEnter(@OnPromptTileEnter);   // ✓ direct function handle
 // td.SetOnEnter(OnPromptTileEnter);  // ✗ creates an implicit delegate (GC-tracked, harder to clean up)
 ```
 
-| Function                          | Phase                   | Typical use                            |
-|-----------------------------------|-------------------------|----------------------------------------|
-| `OnInit(Entity self)`             | First PreUpdate tick    | One-time setup, caching initial values |
-| `PreTick(Entity self, float dt)`  | Per-frame, before main  | Input pre-processing                   |
-| `Tick(Entity self, float dt)`     | Per-frame, main         | Game logic                             |
-| `PostTick(Entity self, float dt)` | Per-frame, after main   | Cleanup, deferred actions              |
-| `OnDestroy(Entity self)`          | ScriptComponent removed | Teardown                               |
-
-`self` is the **script child entity**; component accessors resolve to the **parent (host)
-entity** automatically.
-
 ### Event-driven scripts (`CallFunction`)
 
 A host that has no per-frame work for a script can skip `ScriptComponent` and drive an instance itself: create it with
@@ -215,4 +226,3 @@ doesn't define that handler) or `Failed` (the script threw; the message and line
 parameter, and the backend logs it). `FunctionDeclarations()` lists the script's global functions, so a test can check
 that a script's handlers match the entry points a host dispatches. Crabnado's campaign scripts are the first user
 (`games/crabnado/src/campaign_script.hpp`).
-

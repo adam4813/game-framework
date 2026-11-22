@@ -7,7 +7,7 @@
 //     Different from PhysicsImpulse: force/torque are applied for one frame then cleared.
 //   - vec3(x, y, z) constructor syntax.
 //   - Vec3_Right constant: torque along X axis makes the cube tumble toward/away from camera.
-//   - self.GetParent() / GetName() — entity navigation from a child script.
+//   - self.GetName() — `self` is the host entity (the cube), not the child carrying the script.
 //   - Multiple scripts on one entity: second ScriptComponent child of FallingCube alongside
 //     cube_jump.as; both run independently each frame.
 
@@ -17,8 +17,8 @@ const float SPIN_STRENGTH = 80.0f;
 float g_timer = 2.0f; // start mid-interval so first kick isn't simultaneous with a jump
 
 void OnInit(Entity self) {
-    // Demonstrate GetParent() / GetName() from inside a child script entity.
-    Print("[CubeSpinScript] Attached to '" + self.GetParent().GetName() + "'");
+    // `self` is the host the script is attached to.
+    Print("[CubeSpinScript] Attached to '" + self.GetName() + "'");
 }
 
 void Tick(Entity self, float dt) {

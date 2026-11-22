@@ -8,10 +8,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace engine::scripting::angelscript {
@@ -28,9 +30,9 @@ public:
 	AngelScriptInstance(asIScriptEngine* engine, asIScriptModule* module, flecs::entity entity);
 	~AngelScriptInstance() override;
 
-	void OnInit(flecs::entity entity) override;
-	void Tick(flecs::entity entity, float dt, ScriptTickPhase phase) override;
-	void OnDestroy(flecs::entity entity) override;
+	[[nodiscard]] bool OnInit() override;
+	[[nodiscard]] bool Tick(float dt, ScriptTickPhase phase) override;
+	void OnDestroy() override;
 	[[nodiscard]] std::vector<std::string> FunctionDeclarations() const override;
 	ScriptCallResult CallFunction(std::string_view declaration, std::span<const ScriptArg> args, std::string* error) override;
 
@@ -42,7 +44,9 @@ public:
 	void UntrackHandle(AngelScriptFunctionHandle* handle);
 
 private:
-	void Call(asIScriptFunction* fn, flecs::entity entity, float dt = 0.0f, bool pass_dt = false);
+	// Runs one entry point with `self` (and `dt` when pass_dt). False when the script threw or
+	// could not run; an entry point the script doesn't define (null) succeeds without running.
+	[[nodiscard]] bool Call(asIScriptFunction* fn, float dt = 0.0f, bool pass_dt = false);
 
 	asIScriptEngine* engine_; // non-owning (owned by backend)
 	asIScriptModule* module_; // non-owning (owned by engine)
@@ -121,6 +125,10 @@ private:
 	static void CallbackPropertySetGeneric(asIScriptGeneric* gen);
 	static void CallbackPropertyInvokeGeneric(asIScriptGeneric* gen);
 	[[nodiscard]] asIScriptModule* CompileSource(std::string_view module_name, std::string_view source) const;
+	// Logs that `accessor` found no component on `host` the first time a (host, component) pair
+	// misses, so a script polling a missing component doesn't log every frame.
+	static void
+	WarnMissingComponentOnce(asIScriptGeneric* gen, flecs::entity host, uint64_t component_id, const char* accessor);
 
 	// Stable per-registration state for a callback-binding function (see RegisterCallbackFunction).
 	// Heap-allocated so its address stays valid as the generic auxiliary; carries the C++ sink,
@@ -153,6 +161,8 @@ private:
 	// Names of funcdefs successfully registered with the engine (GetTypeInfoByName does not
 	// cover funcdefs, so we track them ourselves to avoid duplicate registration attempts).
 	std::unordered_set<std::string> registered_funcdefs_;
+	// (host entity, component) pairs a GetT/MutT has already warned about (see WarnMissingComponentOnce).
+	std::set<std::pair<uint64_t, uint64_t>> warned_missing_components_;
 	// Preamble injected as a script section into every module at compile time so constants are
 	// visible in all scripts without import or include statements.
 	std::string constants_preamble_;

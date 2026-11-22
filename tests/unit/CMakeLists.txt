@@ -148,6 +148,12 @@ add_engine_test(script_call_function_test
     script_call_function_test.cpp
 )
 
+# Script lifecycle, headless: `self` is the host, a script that throws is disabled (OnDestroy skipped), and a string
+# constant with quotes and backslashes compiles
+add_engine_test(script_lifecycle_test
+    script_lifecycle_test.cpp
+)
+
 # RigidBody / CollisionShape set after the body exists: motion type, mass and layer update in place, a static body
 # turned dynamic or a new shape recreates it, and a repeated set changes nothing
 add_engine_test(rigid_body_update_test
