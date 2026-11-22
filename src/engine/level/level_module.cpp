@@ -7,12 +7,11 @@
 #include <utility>
 #include <vector>
 
-#include <spdlog/spdlog.h>
-
 #include <flecs.h>
 #include <nlohmann/json.hpp>
 
 #include "engine/core/core.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "level_components.hpp"
 
 namespace engine::level {
@@ -50,7 +49,7 @@ public:
 		}
 
 		if (!def.is_object()) {
-			spdlog::warn("[Level] Entity definition must be an object or \"@file:\" reference — skipping");
+			ecs::Log(world_).warn("[Level] Entity definition must be an object or \"@file:\" reference — skipping");
 			return {};
 		}
 
@@ -64,7 +63,7 @@ public:
 		if (def.contains("name")) {
 			const auto& name = def.at("name").get<std::string>();
 			if (!sibling_names_.emplace(parent.id(), name).second) {
-				spdlog::error(
+				ecs::Log(world_).error(
 					"[Level] Duplicate entity name '{}' under '{}' — skipping the second",
 					name,
 					parent ? parent.name().c_str() : "(root)"
@@ -105,12 +104,12 @@ public:
 		for (const auto& [self, ref, target] : pending_refs_) {
 			const auto ref_it = reg.refLoaders.find(ref);
 			if (ref_it == reg.refLoaders.end()) {
-				spdlog::warn("[Level] Unknown ref '{}' on entity '{}'", ref, self.name().c_str());
+				ecs::Log(world_).warn("[Level] Unknown ref '{}' on entity '{}'", ref, self.name().c_str());
 				continue;
 			}
 			const auto target_it = named_.find(target);
 			if (target_it == named_.end()) {
-				spdlog::warn("[Level] Ref '{}' targets unknown entity '{}'", ref, target);
+				ecs::Log(world_).warn("[Level] Ref '{}' targets unknown entity '{}'", ref, target);
 				continue;
 			}
 			ref_it->second(self, target_it->second);
@@ -142,7 +141,7 @@ private:
 		for (const auto& [key, value] : def.at("components").items()) {
 			const auto it = reg.loaders.find(key);
 			if (it == reg.loaders.end()) {
-				spdlog::warn("[Level] Unknown component '{}' on entity '{}'", key, e.name().c_str());
+				ecs::Log(world_).warn("[Level] Unknown component '{}' on entity '{}'", key, e.name().c_str());
 				continue;
 			}
 			// A "@file:" string component value loads the JSON from disk and substitutes it.
@@ -166,7 +165,8 @@ private:
 			loader(e, value);
 		}
 		catch (const json::exception& ex) {
-			spdlog::warn("[Level] Skipping component '{}' on entity '{}': {}", key, e.name().c_str(), ex.what());
+			ecs::Log(e.world())
+				.warn("[Level] Skipping component '{}' on entity '{}': {}", key, e.name().c_str(), ex.what());
 		}
 	}
 
@@ -178,7 +178,7 @@ private:
 		const auto& reg = world_.get<LevelRegistry>();
 		const auto it = reg.linkLoaders.find(link);
 		if (it == reg.linkLoaders.end()) {
-			spdlog::warn("[Level] Unknown link '{}' on entity '{}'", link, child.name().c_str());
+			ecs::Log(world_).warn("[Level] Unknown link '{}' on entity '{}'", link, child.name().c_str());
 			return;
 		}
 		it->second(parent, child);
@@ -201,7 +201,7 @@ int LoadLevelDocument(
 		for (const auto& [key, value] : doc.at("singletons").items()) {
 			const auto it = reg.singletonLoaders.find(key);
 			if (it == reg.singletonLoaders.end()) {
-				spdlog::warn("[Level] Unknown singleton '{}'", key);
+				ecs::Log(world).warn("[Level] Unknown singleton '{}'", key);
 				continue;
 			}
 			it->second(world, value);
@@ -233,7 +233,7 @@ LevelModule::LevelModule(const flecs::world& world) {
 		self.add<UseRegistry>(target);
 	});
 
-	spdlog::info("[LevelModule] Registered level registry (module factories populate it on import)");
+	ecs::Log(world).info("[LevelModule] Registered level registry (module factories populate it on import)");
 }
 
 void RegisterComponentLoader(const flecs::world& world, const std::string_view name, ComponentLoader loader) {
@@ -266,7 +266,7 @@ void RegisterRef(const flecs::world& world, const std::string_view name, RefLoad
 
 int LoadLevel(const flecs::world& world, const std::string_view path, const flecs::entity parent) {
 	if (!world.has<LevelRegistry>()) {
-		spdlog::error("[Level] LevelRegistry not set — import LevelModule before loading a level");
+		ecs::Log(world).error("[Level] LevelRegistry not set — import LevelModule before loading a level");
 		return -1;
 	}
 
@@ -276,13 +276,13 @@ int LoadLevel(const flecs::world& world, const std::string_view path, const flec
 	}
 	const auto base_dir = fs::path{path}.lexically_normal().parent_path();
 	const int count = LoadLevelDocument(world, *doc_opt, parent, base_dir);
-	spdlog::info("[Level] Loaded '{}' ({} top-level entities)", path, count);
+	ecs::Log(world).info("[Level] Loaded '{}' ({} top-level entities)", path, count);
 	return count;
 }
 
 int LoadLevelFromSource(const flecs::world& world, const std::string_view json_source, const flecs::entity parent) {
 	if (!world.has<LevelRegistry>()) {
-		spdlog::error("[Level] LevelRegistry not set — import LevelModule before loading a level");
+		ecs::Log(world).error("[Level] LevelRegistry not set — import LevelModule before loading a level");
 		return -1;
 	}
 
@@ -291,12 +291,12 @@ int LoadLevelFromSource(const flecs::world& world, const std::string_view json_s
 		doc = json::parse(json_source);
 	}
 	catch (const json::parse_error& e) {
-		spdlog::error("[Level] JSON parse error: {}", e.what());
+		ecs::Log(world).error("[Level] JSON parse error: {}", e.what());
 		return -1;
 	}
 
 	const int count = LoadLevelDocument(world, doc, parent, fs::current_path());
-	spdlog::info("[Level] Loaded inline level source ({} top-level entities)", count);
+	ecs::Log(world).info("[Level] Loaded inline level source ({} top-level entities)", count);
 	return count;
 }
 
