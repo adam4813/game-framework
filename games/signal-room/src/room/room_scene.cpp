@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/spdlog.h>
 
 #include "bindings.hpp"
 #include "engine/engine.hpp"
@@ -112,7 +111,7 @@ void RoomScene::LoadRoom(const flecs::world& world) const {
 		world.delete_with(flecs::ChildOf, roomRoot_);
 		UnloadLayout(world);
 		state.loadError = loaded.error();
-		spdlog::error("[Room] {}", loaded.error());
+		engine::ecs::Log(world).error("[Room] {}", loaded.error());
 	}
 }
 
@@ -223,7 +222,7 @@ std::expected<void, std::string> RoomScene::BuildRoom(const flecs::world& world,
 	BuildRoomOverlays(world, roomRoot_);
 	StartShiftWindow(world, *shift);
 	StartScore(world, *shift);
-	spdlog::info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
+	engine::ecs::Log(world).info("[Room] Loaded Shift '{}' ({}) in Layout {}", shift->name, shift->id, shift->layout);
 	return {};
 }
 

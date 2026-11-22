@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include <spdlog/spdlog.h>
 
 #include "engine/engine.hpp"
 #include "item_components.hpp"
@@ -285,7 +284,7 @@ void StartShiftWindow(const flecs::world& world, const Shift& shift) {
 	world.set<ScheduleState>({});
 	world.set<Schedule>(shift.schedule);
 	SetShiftPhase(world, ShiftPhase::Briefing);
-	spdlog::info("[Tickets] Window started: Window {} s, seed {}", shift.window, seed);
+	engine::ecs::Log(world).info("[Tickets] Window started: Window {} s, seed {}", shift.window, seed);
 }
 
 void RegisterTicketSimulation(const flecs::world& world, const flecs::entity roomRoot) {

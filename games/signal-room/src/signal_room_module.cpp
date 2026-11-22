@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 
-#include <spdlog/spdlog.h>
 
 #include "engine/engine.hpp"
 #include "room/bindings.hpp"
@@ -299,7 +298,7 @@ SignalRoomModule::SignalRoomModule(flecs::world& world) {
 
 	scene::RegisterScene<RoomSceneTag>(world, std::make_shared<RoomScene>());
 
-	spdlog::info("[SignalRoom] Module imported");
+	engine::ecs::Log(world).info("[SignalRoom] Module imported");
 }
 
 } // namespace signal_room
