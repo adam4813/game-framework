@@ -2,8 +2,8 @@
 """
 Generate tilemap and player textures using Pillow.
 
-Usage:
-    python games/sandbox/tools/generate_tilemap_textures.py
+Needs Pillow and numpy (pip install pillow numpy). Run from anywhere:
+    python3 games/sandbox/tools/make_tilemap_textures.py
 
 Generates:
     - games/sandbox/assets/textures/tileset_basic.png (256x256, 8-tile grid, 2x4)
@@ -18,12 +18,12 @@ from PIL import Image, ImageDraw
 import numpy as np
 
 
-OUTPUT_DIR = "games/sandbox/assets/textures"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "assets" / "textures"
 
 
 def create_directory_if_needed():
     """Ensure output directory exists."""
-    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def solid_with_noise(width, height, base_color, noise_amplitude=5):
