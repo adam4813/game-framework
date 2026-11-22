@@ -44,11 +44,20 @@ runs:
           xvfb \
           xorg-dev
 
-    - name: Setup Cpp
-      if: inputs.target != 'WebAssembly'
+    # Windows pins MSVC to Visual Studio 2022 (toolset 14.4x) instead of taking whatever `windows-latest` ships. The
+    # VS 2026 toolset (14.52) made the two-world physics rest test fail while 14.51 passed, and 2022 is the version
+    # developers build with. setup-cpp installs the 2022 Build Tools when the image lacks them.
+    - name: Setup Cpp (Windows, MSVC 2022)
+      if: inputs.target != 'WebAssembly' && runner.os == 'Windows'
       uses: aminya/setup-cpp@v1
       with:
-        vcvarsall: ${{ runner.os == 'Windows' }}
+        compiler: msvc-2022
+
+    - name: Setup Cpp
+      if: inputs.target != 'WebAssembly' && runner.os != 'Windows'
+      uses: aminya/setup-cpp@v1
+      with:
+        vcvarsall: false
 
 
     - name: Setup Emscripten
