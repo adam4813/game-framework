@@ -142,6 +142,11 @@ add_engine_test(raycast_script_test
     raycast_script_test.cpp
 )
 
+# Camera loader: projection names from the reflected constants, a warning on an unknown one
+add_engine_test(camera_loader_test
+    camera_loader_test.cpp
+)
+
 # Script constants for reflected enums (Projection_*, Motion_*, PathFollowMode_*, TextAlign_*, StackDirection_*) and
 # the RigidBody fields reflected with them
 add_engine_test(enum_constants_script_test
