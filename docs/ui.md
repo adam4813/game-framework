@@ -176,7 +176,7 @@ a component you just `set<>()` in the same `Load()` (it will assert). Pass initi
 ## Scripting & tooling
 
 Every registered component gets `self.GetT()`/`AddT()`/`SetT()` in scripts (resolving to the host);
-`assets/scripts/ui_demo.as` drives a `ProgressBar` live. Buttons can be triggered over the Flecs REST API by adding the
+`games/sandbox/assets/scripts/ui_demo.as` drives a `ProgressBar` live. Buttons can be triggered over the Flecs REST API by adding the
 `UIClickRequest` tag:
 
 ```bash
