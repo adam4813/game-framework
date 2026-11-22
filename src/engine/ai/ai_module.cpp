@@ -2,8 +2,8 @@
 
 #include <flecs.h>
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
 #include "engine/scripting/scripting.hpp"
 
@@ -56,7 +56,7 @@ AIModule::AIModule(flecs::world& world) {
 	world.import<UtilityModule>();
 	world.import<SteeringModule>();
 
-	spdlog::info("[AIModule] Registered all AI systems (BT, GOAP, FSM, Utility, Steering) + Blackboard");
+	ecs::Log(world).info("[AIModule] Registered all AI systems (BT, GOAP, FSM, Utility, Steering) + Blackboard");
 }
 
 } // namespace engine::ai

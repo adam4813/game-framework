@@ -1228,7 +1228,7 @@ void RegisterUISystems(const flecs::world& world) {
 		list.Clear();
 	});
 
-	spdlog::info("[UIModule] Registered UI interaction/layout/build/render systems with Flecs");
+	ecs::Log(world).info("[UIModule] Registered UI interaction/layout/build/render systems with Flecs");
 }
 
 } // namespace engine::ui

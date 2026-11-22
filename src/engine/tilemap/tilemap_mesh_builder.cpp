@@ -100,7 +100,7 @@ void TilemapMeshBuilder::Register(const flecs::world& world) {
 		const float tex_h = tile_sheet ? static_cast<float>(tile_sheet->image_height_px) : 1.0f;
 
 		if (tm.tile_ids.size() != static_cast<size_t>(tm.width) * tm.height) {
-			spdlog::warn(
+			ecs::Log(e.world()).warn(
 				"[Tilemap] tile_ids size {} != width*height ({}x{}); skipping mesh build",
 				tm.tile_ids.size(),
 				tm.width,

@@ -6,7 +6,6 @@
 
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
@@ -46,7 +45,7 @@ void RegisterDefaultHandlers(const flecs::world& world) {
 		flecs::entity subject = ctx.node.target<DialogSubject>();
 		if (!subject.is_valid()) subject = ctx.actor;
 		if (!subject.is_valid() || !subject.has<spatial::Transform>()) {
-			spdlog::warn("[Dialog] move node has no subject with a Transform — skipping");
+			ecs::Log(ctx.world).warn("[Dialog] move node has no subject with a Transform — skipping");
 			return {.flow = DialogFlow::Advance};
 		}
 		const glm::vec3 from = subject.get<spatial::Transform>().position;
@@ -67,7 +66,7 @@ void RegisterDefaultHandlers(const flecs::world& world) {
 	(*map)["follow"] = [](const DialogRunContext& ctx) -> NodeResult {
 		const flecs::entity follower = ctx.node.target<DialogSubject>();
 		if (!follower.is_valid()) {
-			spdlog::warn("[Dialog] follow node has no DialogSubject — skipping");
+			ecs::Log(ctx.world).warn("[Dialog] follow node has no DialogSubject — skipping");
 			return {.flow = DialogFlow::Advance};
 		}
 		const DialogFollow cfg = ctx.node.has<DialogFollow>() ? ctx.node.get<DialogFollow>() : DialogFollow{};
@@ -111,25 +110,31 @@ void RegisterDefaultHandlers(const flecs::world& world) {
 	(*map)["give_item"] = [](const DialogRunContext& ctx) -> NodeResult {
 		if (ctx.node.has<DialogGiveItem>()) {
 			const auto& g = ctx.node.get<DialogGiveItem>();
-			spdlog::info("[Dialog] give_item '{}' x{} (no handler registered)", g.item, g.count);
+			ecs::Log(ctx.world).info("[Dialog] give_item '{}' x{} (no handler registered)", g.item, g.count);
 		}
 		return {.flow = DialogFlow::Advance};
 	};
 	(*map)["take_item"] = [](const DialogRunContext& ctx) -> NodeResult {
 		if (ctx.node.has<DialogGiveItem>()) {
 			const auto& g = ctx.node.get<DialogGiveItem>();
-			spdlog::info("[Dialog] take_item '{}' x{} (no handler registered)", g.item, g.count);
+			ecs::Log(ctx.world).info("[Dialog] take_item '{}' x{} (no handler registered)", g.item, g.count);
 		}
 		return {.flow = DialogFlow::Advance};
 	};
 	(*map)["give_coins"] = [](const DialogRunContext& ctx) -> NodeResult {
 		if (ctx.node.has<DialogGiveCoins>())
-			spdlog::info("[Dialog] give_coins {} (no handler registered)", ctx.node.get<DialogGiveCoins>().amount);
+			ecs::Log(ctx.world).info(
+				"[Dialog] give_coins {} (no handler registered)",
+				ctx.node.get<DialogGiveCoins>().amount
+			);
 		return {.flow = DialogFlow::Advance};
 	};
 	(*map)["take_coins"] = [](const DialogRunContext& ctx) -> NodeResult {
 		if (ctx.node.has<DialogGiveCoins>())
-			spdlog::info("[Dialog] take_coins {} (no handler registered)", ctx.node.get<DialogGiveCoins>().amount);
+			ecs::Log(ctx.world).info(
+				"[Dialog] take_coins {} (no handler registered)",
+				ctx.node.get<DialogGiveCoins>().amount
+			);
 		return {.flow = DialogFlow::Advance};
 	};
 }
@@ -648,7 +653,9 @@ DialogModule::DialogModule(const flecs::world& world) {
 	RegisterJsonLoaders(world);
 	RegisterScripting(world);
 
-	spdlog::info("[DialogModule] Registered interaction-tree components, handlers, systems, and authoring bindings");
+	ecs::Log(world).info(
+		"[DialogModule] Registered interaction-tree components, handlers, systems, and authoring bindings"
+	);
 }
 
 } // namespace engine::dialog

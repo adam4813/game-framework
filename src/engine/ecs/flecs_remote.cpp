@@ -9,6 +9,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "world_logger.hpp"
+
 namespace engine::ecs {
 
 namespace {
@@ -50,7 +52,7 @@ int ResolveRestPort(const int fallback) {
 
 void InitializeRemoteAPI(flecs::world& world, const int default_rest_port, const RestPortEnv port_env) {
 	const int rest_port = port_env == RestPortEnv::Honor ? ResolveRestPort(default_rest_port) : default_rest_port;
-	spdlog::info("[FlecsRemote] REST API on port {}", rest_port);
+	Log(world).info("[FlecsRemote] REST API on port {}", rest_port);
 	world.import<flecs::stats>();
 
 	// The stats addon installs a pipeline monitor that calls ecs_pipeline_stats_get() every frame for

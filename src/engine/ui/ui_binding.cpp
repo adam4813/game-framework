@@ -5,9 +5,9 @@
 #include <utility>
 
 #include <flecs.h>
-#include <spdlog/spdlog.h>
 
 #include "engine/ai/ai.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "ui_components.hpp"
 
 namespace engine::ui {
@@ -321,7 +321,7 @@ void RegisterUIBindings(const flecs::world& world) {
 			}
 		});
 
-	spdlog::info("[UIModule] Registered UI data-binding system");
+	ecs::Log(world).info("[UIModule] Registered UI data-binding system");
 }
 
 flecs::entity

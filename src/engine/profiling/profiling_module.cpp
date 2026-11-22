@@ -5,8 +5,8 @@
 #include <variant>
 
 #include <flecs.h>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/spatial/spatial.hpp"
 #include "profiling_components.hpp"
 #include "profiling_trace.hpp"
@@ -100,7 +100,7 @@ ProfilerModule::ProfilerModule(const flecs::world& world) {
 		}
 	});
 
-	spdlog::info("[ProfilerModule] Registered profiling systems");
+	ecs::Log(world).info("[ProfilerModule] Registered profiling systems");
 }
 
 } // namespace engine::profiling

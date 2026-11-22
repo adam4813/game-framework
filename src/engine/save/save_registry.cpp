@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/spdlog.h>
+#include "engine/ecs/ecs.hpp"
 
 namespace engine::save {
 namespace {
@@ -125,7 +125,7 @@ void LoadFromJson(flecs::world& world, const Json& document) {
 				field.set(world, value);
 			}
 			catch (const Json::exception& ex) {
-				spdlog::warn("[SaveModule] Skipping field '{}': {}", field.key, ex.what());
+				ecs::Log(world).warn("[SaveModule] Skipping field '{}': {}", field.key, ex.what());
 			}
 		}
 	}
@@ -149,7 +149,7 @@ void LoadFromJson(flecs::world& world, const Json& document) {
 				DeserializeEntity(type, entity, entry);
 			}
 			catch (const Json::exception& ex) {
-				spdlog::warn("[SaveModule] Skipping malformed '{}' entry: {}", type.key, ex.what());
+				ecs::Log(world).warn("[SaveModule] Skipping malformed '{}' entry: {}", type.key, ex.what());
 			}
 		}
 	}
@@ -160,7 +160,7 @@ std::string SaveToString(const flecs::world& world, const int indent) { return S
 void LoadFromString(flecs::world& world, const std::string_view text) {
 	const Json document = Json::parse(text, nullptr, /*allow_exceptions=*/false);
 	if (document.is_discarded()) {
-		spdlog::error("[SaveModule] LoadFromString: failed to parse save data");
+		ecs::Log(world).error("[SaveModule] LoadFromString: failed to parse save data");
 		return;
 	}
 	LoadFromJson(world, document);

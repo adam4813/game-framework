@@ -6,8 +6,8 @@
 
 #include <flecs.h>
 #include <glm/glm.hpp>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "ui_binding.hpp"
 #include "ui_components.hpp"
@@ -274,7 +274,7 @@ UIModule::UIModule(const flecs::world& world) {
 	RegisterUILevelLoaders(world);
 	RegisterUIScriptFactories(world);
 
-	spdlog::info("[UIModule] Registered UI components, draw list, and systems with Flecs");
+	ecs::Log(world).info("[UIModule] Registered UI components, draw list, and systems with Flecs");
 }
 
 } // namespace engine::ui

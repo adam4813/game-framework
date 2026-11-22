@@ -1,8 +1,8 @@
 #include "graph_module.hpp"
 
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
+#include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
 #include "engine/scripting/scripting.hpp"
 
@@ -51,7 +51,7 @@ GraphModule::GraphModule(const flecs::world& world) {
 		parent.add<GraphEdge>(child);
 	});
 
-	spdlog::info("[GraphModule] Registered graph node/edge components and loaders");
+	ecs::Log(world).info("[GraphModule] Registered graph node/edge components and loaders");
 }
 
 } // namespace engine::graph

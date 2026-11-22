@@ -2,9 +2,9 @@
 
 #include <flecs.h>
 #include <glm/glm.hpp>
-#include <spdlog/spdlog.h>
 
 #include "core_types.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "engine/scripting/scripting.hpp"
 
 namespace engine::core {
@@ -74,7 +74,7 @@ CoreModule::CoreModule(const flecs::world& world) {
 		}
 	);
 
-	spdlog::info("[CoreModule] Registered core types and constants");
+	ecs::Log(world).info("[CoreModule] Registered core types and constants");
 }
 
 } // namespace engine::core

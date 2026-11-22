@@ -2,8 +2,7 @@
 
 #include <string>
 
-#include <spdlog/spdlog.h>
-
+#include "engine/ecs/ecs.hpp"
 #include "engine/platform/platform.hpp"
 
 namespace engine::assets {
@@ -43,7 +42,7 @@ void PlatformUnload(platform::Platform* platform, const AssetType type, const in
 
 AssetModule::AssetModule(const flecs::world& world) {
 	world.set<AssetRegistry>({});
-	spdlog::info("[AssetModule] Registered asset registry");
+	ecs::Log(world).info("[AssetModule] Registered asset registry");
 }
 
 // Acquire increments the reference count for a "<type>:<path>" key. On first acquire,
@@ -62,7 +61,7 @@ int Acquire(const flecs::world& world, const AssetType type, const std::string_v
 	else {
 		auto* platform = world.get<platform::PlatformRef>().ptr;
 		if (const int handle = PlatformLoad(platform, type, path); handle < 0) {
-			spdlog::warn("[AssetModule] Failed to load asset '{}'", path);
+			ecs::Log(world).warn("[AssetModule] Failed to load asset '{}'", path);
 			return -1;
 		}
 		registry.refCounts[key].refCount = 1;

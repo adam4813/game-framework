@@ -507,7 +507,8 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		sa.texture_path = assets::ResolveAsset(e.world(), j.value("texture_path", std::string{}));
 		sa.image_width_px = j.value("image_width_px", 1U);
 		sa.image_height_px = j.value("image_height_px", 1U);
-		spdlog::info("[SpriteAtlas] Set up '{}' ({}x{})", sa.texture_path, sa.image_width_px, sa.image_height_px);
+		ecs::Log(e.world())
+			.info("[SpriteAtlas] Set up '{}' ({}x{})", sa.texture_path, sa.image_width_px, sa.image_height_px);
 		e.set<SpriteAtlas>(sa);
 	});
 
@@ -640,9 +641,10 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.event(flecs::OnRemove)
 		.each([](const flecs::iter& it, size_t, const DynamicMesh& mesh) {
 			if (mesh.handle < 0) {
-				spdlog::warn(
-					"[RenderModule] DynamicMesh handle is negative; ensure it was uploaded via UploadDynamicMesh"
-				);
+				ecs::Log(it.world())
+					.warn(
+						"[RenderModule] DynamicMesh handle is negative; ensure it was uploaded via UploadDynamicMesh"
+					);
 			}
 			const auto& platform_ref = it.world().get<platform::PlatformRef>();
 			platform_ref.ptr->UnloadDynamicMesh(mesh.handle);
@@ -731,7 +733,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 				if (!camera_query.is_true()) {
 					if (!cull.warned_no_camera) {
 						cull.warned_no_camera = true;
-						spdlog::warn("[Render3DBegin] No camera found; skipping 3D pass");
+						ecs::Log(it.world()).warn("[Render3DBegin] No camera found; skipping 3D pass");
 					}
 					return;
 				}
@@ -833,11 +835,12 @@ RenderModule::RenderModule(const flecs::world& world) {
 						  if (dropped != log.warned_dropped) {
 							  log.warned_dropped = dropped;
 							  if (dropped > 0) {
-								  spdlog::warn(
-									  "[render] {} point lights in the scene; only the first {} are used",
-									  dropped + params.point_light_count,
-									  platform::LightParams::kMaxPointLights
-								  );
+								  ecs::Log(it.world())
+									  .warn(
+										  "[render] {} point lights in the scene; only the first {} are used",
+										  dropped + params.point_light_count,
+										  platform::LightParams::kMaxPointLights
+									  );
 							  }
 						  }
 						  platform_ref.ptr->SetLighting(params);
@@ -1164,7 +1167,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 			}
 		).add<scene::GameScene>();
 
-	spdlog::info("[RenderModule] Registered render systems with Flecs");
+	ecs::Log(world).info("[RenderModule] Registered render systems with Flecs");
 }
 
 } // namespace engine::render

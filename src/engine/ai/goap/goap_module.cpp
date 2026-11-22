@@ -176,7 +176,7 @@ GOAPModule::GOAPModule(const flecs::world& world) {
 	// === Systems ===
 	std::ignore = world.system<GOAPAgent>("GOAPPlanner")
 					  .kind(flecs::OnUpdate)
-					  .each([](GOAPAgent& agent) {
+					  .each([](const flecs::iter& it, size_t, GOAPAgent& agent) {
 						  if (!agent.needs_replan) return;
 						  agent.needs_replan = false;
 						  agent.plan_failed = false;
@@ -195,7 +195,7 @@ GOAPModule::GOAPModule(const flecs::world& world) {
 						  agent.current_plan = BuildGOAPPlan(agent.world_state, *best, agent.available_actions);
 						  if (agent.current_plan.empty()) {
 							  agent.plan_failed = true;
-							  spdlog::debug("[GOAP] No plan found for goal '{}'", best->name);
+							  ecs::Log(it.world()).debug("[GOAP] No plan found for goal '{}'", best->name);
 						  }
 					  })
 					  .add<ecs::Pausable>()
@@ -213,7 +213,7 @@ GOAPModule::GOAPModule(const flecs::world& world) {
 						  const auto& [handlers] = it.world().get<GOAPActionRegistry>();
 						  const auto handler_it = handlers.find(action_name);
 						  if (handler_it == handlers.end()) {
-							  spdlog::warn("[GOAP] No handler for action '{}'", action_name);
+							  ecs::Log(it.world()).warn("[GOAP] No handler for action '{}'", action_name);
 							  agent.plan_failed = true;
 							  return;
 						  }
@@ -247,7 +247,7 @@ GOAPModule::GOAPModule(const flecs::world& world) {
 					  .add<ecs::Pausable>()
 					  .add<scene::GameScene>();
 
-	spdlog::info("[GOAPModule] Registered GOAP planner and executor systems");
+	ecs::Log(world).info("[GOAPModule] Registered GOAP planner and executor systems");
 }
 
 } // namespace engine::ai

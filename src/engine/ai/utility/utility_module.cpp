@@ -134,7 +134,7 @@ UtilityModule::UtilityModule(const flecs::world& world) {
 			.add<ecs::Pausable>()
 			.add<scene::GameScene>();
 
-	spdlog::info("[UtilityModule] Registered Utility AI evaluation and execution systems");
+	ecs::Log(world).info("[UtilityModule] Registered Utility AI evaluation and execution systems");
 }
 
 } // namespace engine::ai

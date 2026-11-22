@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <vector>
 
-#include <spdlog/spdlog.h>
-
+#include "engine/ecs/ecs.hpp"
 #include "engine/graph/graph.hpp"
 #include "engine/scene/scene.hpp"
 
@@ -67,7 +66,7 @@ void StepRunner(
 			result = handler({.world = world, .runner = runner, .node = node, .actor = actor});
 		}
 		else {
-			spdlog::warn("[Dialog] No handler for node type '{}' — advancing", type);
+			ecs::Log(world).warn("[Dialog] No handler for node type '{}' — advancing", type);
 		}
 
 		switch (result.flow) {
@@ -86,7 +85,7 @@ void StepRunner(
 
 void RegisterDialogNodeHandler(const flecs::world& world, std::string type, DialogNodeHandler handler) {
 	if (!world.has<DialogNodeHandlers>()) {
-		spdlog::error("[Dialog] RegisterDialogNodeHandler before DialogModule import — ignored");
+		ecs::Log(world).error("[Dialog] RegisterDialogNodeHandler before DialogModule import — ignored");
 		return;
 	}
 	(*world.get<DialogNodeHandlers>().map)[std::move(type)] = std::move(handler);
@@ -114,7 +113,7 @@ flecs::entity FirstEligibleChild(const flecs::world& world, const flecs::entity 
 
 flecs::entity StartDialog(const flecs::world& world, const flecs::entity root, const flecs::entity actor) {
 	if (!root.is_valid()) {
-		spdlog::warn("[Dialog] StartDialog called with an invalid root");
+		ecs::Log(world).warn("[Dialog] StartDialog called with an invalid root");
 		return {};
 	}
 	const flecs::entity runner = world.entity().set<DialogRunner>({.root = root, .current = root, .actor = actor});
