@@ -80,11 +80,11 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 		}
 	}
 
-	// IMPORTANT: ScriptComponent and ScriptHost are intentionally NOT registered with
+	// IMPORTANT: ScriptComponent is intentionally NOT registered with
 	// RegisterComponentForScripts. Script systems run with defer_suspend() (immediate mode),
 	// so if a script could call RemoveScriptComponent() on itself it would create a use-after-free
 	// hazard inside the ScriptPreTick/ScriptOnTick iteration. Script lifecycle is managed
-	// exclusively by the C++ scripting module — scripts must not add, remove, or inspect these.
+	// exclusively by the C++ scripting module — scripts must not add, remove, or inspect it.
 	world.component<ScriptComponent>()
 		.on_set([](const flecs::entity entity, ScriptComponent& sc) {
 			const flecs::world w = entity.world();
@@ -139,7 +139,6 @@ ScriptingModule::ScriptingModule(flecs::world& world) {
 			sc.instance = nullptr;
 			sc.initialized = false;
 		});
-	world.component<ScriptHost>();
 	world.component<ScriptTraversal>();
 
 	// === Level loader ===

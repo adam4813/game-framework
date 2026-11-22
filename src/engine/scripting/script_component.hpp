@@ -53,9 +53,6 @@ struct ScriptComponent {
 	std::string error_message;            // human-readable error detail
 };
 
-// Tag placed on the parent ("host") entity when at least one script child exists.
-struct ScriptHost {};
-
 // Relationship tag for component traversal in script Get calls.
 //
 // When component C has the pair (ScriptTraversal, Rel) added to its component entity, the
