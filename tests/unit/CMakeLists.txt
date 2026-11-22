@@ -142,10 +142,16 @@ add_engine_test(raycast_script_test
     raycast_script_test.cpp
 )
 
-# Calling a named script function from C++ (IScriptInstance::CallFunction): arguments, script state, an undefined
-# function, an exception's message and line, and the declaration list
+# Calling a named script function from C++ (IScriptInstance::CallFunction): arguments, script state, overloads, an
+# undefined function, an exception's message and line, and the function list with its parameter kinds
 add_engine_test(script_call_function_test
     script_call_function_test.cpp
+)
+
+# EventHost: handlers checked against an event table, two scripts on one table, the call queue refusing calls made
+# outside a handler, After() timers, and a throwing handler disabling only its own script
+add_engine_test(script_event_host_test
+    script_event_host_test.cpp
 )
 
 # Script lifecycle, headless: `self` is the host, a script that throws is disabled (OnDestroy skipped), and a string

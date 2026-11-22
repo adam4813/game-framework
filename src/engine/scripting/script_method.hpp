@@ -2,6 +2,7 @@
 
 #include <flecs.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -143,12 +144,32 @@ struct ScriptConstant {
 // Named function calls into a script
 // -------------------------------------------------------------------------
 
-// One argument of a call into a script (see IScriptInstance::CallFunction). A string reaches the script as
-// `const string &in`.
+// One argument of a call into a script (see IScriptInstance::CallFunction): an Int, a Float or a String parameter.
 using ScriptArg = std::variant<int, float, std::string>;
 
-// How a call into a script went. NotDefined: the script has no function with that declaration. Failed: the function
-// ran into an exception (or could not start); the error text says why.
+// The parameter kind an argument fills.
+[[nodiscard]] inline ScriptValueKind KindOf(const ScriptArg& arg) {
+	constexpr std::array<ScriptValueKind, 3> kKinds{
+		ScriptValueKind::Int,
+		ScriptValueKind::Float,
+		ScriptValueKind::String
+	};
+	return kKinds[arg.index()];
+}
+
+// One of a script's global functions, as a host sees it (see IScriptInstance::Functions). A parameter no ScriptArg can
+// fill (an object, a handle, an output reference) reports Object; a string taken by value or as `const &in` reports
+// String.
+struct ScriptFunctionInfo {
+	std::string name;
+	ScriptValueKind return_kind{ScriptValueKind::Void};
+	std::vector<ScriptValueKind> params;
+
+	friend bool operator==(const ScriptFunctionInfo&, const ScriptFunctionInfo&) = default;
+};
+
+// How a call into a script went. NotDefined: the script has no function of that name whose parameters the arguments
+// fill. Failed: the function ran into an exception (or could not start); the error text says why.
 enum class ScriptCallResult : uint8_t { Ok, NotDefined, Failed };
 
 // -------------------------------------------------------------------------

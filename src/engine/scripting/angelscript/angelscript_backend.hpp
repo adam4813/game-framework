@@ -33,8 +33,8 @@ public:
 	[[nodiscard]] bool OnInit() override;
 	[[nodiscard]] bool Tick(float dt, ScriptTickPhase phase) override;
 	void OnDestroy() override;
-	[[nodiscard]] std::vector<std::string> FunctionDeclarations() const override;
-	ScriptCallResult CallFunction(std::string_view declaration, std::span<const ScriptArg> args, std::string* error) override;
+	[[nodiscard]] std::vector<ScriptFunctionInfo> Functions() const override;
+	ScriptCallResult CallFunction(std::string_view name, std::span<const ScriptArg> args, std::string* error) override;
 
 	// Track a handle created from a script function in this instance's module.
 	// On instance destruction, all tracked handles have their AS function reference released

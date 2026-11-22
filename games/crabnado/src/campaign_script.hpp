@@ -16,7 +16,7 @@
 // changing any data. A script defines only the handlers it wants; nothing runs per frame, and `After(seconds, name)`
 // fires `OnTimer(name)`.
 //
-// Events (declaration as the script writes it; a handler's parameter names are free):
+// Events (a handler as a script writes it; parameter names are free, and a string may also be taken by value):
 //   void OnActStart()                       the Act begins
 //   void OnStageStart()                     a Stage (the Boss Stage included) begins
 //   void OnStageEnd(const string &in reason)  "time", "quota", "script" (EndStage) or "boss" (the Act's boss is beaten)
@@ -29,33 +29,17 @@
 // After(seconds, name), and the read-only StageClock(), Kills() (the run's total), Act() and Stage() (0-based, as in
 // RunState; the Boss Stage is the Act's Stage count). There are no setters for spawn tables, rates, HP or enemy stats.
 //
-// Dispatch runs the Act's handler, then the Stage's. A call a handler makes is queued, and the queue applies in call
-// order at the end of the campaign director's tick. A call that doesn't fit the phase (EndStage in a Boss Stage, a molt
+// The scripts run on an engine::scripting::EventHost with two slots. Dispatch runs the Act's handler, then the Stage's.
+// A call a handler makes is queued, and the queue applies in call order at the end of the campaign director's tick. A call that doesn't fit the phase (EndStage in a Boss Stage, a molt
 // or a Transition; SpawnBoss outside the Act's Boss Stage or with the boss up; Spawn in a molt or between Acts; any call
 // outside a handler) is logged and ignored. A handler that throws is logged once and disables that script for the run.
 // Scripts load with their Act or Stage, and are rebuilt on every arena Load; the Act's script keeps its globals through the
 // Act's Stages, a Stage's script starts fresh each Stage.
 namespace crabnado {
 
-// One entry of the event table.
-struct CampaignEventSpec {
-	std::string_view name;
-	// The handler's declaration, as AngelScript's GetFunctionByDecl takes it.
-	std::string_view declaration;
-	// One letter per argument: 's' a string, 'i' an int (how the Remote API's fire_arg fields are read).
-	std::string_view argKinds;
-};
-
-// The eight events, in dispatch-table order.
-[[nodiscard]] std::span<const CampaignEventSpec> CampaignEvents();
-
-// Which events a script's global functions define, and the On* functions that match no event (a typo or the wrong
-// parameters, so the handler would never run). `declarations` is IScriptInstance::FunctionDeclarations().
-struct HandlerReport {
-	std::vector<std::string> defined;
-	std::vector<std::string> unmatched;
-};
-[[nodiscard]] HandlerReport AnalyzeHandlers(std::span<const std::string> declarations);
+// The eight events, in dispatch-table order (check a script against them with scripting::AnalyzeHandlers). The
+// Remote API's fire_arg fields are read per the event's parameter kinds.
+[[nodiscard]] std::span<const engine::scripting::ScriptEvent> CampaignEvents();
 
 // Name of the world entity whose `timer::Cooldown` counts down the Banner() display (a Remote API readout).
 inline constexpr const char* kScriptBannerName = "::ScriptBanner"; // absolute: registered inside a module scope

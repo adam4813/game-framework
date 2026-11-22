@@ -19,73 +19,35 @@ namespace crabnado {
 
 namespace {
 
-constexpr std::array<CampaignEventSpec, 8> kEvents{{
-	{"OnActStart", "void OnActStart()", ""},
-	{"OnStageStart", "void OnStageStart()", ""},
-	{"OnStageEnd", "void OnStageEnd(const string &in)", "s"},
-	{"OnBossStart", "void OnBossStart(const string &in)", "s"},
-	{"OnBossPhase", "void OnBossPhase(const string &in, int)", "si"},
-	{"OnBossDefeated", "void OnBossDefeated(const string &in)", "s"},
-	{"OnKill", "void OnKill(const string &in, const string &in)", "ss"},
-	{"OnTimer", "void OnTimer(const string &in)", "s"},
-}};
+using enum scripting::ScriptValueKind;
 
-constexpr int kOnTimer = 7;
+const std::vector<scripting::ScriptEvent> kEvents{
+	{.name = "OnActStart", .params = {}},
+	{.name = "OnStageStart", .params = {}},
+	{.name = "OnStageEnd", .params = {String}},
+	{.name = "OnBossStart", .params = {String}},
+	{.name = "OnBossPhase", .params = {String, Int}},
+	{.name = "OnBossDefeated", .params = {String}},
+	{.name = "OnKill", .params = {String, String}},
+	{.name = "OnTimer", .params = {String}},
+};
 
 // The two script slots: the Act's, loaded first, and the Stage's.
-constexpr int kActSlot = 0;
-constexpr int kStageSlot = 1;
-constexpr std::array<std::string_view, 2> kSlotNames{"act", "stage"};
+constexpr size_t kActSlot = 0;
+constexpr size_t kStageSlot = 1;
 
-// One loaded script. `handles[i]` is whether it defines event i's handler, looked up once at load.
-struct LoadedScript {
-	std::string id;
-	scripting::IScriptInstance* instance{nullptr};
-	std::array<bool, kEvents.size()> handles{};
-	bool dead{false};
-};
-
-enum class CallKind { EndStage, SpawnBoss, Spawn, Banner, Sting };
-
-// A world-changing call a handler made, waiting for the end of the tick. `label` is how last_script_call shows it.
-struct ScriptCall {
-	CallKind kind{CallKind::EndStage};
-	std::string label;
-	std::string text;
-	std::string source;
-	int count{0};
-};
-
-struct ScriptTimer {
-	float left{0.0F};
-	std::string name;
-	int slot{0};
-};
-
-// Singleton, not reflected: the loaded scripts and what they've asked for. `dispatching` is the slot whose handler is
-// running (-1 outside a handler), so a call knows who made it and a call from anywhere else is refused.
+// Singleton, not reflected: the entity the scripts run on (their `self`) and the event host that runs them.
 struct CampaignScriptHost {
 	flecs::entity host;
-	std::array<LoadedScript, 2> slots;
-	std::vector<ScriptCall> queue;
-	std::vector<ScriptTimer> timers;
-	int dispatching{-1};
+	scripting::EventHost events{{
+		.log_tag = "[Campaign]",
+		.events = kEvents,
+		.slots = {"act", "stage"},
+		.timer_event = "OnTimer",
+		.max_timers = constants::kMaxScriptTimers,
+		.max_apply_rounds = constants::kMaxScriptApplyRounds,
+	}};
 };
-
-std::string StripSpaces(std::string_view text) {
-	std::string out;
-	for (const char c : text) {
-		if (c != ' ') {
-			out += c;
-		}
-	}
-	return out;
-}
-
-int EventIndex(const std::string_view name) {
-	const auto found = std::ranges::find(kEvents, name, &CampaignEventSpec::name);
-	return found == kEvents.end() ? -1 : static_cast<int>(found - kEvents.begin());
-}
 
 scripting::IScriptBackend* Backend(const flecs::world& world) {
 	if (!world.has<scripting::ScriptBackendSingleton>()) {
@@ -95,89 +57,45 @@ scripting::IScriptBackend* Backend(const flecs::world& world) {
 }
 
 // Lists the ids of the live scripts in RunState, for the Remote API.
-void RefreshActive(const flecs::world& world, const CampaignScriptHost& host) {
+void RefreshActive(const flecs::world& world) {
 	std::string ids;
-	for (const LoadedScript& script : host.slots) {
-		if (script.instance != nullptr && !script.dead) {
-			ids += (ids.empty() ? "" : ",") + script.id;
-		}
+	for (const std::string& id : world.get<CampaignScriptHost>().events.AliveIds()) {
+		ids += (ids.empty() ? "" : ",") + id;
 	}
 	world.get_mut<RunState>().active_scripts = std::move(ids);
 }
 
-void UnloadSlot(const flecs::world& world, CampaignScriptHost& host, const int slot) {
-	LoadedScript& script = host.slots[static_cast<size_t>(slot)];
-	if (script.instance != nullptr) {
-		if (scripting::IScriptBackend* backend = Backend(world)) {
-			backend->DestroyInstance(script.instance);
-		}
-	}
-	script = {};
-	std::erase_if(host.timers, [slot](const ScriptTimer& timer) { return timer.slot == slot; });
-	RefreshActive(world, host);
-}
-
-void LoadSlot(const flecs::world& world, const int slot, const std::string_view id) {
+void LoadSlot(const flecs::world& world, const size_t slot, const std::string_view id) {
 	auto& host = world.get_mut<CampaignScriptHost>();
-	UnloadSlot(world, host, slot);
+	host.events.Unload(world, slot);
 	scripting::IScriptBackend* backend = Backend(world);
-	if (id.empty() || backend == nullptr) {
-		return;
+	if (!id.empty() && backend != nullptr) {
+		if (!host.host.is_alive()) {
+			host.host = world.entity();
+		}
+		const std::string path = ScriptPath(world, id);
+		scripting::IScriptInstance* instance = backend->CreateInstanceFromFile(path, host.host);
+		if (instance == nullptr) {
+			ecs::Log(world).error(
+				"[Campaign] {} script '{}' ('{}') didn't load, skipped",
+				slot == kActSlot ? "act" : "stage",
+				id,
+				path
+			);
+		}
+		std::ignore = host.events.Load(world, slot, std::string{id}, instance);
 	}
-	if (!host.host.is_alive()) {
-		host.host = world.entity();
-	}
-	const std::string path = ScriptPath(world, id);
-	LoadedScript script{.id = std::string{id}};
-	script.instance = backend->CreateInstanceFromFile(path, host.host);
-	auto& log = ecs::Log(world);
-	if (script.instance == nullptr) {
-		log.error("[Campaign] {} script '{}' ('{}') didn't load, skipped", kSlotNames[static_cast<size_t>(slot)], id, path);
-		return;
-	}
-	const HandlerReport report = AnalyzeHandlers(script.instance->FunctionDeclarations());
-	for (const std::string& name : report.defined) {
-		script.handles[static_cast<size_t>(EventIndex(name))] = true;
-	}
-	for (const std::string& declaration : report.unmatched) {
-		log.warn("[Campaign] script '{}': '{}' matches no campaign event, so it never runs", id, declaration);
-	}
-	host.slots[static_cast<size_t>(slot)] = std::move(script);
-	RefreshActive(world, host);
+	RefreshActive(world);
 }
 
-// Calls `slot`'s handler for event `index`, if it has one. An exception disables the script.
-void DispatchTo(
-	const flecs::world& world, CampaignScriptHost& host, const int slot, const int index, const std::span<const scripting::ScriptArg> args
-) {
-	LoadedScript& script = host.slots[static_cast<size_t>(slot)];
-	if (script.instance == nullptr || script.dead || !script.handles[static_cast<size_t>(index)]) {
-		return;
-	}
-	host.dispatching = slot;
-	std::string error;
-	const auto result = script.instance->CallFunction(kEvents[static_cast<size_t>(index)].declaration, args, &error);
-	host.dispatching = -1;
-	if (result == scripting::ScriptCallResult::Failed) {
-		script.dead = true;
-		ecs::Log(world).error("[Campaign] script '{}' disabled: {} failed: {}", script.id, kEvents[static_cast<size_t>(index)].name, error);
-		RefreshActive(world, host);
-	}
-}
-
-// What a handler's call does, then refuses or not. Called outside a handler, a call is ignored.
-void QueueCall(flecs::world& world, ScriptCall call) {
-	auto& host = world.get_mut<CampaignScriptHost>();
-	if (host.dispatching < 0) {
-		ecs::Log(world).warn("[Campaign] {} called outside a campaign event handler, ignored", call.label);
-		return;
-	}
-	call.label = std::format("{}: {}", host.slots[static_cast<size_t>(host.dispatching)].id, call.label);
-	host.queue.push_back(std::move(call));
+// Queues a world-changing call for the end of the director's tick; `apply` returns why it was refused, or nothing.
+void QueueCall(const flecs::world& world, std::string label, scripting::EventHost::ApplyFn apply) {
+	std::ignore = world.get_mut<CampaignScriptHost>().events.Queue(world, std::move(label), std::move(apply));
 }
 
 // The reason a Spawn() is refused, or an empty string after throwing the enemies.
-std::string_view SpawnForScript(const flecs::world& world, const ScriptCall& call) {
+std::string
+SpawnForScript(const flecs::world& world, const std::string& type_id, const int count, const std::string& source) {
 	const auto& run = world.get<RunState>();
 	if (!IsRunning(run.phase)) {
 		if (IsMolting(run.phase, run.step)) {
@@ -186,68 +104,48 @@ std::string_view SpawnForScript(const flecs::world& world, const ScriptCall& cal
 		return run.phase == RunPhase::Transition ? "between Acts" : "the run isn't live";
 	}
 	const auto& types = world.get<EnemyRegistry>().types;
-	const auto type = std::ranges::find(types, call.text, &EnemyType::id);
+	const auto type = std::ranges::find(types, type_id, &EnemyType::id);
 	if (type == types.end()) {
 		return "unknown enemy type";
 	}
-	if (std::ranges::find(SpawnerIds(), call.source) == SpawnerIds().end()) {
+	if (std::ranges::find(SpawnerIds(), source) == SpawnerIds().end()) {
 		return "unknown spawner";
 	}
-	if (call.count <= 0) {
+	if (count <= 0) {
 		return "count must be positive";
 	}
-	ThrowEnemies(world, static_cast<int>(type - types.begin()), call.count);
+	ThrowEnemies(world, static_cast<int>(type - types.begin()), count);
 	return {};
 }
 
-// Applies one queued call, returning why it was refused or an empty string.
-std::string_view ApplyCall(const flecs::world& world, const ScriptCall& call) {
-	switch (call.kind) {
-	case CallKind::EndStage: return EndStageEarly(world);
-	case CallKind::SpawnBoss: return CallBossNow(world, call.text);
-	case CallKind::Spawn: return SpawnForScript(world, call);
-	case CallKind::Banner: {
-		auto& scripts = world.get_mut<CampaignScripts>();
-		scripts.banner = call.text;
-		auto& cooldown = world.lookup(kScriptBannerName).get_mut<timer::Cooldown>();
-		cooldown.duration = constants::kScriptBannerTime;
-		cooldown.remaining = constants::kScriptBannerTime;
-		return {};
-	}
-	case CallKind::Sting: {
-		const std::optional<Sfx> sfx = FindSfx(call.text);
-		if (!sfx) {
-			return "unknown sting";
-		}
-		PlaySfx(world, *sfx);
-		return {};
-	}
-	}
+std::string ShowBanner(const flecs::world& world, const std::string& text) {
+	world.get_mut<CampaignScripts>().banner = text;
+	auto& cooldown = world.lookup(kScriptBannerName).get_mut<timer::Cooldown>();
+	cooldown.duration = constants::kScriptBannerTime;
+	cooldown.remaining = constants::kScriptBannerTime;
 	return {};
 }
 
-// Applies the queue in call order. Applying can fire events whose handlers queue more, so it goes round again.
+std::string PlaySting(const flecs::world& world, const std::string& id) {
+	const std::optional<Sfx> sfx = FindSfx(id);
+	if (!sfx) {
+		return "unknown sting";
+	}
+	PlaySfx(world, *sfx);
+	return {};
+}
+
+// Applies the queued calls in call order and records the last one in RunState.
 void ApplyQueue(const flecs::world& world) {
-	auto& host = world.get_mut<CampaignScriptHost>();
-	for (int round = 0; round < constants::kMaxScriptApplyRounds && !host.queue.empty(); ++round) {
-		std::vector<ScriptCall> calls = std::move(host.queue);
-		host.queue.clear();
-		for (const ScriptCall& call : calls) {
-			const std::string_view refusal = ApplyCall(world, call);
-			auto& run = world.get_mut<RunState>();
-			if (refusal.empty()) {
-				run.last_script_call = call.label;
-				continue;
-			}
-			run.last_script_call = std::format("{} (refused: {})", call.label, refusal);
-			ecs::Log(world).warn("[Campaign] {} refused: {}", call.label, refusal);
-		}
+	for (const auto& call : world.get_mut<CampaignScriptHost>().events.ApplyQueue(world)) {
+		world.get_mut<RunState>().last_script_call =
+			call.refusal.empty() ? call.label : std::format("{} (refused: {})", call.label, call.refusal);
 	}
 }
 
-// Reads a Remote API argument per its kind: a string as is, an int parsed (0 if it isn't one).
-scripting::ScriptArg ParseArg(const char kind, const std::string& text) {
-	if (kind != 'i') {
+// Reads a Remote API argument per its kind: an int parsed (0 if it isn't one), anything else as the string.
+scripting::ScriptArg ParseArg(const scripting::ScriptValueKind kind, const std::string& text) {
+	if (kind != Int) {
 		return text;
 	}
 	int value = 0;
@@ -261,37 +159,17 @@ void FireRequested(const flecs::world& world) {
 		return;
 	}
 	const std::string event = std::exchange(scripts.fire_event, {});
-	const int index = EventIndex(event);
-	if (index < 0) {
+	const scripting::ScriptEvent* spec = world.get<CampaignScriptHost>().events.FindEvent(event);
+	if (spec == nullptr) {
 		ecs::Log(world).warn("[Campaign] fire_event '{}' is not a campaign event", event);
 		return;
 	}
-	const std::string_view kinds = kEvents[static_cast<size_t>(index)].argKinds;
 	std::vector<scripting::ScriptArg> args;
 	const std::array<const std::string*, 2> raw{&scripts.fire_arg0, &scripts.fire_arg1};
-	for (size_t i = 0; i < kinds.size(); ++i) {
-		args.push_back(ParseArg(kinds[i], *raw[i]));
+	for (size_t i = 0; i < spec->params.size(); ++i) {
+		args.push_back(ParseArg(spec->params[i], *raw[i]));
 	}
 	FireCampaignEvent(world, event, args);
-}
-
-void FireTimers(const flecs::world& world, const float dt) {
-	auto& host = world.get_mut<CampaignScriptHost>();
-	std::vector<ScriptTimer> due;
-	for (ScriptTimer& timer : host.timers) {
-		timer.left -= dt;
-	}
-	std::erase_if(host.timers, [&due](const ScriptTimer& timer) {
-		if (timer.left > 0.0F) {
-			return false;
-		}
-		due.push_back(timer);
-		return true;
-	});
-	for (const ScriptTimer& timer : due) {
-		const std::array<scripting::ScriptArg, 1> args{timer.name};
-		DispatchTo(world, host, timer.slot, kOnTimer, args);
-	}
 }
 
 void RegisterApi(const flecs::world& world) {
@@ -307,37 +185,46 @@ void RegisterApi(const flecs::world& world) {
 	};
 
 	reg({.name = "EndStage", .return_type = ScriptValueType::MakeVoid()}, [](ScriptCallContext&, flecs::world& w) {
-		QueueCall(w, {.kind = CallKind::EndStage, .label = "EndStage()"});
+		QueueCall(w, "EndStage()", [](const flecs::world& world) { return std::string{EndStageEarly(world)}; });
 	});
-	reg({.name = "SpawnBoss", .return_type = ScriptValueType::MakeVoid(), .params = {text("id")}}, [](ScriptCallContext& ctx, flecs::world& w) {
-		const std::string id = ctx.GetArgString(0);
-		QueueCall(w, {.kind = CallKind::SpawnBoss, .label = std::format("SpawnBoss(\"{}\")", id), .text = id});
-	});
-	reg({.name = "Spawn", .return_type = ScriptValueType::MakeVoid(), .params = {text("type"), number("count"), text("source")}},
+	reg({.name = "SpawnBoss", .return_type = ScriptValueType::MakeVoid(), .params = {text("id")}},
 		[](ScriptCallContext& ctx, flecs::world& w) {
-			ScriptCall call{.kind = CallKind::Spawn, .text = ctx.GetArgString(0), .source = ctx.GetArgString(2), .count = ctx.GetArgInt(1)};
-			call.label = std::format("Spawn(\"{}\", {}, \"{}\")", call.text, call.count, call.source);
-			QueueCall(w, std::move(call));
+			std::string id = ctx.GetArgString(0);
+			QueueCall(w, std::format("SpawnBoss(\"{}\")", id), [id](const flecs::world& world) {
+				return std::string{CallBossNow(world, id)};
+			});
 		});
-	reg({.name = "Banner", .return_type = ScriptValueType::MakeVoid(), .params = {text("text")}}, [](ScriptCallContext& ctx, flecs::world& w) {
-		const std::string banner = ctx.GetArgString(0);
-		QueueCall(w, {.kind = CallKind::Banner, .label = std::format("Banner(\"{}\")", banner), .text = banner});
-	});
-	reg({.name = "Sting", .return_type = ScriptValueType::MakeVoid(), .params = {text("id")}}, [](ScriptCallContext& ctx, flecs::world& w) {
-		const std::string id = ctx.GetArgString(0);
-		QueueCall(w, {.kind = CallKind::Sting, .label = std::format("Sting(\"{}\")", id), .text = id});
-	});
+	reg({.name = "Spawn",
+		 .return_type = ScriptValueType::MakeVoid(),
+		 .params = {text("type"), number("count"), text("source")}},
+		[](ScriptCallContext& ctx, flecs::world& w) {
+			std::string type = ctx.GetArgString(0);
+			const int count = ctx.GetArgInt(1);
+			std::string source = ctx.GetArgString(2);
+			QueueCall(
+				w,
+				std::format("Spawn(\"{}\", {}, \"{}\")", type, count, source),
+				[type, count, source](const flecs::world& world) { return SpawnForScript(world, type, count, source); }
+			);
+		});
+	reg({.name = "Banner", .return_type = ScriptValueType::MakeVoid(), .params = {text("text")}},
+		[](ScriptCallContext& ctx, flecs::world& w) {
+			std::string banner = ctx.GetArgString(0);
+			QueueCall(w, std::format("Banner(\"{}\")", banner), [banner](const flecs::world& world) {
+				return ShowBanner(world, banner);
+			});
+		});
+	reg({.name = "Sting", .return_type = ScriptValueType::MakeVoid(), .params = {text("id")}},
+		[](ScriptCallContext& ctx, flecs::world& w) {
+			std::string id = ctx.GetArgString(0);
+			QueueCall(w, std::format("Sting(\"{}\")", id), [id](const flecs::world& world) {
+				return PlaySting(world, id);
+			});
+		});
 	// After() isn't world-changing, so it registers at once, for the script that called it.
 	reg({.name = "After", .return_type = ScriptValueType::MakeVoid(), .params = {seconds("seconds"), text("name")}},
 		[](ScriptCallContext& ctx, flecs::world& w) {
-			auto& host = w.get_mut<CampaignScriptHost>();
-			const float delay = ctx.GetArgFloat(0);
-			const std::string name = ctx.GetArgString(1);
-			if (host.dispatching < 0 || delay <= 0.0F || static_cast<int>(host.timers.size()) >= constants::kMaxScriptTimers) {
-				ecs::Log(w).warn("[Campaign] After({}, \"{}\") refused: outside a handler, a non-positive delay or too many timers", delay, name);
-				return;
-			}
-			host.timers.push_back({.left = delay, .name = name, .slot = host.dispatching});
+			std::ignore = w.get_mut<CampaignScriptHost>().events.After(w, ctx.GetArgFloat(0), ctx.GetArgString(1));
 		});
 	reg({.name = "StageClock", .return_type = ScriptValueType::MakeFloat()}, [](ScriptCallContext& ctx, flecs::world& w) {
 		ctx.SetReturnFloat(w.get<RunState>().stage_clock);
@@ -355,27 +242,7 @@ void RegisterApi(const flecs::world& world) {
 
 } // namespace
 
-std::span<const CampaignEventSpec> CampaignEvents() {
-	return kEvents;
-}
-
-HandlerReport AnalyzeHandlers(const std::span<const std::string> declarations) {
-	HandlerReport report;
-	for (const std::string& declaration : declarations) {
-		const std::string flat = StripSpaces(declaration);
-		const auto match = std::ranges::find_if(kEvents, [&flat](const CampaignEventSpec& spec) { return StripSpaces(spec.declaration) == flat; });
-		if (match != kEvents.end()) {
-			report.defined.emplace_back(match->name);
-			continue;
-		}
-		// The function's name is the last word before its parameter list.
-		const std::string_view head = std::string_view{declaration}.substr(0, declaration.find('('));
-		if (head.substr(head.rfind(' ') + 1).starts_with("On")) {
-			report.unmatched.push_back(declaration);
-		}
-	}
-	return report;
-}
+std::span<const scripting::ScriptEvent> CampaignEvents() { return kEvents; }
 
 std::string ScriptPath(const flecs::world& world, const std::string_view id) {
 	const std::string& directory = world.get<CampaignSource>().scripts_path;
@@ -402,13 +269,8 @@ void ResetCampaignScripts(const flecs::world& world, const flecs::entity sceneRo
 }
 
 void UnloadCampaignScripts(const flecs::world& world) {
-	auto& host = world.get_mut<CampaignScriptHost>();
-	for (int slot = 0; slot < static_cast<int>(host.slots.size()); ++slot) {
-		UnloadSlot(world, host, slot);
-	}
-	host.queue.clear();
-	host.timers.clear();
-	host.dispatching = -1;
+	world.get_mut<CampaignScriptHost>().events.UnloadAll(world);
+	RefreshActive(world);
 }
 
 void LoadActScript(const flecs::world& world, const std::string_view id) {
@@ -419,28 +281,19 @@ void LoadStageScript(const flecs::world& world, const std::string_view id) {
 	LoadSlot(world, kStageSlot, id);
 }
 
-bool StageScriptAlive(const flecs::world& world) {
-	const LoadedScript& script = world.get<CampaignScriptHost>().slots[kStageSlot];
-	return script.instance != nullptr && !script.dead;
-}
+bool StageScriptAlive(const flecs::world& world) { return world.get<CampaignScriptHost>().events.Alive(kStageSlot); }
 
 void EndActScripts(const flecs::world& world) {
 	FireCampaignEvent(world, "OnStageEnd", {std::string{"boss"}});
-	auto& host = world.get_mut<CampaignScriptHost>();
-	UnloadSlot(world, host, kStageSlot);
-	UnloadSlot(world, host, kActSlot);
+	auto& events = world.get_mut<CampaignScriptHost>().events;
+	events.Unload(world, kStageSlot);
+	events.Unload(world, kActSlot);
+	RefreshActive(world);
 }
 
 void FireCampaignEvent(const flecs::world& world, const std::string_view event, const std::span<const scripting::ScriptArg> args) {
-	const int index = EventIndex(event);
-	if (index < 0) {
-		ecs::Log(world).warn("[Campaign] '{}' is not a campaign event", event);
-		return;
-	}
-	auto& host = world.get_mut<CampaignScriptHost>();
-	for (int slot = 0; slot < static_cast<int>(host.slots.size()); ++slot) {
-		DispatchTo(world, host, slot, index, args);
-	}
+	world.get_mut<CampaignScriptHost>().events.Fire(world, event, args);
+	RefreshActive(world);
 }
 
 void FireCampaignEvent(const flecs::world& world, const std::string_view event, const std::initializer_list<scripting::ScriptArg> args) {
@@ -454,7 +307,8 @@ void StepCampaignScripts(const flecs::world& world, const float dt) {
 	}
 	FireRequested(world);
 	if (IsRunning(world.get<RunState>().phase)) {
-		FireTimers(world, dt);
+		world.get_mut<CampaignScriptHost>().events.StepTimers(world, dt);
+		RefreshActive(world);
 	}
 	ApplyQueue(world);
 }

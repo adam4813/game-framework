@@ -34,15 +34,15 @@ public:
 	// has already failed.
 	virtual void OnDestroy() = 0;
 
-	// The declarations of the script's global functions, without parameter names ("void OnKill(const string&in)", the backend's own spelling).
-	// A host uses it to check that a script's handlers match the entry points it dispatches.
-	[[nodiscard]] virtual std::vector<std::string> FunctionDeclarations() const { return {}; }
+	// The script's global functions: name, return kind and parameter kinds. A host checks a script's handlers against
+	// the events it dispatches with it (see AnalyzeHandlers in event_host.hpp).
+	[[nodiscard]] virtual std::vector<ScriptFunctionInfo> Functions() const { return {}; }
 
-	// Calls the script's global function with this exact declaration (parameter names don't matter), passing `args`
-	// in order. NotDefined when the script has no such function; Failed when it throws, with the message and line in
-	// `error`. Unlike Tick, it runs only on request, so a host can drive a script with discrete events.
+	// Calls the script's global function `name` whose parameters `args` fill, in order. NotDefined when the script has
+	// no such function; Failed when it throws, with the message and line in `error`. Unlike Tick, it runs only on
+	// request, so a host can drive a script with discrete events.
 	virtual ScriptCallResult
-	CallFunction(std::string_view /*declaration*/, std::span<const ScriptArg> /*args*/, std::string* /*error*/ = nullptr) {
+	CallFunction(std::string_view /*name*/, std::span<const ScriptArg> /*args*/, std::string* /*error*/ = nullptr) {
 		return ScriptCallResult::NotDefined;
 	}
 };
