@@ -541,6 +541,9 @@ RenderModule::RenderModule(const flecs::world& world) {
 	world.component<Projection>()
 		.constant("Perspective", Projection::Perspective)
 		.constant("Orthographic", Projection::Orthographic);
+	scripting::RegisterEnumConstantsForScripts<Projection>(
+		world, "Projection", {{"Perspective", Projection::Perspective}, {"Orthographic", Projection::Orthographic}}
+	);
 	world.component<Camera>()
 		.member<glm::vec3>("up")
 		.member<float>("fov")

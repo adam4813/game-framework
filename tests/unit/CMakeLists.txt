@@ -142,6 +142,12 @@ add_engine_test(raycast_script_test
     raycast_script_test.cpp
 )
 
+# Script constants for reflected enums (Projection_*, Motion_*, PathFollowMode_*, TextAlign_*, StackDirection_*) and
+# the RigidBody fields reflected with them
+add_engine_test(enum_constants_script_test
+    enum_constants_script_test.cpp
+)
+
 # Calling a named script function from C++ (IScriptInstance::CallFunction): arguments, script state, overloads, an
 # undefined function, an exception's message and line, and the function list with its parameter kinds
 add_engine_test(script_call_function_test

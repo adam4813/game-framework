@@ -27,10 +27,15 @@
 | TestBox#PhysicsVelocity.linear.x                | 0                       | N/A                     | 0                       | [KNOWN #13] |
 | TestBox#PhysicsVelocity.linear.y                | 0                       | N/A                     | 0                       | [KNOWN #13] |
 | TestBox#PhysicsVelocity.linear.z                | 0                       | N/A                     | 0                       | [KNOWN #13] |
+| TestBox#RigidBody.angular_damping               | 0.050000                | 0.050000                | 0.050000                | [MATCH]     |
+| TestBox#RigidBody.collision_mask                | 4294967295              | 4294967295              | 4294967295              | [MATCH]     |
+| TestBox#RigidBody.enable_ccd                    | false                   | false                   | false                   | [MATCH]     |
 | TestBox#RigidBody.friction                      | 0.500000                | 0.500000                | 0.500000                | [MATCH]     |
 | TestBox#RigidBody.gravity_scale                 | 1                       | 1                       | 1                       | [MATCH]     |
 | TestBox#RigidBody.layer                         | Obstacle                | Obstacle                | Obstacle                | [MATCH]     |
+| TestBox#RigidBody.linear_damping                | 0.050000                | 0.050000                | 0.050000                | [MATCH]     |
 | TestBox#RigidBody.mass                          | 1                       | 1                       | 1                       | [MATCH]     |
+| TestBox#RigidBody.motion_type                   | Dynamic                 | Dynamic                 | Dynamic                 | [MATCH]     |
 | TestBox#RigidBody.restitution                   | 0.300000                | 0.300000                | 0.300000                | [MATCH]     |
 | TestBox#RigidBody.use_gravity                   | true                    | true                    | true                    | [MATCH]     |
 | TestBox#Transform.position.x                    | 0                       | 0                       | 0                       | [MATCH]     |
@@ -177,6 +182,7 @@
 | TestPathAutoReplan#PathAutoReplan.goal.y        | 0                       | 0                       | 0                       | [MATCH]     |
 | TestPathAutoReplan#PathAutoReplan.goal.z        | 5                       | 5                       | 5                       | [MATCH]     |
 | TestPathAutoReplan#PathAutoReplan.interval      | 0.500000                | 0.500000                | 0.500000                | [MATCH]     |
+| TestPathFollow#PathFollow.mode                  | SteeringTarget          | SteeringTarget          | SteeringTarget          | [MATCH]     |
 | TestPathFollow#PathFollow.speed                 | 4                       | 4                       | 4                       | [MATCH]     |
 | TestPointLight#PointLight.color.a               | 255                     | 255                     | 255                     | [MATCH]     |
 | TestPointLight#PointLight.color.b               | 120                     | 120                     | 120                     | [MATCH]     |
@@ -396,6 +402,7 @@
 | TestUIImage#UIRect.rect.w                       | 48                      | 48                      | 48                      | [MATCH]     |
 | TestUIImage#UIRect.rect.x                       | 70                      | 70                      | 70                      | [MATCH]     |
 | TestUIImage#UIRect.rect.y                       | 240                     | 240                     | 240                     | [MATCH]     |
+| TestUILabel#Label.align                         | Center                  | Center                  | Center                  | [MATCH]     |
 | TestUILabel#Label.color.a                       | 255                     | 255                     | 255                     | [MATCH]     |
 | TestUILabel#Label.color.b                       | 200                     | 200                     | 200                     | [MATCH]     |
 | TestUILabel#Label.color.g                       | 210                     | 210                     | 210                     | [MATCH]     |
@@ -530,6 +537,7 @@
 | TestUISpinner#UIRect.rect.w                     | 48                      | 48                      | 48                      | [MATCH]     |
 | TestUISpinner#UIRect.rect.x                     | 10                      | 10                      | 10                      | [MATCH]     |
 | TestUISpinner#UIRect.rect.y                     | 240                     | 240                     | 240                     | [MATCH]     |
+| TestUIStack#Stack.direction                     | Vertical                | Vertical                | Vertical                | [MATCH]     |
 | TestUIStack#Stack.padding                       | 4                       | 4                       | 4                       | [MATCH]     |
 | TestUIStack#Stack.spacing                       | 8                       | 8                       | 8                       | [MATCH]     |
 | TestUIStack#Stack.stretch                       | true                    | true                    | true                    | [MATCH]     |

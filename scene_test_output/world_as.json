@@ -69,10 +69,15 @@
           }
         },
         "RigidBody": {
+          "angular_damping": 0.0500000007,
+          "collision_mask": 4294967295,
+          "enable_ccd": false,
           "friction": 0.5,
           "gravity_scale": 1,
           "layer": "Obstacle",
+          "linear_damping": 0.0500000007,
           "mass": 1,
+          "motion_type": "Dynamic",
           "restitution": 0.3000000119,
           "use_gravity": true
         },
@@ -539,6 +544,7 @@
     "TestPathFollow": {
       "components": {
         "PathFollow": {
+          "mode": "SteeringTarget",
           "speed": 4
         }
       },
@@ -1109,6 +1115,7 @@
     "TestUILabel": {
       "components": {
         "Label": {
+          "align": "Center",
           "color": {
             "a": 255,
             "b": 200,
@@ -1375,6 +1382,7 @@
     "TestUIStack": {
       "components": {
         "Stack": {
+          "direction": "Vertical",
           "padding": 4,
           "spacing": 8,
           "stretch": true

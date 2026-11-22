@@ -41,7 +41,7 @@ struct PathAgent {
 };
 
 /// Output mode for PathFollowSystem.
-enum class PathFollowMode : uint8_t {
+enum class PathFollowMode {
 	SteeringTarget, ///< Write ai::SteeringTarget (entity must also carry SteeringAgent)
 	Kinematic,      ///< Write desired_velocity; game / physics integrates it
 	Direct,         ///< Move spatial::Transform directly (no physics, e.g. cutscenes)

@@ -13,7 +13,7 @@ namespace engine::physics {
 
 // === PHYSICS TYPES & ENUMS ===
 
-enum class MotionType : uint8_t { Static, Kinematic, Dynamic };
+enum class MotionType { Static, Kinematic, Dynamic };
 
 enum class ShapeType { Box, Sphere, Capsule, Cylinder, ConvexHull, Mesh, Compound };
 
