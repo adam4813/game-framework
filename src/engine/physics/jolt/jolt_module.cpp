@@ -4,7 +4,6 @@
 #include <string>
 
 #include <flecs.h>
-#include <spdlog/spdlog.h>
 
 #include "../physics_components.hpp"
 #include "character_step.hpp"
@@ -31,7 +30,10 @@ void CreateCharacter(JoltBackend& sys, const flecs::entity e) {
 	const auto* shape = e.try_get<CollisionShape>();
 	if (!body || !shape) return;
 	if (e.has<RigidBody>()) {
-		spdlog::error("[Physics] Entity '{}': a character_body can't also be a rigid_body.", EntityLabel(e));
+		ecs::Log(e.world()).error(
+			"[Physics] Entity '{}': a character_body can't also be a rigid_body.",
+			EntityLabel(e)
+		);
 		return;
 	}
 	const auto* local = e.try_get<spatial::Transform>();
@@ -96,7 +98,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	world.emplace<JoltBackend>(world.get<PhysicsConfig>());
 	auto& physics = world.get_mut<JoltBackend>();
 	if (!physics.Initialize()) {
-		spdlog::error("[JoltModule] Failed to initialize Jolt");
+		ecs::Log(world).error("[JoltModule] Failed to initialize Jolt");
 		return;
 	}
 
@@ -116,7 +118,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 				}
 				if (force.clear_after_apply) {
 					if (!e.remove<PhysicsForce>()) {
-						spdlog::warn("[PhysicsApplyForces] Failed to remove PhysicsForce from entity {}", e.id());
+						ecs::Log(e.world()).warn(
+							"[PhysicsApplyForces] Failed to remove PhysicsForce from entity {}",
+							e.id()
+						);
 					}
 				}
 			})
@@ -135,7 +140,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 					sys.ApplyImpulse(e.id(), impulse.impulse, impulse.point);
 				}
 				if (!e.remove<PhysicsImpulse>()) {
-					spdlog::warn("[PhysicsApplyImpulses] Failed to remove PhysicsImpulse from entity {}", e.id());
+					ecs::Log(e.world()).warn(
+						"[PhysicsApplyImpulses] Failed to remove PhysicsImpulse from entity {}",
+						e.id()
+					);
 				}
 			})
 			.add<ecs::FixedStep>()
@@ -210,7 +218,10 @@ JoltModule::JoltModule(const flecs::world& world) {
 			.src<JoltBackend>()
 			.each([](const flecs::entity e, const RigidBody&, JoltBackend& sys) {
 				if (!sys.HasCharacter(e.id())) return;
-				spdlog::error("[Physics] Entity '{}': a character_body can't also be a rigid_body.", EntityLabel(e));
+				ecs::Log(e.world()).error(
+					"[Physics] Entity '{}': a character_body can't also be a rigid_body.",
+					EntityLabel(e)
+				);
 				sys.RemoveCharacter(e.id());
 			});
 	std::ignore =
@@ -415,7 +426,7 @@ JoltModule::JoltModule(const flecs::world& world) {
 	}
 #endif
 
-	spdlog::info("[JoltModule] Initialized Jolt physics backend");
+	ecs::Log(world).info("[JoltModule] Initialized Jolt physics backend");
 }
 
 } // namespace engine::physics::jolt

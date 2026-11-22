@@ -4,8 +4,6 @@
 #include <utility>
 #include <vector>
 
-#include <spdlog/spdlog.h>
-
 #include <flecs.h>
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
@@ -204,7 +202,7 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 	// === Level loader ===
 	RegisterPhysicsLevelLoaders(world);
 
-	spdlog::info("[PhysicsModule] Initialized core physics");
+	ecs::Log(world).info("[PhysicsModule] Initialized core physics");
 }
 
 } // namespace engine::physics
