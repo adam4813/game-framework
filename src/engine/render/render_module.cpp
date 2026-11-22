@@ -1,6 +1,7 @@
 #include "render_module.hpp"
 
 #include <atomic>
+#include <cctype>
 #include <algorithm>
 #include <chrono>
 #include <mutex>
@@ -408,6 +409,30 @@ void RegisterPrimitiveEnqueuer(
 		.template add<scene::GameScene>();
 }
 
+// Reads a camera's `projection` from its reflected Projection constants, matching the lowercase spelling scenes use
+// ("orthographic"). An unknown value warns with the accepted names and falls back to Perspective.
+Projection ParseProjection(const flecs::entity e, const std::string& name) {
+	const flecs::world world = e.world();
+	std::string accepted;
+	for (int value = 0;; ++value) {
+		const flecs::entity constant = world.to_entity(static_cast<Projection>(value));
+		if (!constant.is_valid()) break;
+		std::string constant_name = constant.name().c_str();
+		std::ranges::transform(constant_name, constant_name.begin(), [](const unsigned char c) {
+			return static_cast<char>(std::tolower(c));
+		});
+		if (constant_name == name) return static_cast<Projection>(value);
+		accepted += (accepted.empty() ? "'" : ", '") + constant_name + "'";
+	}
+	ecs::Log(world).warn(
+		"[Render] Unknown camera projection '{}' on entity '{}' (accepted: {}); using 'perspective'",
+		name,
+		e.name().c_str() != nullptr ? e.name().c_str() : "",
+		accepted
+	);
+	return Projection::Perspective;
+}
+
 void RegisterRenderLevelLoaders(const flecs::world& world) {
 	using core::JRgba;
 	using core::JVec2;
@@ -420,8 +445,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		c.aspect_ratio = j.value("aspect_ratio", c.aspect_ratio);
 		c.near_plane = j.value("near", c.near_plane);
 		c.far_plane = j.value("far", c.far_plane);
-		c.projection = j.value("projection", std::string{"perspective"}) == "orthographic" ? Projection::Orthographic
-																						   : Projection::Perspective;
+		c.projection = ParseProjection(e, j.value("projection", std::string{"perspective"}));
 		c.ortho_size = j.value("ortho_size", c.ortho_size);
 		e.set<Camera>(c);
 	});
@@ -541,6 +565,9 @@ RenderModule::RenderModule(const flecs::world& world) {
 	world.component<Projection>()
 		.constant("Perspective", Projection::Perspective)
 		.constant("Orthographic", Projection::Orthographic);
+	scripting::RegisterEnumConstantsForScripts<Projection>(
+		world, "Projection", {{"Perspective", Projection::Perspective}, {"Orthographic", Projection::Orthographic}}
+	);
 	world.component<Camera>()
 		.member<glm::vec3>("up")
 		.member<float>("fov")

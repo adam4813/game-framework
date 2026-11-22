@@ -104,6 +104,25 @@ inline void RegisterGlobalConstantsForScripts(const flecs::world& world, std::ve
 	}
 }
 
+// Free helper — expose a reflected enum to scripts as `<prefix>_<Name>` int constants, one per entry. Reflected enum
+// members bind to scripts as ints, so this is how a script names their values (`Motion_Static`).
+//
+//   RegisterEnumConstantsForScripts<MotionType>(world, "Motion", {{"Static", MotionType::Static}, ...});
+template <typename E>
+void RegisterEnumConstantsForScripts(
+	const flecs::world& world, const std::string_view prefix, std::initializer_list<std::pair<const char*, E>> values
+) {
+	std::vector<ScriptConstant> constants;
+	for (const auto& [name, value] : values) {
+		constants.push_back(
+			{.name = std::string{prefix} + "_" + name,
+			 .type = ScriptValueType::MakeInt(),
+			 .value_str = std::to_string(static_cast<int>(value))}
+		);
+	}
+	RegisterGlobalConstantsForScripts(world, std::move(constants));
+}
+
 // Free helper — register a non-default constructor on an already-registered value type.
 // `params_signature` is the backend-native parameter list (e.g. "float x, float y, float z").
 // `ctor_thunk` does placement-new into GetObject(); `dtor_thunk` calls the destructor.

@@ -62,7 +62,7 @@ Legend:
 
 | Component                 | Meta fields                                             | Status | Notes                                                                 |
 |---------------------------|---------------------------------------------------------|--------|-----------------------------------------------------------------------|
-| `RigidBody`               | mass, friction, restitution, use_gravity, gravity_scale, layer(enum) | ✅     | Partial — motion_type, damping, enable_ccd, collision_mask not in meta |
+| `RigidBody`               | motion_type(enum), mass, linear_damping, angular_damping, friction, restitution, enable_ccd, use_gravity, gravity_scale, layer(enum), collision_mask | ✅     | Scripts name the enums with `Motion_*` / `Layer_*` |
 | `CollisionShape`          | type(enum), offset(vec3), mesh_path(string)             | ✅     | Partial — box_half_extents etc. not in meta; mesh_path only stored    |
 | `PhysicsVelocity`         | linear(vec3), angular(vec3)                             | ✅     |                                                                       |
 | `CharacterBody`           | max_slope_deg, step_height, stick_to_floor, mass, layer(enum), inner_body | ✅     |                                                       |
@@ -162,8 +162,8 @@ script-registered components below are authored in all three paths (`TestUIPanel
 `TestUISlider`/`TestUICheckbox`/`TestUIRadio`/`TestUITextInput`/`TestUITextArea`/`TestUIDropdown`). Runtime
 fields (`hovered`/`pressed`/`clicked`/`phase`/`scroll`/`content_size`/`dragging_*`/`caret_blink`/`hover_index`) are
 left at defaults — no path runs systems, so they match. Each widget's unreflected members (`std::function`
-callbacks, `Dropdown.options` vector, `Stack.direction`/`Label.align` enums) are automatically skipped by the
-script and JSON layers, so only the plain-data fields are compared.
+callbacks, `Dropdown.options` vector) are automatically skipped by the script and JSON layers, so only the
+reflected fields are compared.
 
 | Component     | Meta fields                                                                                                                                     | Status | Notes                                                           |
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------|--------|-----------------------------------------------------------------|
@@ -174,11 +174,11 @@ script and JSON layers, so only the plain-data fields are compared.
 | `ProgressBar` | value, min, max, fill_color/track_color/border_color(Rgba), border_thickness, roundness                                                         | ✅     |                                                                 |
 | `Spinner`     | color(Rgba), radius, dot_radius, dots(int), speed, phase                                                                                        | ✅     | `phase` runtime; default-match (no systems run)                 |
 | `Image`       | texture(int), fit(FitMode), source(Rect), tint(Rgba)                                                                                            | ✅     | `texture` left -1 (no file loads headless); `fit` via `FitMode_*` |
-| `Stack`       | spacing, padding, stretch                                                                                                                       | ✅     | `direction` enum not meta-reflected                             |
+| `Stack`       | direction(StackDirection), spacing, padding, stretch                                                                                            | ✅     | Scripts name `direction` with `StackDirection_*`                |
 | `UIAnchor`    | anchor(vec2), pivot(vec2), offset(vec2)                                                                                                         | ✅     | `pivot` default -1 (= anchor)                                   |
 | `ScrollRect`  | scroll(vec2), content_size(vec2), vertical, horizontal, scrollbar_thickness, wheel_speed, track_color/thumb_color(Rgba), dragging_v, dragging_h | ✅     | `scroll`/`content_size`/`dragging_*` runtime; default-match     |
 | `Modal`       | open(bool), backdrop_color(Rgba), close_on_backdrop                                                                                             | ✅     |                                                                 |
-| `Label`       | text(string), font_size, color(Rgba), align(TextAlign)                                                                                          | ✅     | `align` enum skipped (left default); text/font_size/color       |
+| `Label`       | text(string), font_size, color(Rgba), align(TextAlign)                                                                                          | ✅     | Scripts name `align` with `TextAlign_*`                         |
 | `Slider`      | value, min, max, step, hovered, dragging                                                                                                        | ✅     | `std::function on_change` skipped; `hovered`/`dragging` runtime |
 | `Checkbox`    | checked, label(string), font_size, box_size, colors(Rgba), roundness, hovered                                                                   | ✅     | `std::function on_change` skipped; colors left default          |
 | `Radio`       | group(string), value(string), selected, label(string), font_size, radius, colors(Rgba), hovered                                                 | ✅     | `std::function on_change` skipped; colors left default          |
@@ -214,7 +214,7 @@ script and JSON layers, so only the plain-data fields are compared.
 |------------------|-----------------------------------------|--------|------------------------------------------------------------------------|
 | `PathRequest`    | goal(vec3), algorithm(string)           | 🚫     | Transient; consumed and removed by PathRequestSystem each frame        |
 | `PathAgent`      | arrival_radius(float)                   | ✅     | waypoints/current_waypoint/reached_goal are runtime state              |
-| `PathFollow`     | speed(float)                            | ✅     | mode (enum) and desired_velocity skipped; only authored field is speed |
+| `PathFollow`     | mode(PathFollowMode), speed(float)      | ✅     | desired_velocity is runtime output; scripts use `PathFollowMode_*`     |
 | `PathAutoReplan` | goal(vec3), algorithm(string), interval | ✅     | timer is runtime state                                                 |
 | `PathFollowMode` | SteeringTarget/Kinematic/Direct (enum)  | 🚫     | Enum constants; no per-entity component                                |
 

@@ -85,7 +85,7 @@ struct Image {
 };
 
 // Horizontal text placement of a Label within its UIRect.
-enum class TextAlign : std::uint8_t { Left, Center, Right };
+enum class TextAlign { Left, Center, Right };
 
 // Static text drawn (vertically centred) within the element's UIRect. When `wrap` is set the text is
 // word-wrapped to the UIRect width and laid out top-aligned across multiple lines. An `outline` above zero
@@ -227,7 +227,7 @@ struct Spinner {
 };
 
 // Layout direction for a Stack.
-enum class StackDirection : std::uint8_t { Vertical, Horizontal };
+enum class StackDirection { Vertical, Horizontal };
 
 // Auto-layout container: positions its direct UI children one after another along `direction`,
 // starting at its own UIRect origin (+ padding), each separated by `spacing`. UIStackLayout writes

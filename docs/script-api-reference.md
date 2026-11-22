@@ -141,6 +141,17 @@ A `RaycastFilter.layer_mask` bit is `1 << Layer_<Name>`.
 | `Layer_Obstacle` | 3     |
 | `Layer_Trigger`  | 4     |
 
+### Motion constants
+
+`RigidBody.motion_type`. Setting it after the body exists doesn't change the body yet (#64), so choose it before the
+body is built.
+
+| Constant           | Value |
+|--------------------|-------|
+| `Motion_Static`    | 0     |
+| `Motion_Kinematic` | 1     |
+| `Motion_Dynamic`   | 2     |
+
 ### Shape constants
 
 | Constant           | Value |
@@ -152,6 +163,37 @@ A `RaycastFilter.layer_mask` bit is `1 << Layer_<Name>`.
 | `Shape_ConvexHull` | 4     |
 | `Shape_Mesh`       | 5     |
 | `Shape_Compound`   | 6     |
+
+### Projection constants
+
+`Camera.projection`.
+
+| Constant                  | Value |
+|---------------------------|-------|
+| `Projection_Perspective`  | 0     |
+| `Projection_Orthographic` | 1     |
+
+### PathFollowMode constants
+
+`PathFollow.mode`.
+
+| Constant                         | Value |
+|----------------------------------|-------|
+| `PathFollowMode_SteeringTarget`  | 0     |
+| `PathFollowMode_Kinematic`       | 1     |
+| `PathFollowMode_Direct`          | 2     |
+
+### UI enum constants
+
+`Label.align` takes `TextAlign_*`; `Stack.direction` takes `StackDirection_*`.
+
+| Constant                    | Value |
+|-----------------------------|-------|
+| `TextAlign_Left`            | 0     |
+| `TextAlign_Center`          | 1     |
+| `TextAlign_Right`           | 2     |
+| `StackDirection_Vertical`   | 0     |
+| `StackDirection_Horizontal` | 1     |
 
 ---
 

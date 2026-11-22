@@ -49,12 +49,21 @@ UIModule::UIModule(const flecs::world& world) {
 		.constant("Left", TextAlign::Left)
 		.constant("Center", TextAlign::Center)
 		.constant("Right", TextAlign::Right);
-	// `align` is authored at the JSON deserialization stage (the loader's ParseAlign, string → enum) and
-	// is deliberately not meta-reflected — the same pattern as PathFollow::mode (its enum constants are
-	// registered for the Explorer, but the member itself is skipped). Reflecting the 1-byte enum member
-	// trips the meta serializer, and it isn't needed for authoring.
+	scripting::RegisterEnumConstantsForScripts<TextAlign>(
+		world,
+		"TextAlign",
+		{{"Left", TextAlign::Left}, {"Center", TextAlign::Center}, {"Right", TextAlign::Right}}
+	);
+	world.component<StackDirection>()
+		.constant("Vertical", StackDirection::Vertical)
+		.constant("Horizontal", StackDirection::Horizontal);
+	scripting::RegisterEnumConstantsForScripts<StackDirection>(
+		world, "StackDirection", {{"Vertical", StackDirection::Vertical}, {"Horizontal", StackDirection::Horizontal}}
+	);
+	// The JSON loader still parses `align` from a string (ParseAlign); the member is reflected for scripts and REST.
 	world.component<Label>()
 		.member("text", &Label::text)
+		.member("align", &Label::align)
 		.member("font_size", &Label::font_size)
 		.member("color", &Label::color)
 		.member("outline", &Label::outline)
@@ -96,6 +105,7 @@ UIModule::UIModule(const flecs::world& world) {
 		.member<float>("speed")
 		.member<float>("phase");
 	world.component<Stack>()
+		.member("direction", &Stack::direction)
 		.member("spacing", &Stack::spacing)
 		.member("padding", &Stack::padding)
 		.member("stretch", &Stack::stretch);

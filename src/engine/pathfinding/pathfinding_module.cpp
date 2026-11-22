@@ -223,12 +223,19 @@ PathfindingModule::PathfindingModule(const flecs::world& world) {
 	});
 
 	// (2) Reflection — pointer-to-member throughout: all registered components have fields
-	// that are skipped (std::vector, size_t, enum, runtime state), so sequential tracking
+	// that are skipped (std::vector, size_t, runtime state), so sequential tracking
 	// would compute wrong offsets.
 	world.component<PathFollowMode>()
 		.constant("SteeringTarget", PathFollowMode::SteeringTarget)
 		.constant("Kinematic", PathFollowMode::Kinematic)
 		.constant("Direct", PathFollowMode::Direct);
+	scripting::RegisterEnumConstantsForScripts<PathFollowMode>(
+		world,
+		"PathFollowMode",
+		{{"SteeringTarget", PathFollowMode::SteeringTarget},
+		 {"Kinematic", PathFollowMode::Kinematic},
+		 {"Direct", PathFollowMode::Direct}}
+	);
 
 	world.component<PathRequest>().member("goal", &PathRequest::goal).member("algorithm", &PathRequest::algorithm);
 	// Toggle the request on/off instead of adding/removing it, avoiding per-cycle archetype moves.
@@ -246,8 +253,8 @@ PathfindingModule::PathfindingModule(const flecs::world& world) {
 	world.component<PathAgent>().member("arrival_radius", &PathAgent::arrival_radius);
 	// waypoints / current_waypoint / reached_goal are runtime, not authored
 
-	world.component<PathFollow>().member("speed", &PathFollow::speed);
-	// mode (enum) and desired_velocity are authored/runtime fields skipped for simplicity
+	world.component<PathFollow>().member("mode", &PathFollow::mode).member("speed", &PathFollow::speed);
+	// desired_velocity is runtime output, not reflected
 
 	world.component<PathAutoReplan>()
 		.member("goal", &PathAutoReplan::goal)

@@ -115,13 +115,22 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 	for (const auto& [json, reflected, layer] : kCollisionLayerNames) {
 		collision_layer.constant(reflected, layer);
 	}
+	world.component<MotionType>()
+		.constant("Static", MotionType::Static)
+		.constant("Kinematic", MotionType::Kinematic)
+		.constant("Dynamic", MotionType::Dynamic);
 	world.component<RigidBody>()
+		.member("motion_type", &RigidBody::motion_type)
 		.member("mass", &RigidBody::mass)
+		.member("linear_damping", &RigidBody::linear_damping)
+		.member("angular_damping", &RigidBody::angular_damping)
 		.member("friction", &RigidBody::friction)
 		.member("restitution", &RigidBody::restitution)
+		.member("enable_ccd", &RigidBody::enable_ccd)
 		.member("use_gravity", &RigidBody::use_gravity)
 		.member("gravity_scale", &RigidBody::gravity_scale)
-		.member("layer", &RigidBody::layer);
+		.member("layer", &RigidBody::layer)
+		.member("collision_mask", &RigidBody::collision_mask);
 	world.component<ShapeType>()
 		.constant("Box", ShapeType::Box)
 		.constant("Sphere", ShapeType::Sphere)
@@ -197,6 +206,11 @@ PhysicsModule::PhysicsModule(const flecs::world& world) {
 		);
 	}
 	scripting::RegisterGlobalConstantsForScripts(world, std::move(shape_constants));
+	scripting::RegisterEnumConstantsForScripts<MotionType>(
+		world,
+		"Motion",
+		{{"Static", MotionType::Static}, {"Kinematic", MotionType::Kinematic}, {"Dynamic", MotionType::Dynamic}}
+	);
 	RegisterPhysicsScriptBindings(world);
 
 	// === Level loader ===
