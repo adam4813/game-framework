@@ -263,33 +263,26 @@ TEST(CampaignScriptParse, AScriptTheCheckRejectsIsDroppedFromItsActOrStageAndRep
 	EXPECT_EQ(result.errors.size(), 4U) << ::testing::PrintToString(result.errors);
 }
 
-TEST(CampaignScriptParse, AScriptsHandlersAreCheckedAgainstTheEventTable) {
-	const HandlerReport report = AnalyzeHandlers(std::vector<std::string>{
-		"void OnKill(const string&in, const string&in)", "void OnTimer(const string&in)", "void OnKill(const string&in)",
-		"void Helper(int)", "void OnStageEnd(string)"});
-	EXPECT_EQ(report.defined, (std::vector<std::string>{"OnKill", "OnTimer"}));
-	// A handler with the wrong parameters, or an On* name that is no event, is reported; a plain helper is not.
-	EXPECT_EQ(report.unmatched, (std::vector<std::string>{"void OnKill(const string&in)", "void OnStageEnd(string)"}));
-}
-
 // -- Shipped scripts --
 
-// Compiles `path` headlessly and lists its global functions' declarations; empty (and a failed test) if it doesn't load.
-std::vector<std::string> Declarations(const ScriptWorld& game, const std::string& path) {
+// Compiles `path` headlessly and checks its handlers against the campaign events; empty (and a failed test) if it
+// doesn't load.
+scripting::HandlerReport Handlers(const ScriptWorld& game, const std::string& path) {
 	auto& backend = *game.World().get_mut<scripting::ScriptBackendSingleton>().backend;
 	scripting::IScriptInstance* instance = backend.CreateInstanceFromFile(path, game.World().entity());
 	EXPECT_NE(instance, nullptr) << path << " didn't compile";
 	if (instance == nullptr) {
 		return {};
 	}
-	std::vector<std::string> declarations = instance->FunctionDeclarations();
+	scripting::HandlerReport report = scripting::AnalyzeHandlers(CampaignEvents(), instance->Functions());
 	backend.DestroyInstance(instance);
-	return declarations;
+	return report;
 }
 
 TEST(CampaignScriptData, TheTypoFixtureCompilesButItsMismatchedHandlerIsReported) {
 	const ScriptWorld game;
-	const HandlerReport report = AnalyzeHandlers(Declarations(game, std::string{CRABNADO_TEST_FIXTURE_DIR} + "/scripts/typo_handler.as"));
+	const scripting::HandlerReport report =
+		Handlers(game, std::string{CRABNADO_TEST_FIXTURE_DIR} + "/scripts/typo_handler.as");
 	EXPECT_EQ(report.defined, (std::vector<std::string>{"OnStageStart"}));
 	EXPECT_EQ(report.unmatched.size(), 1U);
 }
@@ -316,7 +309,7 @@ TEST(CampaignScriptData, EveryScriptTheShippedCampaignNamesExistsCompilesAndDefi
 		}
 		const std::string path = directory + id + ".as";
 		ASSERT_TRUE(std::filesystem::exists(path)) << path;
-		const HandlerReport report = AnalyzeHandlers(Declarations(game, path));
+		const scripting::HandlerReport report = Handlers(game, path);
 		EXPECT_TRUE(report.unmatched.empty()) << path << ": " << ::testing::PrintToString(report.unmatched);
 	}
 }

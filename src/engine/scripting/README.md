@@ -217,13 +217,45 @@ td.SetOnEnter(@OnPromptTileEnter);   // ✓ direct function handle
 // td.SetOnEnter(OnPromptTileEnter);  // ✗ creates an implicit delegate (GC-tracked, harder to clean up)
 ```
 
-### Event-driven scripts (`CallFunction`)
+## Event-driven scripts
 
-A host that has no per-frame work for a script can skip `ScriptComponent` and drive an instance itself: create it with
-`IScriptBackend::CreateInstanceFromFile`, then call `IScriptInstance::CallFunction(declaration, args)` for each discrete
-event. The declaration is the exact signature (`"void OnKill(const string &in)"`; parameter names don't matter), and
-`args` is a `std::span<const ScriptArg>` of `int`, `float` or `std::string`. The result is `Ok`, `NotDefined` (the script
-doesn't define that handler) or `Failed` (the script threw; the message and line go in the optional `error` out
-parameter, and the backend logs it). `FunctionDeclarations()` lists the script's global functions, so a test can check
-that a script's handlers match the entry points a host dispatches. Crabnado's campaign scripts are the first user
-(`games/crabnado/src/campaign_script.hpp`).
+A script with no per-frame work can skip `ScriptComponent` and react to discrete events (a Stage starts, an enemy dies,
+a timer runs out) that the game fires.
+
+### Calling a script function (`CallFunction`)
+
+Create the instance with `IScriptBackend::CreateInstanceFromFile`, then call
+`IScriptInstance::CallFunction(name, args)`. `args` is a `std::span<const ScriptArg>` of `int`, `float` or
+`std::string`, and picks the overload whose parameters they fill (a string goes to a `const string &in` or a by-value
+`string`). The result is `Ok`, `NotDefined` (no function of that name takes those arguments) or `Failed` (the script
+threw; the backend logs it, and the message and line go in the optional `error`). `Functions()` lists the script's
+global functions as `{name, return_kind, params}`.
+
+### `EventHost` (`event_host.hpp`)
+
+`EventHost` is the machinery around those calls, configured with the game's event table (`{name, params}`), its script
+slots and an optional timer event:
+
+```cpp
+scripting::EventHost events{{.log_tag = "[Campaign]",
+                             .events = {{"OnStageStart", {}}, {"OnKill", {String, String}}, {"OnTimer", {String}}},
+                             .slots = {"act", "stage"},
+                             .timer_event = "OnTimer"}};
+events.Load(world, 0, "act_1", backend.CreateInstanceFromFile(path, host)); // logs a misspelled On* handler
+events.Fire(world, "OnKill", args);   // each slot's handler, in slot order
+events.ApplyQueue(world);             // the game commands those handlers queued
+events.StepTimers(world, dt);         // After() timers that ran out fire OnTimer(name)
+events.UnloadAll(world);              // before dropping the host
+```
+
+- **Handlers checked at load.** `AnalyzeHandlers(events, functions)` matches a script's functions to events by name
+  and parameter kinds; an `On*` function that matches none (a typo, the wrong parameters) is logged, since it would
+  never run.
+- **Queued calls.** A game command registered as a global function calls `events.Queue(world, label, apply)`. It is
+  accepted only while a handler is running, stamped with that script's id, and applied, in call order, when the game
+  calls `ApplyQueue` at a safe point; `apply` returns a refusal reason or an empty string.
+- **Timers.** A global `After(seconds, name)` calls `events.After(...)`; the timer fires `timer_event` on the script
+  that set it, and is dropped if that slot is reloaded.
+- **A handler that throws** is logged once and disables its own script until the slot is loaded again.
+
+Crabnado's campaign scripts (`games/crabnado/src/campaign_script.cpp`) are the first user.

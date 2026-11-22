@@ -10,6 +10,7 @@
 #include "engine/ecs/ecs.hpp"
 
 #include <cstring>
+#include <format>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -57,27 +58,59 @@ spdlog::logger& EngineLog(asIScriptEngine* engine) {
 }
 
 // Executes the prepared `ctx` as `owner`'s script (see CurrentInstanceScope) and logs an
-// exception, with its line, or a failure to run. `what` names the call in the log. Returns the
-// asIScriptContext::Execute result.
-int ExecuteAs(asIScriptContext* ctx, AngelScriptInstance* owner, const std::string_view what) {
+// exception, with its line, or a failure to run; `error`, when given, receives the same message.
+// `what` names the call in the log. Returns the asIScriptContext::Execute result.
+int ExecuteAs(
+	asIScriptContext* ctx,
+	AngelScriptInstance* owner,
+	const std::string_view what,
+	std::string* error = nullptr
+) {
 	int result = 0;
 	{
 		const CurrentInstanceScope scope{owner};
 		result = ctx->Execute();
 	}
+	std::string message;
 	if (result == asEXECUTION_EXCEPTION) {
-		EngineLog(ctx->GetEngine())
-			.error(
-				"[AngelScript] Exception in {} (line {}): {}",
-				what,
-				ctx->GetExceptionLineNumber(),
-				ctx->GetExceptionString()
-			);
+		message = std::format("{} (line {})", ctx->GetExceptionString(), ctx->GetExceptionLineNumber());
 	}
 	else if (result < 0) {
-		EngineLog(ctx->GetEngine()).error("[AngelScript] Execute failed for {} (error {})", what, result);
+		message = std::format("Execute failed (error {})", result);
+	}
+	if (!message.empty()) {
+		EngineLog(ctx->GetEngine()).error("[AngelScript] {} failed: {}", what, message);
+		if (error) {
+			*error = std::move(message);
+		}
 	}
 	return result;
+}
+
+// The ScriptValueKind of an AngelScript type id: Object for anything but void, bool, int, float and string.
+ScriptValueKind KindOfType(const asIScriptEngine* engine, const int type_id) {
+	switch (type_id) {
+	case asTYPEID_VOID: return ScriptValueKind::Void;
+	case asTYPEID_BOOL: return ScriptValueKind::Bool;
+	case asTYPEID_INT32: return ScriptValueKind::Int;
+	case asTYPEID_FLOAT: return ScriptValueKind::Float;
+	default: break;
+	}
+	const asITypeInfo* type = (type_id & asTYPEID_OBJHANDLE) ? nullptr : engine->GetTypeInfoById(type_id);
+	return type && std::string_view{type->GetName()} == "string" ? ScriptValueKind::String : ScriptValueKind::Object;
+}
+
+// The kind of ScriptArg that fills parameter `index` of `fn`: a primitive by value, a string by value or as `&in`.
+// Anything else (an output reference, a primitive by reference) is Object, which no argument fills.
+ScriptValueKind ParamKind(const asIScriptFunction* fn, const asUINT index) {
+	int type_id = 0;
+	asDWORD flags = 0;
+	fn->GetParam(index, &type_id, &flags);
+	const ScriptValueKind kind = KindOfType(fn->GetEngine(), type_id);
+	if ((flags & asTM_OUTREF) != 0 || ((flags & asTM_INREF) != 0 && kind != ScriptValueKind::String)) {
+		return ScriptValueKind::Object;
+	}
+	return kind;
 }
 
 void MessageCallback(const asSMessageInfo* msg, void* /*param*/) {
@@ -1105,59 +1138,72 @@ bool AngelScriptInstance::Tick(const float dt, const ScriptTickPhase phase) {
 
 void AngelScriptInstance::OnDestroy() { std::ignore = Call(fn_on_destroy_); }
 
-std::vector<std::string> AngelScriptInstance::FunctionDeclarations() const {
-	std::vector<std::string> declarations;
+std::vector<ScriptFunctionInfo> AngelScriptInstance::Functions() const {
+	std::vector<ScriptFunctionInfo> functions;
 	if (!module_) {
-		return declarations;
+		return functions;
 	}
 	for (asUINT i = 0; i < module_->GetFunctionCount(); ++i) {
-		declarations.emplace_back(module_->GetFunctionByIndex(i)->GetDeclaration(false, false, false));
+		const asIScriptFunction* fn = module_->GetFunctionByIndex(i);
+		ScriptFunctionInfo info{.name = fn->GetName(), .return_kind = KindOfType(engine_, fn->GetReturnTypeId())};
+		for (asUINT p = 0; p < fn->GetParamCount(); ++p) {
+			info.params.push_back(ParamKind(fn, p));
+		}
+		functions.push_back(std::move(info));
 	}
-	return declarations;
+	return functions;
 }
 
-ScriptCallResult
-AngelScriptInstance::CallFunction(const std::string_view declaration, const std::span<const ScriptArg> args, std::string* error) {
-	asIScriptFunction* fn = module_ ? module_->GetFunctionByDecl(std::string{declaration}.c_str()) : nullptr;
+ScriptCallResult AngelScriptInstance::CallFunction(
+	const std::string_view name,
+	const std::span<const ScriptArg> args,
+	std::string* error
+) {
+	asIScriptFunction* fn = nullptr;
+	for (asUINT i = 0; module_ && !fn && i < module_->GetFunctionCount(); ++i) {
+		asIScriptFunction* candidate = module_->GetFunctionByIndex(i);
+		bool fits = name == candidate->GetName() && candidate->GetParamCount() == args.size();
+		for (asUINT p = 0; fits && p < args.size(); ++p) {
+			fits = ParamKind(candidate, p) == KindOf(args[p]);
+		}
+		fn = fits ? candidate : nullptr;
+	}
 	if (!fn) {
 		return ScriptCallResult::NotDefined;
 	}
-	const auto fail = [this, error, &declaration](const std::string& message) {
+	const std::string what = "'" + std::string{name} + "'";
+	const auto fail = [&](std::string message) {
+		EngineLog(engine_).error("[AngelScript] {} failed: {}", what, message);
 		if (error) {
-			*error = message;
+			*error = std::move(message);
 		}
-		EngineLog(engine_).error("[AngelScript] '{}': {}", declaration, message);
 		return ScriptCallResult::Failed;
 	};
-	if (const int prep = ctx_->Prepare(fn); prep < 0) {
-		return fail("Prepare failed (error " + std::to_string(prep) + ")");
+	if (!ctx_) {
+		return fail("no script context");
 	}
-	for (size_t i = 0; i < args.size(); ++i) {
-		const auto index = static_cast<asUINT>(i);
-		if (const auto* number = std::get_if<int>(&args[i])) {
-			ctx_->SetArgDWord(index, static_cast<asDWORD>(*number));
+	// Re-entry: see Call. The inner call can't run, so it fails rather than reporting a handler that never ran.
+	if (ctx_->GetState() == asEXECUTION_ACTIVE) {
+		return fail("its script is already running");
+	}
+	if (const int prep = ctx_->Prepare(fn); prep < 0) {
+		return fail(std::format("Prepare failed (error {})", prep));
+	}
+	for (asUINT p = 0; p < args.size(); ++p) {
+		if (const auto* number = std::get_if<int>(&args[p])) {
+			ctx_->SetArgDWord(p, static_cast<asDWORD>(*number));
 		}
-		else if (const auto* real = std::get_if<float>(&args[i])) {
-			ctx_->SetArgFloat(index, *real);
+		else if (const auto* real = std::get_if<float>(&args[p])) {
+			ctx_->SetArgFloat(p, *real);
 		}
 		else {
-			ctx_->SetArgObject(index, const_cast<std::string*>(&std::get<std::string>(args[i])));
+			// A `const string &in` parameter reads the string in place; a by-value one copies it.
+			ctx_->SetArgObject(p, const_cast<std::string*>(&std::get<std::string>(args[p])));
 		}
 	}
-	int result = 0;
-	{
-		const CurrentInstanceScope scope{this};
-		result = ctx_->Execute();
-	}
-	ScriptCallResult outcome = ScriptCallResult::Ok;
-	if (result == asEXECUTION_EXCEPTION) {
-		outcome = fail(std::string{ctx_->GetExceptionString()} + " (line " + std::to_string(ctx_->GetExceptionLineNumber()) + ")");
-	}
-	else if (result < 0) {
-		outcome = fail("Execute failed (error " + std::to_string(result) + ")");
-	}
+	const int result = ExecuteAs(ctx_, this, what, error);
 	ctx_->Unprepare();
-	return outcome;
+	return result == asEXECUTION_FINISHED ? ScriptCallResult::Ok : ScriptCallResult::Failed;
 }
 
 bool AngelScriptInstance::Call(asIScriptFunction* fn, const float dt, const bool pass_dt) {
