@@ -3,7 +3,7 @@
 Generate tilemap and player textures using Pillow.
 
 Usage:
-    python Tools/generate_tilemap_textures.py
+    python games/sandbox/tools/generate_tilemap_textures.py
 
 Generates:
     - games/sandbox/assets/textures/tileset_basic.png (256x256, 8-tile grid, 2x4)
