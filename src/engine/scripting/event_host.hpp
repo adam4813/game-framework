@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -15,7 +16,8 @@ namespace engine::scripting {
 
 class IScriptInstance;
 
-// One event a host can fire: the handler's name and the kinds of the arguments it passes.
+// One event a host can fire: the handler's name and the kinds of the arguments it passes (Int, Float or String, the
+// kinds a ScriptArg holds).
 struct ScriptEvent {
 	std::string name;
 	std::vector<ScriptValueKind> params;
@@ -28,8 +30,8 @@ struct HandlerReport {
 	std::vector<std::string> unmatched;
 };
 
-// Checks `functions` (IScriptInstance::Functions) against `events`. A function matches an event with its name and
-// parameter kinds; its return value is ignored.
+// Checks `functions` (IScriptInstance::Functions) against `events`. A handler matches an event with its name and
+// parameter kinds, and returns void.
 [[nodiscard]] HandlerReport
 AnalyzeHandlers(std::span<const ScriptEvent> events, std::span<const ScriptFunctionInfo> functions);
 
@@ -107,7 +109,7 @@ private:
 	struct Script {
 		std::string id;
 		IScriptInstance* instance{nullptr};
-		std::vector<bool> handles; // per event, looked up at load
+		std::vector<bool> defines_handler; // per event, looked up at load
 		bool dead{false};
 	};
 	struct QueuedCall {
@@ -115,20 +117,22 @@ private:
 		ApplyFn apply;
 	};
 	struct Timer {
-		float left{0.0F};
+		float remaining{0.0F};
 		std::string name;
 		size_t slot{0};
 	};
-	static constexpr size_t kNotDispatching = static_cast<size_t>(-1);
 
 	void Dispatch(const flecs::world& world, size_t slot, size_t event, std::span<const ScriptArg> args);
-	[[nodiscard]] bool Dispatching() const { return dispatching_ != kNotDispatching; }
+	[[nodiscard]] bool Dispatching() const { return dispatching_.has_value(); }
+	[[nodiscard]] size_t EventIndex(const ScriptEvent& event) const {
+		return static_cast<size_t>(&event - config_.events.data());
+	}
 
 	EventHostConfig config_;
 	std::vector<Script> scripts_;
 	std::vector<QueuedCall> queue_;
 	std::vector<Timer> timers_;
-	size_t dispatching_{kNotDispatching};
+	std::optional<size_t> dispatching_; // the slot whose handler is running
 };
 
 } // namespace engine::scripting

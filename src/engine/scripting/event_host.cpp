@@ -1,6 +1,6 @@
 #include "event_host.hpp"
 
-#include "engine/ecs/world_logger.hpp"
+#include "engine/ecs/ecs.hpp"
 #include "script_backend.hpp"
 #include "scripting_module.hpp"
 
@@ -42,7 +42,9 @@ AnalyzeHandlers(const std::span<const ScriptEvent> events, const std::span<const
 	HandlerReport report;
 	for (const ScriptFunctionInfo& function : functions) {
 		const auto match = std::ranges::find_if(events, [&function](const ScriptEvent& event) {
-			return event.name == function.name && event.params == function.params;
+			return event.name == function.name
+				   && event.params == function.params
+				   && function.return_kind == ScriptValueKind::Void;
 		});
 		if (match != events.end()) {
 			report.defined.push_back(match->name);
@@ -73,9 +75,9 @@ HandlerReport EventHost::Load(const flecs::world& world, const size_t slot, std:
 		);
 	}
 	Script& script = scripts_[slot];
-	script = {.id = std::move(id), .instance = instance, .handles = std::vector<bool>(config_.events.size())};
+	script = {.id = std::move(id), .instance = instance, .defines_handler = std::vector<bool>(config_.events.size())};
 	for (const std::string& name : report.defined) {
-		script.handles[static_cast<size_t>(FindEvent(name) - config_.events.data())] = true;
+		script.defines_handler[EventIndex(*FindEvent(name))] = true;
 	}
 	return report;
 }
@@ -96,7 +98,7 @@ void EventHost::UnloadAll(const flecs::world& world) {
 		Unload(world, slot);
 	}
 	queue_.clear();
-	dispatching_ = kNotDispatching;
+	dispatching_.reset();
 }
 
 bool EventHost::Alive(const size_t slot) const { return scripts_[slot].instance != nullptr && !scripts_[slot].dead; }
@@ -131,7 +133,7 @@ void EventHost::Fire(const flecs::world& world, const std::string_view event, co
 		log.warn("{} {} fired from inside a handler, ignored", config_.log_tag, event);
 		return;
 	}
-	const auto index = static_cast<size_t>(spec - config_.events.data());
+	const size_t index = EventIndex(*spec);
 	for (size_t slot = 0; slot < scripts_.size(); ++slot) {
 		Dispatch(world, slot, index, args);
 	}
@@ -144,13 +146,13 @@ void EventHost::Dispatch(
 	const std::span<const ScriptArg> args
 ) {
 	Script& script = scripts_[slot];
-	if (!Alive(slot) || !script.handles[event]) {
+	if (!Alive(slot) || !script.defines_handler[event]) {
 		return;
 	}
 	dispatching_ = slot;
 	std::string error;
 	const ScriptCallResult result = script.instance->CallFunction(config_.events[event].name, args, &error);
-	dispatching_ = kNotDispatching;
+	dispatching_.reset();
 	if (result == ScriptCallResult::Failed) {
 		script.dead = true;
 		ecs::Log(world).error(
@@ -169,7 +171,7 @@ bool EventHost::Queue(const flecs::world& world, std::string label, ApplyFn appl
 		ecs::Log(world).warn("{} {} called outside an event handler, ignored", config_.log_tag, label);
 		return false;
 	}
-	queue_.push_back({.label = scripts_[dispatching_].id + ": " + label, .apply = std::move(apply)});
+	queue_.push_back({.label = scripts_[*dispatching_].id + ": " + label, .apply = std::move(apply)});
 	return true;
 }
 
@@ -191,7 +193,7 @@ bool EventHost::After(const flecs::world& world, const float seconds, std::strin
 		ecs::Log(world).warn("{} After({}, \"{}\") refused: {}", config_.log_tag, seconds, name, refusal);
 		return false;
 	}
-	timers_.push_back({.left = seconds, .name = std::move(name), .slot = dispatching_});
+	timers_.push_back({.remaining = seconds, .name = std::move(name), .slot = *dispatching_});
 	return true;
 }
 
@@ -199,10 +201,10 @@ void EventHost::StepTimers(const flecs::world& world, const float dt) {
 	const ScriptEvent* timer_event = FindEvent(config_.timer_event);
 	std::vector<Timer> due;
 	for (Timer& timer : timers_) {
-		timer.left -= dt;
+		timer.remaining -= dt;
 	}
 	std::erase_if(timers_, [&due](const Timer& timer) {
-		if (timer.left > 0.0F) {
+		if (timer.remaining > 0.0F) {
 			return false;
 		}
 		due.push_back(timer);
@@ -211,7 +213,7 @@ void EventHost::StepTimers(const flecs::world& world, const float dt) {
 	if (timer_event == nullptr) {
 		return;
 	}
-	const auto index = static_cast<size_t>(timer_event - config_.events.data());
+	const size_t index = EventIndex(*timer_event);
 	for (const Timer& timer : due) {
 		const std::array<ScriptArg, 1> args{timer.name};
 		Dispatch(world, timer.slot, index, args);

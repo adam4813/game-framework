@@ -30,8 +30,7 @@
 // RunState; the Boss Stage is the Act's Stage count). There are no setters for spawn tables, rates, HP or enemy stats.
 //
 // The scripts run on an engine::scripting::EventHost with two slots. Dispatch runs the Act's handler, then the Stage's.
-// A call a handler makes is queued, and the queue applies in call
-// order at the end of the campaign director's tick. A call that doesn't fit the phase (EndStage in a Boss Stage, a molt
+// A call a handler makes is queued, and the queue applies in call order at the end of the campaign director's tick. A call that doesn't fit the phase (EndStage in a Boss Stage, a molt
 // or a Transition; SpawnBoss outside the Act's Boss Stage or with the boss up; Spawn in a molt or between Acts; any call
 // outside a handler) is logged and ignored. A handler that throws is logged once and disables that script for the run.
 // Scripts load with their Act or Stage, and are rebuilt on every arena Load; the Act's script keeps its globals through the

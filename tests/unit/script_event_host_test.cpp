@@ -30,11 +30,12 @@ TEST(ScriptEventHandlers, AScriptsHandlersAreCheckedAgainstTheEventTable) {
 		{.name = "OnKill", .return_kind = Void, .params = {String}},
 		{.name = "Helper", .return_kind = Void, .params = {Int}},
 		{.name = "OnStrat", .return_kind = Void, .params = {}},
+		{.name = "OnStart", .return_kind = Int, .params = {}},
 	};
 	const HandlerReport report = AnalyzeHandlers(kEvents, functions);
 	EXPECT_EQ(report.defined, (std::vector<std::string>{"OnKill", "OnTimer"}));
 	// A handler with the wrong parameters, or an On* name that is no event, is reported; a plain helper is not.
-	EXPECT_EQ(report.unmatched, (std::vector<std::string>{"void OnKill(string)", "void OnStrat()"}));
+	EXPECT_EQ(report.unmatched, (std::vector<std::string>{"void OnKill(string)", "void OnStrat()", "int OnStart()"}));
 }
 
 // The test's host: an EventHost with two slots, "first" and "second", and a game command Note(text) that queues a call
@@ -134,6 +135,8 @@ TEST(ScriptEventHost, ACallMadeOutsideAHandlerIsRefused) {
 	EXPECT_EQ(instance->CallFunction("Poke", {}), engine::scripting::ScriptCallResult::Ok);
 	EXPECT_TRUE(game.Host().ApplyQueue(game.World()).empty());
 	EXPECT_TRUE(game.Applied().empty());
+	EXPECT_FALSE(game.Host().Queue(game.World(), "Note(direct)", [](const flecs::world&) { return std::string{}; }));
+	EXPECT_FALSE(game.Host().After(game.World(), 1.0F, "direct"));
 }
 
 TEST(ScriptEventHost, ARefusedCallIsReportedWithItsReason) {
