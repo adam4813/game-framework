@@ -9,22 +9,20 @@ namespace engine::scripting {
 // ScriptEntityRef — the ECS entity handle exposed inside scripts.
 //
 // Each scripting backend registers this C++ class as a first-class type in its
-// language (e.g. "Entity" in AngelScript). Scripts receive and pass instances of
-// this type just like any other object:
+// language ("Entity" in AngelScript, a value type: two words, copied freely). Scripts
+// receive and pass it like any other value; an entry point's `self` is the host entity:
 //
 //   // AngelScript example
-//   void OnInit(Entity@ self) {
-//       Entity@ other = FindEntity("Paddle");
-//       float x = other.GetFloat("Transform", "x");
-//       self.RegisterObserver("BallHit", "OnBallHit");
+//   void OnInit(Entity self) {
+//       Print("attached to " + self.GetName() + " under " + self.GetParent().GetName());
+//       ProgressBar@ bar = self.MutProgressBar(); // a handle into ECS storage, marked modified
+//       bar.value = 0.5f;
 //   }
 //
-// Component field access requires the component to be registered with Flecs meta
-// (.member<T>("name")). See ScriptingModule::RegisterComponentForScripts().
-//
-// Observer registration is delegated to the backend: the backend holds a factory
-// callback (set during Init) that creates a Flecs observer and routes its
-// trigger back into the appropriate script function.
+// The typed accessors (Get/Mut/Add/Set/HasT) come from RegisterComponentForScripts() and need
+// the component reflected with Flecs meta (.member<T>("name")). The by-name accessors below
+// (GetFloat("Comp", "field"), ...) look the component up with world.lookup and reach a
+// top-level member only (no "position.x" paths).
 class ScriptEntityRef {
 public:
 	explicit ScriptEntityRef(const flecs::entity entity) : entity_(entity) {}
@@ -67,14 +65,12 @@ public:
 	void SetString(const std::string& component, const std::string& field, const std::string& value) const;
 
 	// -------------------------------------------------------------------------
-	// Observer factory
+	// Observer registration — NOT IMPLEMENTED
 	//
-	// Registers a Flecs observer for event_component (by name) and routes
-	// its trigger into callback_fn_name — a function in the calling script
-	// module with signature: void Fn(Entity@ emitter).
-	//
-	// The observer is unregistered when OnEntityDestroy fires for this entity.
-	// Actual implementation is provided by the active scripting backend.
+	// Intended to register a Flecs observer for event_component (by name) that calls
+	// callback_fn_name in the calling script. No backend implements it: the call only
+	// logs a warning. For script callbacks use a callback-binding function
+	// (RegisterCallbackFunctionForScripts, e.g. SetOnClick) instead.
 	// -------------------------------------------------------------------------
 
 	void RegisterObserver(const std::string& event_component, const std::string& callback_fn_name);
