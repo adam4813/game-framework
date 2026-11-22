@@ -27,7 +27,7 @@ void DisableThrownScript(const flecs::world& world, const flecs::entity host, Sc
 	sc.error = ScriptError::RuntimeError;
 	const std::string label = !sc.source_path.empty() ? sc.source_path : std::string{host.name().c_str()};
 	sc.error_message = "Script '" + label + "' threw in " + entry + "; disabled";
-	ecs::WorldLog(world).error("[ScriptingModule] {}", sc.error_message);
+	ecs::Log(world).error("[ScriptingModule] {}", sc.error_message);
 }
 
 // The script entry point a tick phase calls, as scripts spell it.

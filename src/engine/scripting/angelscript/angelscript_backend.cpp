@@ -53,7 +53,7 @@ constexpr asPWORD kBackendUserDataSlot = 2;
 // The logger of the world `engine` serves (spdlog's default before Init sets the world).
 spdlog::logger& EngineLog(asIScriptEngine* engine) {
 	const auto* world = static_cast<flecs::world*>(engine->GetUserData(kWorldUserDataSlot));
-	return world ? ecs::WorldLog(*world) : *spdlog::default_logger();
+	return world ? ecs::Log(*world) : *spdlog::default_logger();
 }
 
 // Executes the prepared `ctx` as `owner`'s script (see CurrentInstanceScope) and logs an
