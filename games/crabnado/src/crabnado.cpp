@@ -210,22 +210,27 @@ void RegisterCrabnado(const flecs::world& world) {
 			const auto& platform = *world.get<platform::PlatformRef>().ptr;
 			const auto width = static_cast<float>(platform.Width());
 			const auto height = static_cast<float>(platform.Height());
-			// Project through the follow camera: it sits `offset` from the player and looks at them.
-			const glm::vec3 offset{0.0F, constants::kCameraHeight, constants::kCameraBack};
-			const glm::vec3 forward = glm::normalize(-offset);
-			const glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3{0.0F, 1.0F, 0.0F}));
-			const glm::vec3 up = glm::cross(right, forward);
-			const glm::vec3 d = transform.position - (player.get<spatial::Transform>().position + offset);
-			const float depth = glm::dot(d, forward);
-			const float tanHalf = std::tan(glm::radians(60.0F) / 2.0F);
-			glm::vec2 ndc{glm::dot(d, right), glm::dot(d, up)};
-			ndc /= std::max(std::abs(depth), 0.01F) * tanHalf;
-			ndc.x /= width / height;
-			if (depth > 0.0F && std::abs(ndc.x) < 1.0F && std::abs(ndc.y) < 1.0F) {
+			// Project through the follow camera, as the renderer does. The renderer takes the aspect from the live
+			// viewport but ScreenProjector reads Camera::aspect_ratio, so bring that in step first.
+			flecs::entity camera;
+			world.each([&camera, width, height](const flecs::entity e, const FollowCamera&, render::Camera& cam) {
+				cam.aspect_ratio = width / height;
+				camera = e;
+			});
+			if (!camera || !camera.has<spatial::WorldTransform>()) {
 				return;
 			}
-			if (depth <= 0.0F) {
+			const auto projector = render::ScreenProjector::FromCamera(camera, width, height);
+			// Project() gives no direction for a point behind the camera, so read clip space from view_proj directly.
+			const glm::vec4 clip = projector.view_proj * glm::vec4{transform.position, 1.0F};
+			glm::vec2 ndc{clip.x, clip.y};
+			if (clip.w <= 0.0F) {
 				ndc = -ndc; // behind the camera: the arrow points the opposite way
+			} else {
+				ndc /= clip.w;
+				if (std::abs(ndc.x) < 1.0F && std::abs(ndc.y) < 1.0F) {
+					return;
+				}
 			}
 			// A screen-space direction (y grows downward) from the centre, and the edge point it reaches inset by a margin.
 			const glm::vec2 dir = glm::normalize(glm::vec2{ndc.x * width, -ndc.y * height} + glm::vec2{1e-4F});
