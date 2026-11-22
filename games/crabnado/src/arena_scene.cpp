@@ -198,8 +198,8 @@ void ArenaScene::BuildStage(const flecs::world& world) {
 	}
 	const flecs::entity player = SpawnPlayer(world, sceneRoot_);
 	AddClawSnap(world, player);
-	AddBubbles(player);
-	AddRiptide(player);
+	AddBubbles(world, player);
+	AddRiptide(world, player);
 	crabnado_ = SpawnCrabnado(world, sceneRoot_, horde_);
 	SpawnWaterTiles(world, sceneRoot_);
 	SpawnWindStreaks(world, sceneRoot_);
@@ -426,10 +426,11 @@ void ArenaScene::UpdateWeapons(const flecs::entity player) const {
 	const auto& claw = player.get<ClawSnap>();
 	const auto& bubbles = player.get<Bubbles>();
 	const auto& riptide = player.get<Riptide>();
+	const auto remaining = [&player](const char* name) { return player.lookup(name).get<timer::Cooldown>().remaining; };
 	const std::array<Charge, kWeaponCount> charges{
-		Charge{claw.level, claw.timer, claw.cooldown},
-		Charge{bubbles.level, bubbles.timer, bubbles.cooldown},
-		Charge{riptide.level, riptide.timer, riptide.cooldown},
+		Charge{claw.level, remaining(kClawCooldownName), claw.cooldown},
+		Charge{bubbles.level, remaining(kBubbleCooldownName), bubbles.cooldown},
+		Charge{riptide.level, remaining(kRiptideCooldownName), riptide.cooldown},
 	};
 	// A locked weapon (level 0: Riptide before its upgrade) is hidden. It's the last slot, so no gap opens.
 	for (int i = 0; i < kWeaponCount; ++i) {
@@ -847,7 +848,7 @@ void ArenaScene::UpdateBoss(const flecs::world& world) const {
 	std::string banner;
 	if (run.phase == RunPhase::Transition && run.step == TransitionStep::ActClear) {
 		banner = "ACT CLEAR";
-	} else if (const auto& scripts = world.get<CampaignScripts>(); scripts.banner_timer > 0.0F) {
+	} else if (const auto& scripts = world.get<CampaignScripts>(); !world.lookup(kScriptBannerName).get<timer::Cooldown>().Ready()) {
 		banner = scripts.banner;
 	} else if (boss && run.banner_timer > 0.0F && def->behavior == kCaptainBehavior) {
 		banner = run.slams == 0 ? "Captain Crab rides in! Hit him while he's beached" : "SLAM! Hit him while he's beached";

@@ -79,11 +79,6 @@ float CrabGround(const float distance) {
 	return lift + (kSwimDepth - lift) * sink;
 }
 
-float SmoothStep(const float t) {
-	const float c = std::clamp(t, 0.0F, 1.0F);
-	return c * c * (3.0F - 2.0F * c);
-}
-
 glm::vec3 Scaled(const float x, const float y, const float z) {
 	return {x, y, z};
 }
@@ -249,7 +244,7 @@ void RegisterTitleBackdrop(const flecs::world& world) {
 		.kind(flecs::OnUpdate)
 		.each([](const flecs::iter& it, const size_t i, TitlePan& pan, spatial::Transform& transform) {
 			pan.time += it.delta_time();
-			const float t = SmoothStep(pan.time / kPanLength);
+			const float t = glm::smoothstep(0.0F, 1.0F, pan.time / kPanLength);
 			transform.position = kCameraRest + (kCameraPanned - kCameraRest) * t;
 			if (const flecs::entity focus = it.entity(i).target<render::LookAt>(); focus && focus.has<spatial::Transform>()) {
 				focus.get_mut<spatial::Transform>().position = kFocusRest + (kFocusPanned - kFocusRest) * t;

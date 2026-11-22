@@ -209,7 +209,9 @@ std::string_view ApplyCall(const flecs::world& world, const ScriptCall& call) {
 	case CallKind::Banner: {
 		auto& scripts = world.get_mut<CampaignScripts>();
 		scripts.banner = call.text;
-		scripts.banner_timer = constants::kScriptBannerTime;
+		auto& cooldown = world.lookup(kScriptBannerName).get_mut<timer::Cooldown>();
+		cooldown.duration = constants::kScriptBannerTime;
+		cooldown.remaining = constants::kScriptBannerTime;
 		return {};
 	}
 	case CallKind::Sting: {
@@ -383,12 +385,12 @@ std::string ScriptPath(const flecs::world& world, const std::string_view id) {
 void RegisterCampaignScripts(const flecs::world& world) {
 	world.component<CampaignScripts>()
 		.member<std::string>("banner")
-		.member<float>("banner_timer")
 		.member<std::string>("fire_event")
 		.member<std::string>("fire_arg0")
 		.member<std::string>("fire_arg1");
 	world.component<CampaignScriptHost>();
 	world.set<CampaignScripts>({});
+	std::ignore = world.entity(kScriptBannerName).set<timer::Cooldown>({});
 	world.set<CampaignScriptHost>({});
 	RegisterApi(world);
 }
@@ -447,8 +449,7 @@ void FireCampaignEvent(const flecs::world& world, const std::string_view event, 
 
 void StepCampaignScripts(const flecs::world& world, const float dt) {
 	auto& scripts = world.get_mut<CampaignScripts>();
-	scripts.banner_timer = std::max(0.0F, scripts.banner_timer - dt);
-	if (scripts.banner_timer <= 0.0F) {
+	if (world.lookup(kScriptBannerName).get<timer::Cooldown>().Ready()) {
 		scripts.banner.clear();
 	}
 	FireRequested(world);

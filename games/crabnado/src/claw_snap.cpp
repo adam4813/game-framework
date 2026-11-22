@@ -31,22 +31,21 @@ void RegisterClawSnap(const flecs::world& world) {
 		.member<float>("damage")
 		.member<float>("radius")
 		.member<float>("cooldown")
-		.member<float>("timer")
-		.member<float>("ring_timer")
 		.member<float>("level");
 	world.component<ClawRing>();
 
 	world.system<ClawSnap, const spatial::Transform>("ClawSnapFire")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, ClawSnap& claw, const spatial::Transform& transform) {
-			const float dt = it.delta_time();
-			claw.ring_timer = std::max(0.0F, claw.ring_timer - dt);
-			claw.timer -= dt;
-			if (claw.timer > 0.0F) {
+		.each([](const flecs::iter& it, const size_t i, ClawSnap& claw, const spatial::Transform& transform) {
+			const flecs::entity player = it.entity(i);
+			auto& cooldown = player.lookup(kClawCooldownName).get_mut<timer::Cooldown>();
+			if (!cooldown.Ready()) {
 				return;
 			}
-			claw.timer += claw.cooldown;
-			claw.ring_timer = constants::kClawRingTime;
+			cooldown.duration = claw.cooldown;
+			cooldown.remaining = claw.cooldown;
+			auto& ring = player.lookup(kClawRingName).get_mut<timer::Cooldown>();
+			ring.remaining = ring.duration;
 
 			const flecs::world world = it.world();
 			const glm::vec2 position{transform.position.x, transform.position.z};
@@ -71,14 +70,14 @@ void RegisterClawSnap(const flecs::world& world) {
 		.add<ecs::Pausable>()
 		.add<scene::GameScene>();
 
-	world.system<spatial::Transform>("ClawRingShow")
+	world.system<spatial::Transform, const timer::Cooldown>("ClawRingShow")
 		.with<ClawRing>()
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, const size_t i, spatial::Transform& transform) {
+		.each([](const flecs::iter& it, const size_t i, spatial::Transform& transform, const timer::Cooldown& ring) {
 			const ClawSnap& claw = it.entity(i).parent().get<ClawSnap>();
 			float scale = 0.0F;
-			if (claw.ring_timer > 0.0F) {
-				const float shown = 1.0F - claw.ring_timer / constants::kClawRingTime;
+			if (!ring.Ready()) {
+				const float shown = 1.0F - ring.remaining / ring.duration;
 				scale = claw.radius * (kRingStartScale + (1.0F - kRingStartScale) * shown);
 			}
 			transform.scale = {scale, 1.0F, scale};
@@ -90,12 +89,18 @@ void AddClawSnap(const flecs::world& world, const flecs::entity player) {
 	player.set<ClawSnap>(
 		{.damage = constants::kClawDamage,
 		 .radius = constants::kClawRadius,
-		 .cooldown = constants::kClawCooldown,
-		 .timer = constants::kClawCooldown}
+		 .cooldown = constants::kClawCooldown}
 	);
-	const flecs::entity ring = world.entity("ClawRing")
+	// The first snap comes one full cooldown in.
+	std::ignore = world.entity()
+					  .child_of(player)
+					  .set_name(kClawCooldownName)
+					  .set<timer::Cooldown>({.remaining = constants::kClawCooldown, .duration = constants::kClawCooldown});
+	const flecs::entity ring = world.entity()
 								   .child_of(player)
+								   .set_name(kClawRingName)
 								   .add<ClawRing>()
+								   .set<timer::Cooldown>({.remaining = 0.0F, .duration = constants::kClawRingTime})
 								   .set<spatial::Transform>({.position = {0.0F, kRingHeight, 0.0F}, .scale = {0.0F, 1.0F, 0.0F}});
 	for (int i = 0; i < kRingBeads; ++i) {
 		const float angle = 2.0F * std::numbers::pi_v<float> * static_cast<float>(i) / kRingBeads;

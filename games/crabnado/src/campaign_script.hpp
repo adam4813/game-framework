@@ -57,12 +57,14 @@ struct HandlerReport {
 };
 [[nodiscard]] HandlerReport AnalyzeHandlers(std::span<const std::string> declarations);
 
+// Name of the world entity whose `timer::Cooldown` counts down the Banner() display (a Remote API readout).
+inline constexpr const char* kScriptBannerName = "::ScriptBanner"; // absolute: registered inside a module scope
+
 // Singleton, reflected: what the scripts last showed, and a Remote API hook. `banner` is the text of the last Banner()
-// call while `banner_timer` seconds remain. Writing `fire_event` (an event name) with `fire_arg0` / `fire_arg1` as its
+// call while the `timer::Cooldown` on the entity named kScriptBannerName is running. Writing `fire_event` (an event name) with `fire_arg0` / `fire_arg1` as its
 // arguments fires that event on the next director tick, then clears `fire_event`.
 struct CampaignScripts {
 	std::string banner;
-	float banner_timer{0.0F};
 	std::string fire_event;
 	std::string fire_arg0;
 	std::string fire_arg1;

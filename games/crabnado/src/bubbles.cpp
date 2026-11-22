@@ -51,15 +51,14 @@ void RegisterBubbles(const flecs::world& world) {
 		.member<float>("cooldown")
 		.member<int>("count")
 		.member<float>("speed")
-		.member<float>("timer")
 		.member<float>("level");
 	world.component<Bubble>().member<glm::vec2>("velocity").member<float>("life");
 
 	world.system<Bubbles, const spatial::Transform>("BubbleFire")
 		.kind(flecs::OnUpdate)
-		.each([](const flecs::iter& it, size_t, Bubbles& bubbles, const spatial::Transform& transform) {
-			bubbles.timer = std::max(0.0F, bubbles.timer - it.delta_time());
-			if (bubbles.timer > 0.0F) {
+		.each([](const flecs::iter& it, const size_t i, Bubbles& bubbles, const spatial::Transform& transform) {
+			auto& cooldown = it.entity(i).lookup(kBubbleCooldownName).get_mut<timer::Cooldown>();
+			if (!cooldown.Ready()) {
 				return;
 			}
 			const flecs::world world = it.world();
@@ -69,7 +68,8 @@ void RegisterBubbles(const flecs::world& world) {
 			if (!horde || !FindTarget(world, position, target)) {
 				return;
 			}
-			bubbles.timer = bubbles.cooldown;
+			cooldown.duration = bubbles.cooldown;
+			cooldown.remaining = bubbles.cooldown;
 			const glm::vec2 toTarget = target - position;
 			const float base = std::atan2(toTarget.x, toTarget.y);
 			const int room = constants::kBubbleCap - world.count<Bubble>();
@@ -130,14 +130,18 @@ void RegisterBubbles(const flecs::world& world) {
 		.add<scene::GameScene>();
 }
 
-void AddBubbles(const flecs::entity player) {
+void AddBubbles(const flecs::world& world, const flecs::entity player) {
 	player.set<Bubbles>(
 		{.damage = constants::kBubbleDamage,
 		 .cooldown = constants::kBubbleCooldown,
 		 .count = 1,
-		 .speed = constants::kBubbleSpeed,
-		 .timer = 0.0F}
+		 .speed = constants::kBubbleSpeed}
 	);
+	// Ready from the start: the first volley fires as soon as a target is in range.
+	std::ignore = world.entity()
+					  .child_of(player)
+					  .set_name(kBubbleCooldownName)
+					  .set<timer::Cooldown>({.remaining = 0.0F, .duration = constants::kBubbleCooldown});
 }
 
 } // namespace crabnado
