@@ -36,8 +36,7 @@ constexpr auto kCrateLevel = R"({"entities": [
 
 constexpr float kRestingCrateY = 0.5F;
 constexpr float kRestTolerance = 0.05F;
-// Free fall from y = 3 takes about 50 frames; the rest is margin so a slow CI runner still settles before the check.
-constexpr int kFramesToSettle = 300;
+constexpr int kFramesToSettle = 120;
 
 // A headless Platform that claims a window, so its world installs the debug renderer like a game's would.
 class WindowedPlatform final : public engine::platform::HeadlessPlatform {
@@ -69,12 +68,16 @@ struct PhysicsWorld {
 TEST(TwoPhysicsWorlds, EachWorldLandsItsOwnCrate) {
 	const PhysicsWorld a;
 	const PhysicsWorld b;
+	std::string trajectory; // the crate's height every 20 frames, so a CI failure shows how it moved, not only where it ended
 	for (int i = 0; i < kFramesToSettle; ++i) {
 		a.Step(1);
 		b.Step(1);
+		if (i % 20 == 0) {
+			trajectory += std::to_string(a.CrateY()) + " ";
+		}
 	}
 
-	EXPECT_NEAR(a.CrateY(), kRestingCrateY, kRestTolerance);
+	EXPECT_NEAR(a.CrateY(), kRestingCrateY, kRestTolerance) << "crate y every 20 frames: " << trajectory;
 	EXPECT_NEAR(b.CrateY(), kRestingCrateY, kRestTolerance);
 }
 
