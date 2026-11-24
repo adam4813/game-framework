@@ -1,8 +1,6 @@
-precision mediump float;
-
-varying vec2 fragTexCoord;
-varying vec4 fragColor;
-varying vec3 fragWorldPos;
+in vec2 fragTexCoord;
+in vec4 fragColor;
+in vec3 fragWorldPos;
 
 uniform sampler2D texture0;
 
@@ -17,12 +15,14 @@ uniform float fadeRadius;    // screen-space radius (pixels) of the fade region 
 uniform float fadeStrength;  // transparency applied over the focus (0 = off, 1 = fully invisible)
 uniform float fadePass;      // 0 = opaque pass (punch the hole), 1 = transparent pass (draw the ghost)
 
+out vec4 finalColor;
+
 void main()
 {
-    vec4 texelColor = texture2D(texture0, fragTexCoord);
+    vec4 texelColor = texture(texture0, fragTexCoord);
     // RGB vertex colour tints the sprite; the vertex-colour ALPHA carries occluder metadata (below),
     // so the sprite's own texture alpha drives the cutout test.
-    vec4 finalColor = texelColor * vec4(fragColor.rgb, 1.0);
+    finalColor = texelColor * vec4(fragColor.rgb, 1.0);
 
     // Alpha-tested cutout: drop near-transparent texels (sprite gaps) using the source texture alpha,
     // before any fade logic, so the surviving body texels can be split between the two passes below.
@@ -56,6 +56,4 @@ void main()
             discard;
         finalColor.a *= (1.0 - fade);
     }
-
-    gl_FragColor = finalColor;
 }

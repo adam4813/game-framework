@@ -17,6 +17,8 @@ reaches it with `world.get<platform::PlatformRef>().ptr`.
 | `file_save_store.hpp/.cpp` | `FileSaveStore`, the file-per-slot save store desktop and headless share. |
 | `debug_ui.hpp`, `imgui/` | The debug UI interface and its ImGui implementation (see `engine/debug/README.md`). |
 | `render_batch.hpp/.cpp` | Groups `RenderCommand`s into instanced draws for `SubmitBatch`. |
+| `light_clusters.hpp/.cpp` | Culls the point lights and lists them per view cluster for `SetLighting` (ADR 0009). |
+| `shader_source.hpp/.cpp` | Turns a shader file into the target's GLSL: the prepended `#version`, and `#include`. |
 | `gltf_materials.hpp/.cpp`, `cgltf_prefixed.hpp` | Reads glTF material flags raylib drops; the engine's prefixed cgltf copy. |
 
 A new pure virtual on `Platform` must be implemented by both `RaylibBackend` and `HeadlessPlatform`.

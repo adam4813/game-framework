@@ -402,6 +402,7 @@ json BuildCppWorld() {
 			.constant = 1.0F,
 			.linear = 0.14F,
 			.quadratic = 0.07F,
+			.range = 12.5F,
 		});
 
 	test_world.World()

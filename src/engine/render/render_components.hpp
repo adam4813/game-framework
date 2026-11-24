@@ -100,19 +100,23 @@ struct DirectionalLight {
 
 // A local light at the entity's WorldTransform position, adding diffuse and specular on top of the ambient and
 // directional terms. Attenuation is 1 / (constant + linear*d + quadratic*d^2); the defaults fade out over about
-// 50 m. At most platform::LightParams::kMaxPointLights are used; the rest are ignored. No shadows.
+// 50 m. `range` is where the light ends: it falls off smoothly to zero there, and nothing farther is lit or pays for
+// the light. 0 derives it from the other terms (EffectiveRange). A scene can hold any number; the frame's budgets are
+// platform::kMaxVisibleLights and kMaxLightsPerCluster. No shadows.
 struct PointLight {
 	core::Rgba color{.r = 255, .g = 255, .b = 255, .a = 255};
 	float intensity{1.0F};
 	float constant{1.0F};
 	float linear{0.09F};
 	float quadratic{0.032F};
+	float range{0.0F};
 };
 
-// Singleton: how many point lights the last overflowing frame dropped, so RenderLightingUpload logs the overflow
-// once instead of every frame.
+// Singleton: which light budgets have been logged as exceeded, so RenderLightingUpload logs each once instead of every
+// frame. A budget is armed again when the scene holds too few lights to exceed it.
 struct PointLightOverflowLog {
-	int warned_dropped{0};
+	bool warned_visible{false};
+	bool warned_cluster{false};
 };
 
 // Relationship: links a renderable entity to a dedicated material entity that carries Material,

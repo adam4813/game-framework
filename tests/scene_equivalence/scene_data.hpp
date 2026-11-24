@@ -55,7 +55,8 @@ inline constexpr std::string_view kTestSceneJson = R"json(
           "intensity": 1.5,
           "constant": 1.0,
           "linear": 0.14,
-          "quadratic": 0.07
+          "quadratic": 0.07,
+          "range": 12.5
         }
       }
     },
@@ -615,6 +616,7 @@ void OnInit(Entity self) {
     pl.constant = 1.0f;
     pl.linear = 0.14f;
     pl.quadratic = 0.07f;
+    pl.range = 12.5f;
 
     Entity box = CreateNamedEntity("TestBox");
     Transform@ bt = box.AddTransform();

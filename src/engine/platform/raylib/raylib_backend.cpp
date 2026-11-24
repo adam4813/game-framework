@@ -29,8 +29,10 @@
 #include "engine/platform/file_save_store.hpp"
 #include "engine/platform/gltf_materials.hpp"
 #include "engine/platform/imgui/imgui_debug_ui.hpp"
+#include "engine/platform/light_clusters.hpp"
 #include "engine/platform/raylib/rl_imgui.hpp"
 #include "engine/platform/render_batch.hpp"
+#include "engine/platform/shader_source.hpp"
 #include "engine/profiling/profiling.hpp"
 
 using engine::core::Rect;
@@ -130,27 +132,12 @@ struct SkeletalSet {
 	int count = 0;
 };
 constexpr float kSkeletalFrameSeconds = 0.017f;
-constexpr int kMaxSkinningBones = 64; // keep in sync with MAX_BONES in lit_skinned.vs (glsl330 and glsl100)
+constexpr int kMaxSkinningBones = 64; // keep in sync with MAX_BONES in lit_skinned.vs
 std::vector<SkeletalSet> g_skeletal_sets;
 std::unordered_map<std::string, int> g_skeletal_set_paths;
 
 // Dynamic meshes uploaded programmatically (for tilemaps, etc), indexed by handle
 std::vector<Mesh> g_dynamic_meshes;
-
-struct CustomShaderEntry {
-	bool ready = false;
-	Shader shader{};
-	Material material{};
-	Texture2D white{};
-	// Optional occluder-fade uniform locations (-1 when the shader doesn't declare them).
-	int loc_fade_focus = -1;
-	int loc_fade_screen_pos = -1;
-	int loc_fade_radius = -1;
-	int loc_fade_strength = -1;
-	int loc_fade_pass = -1;
-};
-
-std::vector<CustomShaderEntry> g_custom_shaders;
 
 // The font DrawText/MeasureText use once SetTextFont succeeds; texture id 0 means raylib's built-in font.
 Font g_text_font{};
@@ -222,25 +209,119 @@ bool IsReservedKey([[maybe_unused]] const int key_code) {
 #endif
 }
 
-// Directory holding the GLSL variant matching the active GL backend.
+// What every shader file is prefixed with, so one source serves both GL dialects (LoadShaderSource).
 #if defined(__EMSCRIPTEN__)
-constexpr auto kGlslDir = "glsl100";
+constexpr auto kGlslHeader =
+	"#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n";
 #else
-constexpr auto kGlslDir = "glsl330";
+constexpr auto kGlslHeader = "#version 330\n";
 #endif
 
-// Uniform locations of the point-light arrays in lit.fs, shared by every program that links it.
-struct PointLightLocs {
-	int pos = -1;
-	int color = -1;
-	int atten = -1;
-	int count = -1;
+std::string ShaderPath(const std::string_view file) {
+#if defined(__EMSCRIPTEN__)
+	const std::string dir = "/assets/shaders";
+#else
+	const std::string dir = std::string(GetApplicationDirectory()) + "assets/shaders";
+#endif
+	return file.empty() ? dir : dir + "/" + std::string(file);
+}
 
+// Loads a program from shader files; an empty path uses raylib's default stage. Returns nothing, having logged why, when
+// a file can't be read or the program doesn't compile.
+std::optional<Shader> LoadProgram(const std::string& vs_path, const std::string& fs_path) {
+	std::string sources[2];
+	const std::string* paths[2] = {&vs_path, &fs_path};
+	for (int i = 0; i < 2; ++i) {
+		if (paths[i]->empty()) continue;
+		auto source = LoadShaderSource(*paths[i], kGlslHeader);
+		if (!source) {
+			spdlog::warn("[RaylibBackend] {}", source.error());
+			return std::nullopt;
+		}
+		sources[i] = *std::move(source);
+	}
+	const Shader shader = LoadShaderFromMemory(
+		vs_path.empty() ? nullptr : sources[0].c_str(),
+		fs_path.empty() ? nullptr : sources[1].c_str()
+	);
+	if (shader.id == rlGetShaderIdDefault()) {
+		spdlog::warn("[RaylibBackend] Shader failed to compile (vs={}, fs={})", vs_path, fs_path);
+		return std::nullopt;
+	}
+	return shader;
+}
+
+// The clustered lights' textures keep fixed units above the ones raylib binds material maps to (0 to 11).
+constexpr int kLightTextureUnit = 12;
+constexpr int kClusterTextureUnit = 13;
+constexpr int kLightIndexTextureUnit = 14;
+
+// A color as the shaders take it, with its intensity in w.
+glm::vec4 ToShaderColor(const Rgba& c, const float w) {
+	return {static_cast<float>(c.r) / 255.0f, static_cast<float>(c.g) / 255.0f, static_cast<float>(c.b) / 255.0f, w};
+}
+
+// One program's uniforms from lighting.glsl. A uniform the program doesn't use stays at -1 and is skipped.
+struct LightingLocs {
+	int light_dir = -1;
+	int light_color = -1;
+	int ambient = -1;
+	int view_pos = -1;
+	int view_forward = -1;
+	int specular = -1;
+	int shininess = -1;
+	int point_light_count = -1;
+	int cluster_grid = -1;
+	int cluster_tile = -1;
+	int cluster_slice = -1;
+
+	// Looks the uniforms up and points the program's light samplers at their texture units.
 	void Resolve(const Shader& shader) {
-		pos = GetShaderLocation(shader, "pointPos[0]");
-		color = GetShaderLocation(shader, "pointColor[0]");
-		atten = GetShaderLocation(shader, "pointAtten[0]");
-		count = GetShaderLocation(shader, "pointCount");
+		light_dir = GetShaderLocation(shader, "lightDir");
+		light_color = GetShaderLocation(shader, "lightColor");
+		ambient = GetShaderLocation(shader, "ambient");
+		view_pos = GetShaderLocation(shader, "viewPos");
+		view_forward = GetShaderLocation(shader, "viewForward");
+		specular = GetShaderLocation(shader, "specularStrength");
+		shininess = GetShaderLocation(shader, "shininess");
+		point_light_count = GetShaderLocation(shader, "pointLightCount");
+		cluster_grid = GetShaderLocation(shader, "clusterGrid");
+		cluster_tile = GetShaderLocation(shader, "clusterTile");
+		cluster_slice = GetShaderLocation(shader, "clusterSlice");
+		const auto bind_sampler = [&](const char* name, const int unit) {
+			SetShaderValue(shader, GetShaderLocation(shader, name), &unit, SHADER_UNIFORM_INT);
+		};
+		bind_sampler("lightTexture", kLightTextureUnit);
+		bind_sampler("clusterTexture", kClusterTextureUnit);
+		bind_sampler("lightIndexTexture", kLightIndexTextureUnit);
+	}
+
+	void UploadCamera(const Shader& shader, const glm::vec3 position, const glm::vec3 forward) const {
+		SetShaderValue(shader, view_pos, glm::value_ptr(position), SHADER_UNIFORM_VEC3);
+		SetShaderValue(shader, view_forward, glm::value_ptr(forward), SHADER_UNIFORM_VEC3);
+	}
+
+	void Upload(const Shader& shader, const LightParams& lighting, const int visible_lights) const {
+		const glm::vec3 dir = glm::normalize(lighting.direction);
+		const glm::vec4 color = ToShaderColor(lighting.light_color, lighting.light_intensity);
+		const glm::vec4 ambient_color = ToShaderColor(lighting.ambient_color, lighting.ambient_intensity);
+		SetShaderValue(shader, light_dir, glm::value_ptr(dir), SHADER_UNIFORM_VEC3);
+		SetShaderValue(shader, light_color, glm::value_ptr(color), SHADER_UNIFORM_VEC4);
+		SetShaderValue(shader, ambient, glm::value_ptr(ambient_color), SHADER_UNIFORM_VEC4);
+		SetShaderValue(shader, specular, &lighting.specular_strength, SHADER_UNIFORM_FLOAT);
+		SetShaderValue(shader, shininess, &lighting.shininess, SHADER_UNIFORM_FLOAT);
+
+		const int grid[3] = {kClusterTilesX, kClusterTilesY, kClusterSlices};
+		const float tile[2] = {
+			static_cast<float>(kClusterTilesX) / static_cast<float>(g_canvas.texture.width),
+			static_cast<float>(kClusterTilesY) / static_cast<float>(g_canvas.texture.height),
+		};
+		const auto [scale, bias] = SliceMapping();
+		const float slice[2] = {scale, bias};
+		SetShaderValue(shader, point_light_count, &visible_lights, SHADER_UNIFORM_INT);
+		SetShaderValue(shader, cluster_grid, grid, SHADER_UNIFORM_IVEC3);
+		SetShaderValue(shader, cluster_tile, tile, SHADER_UNIFORM_VEC2);
+		SetShaderValue(shader, cluster_slice, slice, SHADER_UNIFORM_VEC2);
 	}
 };
 
@@ -259,16 +340,10 @@ struct LitState {
 	Mesh cylinder{}; // unit radius, unit height, base at y=0
 
 	// Custom uniform locations (matModel/matNormal/mvp/colDiffuse/texture0 are bound by raylib).
-	int loc_light_dir = -1;
-	int loc_light_color = -1;
-	int loc_ambient = -1;
-	int loc_view_pos = -1;
-	int loc_specular = -1;
-	int loc_shininess = -1;
+	LightingLocs lighting;
 	int loc_shadow_pass = -1;
 	int loc_shadow_color = -1;
 	int loc_unlit = -1;
-	PointLightLocs point_locs;
 
 	bool shadows_enabled = false;
 	glm::mat4 shadow_matrix{1.0f};
@@ -294,17 +369,11 @@ struct InstancedState {
 	// Uniform locations. mvp/colDiffuse/texture0 are bound by raylib; the rest match lit.fs/vs.
 	int loc_mvp = -1;
 	int loc_col_diffuse = -1;
-	int loc_light_dir = -1;
-	int loc_light_color = -1;
-	int loc_ambient = -1;
-	int loc_view_pos = -1;
-	int loc_specular = -1;
-	int loc_shininess = -1;
+	LightingLocs lighting;
 	int loc_shadow_pass = -1;
 	int loc_shadow_color = -1;
 	int loc_shadow_matrix = -1;
 	int loc_unlit = -1;
-	PointLightLocs point_locs;
 };
 
 InstancedState g_inst;
@@ -326,10 +395,35 @@ std::vector<RenderMesh> g_render_meshes;
 // otherwise overwrite attribute slots (vertex colors, tangents, bones) the model's direct and skinned draws read.
 std::vector<std::vector<RenderMesh>> g_model_parts;
 
-// Cached lighting state so the instanced shader (a separate program from g_lit) can be fed the same
-// uniforms at batch time. Updated by SetLighting / BeginMode3D.
-LightParams g_light_params;
-glm::vec3 g_view_pos{0.0f};
+// The clustered point lights on the GPU, in the layout lighting.glsl reads, and the frame's lists they're filled from.
+struct LightClusterState {
+	unsigned int light_texture = 0;
+	unsigned int cluster_texture = 0;
+	unsigned int index_texture = 0;
+	LightClusters clusters;
+	std::vector<float> texels; // staging buffer, reused across uploads
+};
+
+LightClusterState g_light_clusters;
+
+// The current 3D pass's camera, cached in BeginMode3D for the cluster build.
+ClusterView g_cluster_view;
+
+struct CustomShaderEntry {
+	bool ready = false;
+	Shader shader{};
+	Material material{};
+	Texture2D white{};
+	LightingLocs lighting; // all -1 unless the shader includes lighting.glsl
+	// Optional occluder-fade uniform locations (-1 when the shader doesn't declare them).
+	int loc_fade_focus = -1;
+	int loc_fade_screen_pos = -1;
+	int loc_fade_radius = -1;
+	int loc_fade_strength = -1;
+	int loc_fade_pass = -1;
+};
+
+std::vector<CustomShaderEntry> g_custom_shaders;
 
 // Cached occluder-fade state, fed to fade-aware custom shaders at draw time. Updated by
 // SetOcclusionFade each frame; `enabled == false` makes DrawCustomMesh push a zero strength so the
@@ -646,25 +740,16 @@ int KeyCodeToRay(const int key_code) {
 // locations, the white fallback texture and the shared material. Returns false, leaving `lit` unchanged, when the
 // shader fails to compile.
 bool LoadLitProgram(LitState& lit, const std::string& vs, const std::string& fs) {
-	lit.shader = LoadShader(vs.c_str(), fs.c_str());
-	if (lit.shader.id == rlGetShaderIdDefault()) {
-		lit = LitState{};
-		return false;
-	}
+	const auto shader = LoadProgram(vs, fs);
+	if (!shader) return false;
+	lit.shader = *shader;
 
 	// raylib binds matModel/matNormal/mvp/colDiffuse/texture0 automatically by name; resolve the
-	// custom lighting uniforms here.
-	lit.shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(lit.shader, "viewPos");
-	lit.loc_view_pos = lit.shader.locs[SHADER_LOC_VECTOR_VIEW];
-	lit.loc_light_dir = GetShaderLocation(lit.shader, "lightDir");
-	lit.loc_light_color = GetShaderLocation(lit.shader, "lightColor");
-	lit.loc_ambient = GetShaderLocation(lit.shader, "ambient");
-	lit.loc_specular = GetShaderLocation(lit.shader, "specularStrength");
-	lit.loc_shininess = GetShaderLocation(lit.shader, "shininess");
+	// custom uniforms here.
+	lit.lighting.Resolve(lit.shader);
 	lit.loc_shadow_pass = GetShaderLocation(lit.shader, "shadowPass");
 	lit.loc_unlit = GetShaderLocation(lit.shader, "unlit");
 	lit.loc_shadow_color = GetShaderLocation(lit.shader, "shadowColor");
-	lit.point_locs.Resolve(lit.shader);
 
 	const Image white_img = GenImageColor(1, 1, WHITE);
 	lit.white = LoadTextureFromImage(white_img);
@@ -682,13 +767,8 @@ bool LoadLitProgram(LitState& lit, const std::string& vs, const std::string& fs)
 void InitLitResources() {
 	if (g_lit.ready) return;
 
-#if defined(__EMSCRIPTEN__)
-	const std::string dir = std::string("/assets/shaders/") + kGlslDir;
-#else
-	const std::string dir = std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
-#endif
-	const std::string vs = dir + "/lit.vs";
-	const std::string fs = dir + "/lit.fs";
+	const std::string vs = ShaderPath("lit.vs");
+	const std::string fs = ShaderPath("lit.fs");
 
 	if (!LoadLitProgram(g_lit, vs, fs)) {
 		TraceLog(LOG_WARNING, "[RaylibBackend] Lit shader failed to load; falling back to unlit rendering");
@@ -703,7 +783,7 @@ void InitLitResources() {
 	g_lit.ready = true;
 
 	// The skinned program is optional: without it, skinned models draw in their bind pose.
-	const std::string skin_vs = dir + "/lit_skinned.vs";
+	const std::string skin_vs = ShaderPath("lit_skinned.vs");
 	if (LoadLitProgram(g_skin, skin_vs, fs)) {
 		g_skin.shader.locs[SHADER_LOC_BONE_MATRICES] = GetShaderLocation(g_skin.shader, "boneMatrices");
 		g_skin.material.shader = g_skin.shader; // material holds a copy of the shader struct; refresh its locs
@@ -882,19 +962,12 @@ bool DrawCustomMesh(const Mesh& mesh, const glm::mat4& model, const DrawMaterial
 void InitInstancedResources() {
 	if (g_inst.ready) return;
 
-#if defined(__EMSCRIPTEN__)
-	const std::string dir = std::string("/assets/shaders/") + kGlslDir;
-#else
-	const std::string dir = std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
-#endif
-	const std::string vs = dir + "/lit_inst.vs";
-	const std::string fs = dir + "/lit.fs";
-
-	g_inst.shader = LoadShader(vs.c_str(), fs.c_str());
-	if (g_inst.shader.id == rlGetShaderIdDefault()) {
+	const auto shader = LoadProgram(ShaderPath("lit_inst.vs"), ShaderPath("lit.fs"));
+	if (!shader) {
 		TraceLog(LOG_WARNING, "[RaylibBackend] Instanced shader failed to load; batching uses per-item draws");
 		return;
 	}
+	g_inst.shader = *shader;
 
 	// Per-instance attribute locations are assigned by the linker; query them by name.
 	g_inst.attr_transform = GetShaderLocationAttrib(g_inst.shader, "instanceTransform");
@@ -902,17 +975,11 @@ void InitInstancedResources() {
 	// raylib auto-binds mvp/colDiffuse/texture0 into shader.locs; the rest are custom uniforms.
 	g_inst.loc_mvp = g_inst.shader.locs[SHADER_LOC_MATRIX_MVP];
 	g_inst.loc_col_diffuse = g_inst.shader.locs[SHADER_LOC_COLOR_DIFFUSE];
-	g_inst.loc_light_dir = GetShaderLocation(g_inst.shader, "lightDir");
-	g_inst.loc_light_color = GetShaderLocation(g_inst.shader, "lightColor");
-	g_inst.loc_ambient = GetShaderLocation(g_inst.shader, "ambient");
-	g_inst.loc_view_pos = GetShaderLocation(g_inst.shader, "viewPos");
-	g_inst.loc_specular = GetShaderLocation(g_inst.shader, "specularStrength");
-	g_inst.loc_shininess = GetShaderLocation(g_inst.shader, "shininess");
+	g_inst.lighting.Resolve(g_inst.shader);
 	g_inst.loc_shadow_pass = GetShaderLocation(g_inst.shader, "shadowPass");
 	g_inst.loc_unlit = GetShaderLocation(g_inst.shader, "unlit");
 	g_inst.loc_shadow_color = GetShaderLocation(g_inst.shader, "shadowColor");
 	g_inst.loc_shadow_matrix = GetShaderLocation(g_inst.shader, "shadowMatrix");
-	g_inst.point_locs.Resolve(g_inst.shader);
 
 	if (g_inst.attr_transform < 0 || g_inst.attr_color < 0) {
 		TraceLog(LOG_WARNING, "[RaylibBackend] Instanced shader missing per-instance attributes; batching disabled");
@@ -1006,60 +1073,82 @@ void ShutdownInstancedResources() {
 	g_inst = InstancedState{};
 }
 
-// Feeds the point-light uniform arrays of a lit program (the per-draw one or the instanced one).
-void UploadPointLights(const Shader& shader, const PointLightLocs& locs, const LightParams& lighting) {
-	constexpr int kMax = LightParams::kMaxPointLights;
-	float pos[kMax][3]{};
-	float color[kMax][4]{};
-	float atten[kMax][3]{};
-	for (int i = 0; i < lighting.point_light_count; ++i) {
-		const auto& pl = lighting.point_lights[static_cast<std::size_t>(i)];
-		pos[i][0] = pl.position.x;
-		pos[i][1] = pl.position.y;
-		pos[i][2] = pl.position.z;
-		color[i][0] = static_cast<float>(pl.color.r) / 255.0f;
-		color[i][1] = static_cast<float>(pl.color.g) / 255.0f;
-		color[i][2] = static_cast<float>(pl.color.b) / 255.0f;
-		color[i][3] = pl.intensity;
-		atten[i][0] = pl.constant;
-		atten[i][1] = pl.linear;
-		atten[i][2] = pl.quadratic;
-	}
-	SetShaderValueV(shader, locs.pos, pos, SHADER_UNIFORM_VEC3, kMax);
-	SetShaderValueV(shader, locs.color, color, SHADER_UNIFORM_VEC4, kMax);
-	SetShaderValueV(shader, locs.atten, atten, SHADER_UNIFORM_VEC3, kMax);
-	const int count = std::clamp(lighting.point_light_count, 0, kMax);
-	SetShaderValue(shader, locs.count, &count, SHADER_UNIFORM_INT);
+// Texels across each clustered-light texture; the shaders read all three by index, row by row.
+constexpr int kLightTextureWidth = 64;
+constexpr int kClusterTextureWidth = 144;
+constexpr int kLightIndexTextureWidth = 256;
+constexpr int kTexelsPerLight = 4;
+constexpr int kIndicesPerTexel = 4;
+
+constexpr int RowsFor(const int texels, const int width) { return (texels + width - 1) / width; }
+
+void InitLightClusterTextures() {
+	const auto load = [](const int width, const int texels) {
+		return rlLoadTexture(nullptr, width, RowsFor(texels, width), RL_PIXELFORMAT_UNCOMPRESSED_R32G32B32A32, 1);
+	};
+	constexpr int kMaxIndexTexels = kClusterCount * kMaxLightsPerCluster / kIndicesPerTexel;
+	g_light_clusters.light_texture = load(kLightTextureWidth, kMaxVisibleLights * kTexelsPerLight);
+	g_light_clusters.cluster_texture = load(kClusterTextureWidth, kClusterCount);
+	g_light_clusters.index_texture = load(kLightIndexTextureWidth, kMaxIndexTexels);
 }
 
-// Pushes the cached scene lighting onto the instanced shader (a separate program from g_lit, so it
-// needs its own uniform uploads).
-void UploadInstancedLighting() {
-	const glm::vec3 dir = glm::normalize(g_light_params.direction);
-	const float dir_v[3] = {dir.x, dir.y, dir.z};
-	SetShaderValue(g_inst.shader, g_inst.loc_light_dir, dir_v, SHADER_UNIFORM_VEC3);
+void ShutdownLightClusterTextures() {
+	rlUnloadTexture(g_light_clusters.light_texture);
+	rlUnloadTexture(g_light_clusters.cluster_texture);
+	rlUnloadTexture(g_light_clusters.index_texture);
+	g_light_clusters = LightClusterState{};
+}
 
-	const float light_col[4] = {
-		static_cast<float>(g_light_params.light_color.r) / 255.0f,
-		static_cast<float>(g_light_params.light_color.g) / 255.0f,
-		static_cast<float>(g_light_params.light_color.b) / 255.0f,
-		g_light_params.light_intensity,
-	};
-	SetShaderValue(g_inst.shader, g_inst.loc_light_color, light_col, SHADER_UNIFORM_VEC4);
+// Uploads `texels` (four floats each) to the first rows of `texture` and leaves it bound to `unit`.
+void UploadTexels(const unsigned int texture, const int unit, const int width, std::vector<float>& texels) {
+	rlActiveTextureSlot(unit);
+	rlEnableTexture(texture);
+	const int rows = RowsFor(static_cast<int>(texels.size()) / 4, width);
+	if (rows > 0) {
+		texels.resize(static_cast<size_t>(rows) * static_cast<size_t>(width) * 4); // whole rows
+		rlUpdateTexture(texture, 0, 0, width, rows, RL_PIXELFORMAT_UNCOMPRESSED_R32G32B32A32, texels.data());
+	}
+	rlActiveTextureSlot(0);
+}
 
-	const float ambient[4] = {
-		static_cast<float>(g_light_params.ambient_color.r) / 255.0f,
-		static_cast<float>(g_light_params.ambient_color.g) / 255.0f,
-		static_cast<float>(g_light_params.ambient_color.b) / 255.0f,
-		g_light_params.ambient_intensity,
-	};
-	SetShaderValue(g_inst.shader, g_inst.loc_ambient, ambient, SHADER_UNIFORM_VEC4);
+// Uploads the frame's light clusters in the layout lighting.glsl reads, and leaves the textures bound to their units for
+// the pass. With no visible light the shaders skip the lookup, so only the binding happens.
+void UploadLightClusters() {
+	const LightClusters& clusters = g_light_clusters.clusters;
+	std::vector<float>& texels = g_light_clusters.texels;
 
-	const float view_pos[3] = {g_view_pos.x, g_view_pos.y, g_view_pos.z};
-	SetShaderValue(g_inst.shader, g_inst.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
-	SetShaderValue(g_inst.shader, g_inst.loc_specular, &g_light_params.specular_strength, SHADER_UNIFORM_FLOAT);
-	SetShaderValue(g_inst.shader, g_inst.loc_shininess, &g_light_params.shininess, SHADER_UNIFORM_FLOAT);
-	UploadPointLights(g_inst.shader, g_inst.point_locs, g_light_params);
+	texels.clear();
+	for (const PointLightParams& light : clusters.lights) {
+		const glm::vec4 color = ToShaderColor(light.color, light.intensity);
+		texels.insert(texels.end(), {light.position.x, light.position.y, light.position.z, light.range});
+		texels.insert(texels.end(), {color.r, color.g, color.b, color.a});
+		texels.insert(texels.end(), {light.constant, light.linear, light.quadratic, 0.0f});
+		texels.insert(texels.end(), {0.0f, 0.0f, 0.0f, 0.0f}); // room for a spot light's direction and cone
+	}
+	UploadTexels(g_light_clusters.light_texture, kLightTextureUnit, kLightTextureWidth, texels);
+
+	texels.clear();
+	if (!clusters.lights.empty()) {
+		for (const ClusterRange& range : clusters.clusters) {
+			texels.insert(texels.end(), {static_cast<float>(range.first), static_cast<float>(range.count), 0.0f, 0.0f});
+		}
+	}
+	UploadTexels(g_light_clusters.cluster_texture, kClusterTextureUnit, kClusterTextureWidth, texels);
+
+	texels.assign(clusters.indices.begin(), clusters.indices.end());
+	texels.resize((texels.size() + kIndicesPerTexel - 1) / kIndicesPerTexel * kIndicesPerTexel); // whole texels
+	UploadTexels(g_light_clusters.index_texture, kLightIndexTextureUnit, kLightIndexTextureWidth, texels);
+}
+
+// Calls `fn(shader, lighting_locs)` for every program that uses the scene lighting.
+template<typename Fn>
+void ForEachLitProgram(Fn fn) {
+	if (g_lit.ready) fn(g_lit.shader, g_lit.lighting);
+	if (g_skin.ready) fn(g_skin.shader, g_skin.lighting);
+	if (g_inst.ready) fn(g_inst.shader, g_inst.lighting);
+	for (const CustomShaderEntry& entry : g_custom_shaders) {
+		if (entry.ready) fn(entry.shader, entry.lighting);
+	}
 }
 
 // (Re)allocates the per-instance VBOs on a RenderMesh when capacity must grow, attaching them to the
@@ -1091,14 +1180,7 @@ void EnsureInstanceBuffers(RenderMesh& rm, const int count) {
 }
 
 // A tint as the instance-color attribute holds it.
-glm::vec4 ToInstanceColor(const Rgba& c) {
-	return {
-		static_cast<float>(c.r) / 255.0f,
-		static_cast<float>(c.g) / 255.0f,
-		static_cast<float>(c.b) / 255.0f,
-		static_cast<float>(c.a) / 255.0f,
-	};
-}
+glm::vec4 ToInstanceColor(const Rgba& c) { return ToShaderColor(c, static_cast<float>(c.a) / 255.0f); }
 
 // Issues one instanced draw (plus an optional planar-shadow pass) for a group of same-key commands.
 // `fallback_texture` shows when the material has no texture. Returns the number of GL draw calls made.
@@ -1122,8 +1204,6 @@ int DrawInstancedGroup(
 	const Matrix mat_view = rlGetMatrixModelview();
 	const Matrix mat_proj = rlGetMatrixProjection();
 	rlSetUniformMatrix(g_inst.loc_mvp, MatrixMultiply(mat_view, mat_proj));
-
-	UploadInstancedLighting();
 
 	// The tint is carried per-instance, so colDiffuse stays white.
 	const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -1165,13 +1245,6 @@ int DrawInstancedGroup(
 
 	if (material.cast_shadow && g_lit.shadows_enabled) {
 		rlSetUniformMatrix(g_inst.loc_shadow_matrix, ToRayMatrix(g_lit.shadow_matrix));
-		const float shadow_col[4] = {
-			static_cast<float>(g_light_params.shadow_color.r) / 255.0f,
-			static_cast<float>(g_light_params.shadow_color.g) / 255.0f,
-			static_cast<float>(g_light_params.shadow_color.b) / 255.0f,
-			static_cast<float>(g_light_params.shadow_color.a) / 255.0f,
-		};
-		SetShaderValue(g_inst.shader, g_inst.loc_shadow_color, shadow_col, SHADER_UNIFORM_VEC4);
 		SetShaderValue(g_inst.shader, g_inst.loc_shadow_pass, &kOn, SHADER_UNIFORM_FLOAT);
 		rlDisableDepthMask();
 		issue();
@@ -1194,6 +1267,8 @@ void RaylibBackend::Init(const int width, const int height, const std::string_vi
 	SetExitKey(KEY_NULL); // we use Esc for pause, not window-close
 	SetFrameRate({});
 	InitAudioDevice();
+	rlSetClipPlanes(kClipNear, kClipFar);
+	InitLightClusterTextures();
 	InitLitResources();
 	InitInstancedResources();
 #ifdef ENGINE_DEBUG_UI
@@ -1211,6 +1286,7 @@ void RaylibBackend::Shutdown() {
 #endif
 	ShutdownInstancedResources();
 	ShutdownLitResources();
+	ShutdownLightClusterTextures();
 	for (const Texture2D& t : g_textures) {
 		if (t.id != 0) {
 			::UnloadTexture(t);
@@ -1586,16 +1662,13 @@ void RaylibBackend::BeginMode3D(const Camera3DParams& camera) {
 	::BeginMode3D(cam);
 	g_camera3d = cam; // cached for GetWorldToScreen in the occluder-fade path
 
-	g_view_pos = camera.position;
+	const float aspect = static_cast<float>(g_canvas.texture.width) / static_cast<float>(g_canvas.texture.height);
+	g_cluster_view = MakeClusterView(camera, aspect);
 
-	// Feed the camera position to the lit shader for specular highlights.
-	if (g_lit.ready) {
-		const float view_pos[3] = {camera.position.x, camera.position.y, camera.position.z};
-		SetShaderValue(g_lit.shader, g_lit.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
-		if (g_skin.ready) {
-			SetShaderValue(g_skin.shader, g_skin.loc_view_pos, view_pos, SHADER_UNIFORM_VEC3);
-		}
-	}
+	const glm::vec3 forward = glm::normalize(camera.target - camera.position);
+	ForEachLitProgram([&](const Shader& shader, const LightingLocs& locs) {
+		locs.UploadCamera(shader, camera.position, forward);
+	});
 }
 
 void RaylibBackend::EndMode3D() {
@@ -1603,54 +1676,48 @@ void RaylibBackend::EndMode3D() {
 	::EndMode3D();
 }
 
-// Feeds one lit program (the per-draw one or its skinned variant) the scene lighting and planar-shadow state.
-void UploadLitLighting(LitState& lit, const LightParams& lighting) {
-	if (!lit.ready) return;
+LightingStats
+RaylibBackend::SetLighting(const LightParams& lighting, const std::span<const PointLightParams> point_lights) {
+	profiling::Zone _zone{"Platform::SetLighting"};
+	LightingStats stats;
+	LightClusters& clusters = g_light_clusters.clusters;
+	{
+		profiling::Zone _cluster_zone{"Platform::BuildLightClusters"};
+		const auto start = std::chrono::steady_clock::now();
+		BuildLightClusters(point_lights, g_cluster_view, clusters);
+		const auto end = std::chrono::steady_clock::now();
+		stats.cluster_ms = std::chrono::duration<double, std::milli>(end - start).count();
+	}
+	stats.visible = static_cast<int>(clusters.lights.size());
+	stats.dropped = clusters.dropped;
+	stats.cluster_dropped = clusters.cluster_dropped;
+	UploadLightClusters();
 
-	const glm::vec3 dir = glm::normalize(lighting.direction);
-	const float dir_v[3] = {dir.x, dir.y, dir.z};
-	SetShaderValue(lit.shader, lit.loc_light_dir, dir_v, SHADER_UNIFORM_VEC3);
+	ForEachLitProgram([&](const Shader& shader, const LightingLocs& locs) {
+		locs.Upload(shader, lighting, stats.visible);
+	});
 
-	const float light_col[4] = {
-		static_cast<float>(lighting.light_color.r) / 255.0f,
-		static_cast<float>(lighting.light_color.g) / 255.0f,
-		static_cast<float>(lighting.light_color.b) / 255.0f,
-		lighting.light_intensity,
-	};
-	SetShaderValue(lit.shader, lit.loc_light_color, light_col, SHADER_UNIFORM_VEC4);
-
-	const float ambient[4] = {
-		static_cast<float>(lighting.ambient_color.r) / 255.0f,
-		static_cast<float>(lighting.ambient_color.g) / 255.0f,
-		static_cast<float>(lighting.ambient_color.b) / 255.0f,
-		lighting.ambient_intensity,
-	};
-	SetShaderValue(lit.shader, lit.loc_ambient, ambient, SHADER_UNIFORM_VEC4);
-
-	SetShaderValue(lit.shader, lit.loc_specular, &lighting.specular_strength, SHADER_UNIFORM_FLOAT);
-	SetShaderValue(lit.shader, lit.loc_shininess, &lighting.shininess, SHADER_UNIFORM_FLOAT);
-	UploadPointLights(lit.shader, lit.point_locs, lighting);
-
-	const float shadow_col[4] = {
-		static_cast<float>(lighting.shadow_color.r) / 255.0f,
-		static_cast<float>(lighting.shadow_color.g) / 255.0f,
-		static_cast<float>(lighting.shadow_color.b) / 255.0f,
-		static_cast<float>(lighting.shadow_color.a) / 255.0f,
-	};
-	SetShaderValue(lit.shader, lit.loc_shadow_color, shadow_col, SHADER_UNIFORM_VEC4);
+	const glm::vec4 shadow_color =
+		ToShaderColor(lighting.shadow_color, static_cast<float>(lighting.shadow_color.a) / 255.0f);
+	if (g_lit.ready) {
+		SetShaderValue(g_lit.shader, g_lit.loc_shadow_color, glm::value_ptr(shadow_color), SHADER_UNIFORM_VEC4);
+	}
+	if (g_skin.ready) {
+		SetShaderValue(g_skin.shader, g_skin.loc_shadow_color, glm::value_ptr(shadow_color), SHADER_UNIFORM_VEC4);
+	}
+	if (g_inst.ready) {
+		SetShaderValue(g_inst.shader, g_inst.loc_shadow_color, glm::value_ptr(shadow_color), SHADER_UNIFORM_VEC4);
+	}
 
 	// Shadows require a light that points downward onto the ground plane. A small upward bias on
 	// the plane keeps projected shadows from z-fighting the receiver surface.
-	lit.shadows_enabled = lighting.shadows_enabled && dir.y < -0.05f;
-	if (lit.shadows_enabled) {
-		lit.shadow_matrix = BuildShadowMatrix(dir, lighting.shadow_ground_y + 0.01f);
+	const glm::vec3 dir = glm::normalize(lighting.direction);
+	const bool shadows = lighting.shadows_enabled && dir.y < -0.05f;
+	for (LitState* lit : {&g_lit, &g_skin}) {
+		lit->shadows_enabled = shadows;
+		if (shadows) lit->shadow_matrix = BuildShadowMatrix(dir, lighting.shadow_ground_y + 0.01f);
 	}
-}
-
-void RaylibBackend::SetLighting(const LightParams& lighting) {
-	g_light_params = lighting; // cached so the instanced shader can be fed the same values
-	UploadLitLighting(g_lit, lighting);
-	UploadLitLighting(g_skin, lighting);
+	return stats;
 }
 
 void RaylibBackend::DrawCube(const glm::mat4& transform, const glm::vec3 size, const DrawMaterial& material) {
@@ -2141,36 +2208,26 @@ void RaylibBackend::UpdateDynamicMeshColors(const int handle, const std::vector<
 	UpdateMeshBuffer(mesh, 3, mesh.colors, count * 4, 0);
 }
 
-std::string RaylibBackend::ShaderDirectory() const {
-#if defined(__EMSCRIPTEN__)
-	return std::string("/assets/shaders/") + kGlslDir;
-#else
-	return std::string(GetApplicationDirectory()) + "assets/shaders/" + kGlslDir;
-#endif
-}
+std::string RaylibBackend::ShaderDirectory() const { return ShaderPath({}); }
 
 int RaylibBackend::LoadShader(const std::vector<ShaderStage>& stages) {
 	// Raylib needs vertex + fragment paths; pick them by stage type.
-	const char* vs = nullptr;
-	const char* fs = nullptr;
-	std::string vs_str, fs_str;
+	std::string vs;
+	std::string fs;
 	for (const auto& [type, path] : stages) {
 		if (type == "vertex") {
-			vs_str = path;
-			vs = vs_str.c_str();
+			vs = path;
 		}
 		else if (type == "fragment") {
-			fs_str = path;
-			fs = fs_str.c_str();
+			fs = path;
 		}
 	}
 
+	const auto shader = LoadProgram(vs, fs);
+	if (!shader) return -1;
 	CustomShaderEntry entry;
-	entry.shader = ::LoadShader(vs, fs);
-	if (entry.shader.id == rlGetShaderIdDefault()) {
-		spdlog::warn("[RaylibBackend] LoadShader: shader failed to load (vs={}, fs={})", vs ? vs : "", fs ? fs : "");
-		return -1;
-	}
+	entry.shader = *shader;
+	entry.lighting.Resolve(entry.shader);
 
 	const Image white_img = GenImageColor(1, 1, WHITE);
 	entry.white = LoadTextureFromImage(white_img);

@@ -576,7 +576,8 @@
           "constant": 1,
           "intensity": 1.5,
           "linear": 0.1400000006,
-          "quadratic": 0.0700000003
+          "quadratic": 0.0700000003,
+          "range": 12.5
         },
         "Transform": {
           "position": {

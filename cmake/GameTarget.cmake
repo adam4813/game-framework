@@ -72,6 +72,9 @@ function(setup_game_target target)
         -sMAXIMUM_MEMORY=${MAXIMUM_MEMORY_BYTES}
         -sALLOW_MEMORY_GROWTH=1
         -sGL_ENABLE_GET_PROC_ADDRESS=1
+        # WebGL 2 only (ADR 0009); triplets/wasm32-emscripten.cmake builds raylib for it.
+        -sMIN_WEBGL_VERSION=2
+        -sMAX_WEBGL_VERSION=2
         --preload-file ${STAGED_ASSETS}@/assets
         # Canvas-only page so raylib's window-sized canvas fits an itch.io iframe without clipping.
         "SHELL:--shell-file ${SHELL_FILE}"

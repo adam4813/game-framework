@@ -54,7 +54,8 @@ Shapes: `CubePrimitive`, `SpherePrimitive`, `QuadPrimitive`, `CapsulePrimitive`,
 (its `path`/`handle` resolve via the templated `RegisterPathAsset<T>()` observer). Material/appearance:
 `Material`, `AlbedoMap`, `ShaderMap` (all three use `RegisterPathAsset<T>()` for path→handle resolution). Sprite
 atlases: `SpriteAtlas` (texture path + pixel dimensions; an atlas entity also carries `AlbedoMap`, `Material`,
-and `ShaderMap` directly so it serves as a material source). Lights: `AmbientLight` (singleton), `DirectionalLight`.
+and `ShaderMap` directly so it serves as a material source). Lights: `AmbientLight` (singleton), `DirectionalLight`,
+`PointLight` (any number; clustered).
 View: `Camera` (+ an `ecs::Transform` as the eye).
 
 **Relationships & linkage**:

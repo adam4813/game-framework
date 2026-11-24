@@ -1,5 +1,3 @@
-#version 330
-
 // Phong lighting vertex shader.
 // Attribute + matrix uniform names match raylib defaults so LoadShader binds them automatically.
 in vec3 vertexPosition;

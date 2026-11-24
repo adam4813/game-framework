@@ -192,6 +192,7 @@
 | TestPointLight#PointLight.intensity             | 1.500000                | 1.500000                | 1.500000                | [MATCH]     |
 | TestPointLight#PointLight.linear                | 0.140000                | 0.140000                | 0.140000                | [MATCH]     |
 | TestPointLight#PointLight.quadratic             | 0.070000                | 0.070000                | 0.070000                | [MATCH]     |
+| TestPointLight#PointLight.range                 | 12.500000               | 12.500000               | 12.500000               | [MATCH]     |
 | TestPointLight#Transform.position.x             | 2                       | 2                       | 2                       | [MATCH]     |
 | TestPointLight#Transform.position.y             | 4                       | 4                       | 4                       | [MATCH]     |
 | TestPointLight#Transform.position.z             | -1                      | -1                      | -1                      | [MATCH]     |

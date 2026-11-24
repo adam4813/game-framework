@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 #include "engine/engine.hpp"
+#include "lights_scene.hpp"
 #include "noise_scene.hpp"
 #include "synth_scene.hpp"
 #include "tilemap_scene.hpp"
@@ -103,6 +104,16 @@ void TitleScene::Load(flecs::world& world) {
 					  [](const flecs::entity e) { scene::ActivateScene<TranslucentSceneTag>(e.world()); }
 	)
 					  .set_name("TranslucentDemoButton")
+					  .child_of(uiRoot_);
+
+	// Many Lights button (clustered point lights)
+	std::ignore = ui::CreateButton(
+					  world,
+					  {.x = w / 2.0F - 330.0F, .y = h / 2.0F + 52.0F, .w = 200.0F, .h = 44.0F},
+					  "Many Lights",
+					  [](const flecs::entity e) { scene::ActivateScene<LightsSceneTag>(e.world()); }
+	)
+					  .set_name("ManyLightsButton")
 					  .child_of(uiRoot_);
 
 	// Script-bound button: it is created with no C++ handler; a script assigns its onClick via

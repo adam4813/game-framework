@@ -48,6 +48,7 @@
 			"toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
 			"cacheVariables": {
 				"VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+				"VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
 				"VCPKG_TARGET_TRIPLET": "wasm32-emscripten",
 				"EMSCRIPTEN_ROOT_PATH": "$env{EMSDK}/upstream/emscripten",
 				"raylib_USE_STATIC_LIBS": "ON"

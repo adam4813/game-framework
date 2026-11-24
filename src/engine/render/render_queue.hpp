@@ -33,6 +33,12 @@ struct LineQueue {
 	std::vector<Line3D> lines;
 };
 
+// Singleton: the frame's point lights as the platform takes them, rebuilt by RenderLightingUpload. A singleton only so
+// its buffer is reused from frame to frame.
+struct PointLightQueue {
+	std::vector<platform::PointLightParams> lights;
+};
+
 // Singleton: render statistics for the on-screen overlay, refreshed each frame.
 struct RenderStats {
 	int queued{0};          // commands enqueued this frame (after culling)
@@ -48,6 +54,12 @@ struct RenderStats {
 	int queued_spheres{0};
 	int queued_capsules{0};
 	int queued_meshes{0}; // loaded models; one per entity, however many sub-meshes it has
+	// Point lights.
+	int lights{0};                 // in the scene
+	int lights_visible{0};         // evaluated this frame
+	int lights_dropped{0};         // in view but over the frame's budget
+	int lights_cluster_dropped{0}; // light entries over the per-cluster budget, summed over the clusters
+	double light_cluster_ms{0.0};  // CPU time culling the lights and building the cluster lists
 };
 
 // Six world-space frustum planes extracted from a view-projection matrix, for sphere culling.

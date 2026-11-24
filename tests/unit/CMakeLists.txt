@@ -23,9 +23,19 @@ add_engine_test(animation_playback_test
     animation_playback_test.cpp
 )
 
-# Point lights packed into LightParams: order, the 4-light cap and the dropped count
-add_engine_test(point_light_packing_test
-    point_light_packing_test.cpp
+# Point lights: the range a light derives from its attenuation, and what the render module hands the platform
+add_engine_test(point_light_test
+    point_light_test.cpp
+)
+
+# Clustered point lights: culling, cluster assignment under both projections, and which lights the budgets keep
+add_engine_test(light_clusters_test
+    light_clusters_test.cpp
+)
+
+# Shader files: the prepended GLSL header and #include expansion
+add_engine_test(shader_source_test
+    shader_source_test.cpp
 )
 
 # CPU glTF loader behind mesh colliders: settles that cgltf links beside raylib's copy and applies node transforms

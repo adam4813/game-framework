@@ -21,12 +21,13 @@
 #include "engine/core/core.hpp"
 #include "engine/ecs/ecs.hpp"
 #include "engine/level/level.hpp"
+#include "engine/platform/light_clusters.hpp"
 #include "engine/platform/platform.hpp"
 #include "engine/profiling/profiling.hpp"
 #include "engine/scene/scene.hpp"
 #include "engine/scripting/scripting.hpp"
 #include "engine/spatial/spatial.hpp"
-#include "point_light_packing.hpp"
+#include "point_light_range.hpp"
 #include "render_components.hpp"
 #include "render_queue.hpp"
 #include "translucent_pass.hpp"
@@ -428,6 +429,28 @@ void RegisterPrimitiveEnqueuer(
 		.template add<scene::GameScene>();
 }
 
+// Logs each light budget the first time a frame exceeds it (see PointLightOverflowLog).
+void LogLightOverflow(const flecs::world& world, const platform::LightingStats& lighting, const int scene_lights) {
+	auto& log = world.get_mut<PointLightOverflowLog>();
+	if (scene_lights <= platform::kMaxVisibleLights) log.warned_visible = false;
+	if (scene_lights <= platform::kMaxLightsPerCluster) log.warned_cluster = false;
+	if (lighting.dropped > 0 && !log.warned_visible) {
+		log.warned_visible = true;
+		ecs::Log(world).warn(
+			"[render] {} point lights in view; only the {} most important are used",
+			lighting.visible + lighting.dropped,
+			platform::kMaxVisibleLights
+		);
+	}
+	if (lighting.cluster_dropped > 0 && !log.warned_cluster) {
+		log.warned_cluster = true;
+		ecs::Log(world).warn(
+			"[render] More than {} point lights reach one part of the view; only the most important are used there",
+			platform::kMaxLightsPerCluster
+		);
+	}
+}
+
 // Reads a camera's `projection` from its reflected Projection constants, matching the lowercase spelling scenes use
 // ("orthographic"). An unknown value warns with the accepted names and falls back to Perspective.
 Projection ParseProjection(const flecs::entity e, const std::string& name) {
@@ -525,6 +548,7 @@ void RegisterRenderLevelLoaders(const flecs::world& world) {
 		pl.constant = j.value("constant", pl.constant);
 		pl.linear = j.value("linear", pl.linear);
 		pl.quadratic = j.value("quadratic", pl.quadratic);
+		pl.range = j.value("range", pl.range);
 		e.set<PointLight>(pl);
 	});
 
@@ -569,6 +593,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 	world.set<Render3DState>({});
 	world.set<RenderQueue>({});
 	world.set<LineQueue>({});
+	world.set<PointLightQueue>({});
 	world.set<RenderStats>({});
 	world.set<CameraFrustum>({});
 
@@ -624,7 +649,8 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.member<float>("intensity")
 		.member<float>("constant")
 		.member<float>("linear")
-		.member<float>("quadratic");
+		.member<float>("quadratic")
+		.member<float>("range");
 	world.component<Material>()
 		.member<core::Rgba>("color")
 		.member<bool>("wireframe")
@@ -872,25 +898,33 @@ RenderModule::RenderModule(const flecs::world& world) {
 							  params.ambient_color = al.color;
 							  params.ambient_intensity = al.intensity;
 						  }
-						  int dropped = 0;
-						  point_light_query.each([&params, &dropped](const PointLight& pl, const spatial::WorldTransform& wt) {
-							  if (!AddPointLight(params, {.light = pl, .position = wt.position})) ++dropped;
+						  auto& lights = it.world().get_mut<PointLightQueue>().lights;
+						  lights.clear();
+						  point_light_query.each([&lights](
+													 const flecs::entity e,
+													 const PointLight& pl,
+													 const spatial::WorldTransform& wt
+												 ) {
+							  lights.push_back({
+								  .id = e.id(),
+								  .position = wt.position,
+								  .color = pl.color,
+								  .intensity = pl.intensity,
+								  .constant = pl.constant,
+								  .linear = pl.linear,
+								  .quadratic = pl.quadratic,
+								  .range = EffectiveRange(pl),
+							  });
 						  });
-						  // Warn when the overflow first appears, not every frame; the count falls back to 0 (and
-						  // re-arms the warning) when the scene that overflowed goes away.
-						  auto& log = it.world().get_mut<PointLightOverflowLog>();
-						  if (dropped != log.warned_dropped) {
-							  log.warned_dropped = dropped;
-							  if (dropped > 0) {
-								  ecs::Log(it.world())
-									  .warn(
-										  "[render] {} point lights in the scene; only the first {} are used",
-										  dropped + params.point_light_count,
-										  platform::LightParams::kMaxPointLights
-									  );
-							  }
-						  }
-						  platform_ref.ptr->SetLighting(params);
+						  const platform::LightingStats lighting = platform_ref.ptr->SetLighting(params, lights);
+
+						  auto& stats = it.world().get_mut<RenderStats>();
+						  stats.lights = static_cast<int>(lights.size());
+						  stats.lights_visible = lighting.visible;
+						  stats.lights_dropped = lighting.dropped;
+						  stats.lights_cluster_dropped = lighting.cluster_dropped;
+						  stats.light_cluster_ms = lighting.cluster_ms;
+						  LogLightOverflow(it.world(), lighting, stats.lights);
 					  })
 					  .add<scene::GameScene>();
 
@@ -1235,6 +1269,17 @@ RenderModule::RenderModule(const flecs::world& world) {
 				stats.Plot("RenderModule", "render.enqueue_ms", rs.enqueue_ms);
 				stats.Plot("RenderModule", "render.group_ms", rs.group_ms);
 				stats.Plot("RenderModule", "render.draw_ms", rs.draw_ms);
+
+				// Point lights: what the scene holds, what the frame evaluates, and what it costs to cluster them.
+				stats.Plot("RenderModule", "render.lights.total", static_cast<int64_t>(rs.lights));
+				stats.Plot("RenderModule", "render.lights.visible", static_cast<int64_t>(rs.lights_visible));
+				stats.Plot("RenderModule", "render.lights.dropped", static_cast<int64_t>(rs.lights_dropped));
+				stats.Plot(
+					"RenderModule",
+					"render.lights.cluster_dropped",
+					static_cast<int64_t>(rs.lights_cluster_dropped)
+				);
+				stats.Plot("RenderModule", "render.lights.cluster_ms", rs.light_cluster_ms);
 
 				// Draw calls, instance count, and thread participation.
 				stats.Plot("RenderModule", "render.draw_calls", static_cast<int64_t>(rs.draw_calls));

@@ -1,16 +1,14 @@
-precision mediump float;
-
-attribute vec3 vertexPosition;
-attribute vec2 vertexTexCoord;
-attribute vec4 vertexColor;
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec4 vertexColor;
 
 uniform mat4 matProjection;
 uniform mat4 matView;
 uniform mat4 matModel;
 
-varying vec2 fragTexCoord;
-varying vec4 fragColor;
-varying vec3 fragWorldPos;
+out vec2 fragTexCoord;
+out vec4 fragColor;
+out vec3 fragWorldPos;
 
 void main()
 {

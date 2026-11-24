@@ -52,6 +52,10 @@ _Avoid_: pre-tick system, input phase
 An execution slot within a Pipeline that determines *when* a system runs relative to others. The engine uses the Flecs built-in phases (`PreUpdate`, `OnUpdate`, `OnStore`, `PostUpdate`) plus two custom phases: `ecs::OnUI` runs after `OnStore` and guarantees 2D overlays composite on top of 3D, and `ecs::OnDebugUI` runs after `OnUI` to render the debug UI on top of everything. Systems are assigned a phase via `.kind(phase)`.
 _Avoid_: stage, step, tick phase
 
+**Cluster**:
+One cell of the view frustum for point lighting: a screen tile by a depth slice. Each Frame the platform layer lists the point lights that reach each cluster, and a fragment evaluates only its own cluster's list (ADR 0009).
+_Avoid_: froxel, light tile, light cell
+
 **Transform**:
 The *authorable* local-space position (vec3), rotation (Euler radians, vec3), and scale (vec3) of an entity relative to its parent (or the world origin if unparented). **Only `Transform` should be written by game or engine code.** The engine derives `WorldTransform` from it automatically.
 _Avoid_: local transform, position component

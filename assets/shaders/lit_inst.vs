@@ -1,5 +1,3 @@
-#version 330
-
 // Instanced Phong vertex shader. The per-instance model matrix and colour arrive as vertex
 // attributes (attribute divisor 1) so thousands of primitives or models draw in a single instanced call.
 // Pairs with the regular lit.fs fragment shader (fragColor carries the vertex color times the per-instance tint).
