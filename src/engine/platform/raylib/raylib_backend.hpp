@@ -69,6 +69,7 @@ public:
 	void DrawMesh(int handle, const glm::mat4& transform, const DrawMaterial& material) override;
 
 	[[nodiscard]] int PrimitiveMesh(PrimitiveShape shape) const override;
+	[[nodiscard]] std::optional<BoundingSphere> MeshBounds(int handle) const override;
 	BatchStats SubmitBatch(std::span<const RenderCommand> commands) override;
 
 	int UploadDynamicMesh(

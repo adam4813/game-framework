@@ -80,6 +80,7 @@ public:
 		for (const auto& c : commands) {
 			calls.push_back(
 				{.call = "batch",
+				 .handle = c.model,
 				 .z = c.transform[3].z,
 				 .depth_write = c.material.depth_write,
 				 .alpha = c.material.tint.a}
@@ -163,9 +164,11 @@ TEST(TranslucentPass, TranslucentEntitiesSkipTheOpaquePasses) {
 		if (c.depth_write) opaque.push_back(c);
 	}
 	ASSERT_EQ(opaque.size(), 2U);
-	EXPECT_EQ(opaque[0].call, "mesh");
-	EXPECT_EQ(opaque[0].handle, 1);
+	// The cube, then the model, both through the instanced batch.
+	EXPECT_EQ(opaque[0].call, "batch");
+	EXPECT_FLOAT_EQ(opaque[0].z, -10.0F);
 	EXPECT_EQ(opaque[1].call, "batch");
+	EXPECT_EQ(opaque[1].handle, 1);
 	EXPECT_FLOAT_EQ(opaque[1].z, -10.0F);
 }
 
@@ -175,7 +178,7 @@ TEST(TranslucentPass, TranslucentEntitiesDrawAfterAllOpaqueGeometryFarthestFirst
 
 	const auto& calls = scene.platform->calls;
 	ASSERT_EQ(calls.size(), 5U);
-	// Opaque first: the direct model draw, then the instanced batch.
+	// Opaque first: the instanced batch, holding the cube and the model.
 	EXPECT_TRUE(calls[0].depth_write);
 	EXPECT_TRUE(calls[1].depth_write);
 	// Then the translucent pass, back to front from the camera at z = 10.
@@ -208,7 +211,7 @@ TEST(TranslucentPass, RemovingTheTagReturnsTheEntityToTheOpaquePass) {
 		if (c.call == "batch") ++batched;
 		EXPECT_NE(c.call, "cube") << "the cube left the translucent pass";
 	}
-	EXPECT_EQ(batched, 2);
+	EXPECT_EQ(batched, 3); // both cubes and the opaque model
 }
 
 // Through the real pipeline, not RenderFrame's list: lines write depth like opaque geometry, so they must draw before

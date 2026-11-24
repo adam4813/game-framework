@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -75,19 +76,28 @@ enum class PrimitiveShape : uint8_t {
 
 // A single backend-agnostic draw request. The render queue fills a buffer of these each frame and
 // hands them to the backend, which groups them by (mesh, shader, texture, flags) and issues one
-// instanced draw per group. `mesh` is a handle from PrimitiveMesh (or a future batchable mesh).
+// instanced draw per group. Set exactly one of `mesh` (a handle from PrimitiveMesh) and `model` (a handle from
+// LoadMesh). A model command draws every sub-mesh of the model with its authored texture, color and double-sided
+// flag, as DrawMesh does; the backend expands them, so there is one command per entity.
 // `tint` in `material` is applied per-instance, so instances of the same mesh/shader/texture batch
 // together regardless of colour.
 struct RenderCommand {
 	int mesh{-1};
+	int model{-1};
 	glm::mat4 transform{1.0f};
 	DrawMaterial material{};
+};
+
+// A bounding sphere in a model's local space.
+struct BoundingSphere {
+	glm::vec3 center{0.0f};
+	float radius = 0.0f;
 };
 
 // Aggregate counters returned by SubmitBatch so the engine can display render stats.
 struct BatchStats {
 	int draw_calls{0};
-	int instances{0};
+	int instances{0};     // commands drawn; a model counts once, however many sub-meshes it has
 	double group_ms{0.0}; // time spent grouping/sorting commands into batches (CPU)
 	double draw_ms{0.0};  // time spent issuing the instanced draws (CPU submit, incl. VBO upload)
 };
@@ -300,6 +310,9 @@ public:
 
 	// ── Assets ──
 	virtual int LoadMesh(std::string_view path) = 0;    // loads a model file, returns handle or -1
+	// Local-space bounds of a loaded model in its bind pose, for culling. Empty for an invalid or unloaded handle, and
+	// for a model with no vertices: a caller can't cull it.
+	[[nodiscard]] virtual std::optional<BoundingSphere> MeshBounds(int handle) const = 0;
 	virtual int LoadTexture(std::string_view path) = 0; // loads an image file, returns handle or -1
 	// Upload a texture from raw RGBA8 pixel data (width × height × 4 bytes). Returns a handle or -1.
 	// Use UpdateTexture to replace the pixels later without allocating a new GPU resource.
