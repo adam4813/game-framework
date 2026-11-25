@@ -1,0 +1,20 @@
+{
+	"name": "webgpu-spike",
+	"version": "0.0.1",
+	"dependencies": [
+		{
+			"name": "dawn",
+			"default-features": false,
+			"features": [
+				{ "name": "d3d12", "platform": "windows" },
+				{ "name": "vulkan", "platform": "linux" },
+				{ "name": "x11", "platform": "linux" },
+				{ "name": "wayland", "platform": "linux" },
+				{ "name": "metal", "platform": "osx" }
+			]
+		},
+		{ "name": "imgui", "features": [ "webgpu-binding", "sdl3-binding" ] },
+		"sdl3"
+	],
+	"builtin-baseline": "2f42d24513a18cc81fdbd99ccd74a3cc5dae93bb"
+}
