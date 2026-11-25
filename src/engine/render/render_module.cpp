@@ -364,9 +364,6 @@ void RegisterPrimitiveEnqueuer(
 			const int mesh_handle = platform->PrimitiveMesh(shape);
 
 			while (it.next()) {
-				// Reserve up front so a table's worth of commands never triggers repeated
-				// reallocation+copy of the (mat4-heavy) RenderCommand buffer as it grows.
-				local_cmds.reserve(local_cmds.size() + static_cast<size_t>(it.count()));
 				const auto wt = it.field<const spatial::WorldTransform>(0);
 				const auto prim = it.field<const TPrim>(1);
 				const bool has_inline = it.is_set(2);
