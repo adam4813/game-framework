@@ -94,15 +94,14 @@ all named entities are built.
 
 ## Lighting, Shadows, and Textures
 
-Primitives are drawn as **lit meshes** through a Phong shader (`assets/shaders/glsl330/lit.*`, with a `glsl100`
-variant for WebGL).
+Primitives are drawn as **lit meshes** through a Phong shader (`assets/shaders/lit.*`), the same source on desktop and
+the web (see "Shaders" below).
 
 - **Phong shading** — ambient + one directional light + specular, configured from `AmbientLight` and `DirectionalLight`.
-- **Point lights** — a `point_light` entity (`PointLight { color, intensity, constant, linear, quadratic }`, all
-  optional in level JSON) lights primitives, models and instanced batches from its `WorldTransform` position, on top of
-  the ambient and directional terms. Attenuation is `1 / (constant + linear·d + quadratic·d²)`; the defaults fade over
-  about 50 m. At most **4** are used (`LightParams::kMaxPointLights`, in query order); the rest are ignored with one
-  logged warning. Point lights cast no shadows. A scene with none renders as before.
+- **Point lights** — a `point_light` entity (`PointLight { color, intensity, constant, linear, quadratic, range }`, all
+  optional in level JSON) lights primitives, models (skinned ones too), instanced batches and translucent draws from its
+  `WorldTransform` position, on top of the ambient and directional terms. Any number; see "Many point lights" below.
+  Point lights cast no shadows.
 - **Loaded models** — a `mesh` entity queues one `RenderCommand` holding its model handle, and `Render3DFlush` draws
   all copies of a model that share a texture and material flags in one instanced draw per sub-mesh (plus one for
   shadows). Tint is per instance, so differently colored copies still batch. Sub-meshes keep their authored texture,
@@ -136,6 +135,79 @@ variant for WebGL).
   so call `UnloadTexture` yourself. To swap a file albedo for an uploaded one, `remove<AlbedoMap>()` first, then set
   it; setting over the existing component would never release the file's reference. Sandbox example: the
   `RuntimeAlbedoQuad` in `CubeScene` (`games/sandbox/src/game/cube_scene.cpp`).
+
+## Many point lights
+
+Point lights are drawn with clustered forward shading (ADR 0009): a scene can author any number, and a fragment pays
+only for the lights that reach its part of the view. Lights outside the camera's view cost nothing on the GPU.
+
+**Give a light a `range`.** Attenuation, `1 / (constant + linear·d + quadratic·d²)`, never reaches zero by itself, so the
+light also falls off smoothly to zero at `range` world units. A small range is what keeps many lights cheap. Left at 0
+(the default), the range is derived as the distance where attenuation times intensity falls to 1/256: about 88 m for
+the default terms, and never more than 1000 m (`EffectiveRange`, `point_light_range.hpp`).
+
+```json
+{
+  "name": "Lamp",
+  "components": {
+    "transform": {"position": [2.0, 3.0, 0.0]},
+    "point_light": {"color": [255, 180, 120, 255], "intensity": 1.5, "range": 6.0}
+  }
+}
+```
+
+**Budgets** (`engine/platform/light_clusters.hpp`) apply to what is in view, not to what is authored: 512 visible lights
+per Frame (`kMaxVisibleLights`) and 64 per cluster (`kMaxLightsPerCluster`). Over either, the most important lights are
+kept, by intensity over squared distance to the camera, with ties broken by entity id so a still view doesn't flicker.
+Each budget logs a warning the first time it is exceeded. A cluster over its budget drops lights its neighbors may keep,
+so a seam can show along a tile's edge: use smaller ranges there.
+
+**How it works.** Each Frame `RenderLightingUpload` hands every `PointLight` to `Platform::SetLighting`. The backend calls
+`BuildLightClusters`, which culls the lights to the camera and lists them per cluster: 16 x 9 screen tiles by 24 depth
+slices, exponential in depth from 2 m to 250 m, with the first and last slices covering everything nearer and farther.
+The lights, the cluster ranges and the light indices go up as three RGBA32F textures, on texture units 12 to 14 (raylib
+binds material maps to 0 to 11), and `lighting.glsl` reads them with `texelFetch`.
+
+**Cost.** `RenderStats` and the `render.lights.*` profiler plots hold the light counts, the dropped counts and the CPU
+time of the cluster build. Frame times of the sandbox's Many Lights scene at 1280x720, measured 2026-11-23:
+
+| Lights in view | Desktop (RTX 3080 Ti, uncapped) | Web (SwiftShader, so all on the CPU) |
+|---|---|---|
+| 4 | 0.55-0.71 ms | 36.4 ms |
+| 64 | 0.57-0.74 ms | 43.9 ms |
+| 256 | 0.65-0.82 ms | 73.7 ms |
+| 512 | 0.76-0.95 ms | 113.4 ms |
+| 256, plus 2000 out of view | 0.69-0.85 ms | 74.0 ms |
+
+The desktop column is the whole Frame over two runs, which differ by about 0.15 ms; within a run the 2000 lights out of
+view add 0.02 to 0.04 ms of CPU (culling them and their markers). The web build in a GPU-backed browser on the same
+machine holds the page's 16.7 ms at every count. The cluster build takes about 0.1 ms for 256 lights and 0.2 to 0.3 ms
+for 512.
+
+Sandbox example: `LightsScene` (`games/sandbox/src/game/lights_scene.cpp`,
+`games/sandbox/assets/levels/lights_demo.level.json`).
+
+## Shaders
+
+A shader file serves desktop (GLSL 330) and the web (GLSL 300 es) alike: the backend prepends the target's `#version`
+and precision lines, so the file has neither, and expands `#include "file"` lines, found next to the including file
+(`engine/platform/shader_source.hpp`). Write what both dialects accept: `in`/`out`, `texture`, float literals with a
+decimal point. `#ifdef GL_ES` separates them where it must. A file that starts with its own `#version` is compiled as it
+is.
+
+A custom `ShaderMap` shader opts in to the scene lighting by including `lighting.glsl` and calling
+`SceneLighting(worldPosition, normal)`; the backend feeds its uniforms. `lit.vs` supplies `fragPosition` and
+`fragNormal`:
+
+```glsl
+#include "lighting.glsl"
+in vec3 fragPosition;
+in vec3 fragNormal;
+out vec4 finalColor;
+void main() {
+	finalColor = vec4(SceneLighting(fragPosition, normalize(fragNormal)), 1.0);
+}
+```
 
 ## 3D lines
 
@@ -209,6 +281,7 @@ in the opaque pass, then `Render3DFlush` redraws the covering fragments as a fai
 - **render_components.hpp** — plain-data components: shape primitives, `Material`, `AlbedoMap`, `ShaderMap`,
   `RenderWith` (relationship tag), `LookAt` (relationship tag), lights (`AmbientLight`, `DirectionalLight`, `PointLight`),
   `Camera`, and the `Translucent` and `TransparentPass` tags.
+- **point_light_range.hpp** — the distance at which a `PointLight` ends.
 - **translucent_pass.hpp** — the translucent pass's draw record and its back-to-front sort.
 - **render_module.hpp/cpp** — reflection, scripting registration (`ScriptTraversal` tagging), observers, systems.
 - **render.hpp** — public umbrella header.

@@ -1,35 +1,32 @@
-#version 100
-
-// Phong lighting vertex shader with GPU skinning (GLSL ES 1.00 / WebGL): identical outputs to lit.vs.
-precision mediump float;
-
+// Phong lighting vertex shader with GPU skinning: identical outputs to lit.vs, so lit.fs lights it the same.
+// Attribute + uniform names match raylib's defaults, which it binds and uploads for models with bones.
 #define MAX_BONES 64 // keep in sync with kMaxSkinningBones in raylib_backend.cpp
 
-attribute vec3 vertexPosition;
-attribute vec2 vertexTexCoord;
-attribute vec3 vertexNormal;
-attribute vec4 vertexColor;
-attribute vec4 vertexBoneIds;
-attribute vec4 vertexBoneWeights;
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec3 vertexNormal;
+in vec4 vertexColor;
+in vec4 vertexBoneIds;
+in vec4 vertexBoneWeights;
 
 uniform mat4 mvp;
 uniform mat4 matModel;
 uniform mat4 matNormal;
 uniform mat4 boneMatrices[MAX_BONES];
 
-varying vec2 fragTexCoord;
-varying vec4 fragColor;
-varying vec3 fragPosition;
-varying vec3 fragNormal;
+out vec2 fragTexCoord;
+out vec4 fragColor;
+out vec3 fragPosition;
+out vec3 fragNormal;
 
-// OpenGL ES 2.0 can't transpose a uniform on upload, and raylib stores matrices row-major, so each bone matrix
-// arrives transposed. Transpose it back by hand (raylib's own skinning shader does the same).
+// OpenGL ES can't transpose a uniform on upload and raylib stores matrices row-major, so there each bone matrix arrives
+// transposed. Transpose it back.
 mat4 boneMatrix(int i) {
-	return mat4(
-		vec4(boneMatrices[i][0].x, boneMatrices[i][1].x, boneMatrices[i][2].x, boneMatrices[i][3].x),
-		vec4(boneMatrices[i][0].y, boneMatrices[i][1].y, boneMatrices[i][2].y, boneMatrices[i][3].y),
-		vec4(boneMatrices[i][0].z, boneMatrices[i][1].z, boneMatrices[i][2].z, boneMatrices[i][3].z),
-		vec4(boneMatrices[i][0].w, boneMatrices[i][1].w, boneMatrices[i][2].w, boneMatrices[i][3].w));
+#ifdef GL_ES
+	return transpose(boneMatrices[i]);
+#else
+	return boneMatrices[i];
+#endif
 }
 
 void main() {

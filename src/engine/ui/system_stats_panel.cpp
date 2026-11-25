@@ -395,6 +395,19 @@ std::vector<std::string> BuildRenderSummary(const flecs::world& world) {
 		stats->draw_ms
 	);
 	lines.emplace_back(timings);
+	if (stats->lights > 0) {
+		char lights[160];
+		std::snprintf(
+			lights,
+			sizeof(lights),
+			"lights %d   visible %d  dropped %d   cluster %.2f ms",
+			stats->lights,
+			stats->lights_visible,
+			stats->lights_dropped,
+			stats->light_cluster_ms
+		);
+		lines.emplace_back(lights);
+	}
 	return lines;
 }
 

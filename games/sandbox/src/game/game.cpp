@@ -8,6 +8,7 @@
 
 #include "cube_scene.hpp"
 #include "engine/engine.hpp"
+#include "lights_scene.hpp"
 #include "meta_save_example.hpp"
 #include "noise_scene.hpp"
 #include "synth_scene.hpp"
@@ -67,6 +68,9 @@ GameModule::GameModule(flecs::world& world) {
 	}
 
 	scene::RegisterScene<TranslucentSceneTag>(world, std::make_shared<TranslucentScene>());
+
+	LightsScene::RegisterComponents(world);
+	scene::RegisterScene<LightsSceneTag>(world, std::make_shared<LightsScene>());
 
 	scene::ActivateScene<TitleSceneTag>(world);
 

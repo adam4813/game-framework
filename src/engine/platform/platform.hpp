@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -44,6 +43,11 @@ struct Camera3DParams {
 	CameraProjection projection = CameraProjection::Perspective;
 	float ortho_size = 20.0f;
 };
+
+// The depths a 3D pass draws between, for either projection. Every backend clips here, whatever the Camera component's
+// own planes say (those only bound the engine's draw culling).
+constexpr float kClipNear = 0.01f;
+constexpr float kClipFar = 1000.0f;
 
 struct ShaderStage {
 	std::string type; // "vertex", "fragment", "geometry", "compute", etc.
@@ -102,14 +106,25 @@ struct BatchStats {
 	double draw_ms{0.0};  // time spent issuing the instanced draws (CPU submit, incl. VBO upload)
 };
 
-// One point light as the lit shaders consume it. Attenuation is 1 / (constant + linear*d + quadratic*d^2).
+// One point light as the lit shaders consume it. Attenuation is 1 / (constant + linear*d + quadratic*d^2), taken
+// smoothly to zero at `range`. Point lights cast no shadows.
 struct PointLightParams {
+	uint64_t id = 0;          // the light's entity; breaks ties so the same lights are kept every frame
 	glm::vec3 position{0.0f}; // world space
 	core::Rgba color{.r = 255, .g = 255, .b = 255, .a = 255};
 	float intensity = 1.0f;
 	float constant = 1.0f;
 	float linear = 0.09f;
 	float quadratic = 0.032f;
+	float range = 0.0f; // world units; a light with no range gives no light
+};
+
+// What SetLighting did with the frame's point lights.
+struct LightingStats {
+	int visible = 0;         // lights the frame evaluates
+	int dropped = 0;         // lights in view but over the frame's budget
+	int cluster_dropped = 0; // light entries over the per-cluster budget, summed over the clusters
+	double cluster_ms = 0.0; // CPU time culling the lights and building the cluster lists
 };
 
 // Scene lighting pushed to the 3D lit shader before primitives are drawn. A single directional
@@ -123,12 +138,6 @@ struct LightParams {
 	float ambient_intensity = 0.35f;
 	float specular_strength = 0.4f;
 	float shininess = 24.0f;
-
-	// Up to kMaxPointLights local lights; only the first `point_light_count` entries are valid. The lit
-	// shaders size their uniform arrays to this constant. Point lights cast no shadows.
-	static constexpr int kMaxPointLights = 4;
-	std::array<PointLightParams, kMaxPointLights> point_lights{};
-	int point_light_count = 0;
 
 	bool shadows_enabled = true;
 	float shadow_ground_y = 0.0f;
@@ -265,9 +274,10 @@ public:
 	// All 3D draw calls must occur between BeginMode3D and EndMode3D.
 	virtual void BeginMode3D(const Camera3DParams& camera) = 0;
 	virtual void EndMode3D() = 0;
-	// Uploads scene lighting + shadow configuration to the lit shader. Call once per frame after
-	// BeginMode3D and before drawing primitives.
-	virtual void SetLighting(const LightParams& lighting) = 0;
+	// Uploads scene lighting + shadow configuration to the lit shaders. Call once per frame after
+	// BeginMode3D and before drawing primitives. Takes any number of point lights: those outside the camera's view are
+	// culled, and the rest are kept within a budget (light_clusters.hpp).
+	virtual LightingStats SetLighting(const LightParams& lighting, std::span<const PointLightParams> point_lights) = 0;
 	// Uploads occluder-fade configuration to fade-aware shaders (upright cutout quads). Call once
 	// per frame after BeginMode3D and before drawing the quads. A disabled value clears the effect.
 	virtual void SetOcclusionFade(const OcclusionFadeParams& fade) = 0;
@@ -304,7 +314,10 @@ public:
 	virtual void UpdateDynamicMeshColors(int handle, const std::vector<glm::vec4>& colors) = 0;
 
 	// ── Shaders ──
+	// Where shader files live. One file serves every target: the backend prepends the target's #version and precision
+	// and expands `#include "file"` lines (shader_source.hpp).
 	[[nodiscard]] virtual std::string ShaderDirectory() const = 0;
+	// A shader that includes lighting.glsl is fed the scene lighting like the built-in lit shaders.
 	virtual int LoadShader(const std::vector<ShaderStage>& stages) = 0;
 	virtual void UnloadShader(int handle) = 0;
 

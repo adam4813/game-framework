@@ -12,6 +12,7 @@ the working reference for a few engine features. Find the feature you need below
 | Thousands of tinted primitives that stay one instanced draw call (inline `Material`, not `RenderWith`) | `src/engine/render/README.md` ("Many entities"), `games/crabnado/src/horde.cpp` |
 | A texture made at runtime (`UploadTexture` / `UpdateTexture`) as a lit mesh's albedo | `cube_scene.cpp` (`SetupRuntimeAlbedo`, `RuntimeAlbedoQuad` in `assets/levels/demo.level.json`) |
 | Translucent models and primitives (`"translucent": {}`), and the occluder fade on a runtime `DynamicMesh` | `translucent_scene.cpp` + `assets/levels/translucent_demo.level.json` |
+| Many point lights with a `range`, and reading their cost from `RenderStats` | `lights_scene.cpp` + `assets/levels/lights_demo.level.json` |
 | A continuous particle emitter (`particle_emitter` in JSON) | `assets/levels/demo.level.json`, `src/engine/particles/README.md` |
 | Timers, cooldowns and tweens (a pulse, a fade) | `assets/scripts/timer_tween_demo.as`, `src/engine/timer/README.md` |
 | Building a `GridNavGraph` and sending path requests | `tilemap_scene.cpp` (`SetupPathfindingAgent`), `src/engine/pathfinding/README.md` |

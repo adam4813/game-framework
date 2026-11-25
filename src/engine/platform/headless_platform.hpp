@@ -93,7 +93,7 @@ public:
 
 	void BeginMode3D(const Camera3DParams&) override {}
 	void EndMode3D() override {}
-	void SetLighting(const LightParams&) override {}
+	LightingStats SetLighting(const LightParams&, std::span<const PointLightParams>) override { return {}; }
 	void SetOcclusionFade(const OcclusionFadeParams&) override {}
 	void DrawCube(const glm::mat4&, glm::vec3, const DrawMaterial&) override {}
 	void DrawSphere(const glm::mat4&, float, const DrawMaterial&) override {}

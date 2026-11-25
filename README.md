@@ -154,6 +154,11 @@ cmake --build --preset wasm-release
 cmake --build --preset wasm-debug
 ```
 
+The web build needs **WebGL 2** (ADR 0009): the link flags in `cmake/GameTarget.cmake` ask for it, and the overlay triplet
+`triplets/wasm32-emscripten.cmake`, which the `wasm` preset turns on, builds raylib for OpenGL ES 3. A game with its own
+WASM preset sets `VCPKG_OVERLAY_TRIPLETS` to the framework's `triplets/` folder too. In a browser without WebGL 2 the
+page (`tools/wasm_shell.html`) says so instead of starting the game.
+
 #### Adding a dependency
 
 1. Add the port to `vcpkg.json` `dependencies` (and bump `overrides` only if the baseline's version breaks the engine).

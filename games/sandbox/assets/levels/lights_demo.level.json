@@ -1,0 +1,119 @@
+{
+	"singletons": {
+		"ambient_light": {
+			"color": [70, 80, 110, 255],
+			"intensity": 0.25
+		}
+	},
+	"entities": [
+		{
+			"name": "Camera",
+			"components": {
+				"transform": {"position": [0.0, 22.0, -34.0]},
+				"camera": {"fov": 50.0, "near": 0.1, "far": 120.0}
+			},
+			"refs": {"look_at": "Focus"}
+		},
+		{
+			"name": "Focus",
+			"components": {
+				"transform": {"position": [0.0, 0.0, -1.5]}
+			}
+		},
+		{
+			"name": "MoonLight",
+			"components": {
+				"directional_light": {
+					"direction": [-0.4, -1.0, 0.5],
+					"color": [120, 140, 200, 255],
+					"intensity": 0.15,
+					"casts_shadows": false
+				}
+			}
+		},
+		{
+			"name": "Floor",
+			"components": {
+				"transform": {"position": [0.0, 0.0, 0.0]},
+				"quad": {"size": [48.0, 48.0]},
+				"material": {"color": [190, 190, 195, 255], "cast_shadow": false}
+			}
+		},
+		{
+			"name": "ColumnWest",
+			"components": {
+				"transform": {"position": [-9.0, 1.5, 4.0]},
+				"cube": {"size": [1.6, 3.0, 1.6]},
+				"material": {"color": [220, 220, 220, 255]}
+			}
+		},
+		{
+			"name": "ColumnEast",
+			"components": {
+				"transform": {"position": [9.0, 1.5, 4.0]},
+				"cube": {"size": [1.6, 3.0, 1.6]},
+				"material": {"color": [220, 220, 220, 255]}
+			}
+		},
+		{
+			"name": "Boulder",
+			"components": {
+				"transform": {"position": [0.0, 1.5, 9.0]},
+				"sphere": {"radius": 1.8},
+				"material": {"color": [220, 220, 220, 255]}
+			}
+		},
+		{
+			"name": "Post",
+			"components": {
+				"transform": {"position": [-5.0, 1.2, -7.0]},
+				"capsule": {"radius": 0.6, "height": 1.4},
+				"material": {"color": [220, 220, 220, 255]}
+			}
+		},
+		{
+			"name": "RobotLeft",
+			"components": {
+				"transform": {"position": [-4.0, 0.0, 1.0], "rotation": [0.0, 3.1, 0.0], "scale": [0.8, 0.8, 0.8]},
+				"mesh": {"path": "models/robot.glb"},
+				"material": {"color": [255, 255, 255, 255]}
+			}
+		},
+		{
+			"name": "RobotRight",
+			"components": {
+				"transform": {"position": [4.0, 0.0, 1.0], "rotation": [0.0, 3.1, 0.0], "scale": [0.8, 0.8, 0.8]},
+				"mesh": {"path": "models/robot.glb"},
+				"material": {"color": [255, 255, 255, 255]}
+			}
+		},
+		{
+			"name": "RobotDancing",
+			"components": {
+				"transform": {"position": [0.0, 0.0, -2.0], "rotation": [0.0, 3.1, 0.0], "scale": [0.8, 0.8, 0.8]},
+				"mesh": {"path": "models/robot.glb"},
+				"skeletal_animation_set": {"path": "models/robot.glb"},
+				"animation": {},
+				"material": {"color": [255, 255, 255, 255]}
+			}
+		},
+		{
+			"name": "GlassCube",
+			"components": {
+				"transform": {"position": [5.0, 1.0, -7.0], "rotation": [0.0, 0.6, 0.0]},
+				"cube": {"size": [2.0, 2.0, 2.0]},
+				"material": {"color": [255, 255, 255, 110], "cast_shadow": false},
+				"translucent": {}
+			}
+		},
+		{
+			"name": "GlassSphere",
+			"components": {
+				"transform": {"position": [0.0, 1.2, -9.0]},
+				"sphere": {"radius": 1.2},
+				"material": {"color": [255, 255, 255, 110], "cast_shadow": false},
+				"translucent": {}
+			}
+		}
+	]
+}

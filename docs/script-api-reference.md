@@ -243,6 +243,9 @@ body is built.
 `AmbientLight`, `DirectionalLight`, `PointLight`, `Material`, `SpriteAtlas`, `AlbedoMap`, `SkeletalAnimationSet`,
 `AnimationPlayer`
 
+`PointLight.range` is where the light ends, in world units; it falls off smoothly to zero there. 0 (the default) derives
+it from `constant`, `linear`, `quadratic` and `intensity`. Give a light a small range when a scene has many.
+
 ### Globals
 
 | Global                                                         | Returns | Description                                                                                                          |
