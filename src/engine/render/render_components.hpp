@@ -129,10 +129,11 @@ struct PointLightOverflowLog {
 // particles and other entities that mutate their material per-frame can continue to use either.
 struct RenderWith {};
 
-// Opt-in sphere frustum cull for positioned entities (e.g. individual upright sprites).
-// RegisterPrimitiveRenderer skips the draw call when the entity's WorldTransform position
-// is outside a sphere of this radius. Entities without this component are never position-culled
-// (e.g. the tilemap ring-buffer mesh and the streaming world-object layer).
+// Sphere frustum cull for positioned entities (e.g. individual upright sprites): the entity isn't drawn when a
+// sphere of this radius around its WorldTransform position is outside the camera frustum.
+// On a static opaque MeshPrimitive it replaces the bounds the model is culled by otherwise; set it larger than the
+// model to keep an off-screen caster's shadow. Dynamic, skinned and translucent entities without this component are
+// never position-culled (e.g. the tilemap ring-buffer mesh and the streaming world-object layer).
 struct FrustumCullRadius {
 	float radius{2.0F};
 };

@@ -7,7 +7,7 @@
 
 #include "engine/platform/platform.hpp"
 
-// Per-frame render command buffer and supporting types. The primitive render systems accumulate
+// Per-frame render command buffer and supporting types. The primitive and model render systems accumulate
 // platform::RenderCommand entries into the RenderQueue singleton; a single flush system hands the
 // whole buffer to the platform, which groups and GPU-instances it. This replaces one draw call per
 // entity with one draw call per (mesh, shader, texture, flags) group.
@@ -47,6 +47,7 @@ struct RenderStats {
 	int queued_cubes{0};
 	int queued_spheres{0};
 	int queued_capsules{0};
+	int queued_meshes{0}; // loaded models; one per entity, however many sub-meshes it has
 };
 
 // Six world-space frustum planes extracted from a view-projection matrix, for sphere culling.

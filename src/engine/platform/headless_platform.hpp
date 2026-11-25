@@ -123,6 +123,7 @@ public:
 	void UnloadShader(int) override {}
 
 	int LoadMesh(std::string_view) override { return -1; }
+	[[nodiscard]] std::optional<BoundingSphere> MeshBounds(int) const override { return std::nullopt; }
 	int LoadTexture(std::string_view) override { return -1; }
 	int UploadTexture(int, int, const std::vector<uint8_t>&) override { return -1; }
 	void UpdateTexture(int, const std::vector<uint8_t>&) override {}

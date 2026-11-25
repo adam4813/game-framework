@@ -103,6 +103,14 @@ variant for WebGL).
   the ambient and directional terms. Attenuation is `1 / (constant + linear·d + quadratic·d²)`; the defaults fade over
   about 50 m. At most **4** are used (`LightParams::kMaxPointLights`, in query order); the rest are ignored with one
   logged warning. Point lights cast no shadows. A scene with none renders as before.
+- **Loaded models** — a `mesh` entity queues one `RenderCommand` holding its model handle, and `Render3DFlush` draws
+  all copies of a model that share a texture and material flags in one instanced draw per sub-mesh (plus one for
+  shadows). Tint is per instance, so differently colored copies still batch. Sub-meshes keep their authored texture,
+  color, vertex colors and double-sided flag. Models with a `ShaderMap` or `wireframe` draw directly, one call per
+  sub-mesh, before the batch.
+- **Model culling** — a static opaque model outside the camera frustum isn't drawn, and neither is its shadow (the
+  primitives' rule). `Platform::MeshBounds` gives its bounding sphere, computed at load; an entity's own
+  `FrustumCullRadius` replaces it, so a large one keeps an off-screen caster's shadow.
 - **Skinned models** — a `mesh` entity that also has a `skeletal_animation_set` is drawn by `RenderSkinnedMeshes`
   (and skipped by `RenderMeshes`) through `Platform::DrawSkinnedMesh`, at its `AnimationPlayer`'s clip and time (clip 0
   at time 0 without a player). See `src/engine/animation/README.md`.

@@ -43,6 +43,7 @@ since a game's own `OnStore` system runs after the 3D pass has closed.
 | Draws, audio, window calls | real | no-ops |
 | Input | the keyboard and mouse | nothing pressed, mouse at the origin |
 | Loads (`LoadMesh`, `LoadTexture`, `LoadSound`, ...) | handles | `-1` |
+| `MeshBounds()` | the loaded model's bounding sphere | none, so nothing is culled by it |
 | `DeltaTime()` | the measured frame time | a fixed 1/60 s |
 | Saves | files in `<exe dir>/saves` (desktop), `localStorage` (web) | files in the directory given at construction (default `<exe dir>/saves`), or none |
 

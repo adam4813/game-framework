@@ -1,12 +1,13 @@
 #include "raylib_backend.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <string>
@@ -119,6 +120,8 @@ std::unordered_map<std::string, int> g_model_paths;
 // Per model handle, the glTF doubleSided flag of each raylib material (index 0 is raylib's default material, always
 // false; index i + 1 is glTF material i). Empty for a model that isn't glTF.
 std::vector<std::vector<bool>> g_model_double_sided;
+// Per model handle, its local-space bounds; empty once unloaded, or for a model with no vertices.
+std::vector<std::optional<BoundingSphere>> g_model_bounds;
 
 // Skeletal animation sets (all clips of one model file), indexed by the handle LoadSkeletalAnimationSet returns.
 // raylib resamples every clip to a fixed 17 ms frame step, so a clip's length is frameCount * kSkeletalFrameSeconds.
@@ -306,9 +309,8 @@ struct InstancedState {
 
 InstancedState g_inst;
 
-// A mesh that can be GPU-instanced. Owns the base geometry plus persistent per-instance VBOs
-// (transform + colour) attached to the mesh VAO, grown on demand. Built-in primitives register
-// here at init; RenderCommand::mesh indexes this vector.
+// A mesh that can be GPU-instanced: its geometry plus persistent per-instance VBOs (transform + colour) attached to
+// the mesh VAO, grown on demand.
 struct RenderMesh {
 	Mesh mesh{};
 	unsigned int transform_vbo = 0;
@@ -316,7 +318,13 @@ struct RenderMesh {
 	int instance_capacity = 0;
 };
 
+// The built-in primitives, registered at init; they own their geometry. RenderCommand::mesh indexes this vector.
 std::vector<RenderMesh> g_render_meshes;
+
+// Per model handle, one RenderMesh per sub-mesh, built on the model's first instanced draw (empty until then). Each is
+// a copy of the model's Mesh that borrows its geometry but has a VAO of its own: the instance attributes would
+// otherwise overwrite attribute slots (vertex colors, tangents, bones) the model's direct and skinned draws read.
+std::vector<std::vector<RenderMesh>> g_model_parts;
 
 // Cached lighting state so the instanced shader (a separate program from g_lit) can be fed the same
 // uniforms at batch time. Updated by SetLighting / BeginMode3D.
@@ -723,6 +731,22 @@ void ShutdownLitResources() {
 	g_skin = LitState{};
 }
 
+// The sphere around the box that holds every vertex of `model`. The draw paths use only the caller's matrix, never
+// Model::transform, so neither do the bounds. Empty when the model has no vertices.
+std::optional<BoundingSphere> ComputeModelBounds(const Model& model) {
+	std::optional<BoundingBox> box;
+	for (int i = 0; i < model.meshCount; ++i) {
+		const Mesh& mesh = model.meshes[i];
+		if (mesh.vertices == nullptr || mesh.vertexCount == 0) continue;
+		const BoundingBox part = GetMeshBoundingBox(mesh);
+		box = box ? BoundingBox{.min = Vector3Min(box->min, part.min), .max = Vector3Max(box->max, part.max)} : part;
+	}
+	if (!box) return std::nullopt;
+	const glm::vec3 lo{box->min.x, box->min.y, box->min.z};
+	const glm::vec3 hi{box->max.x, box->max.y, box->max.z};
+	return BoundingSphere{.center = (lo + hi) * 0.5f, .radius = glm::length(hi - lo) * 0.5f};
+}
+
 // The diffuse texture a model's mesh `i` was authored with, or the white texture when it has none.
 Texture2D MeshFallbackTexture(const Model& model, const int i) {
 	if (model.meshMaterial != nullptr
@@ -908,11 +932,73 @@ void InitInstancedResources() {
 	g_inst.ready = true;
 }
 
+void UnloadInstanceBuffers(const RenderMesh& rm) {
+	if (rm.transform_vbo != 0) rlUnloadVertexBuffer(rm.transform_vbo);
+	if (rm.color_vbo != 0) rlUnloadVertexBuffer(rm.color_vbo);
+}
+
+// Frees what a model's parts own (their VAOs and per-instance buffers); the geometry belongs to the model.
+void UnloadModelParts(std::vector<RenderMesh>& parts) {
+	for (const RenderMesh& rm : parts) {
+		UnloadInstanceBuffers(rm);
+		rlUnloadVertexArray(rm.mesh.vaoId);
+	}
+	parts.clear();
+}
+
+// Gives `part` a VAO of its own over the geometry of `mesh`, with the attributes lit_inst.vs reads. False when the
+// GPU has no VAOs.
+bool BuildModelPart(const Mesh& mesh, RenderMesh& part) {
+	const unsigned int vao = rlLoadVertexArray();
+	if (vao == 0) return false;
+
+	const auto attach = [&](const unsigned int location, const int components, const int type, const bool normalized) {
+		if (mesh.vboId[location] == 0) return;
+		rlEnableVertexBuffer(mesh.vboId[location]);
+		rlSetVertexAttribute(location, components, type, normalized, 0, 0);
+		rlEnableVertexAttribute(location);
+	};
+	rlEnableVertexArray(vao);
+	// A missing attribute reads the context's default, which raylib sets when it uploads the mesh (white for colors).
+	attach(RL_DEFAULT_SHADER_ATTRIB_LOCATION_POSITION, 3, RL_FLOAT, false);
+	attach(RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD, 2, RL_FLOAT, false);
+	attach(RL_DEFAULT_SHADER_ATTRIB_LOCATION_NORMAL, 3, RL_FLOAT, false);
+	attach(RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR, 4, RL_UNSIGNED_BYTE, true);
+	if (mesh.indices != nullptr) {
+		rlEnableVertexBufferElement(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES]);
+	}
+	rlDisableVertexArray();
+	rlDisableVertexBuffer();
+	rlDisableVertexBufferElement();
+
+	part.mesh = mesh;
+	part.mesh.vaoId = vao;
+	return true;
+}
+
+// The instanceable parts of loaded model `handle`, one per sub-mesh, built on first use. Empty when they can't be built.
+std::vector<RenderMesh>& ModelParts(const int handle) {
+	std::vector<RenderMesh>& parts = g_model_parts[static_cast<size_t>(handle)];
+	if (!parts.empty()) return parts;
+	const Model& model = g_models[static_cast<size_t>(handle)];
+	for (int i = 0; i < model.meshCount; ++i) {
+		RenderMesh part;
+		if (!BuildModelPart(model.meshes[i], part)) {
+			UnloadModelParts(parts);
+			break;
+		}
+		parts.push_back(part);
+	}
+	return parts;
+}
+
 void ShutdownInstancedResources() {
 	if (!g_inst.ready) return;
-	for (RenderMesh& rm : g_render_meshes) {
-		if (rm.transform_vbo != 0) rlUnloadVertexBuffer(rm.transform_vbo);
-		if (rm.color_vbo != 0) rlUnloadVertexBuffer(rm.color_vbo);
+	for (std::vector<RenderMesh>& parts : g_model_parts) {
+		UnloadModelParts(parts);
+	}
+	for (const RenderMesh& rm : g_render_meshes) {
+		UnloadInstanceBuffers(rm);
 		if (rm.mesh.vertexCount != 0) UnloadMesh(rm.mesh);
 	}
 	g_render_meshes.clear();
@@ -1004,11 +1090,22 @@ void EnsureInstanceBuffers(RenderMesh& rm, const int count) {
 	rlDisableVertexArray();
 }
 
+// A tint as the instance-color attribute holds it.
+glm::vec4 ToInstanceColor(const Rgba& c) {
+	return {
+		static_cast<float>(c.r) / 255.0f,
+		static_cast<float>(c.g) / 255.0f,
+		static_cast<float>(c.b) / 255.0f,
+		static_cast<float>(c.a) / 255.0f,
+	};
+}
+
 // Issues one instanced draw (plus an optional planar-shadow pass) for a group of same-key commands.
-// Returns the number of GL draw calls made.
+// `fallback_texture` shows when the material has no texture. Returns the number of GL draw calls made.
 int DrawInstancedGroup(
 	RenderMesh& rm,
 	const DrawMaterial& material,
+	const Texture2D& fallback_texture,
 	const std::vector<glm::mat4>& transforms,
 	const std::vector<glm::vec4>& colors
 ) {
@@ -1034,8 +1131,8 @@ int DrawInstancedGroup(
 		SetShaderValue(g_inst.shader, g_inst.loc_col_diffuse, white, SHADER_UNIFORM_VEC4);
 	}
 
-	// Bind the albedo texture (or the 1x1 white fallback) to sampler slot 0.
-	const Texture2D tex = ResolveTextureHandle(material.texture, g_lit.white);
+	// Bind the albedo texture (or the fallback) to sampler slot 0.
+	const Texture2D tex = ResolveTextureHandle(material.texture, fallback_texture);
 	rlActiveTextureSlot(0);
 	rlEnableTexture(tex.id);
 	const int slot0 = 0;
@@ -1145,6 +1242,8 @@ void RaylibBackend::Shutdown() {
 	}
 	g_models.clear();
 	g_model_double_sided.clear();
+	g_model_bounds.clear();
+	g_model_parts.clear();
 	for (SkeletalSet& set : g_skeletal_sets) {
 		if (set.clips != nullptr) {
 			::UnloadModelAnimations(set.clips, set.count);
@@ -1758,6 +1857,49 @@ BatchStats RaylibBackend::SubmitBatch(const std::span<const RenderCommand> comma
 	for (const RenderBatchGroup& group : groups) {
 		const RenderCommand& head = commands[order[group.begin]];
 		const DrawMaterial& material = head.material;
+
+		if (head.model >= 0) {
+			if (head.model >= static_cast<int>(g_models.size())) continue;
+			const Model& model = g_models[static_cast<size_t>(head.model)];
+			if (model.meshCount == 0) continue; // unloaded
+
+			std::vector<RenderMesh>* parts = nullptr;
+			if (g_inst.ready && material.shader < 0 && !material.wireframe) {
+				parts = &ModelParts(head.model);
+			}
+			stats.instances += static_cast<int>(group.count);
+			if (parts == nullptr || parts->empty()) {
+				for (uint32_t k = 0; k < group.count; ++k) {
+					const RenderCommand& cmd = commands[order[group.begin + k]];
+					DrawMesh(cmd.model, cmd.transform, cmd.material);
+				}
+				stats.draw_calls += static_cast<int>(group.count) * model.meshCount;
+				continue;
+			}
+
+			transforms.clear();
+			transforms.reserve(group.count);
+			for (uint32_t k = 0; k < group.count; ++k) {
+				transforms.push_back(commands[order[group.begin + k]].transform);
+			}
+			for (int i = 0; i < model.meshCount; ++i) {
+				colors.clear();
+				colors.reserve(group.count);
+				for (uint32_t k = 0; k < group.count; ++k) {
+					const DrawMaterial& instance = commands[order[group.begin + k]].material;
+					colors.push_back(ToInstanceColor(WithAuthoredColor(instance, model, i).tint));
+				}
+				stats.draw_calls += DrawInstancedGroup(
+					(*parts)[static_cast<size_t>(i)],
+					WithMeshDoubleSided(material, head.model, model, i),
+					MeshFallbackTexture(model, i),
+					transforms,
+					colors
+				);
+			}
+			continue;
+		}
+
 		RenderMesh* rm = (head.mesh >= 0 && head.mesh < static_cast<int>(g_render_meshes.size()))
 							 ? &g_render_meshes[static_cast<size_t>(head.mesh)]
 							 : nullptr;
@@ -1788,16 +1930,10 @@ BatchStats RaylibBackend::SubmitBatch(const std::span<const RenderCommand> comma
 		for (uint32_t k = 0; k < group.count; ++k) {
 			const RenderCommand& cmd = commands[order[group.begin + k]];
 			transforms.push_back(cmd.transform);
-			const core::Rgba t = cmd.material.tint;
-			colors.emplace_back(
-				static_cast<float>(t.r) / 255.0f,
-				static_cast<float>(t.g) / 255.0f,
-				static_cast<float>(t.b) / 255.0f,
-				static_cast<float>(t.a) / 255.0f
-			);
+			colors.push_back(ToInstanceColor(cmd.material.tint));
 		}
 
-		stats.draw_calls += DrawInstancedGroup(*rm, material, transforms, colors);
+		stats.draw_calls += DrawInstancedGroup(*rm, material, g_lit.white, transforms, colors);
 		stats.instances += static_cast<int>(group.count);
 	}
 
@@ -1827,8 +1963,15 @@ int RaylibBackend::LoadMesh(const std::string_view path) {
 	const int handle = static_cast<int>(g_models.size());
 	g_models.push_back(model);
 	g_model_double_sided.push_back(std::move(double_sided));
+	g_model_bounds.push_back(ComputeModelBounds(model));
+	g_model_parts.emplace_back();
 	g_model_paths[key] = handle;
 	return handle;
+}
+
+std::optional<BoundingSphere> RaylibBackend::MeshBounds(const int handle) const {
+	if (handle < 0 || handle >= static_cast<int>(g_model_bounds.size())) return std::nullopt;
+	return g_model_bounds[static_cast<size_t>(handle)];
 }
 
 int RaylibBackend::UploadDynamicMesh(
@@ -2166,9 +2309,11 @@ void RaylibBackend::UnloadMesh(const int handle) {
 	if (model.meshCount == 0) {
 		return; // already unloaded
 	}
+	UnloadModelParts(g_model_parts[static_cast<std::size_t>(handle)]);
 	::UnloadModel(model);
 	model.meshCount = 0;
 	g_model_double_sided[static_cast<std::size_t>(handle)].clear();
+	g_model_bounds[static_cast<std::size_t>(handle)].reset();
 	std::erase_if(g_model_paths, [handle](const auto& kv) { return kv.second == handle; });
 }
 

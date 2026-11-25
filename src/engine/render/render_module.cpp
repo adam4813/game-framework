@@ -98,22 +98,23 @@ platform::DrawMaterial ResolveDrawMaterial(const flecs::entity e) {
 	return MakeDrawMaterial(parent.is_valid() ? parent.target<RenderWith>() : flecs::entity{});
 }
 
+// Entities must have a material source to draw: inline Material, a direct (RenderWith,*) pair, or a parent with
+// (RenderWith,*) — the latter covers overflow chunk children whose atlas/material is inherited from the carrier entity.
+bool HasMaterialSource(const flecs::entity entity) {
+	if (entity.has<Material>() || entity.has<RenderWith>(flecs::Wildcard)) return true;
+	const flecs::entity parent = entity.parent();
+	return parent.is_valid() && parent.has<RenderWith>(flecs::Wildcard);
+}
+
 // The shared gate of the direct per-entity draw systems: nothing when 3D rendering is inactive, the entity has
 // no material source, or the opt-in frustum cull rejects it; otherwise the entity's draw material.
 std::optional<platform::DrawMaterial> ResolveDrawable(const flecs::entity entity, const spatial::WorldTransform& wt) {
 	const flecs::world world = entity.world();
 	if (!world.get<Render3DState>().active) return std::nullopt;
-	// Entities must have a material source: inline Material, a direct (RenderWith,*) pair,
-	// or a parent with (RenderWith,*) — the latter covers overflow chunk children whose
-	// atlas/material is inherited from the carrier entity.
-	if (!entity.has<Material>()
-		&& !entity.has<RenderWith>(flecs::Wildcard)
-		&& !entity.parent().has<RenderWith>(flecs::Wildcard)) {
-		return std::nullopt;
-	}
+	if (!HasMaterialSource(entity)) return std::nullopt;
 	// Opt-in sphere frustum cull: only applied to entities that carry FrustumCullRadius
-	// (e.g. per-entity creature/NPC sprites). Static or streaming meshes omit this
-	// component and are never position-culled.
+	// (e.g. per-entity creature/NPC sprites). Dynamic, skinned and translucent draws without
+	// the component are never position-culled.
 	if (const auto* fcr = entity.try_get<FrustumCullRadius>()) {
 		const auto& cull = world.get<CameraFrustum>();
 		if (cull.valid && !cull.frustum.ContainsSphere(glm::vec3(wt.matrix[3]), fcr->radius)) return std::nullopt;
@@ -262,6 +263,24 @@ void EnqueuePrimitive(
 	}
 	queue.commands.push_back({.mesh = p.PrimitiveMesh(shape), .transform = model, .material = material});
 	++stats.queued;
+}
+
+// True when the frustum rejects a loaded model. An entity's own FrustumCullRadius replaces the model's bounds; a model
+// with neither is never culled.
+bool IsModelCulled(
+	const platform::Platform& p,
+	const CameraFrustum& cull,
+	const int model,
+	const glm::mat4& transform,
+	const FrustumCullRadius* own_radius
+) {
+	if (!cull.valid) return false;
+	if (own_radius != nullptr) return !cull.frustum.ContainsSphere(glm::vec3(transform[3]), own_radius->radius);
+	const std::optional<platform::BoundingSphere> bounds = p.MeshBounds(model);
+	if (!bounds) return false;
+	const auto center = glm::vec3(transform * glm::vec4(bounds->center, 1.0F));
+	const float radius = bounds->radius * MaxAxisScale(transform) * 1.1F; // same margin as the primitives
+	return !cull.frustum.ContainsSphere(center, radius);
 }
 
 // Builds a DrawMaterial from inline component columns (fast path). A null `mat` yields defaults.
@@ -751,6 +770,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 				stats.queued_cubes = 0;
 				stats.queued_spheres = 0;
 				stats.queued_capsules = 0;
+				stats.queued_meshes = 0;
 				// Bump the render frame generation so each enqueuer thread registers itself once.
 				g_render_frame_gen.fetch_add(1, std::memory_order_relaxed);
 				g_render_threads_active.store(0, std::memory_order_relaxed);
@@ -977,9 +997,8 @@ RenderModule::RenderModule(const flecs::world& world) {
 			})
 			.add<scene::GameScene>();
 
-	// Loaded models and dynamic meshes are few and often unique, so they keep the direct per-entity
-	// draw path rather than the instanced batch.
-	// Written out rather than through RegisterPrimitiveRenderer: it alone must leave skinned models to
+	// Loaded models: one queued command per entity, so copies of a model instance at the flush. Custom-shader and
+	// wireframe models draw directly, since the batch can't instance them. Skinned models are left to
 	// RenderSkinnedMeshes below.
 	world.system<const spatial::WorldTransform, const MeshPrimitive>("RenderMeshes")
 		.without<animation::SkeletalAnimationSet>()
@@ -989,11 +1008,44 @@ RenderModule::RenderModule(const flecs::world& world) {
 		.self()
 		.up()
 		.without<Translucent>()
-		.each([](const flecs::iter& it, const size_t i, const spatial::WorldTransform& wt, const MeshPrimitive& mesh) {
-			if (mesh.handle < 0) return;
-			const auto material = ResolveDrawable(it.entity(i), wt);
-			if (!material) return;
-			it.world().get<platform::PlatformRef>().ptr->DrawMesh(mesh.handle, wt.matrix, *material);
+		.run([](flecs::iter& it) {
+			profiling::Zone _zone{"RenderEnqueue::Meshes"};
+			const auto world = it.world();
+			const bool active = world.get<Render3DState>().active;
+			const auto& cull = world.get<CameraFrustum>();
+			auto& platform = *world.get<platform::PlatformRef>().ptr;
+			auto& queue = world.get_mut<RenderQueue>();
+			auto& stats = world.get_mut<RenderStats>();
+
+			while (it.next()) {
+				if (!active || it.count() == 0 || !HasMaterialSource(it.entity(0))) continue;
+				const auto wt = it.field<const spatial::WorldTransform>(0);
+				const auto mesh = it.field<const MeshPrimitive>(1);
+
+				// The pairs that pick a material entity (RenderWith, ChildOf) are the same for the whole table, so
+				// only an inline Material differs per entity.
+				const bool inline_material = it.entity(0).has<Material>();
+				const platform::DrawMaterial shared =
+					inline_material ? platform::DrawMaterial{} : ResolveDrawMaterial(it.entity(0));
+
+				for (const auto i : it) {
+					if (mesh[i].handle < 0) continue;
+					const flecs::entity entity = it.entity(i);
+					const glm::mat4& transform = wt[i].matrix;
+					if (IsModelCulled(platform, cull, mesh[i].handle, transform, entity.try_get<FrustumCullRadius>())) {
+						++stats.culled;
+						continue;
+					}
+					const platform::DrawMaterial material = inline_material ? ResolveDrawMaterial(entity) : shared;
+					if (material.shader >= 0 || material.wireframe) {
+						platform.DrawMesh(mesh[i].handle, transform, material);
+						continue;
+					}
+					queue.commands.push_back({.model = mesh[i].handle, .transform = transform, .material = material});
+					++stats.queued;
+					++stats.queued_meshes;
+				}
+			}
 		})
 		.add<scene::GameScene>();
 	// Skinned models: a MeshPrimitive plus a SkeletalAnimationSet, drawn at the AnimationPlayer's clip and time
@@ -1176,6 +1228,7 @@ RenderModule::RenderModule(const flecs::world& world) {
 				stats.Plot("RenderModule", "render.queued.cubes", static_cast<int64_t>(rs.queued_cubes));
 				stats.Plot("RenderModule", "render.queued.spheres", static_cast<int64_t>(rs.queued_spheres));
 				stats.Plot("RenderModule", "render.queued.capsules", static_cast<int64_t>(rs.queued_capsules));
+				stats.Plot("RenderModule", "render.queued.meshes", static_cast<int64_t>(rs.queued_meshes));
 				stats.Plot("RenderModule", "render.culled", static_cast<int64_t>(rs.culled));
 
 				// CPU timing breakdown: enqueue → group → draw.
