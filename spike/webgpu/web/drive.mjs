@@ -29,7 +29,7 @@ await new Promise((r) => server.on("listening", r));
 const origin = option("--url") || `http://${host}:${server.address().port}`;
 
 const profile = mkdtempSync(join(tmpdir(), "spike-chrome-"));
-const chrome = spawn("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", [
+const chrome = spawn(process.env.CHROME ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", [
 	...(headed ? ["--window-position=200,100"] : ["--headless=new"]), "--window-size=1000,700", "--no-first-run", "--no-default-browser-check",
 	"--remote-debugging-port=0", `--user-data-dir=${profile}`, ...extra, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
 const wsUrl = await new Promise((resolve, reject) => {

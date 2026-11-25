@@ -1,0 +1,137 @@
+name: Spike WebGPU (throwaway)
+
+# Render pipeline map, ticket 07: can CI build and test SDL3 + Dawn at an acceptable cost? Runs only on this branch.
+# setup-environment is used as it is; a `target` of its own keeps the spike's vcpkg cache apart from the games'.
+
+on:
+  push:
+    branches: [ spike/webgpu ]
+    paths: [ '.github/workflows/spike-webgpu.yml', 'spike/webgpu/**' ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: ${{ matrix.triplet }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, os: ubuntu-latest, triplet: x64-linux-dawnrel }
+          - { platform: linux, os: ubuntu-latest, triplet: x64-linux }
+          - { platform: windows, os: windows-latest, triplet: x64-windows-dawnrel }
+          - { platform: windows, os: windows-latest, triplet: x64-windows }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/actions/setup-environment
+        with:
+          target: Spike-${{ matrix.triplet }}
+      - name: SDL3's extra dev packages
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y libxkbcommon-dev libegl1-mesa-dev libx11-xcb-dev libxtst-dev libxss-dev wayland-protocols libltdl-dev
+      - name: Build
+        shell: bash
+        run: bash spike/webgpu/ci/build.sh ${{ matrix.triplet }}
+      - name: Save vcpkg binary cache
+        if: ${{ !cancelled() && env.VCPKG_ARCHIVES != '' }}
+        uses: $/.github/actions/save-vcpkg-cache
+      - name: Run
+        shell: bash
+        run: bash spike/webgpu/ci/run.sh ${{ matrix.platform }} ${{ matrix.triplet }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spike-${{ matrix.triplet }}
+          path: |
+            offscreen.ppm
+            *.log
+          retention-days: 5
+          if-no-files-found: ignore
+
+  # SDL3 with only the packages setup-environment installs today.
+  sdl-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/actions/setup-environment
+        with:
+          target: Spike-sdl
+      - shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          if "$VCPKG_ROOT/vcpkg" install sdl3 --triplet x64-linux > sdl.log 2>&1; then
+            echo "FACT: sdl3 builds with setup-environment's packages"
+          else
+            echo "FACT: sdl3 does NOT build with setup-environment's packages"
+          fi
+          tail -60 sdl.log
+          grep -rhE 'SDL_(X11|WAYLAND|VIDEO)|Could NOT find|not found|package' "$VCPKG_ROOT"/buildtrees/sdl3/config-*-out.log | head -60 || true
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/actions/setup-environment
+        with:
+          target: WebAssembly
+      # Its own folder, so the engine's restored archives don't count.
+      - name: Separate vcpkg cache
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/spike-archives"
+          echo "VCPKG_ARCHIVES=$RUNNER_TEMP/spike-archives" >> "$GITHUB_ENV"
+          echo "VCPKG_BINARY_SOURCES=clear;files,$RUNNER_TEMP/spike-archives,readwrite" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ env.VCPKG_ARCHIVES }}
+          key: vcpkg-Spike-web-1
+      - name: Build
+        shell: bash
+        run: |
+          emcc --version | head -1
+          echo "FACT: emsdk cache before $(du -sm "$EMSDK/upstream/emscripten/cache" | cut -f1) MB"
+          bash spike/webgpu/ci/build.sh wasm32-emscripten \
+            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+          echo "FACT: emsdk cache after $(du -sm "$EMSDK/upstream/emscripten/cache" | cut -f1) MB"
+          find "$EMSDK/upstream/emscripten/cache" -iname '*dawn*' -exec du -sk {} \; | sed 's/^/FACT: emsdk cache KB /'
+      - name: Run
+        shell: bash
+        run: bash spike/webgpu/ci/web.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spike-web
+          path: |
+            window.png
+            *.log
+          retention-days: 5
+          if-no-files-found: ignore
+
+  # What each port weighs in today's caches (read from main's, saved by nobody here).
+  today:
+    name: today's cache (${{ matrix.os }}, ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: Desktop }
+          - { os: windows-latest, target: Desktop }
+          - { os: ubuntu-latest, target: WebAssembly }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/actions/setup-environment
+        with:
+          target: ${{ matrix.target }}
+      - shell: bash
+        run: $(command -v python3 || command -v python) spike/webgpu/ci/archives.py "$VCPKG_ARCHIVES"
