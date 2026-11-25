@@ -10,13 +10,13 @@ needs compute shaders and storage buffers on both, which OpenGL 3.3 and WebGL 2 
 only API that gives them to a browser.
 
 This supersedes ADR 0009's GPU half at the swap: cluster lists as RGBA32F textures, the WebGL 2 requirement and the
-raylib triplet. Its other half stays: clustered forward shading, the light `range`, the budgets and the CPU cluster build, which
-feeds storage buffers instead. Moving that build to compute is a later choice.
+raylib triplet. Its other half stays: clustered forward shading, the light `range`, the budgets and the CPU cluster
+build, which feeds storage buffers instead. Moving that build to compute is a later choice.
 
 **Dawn comes from vcpkg**, with one backend per system, Release-only (a Debug executable uses the Release Dawn), and the
 same port provides the web's bindings. So the engine uses the C API alone: Dawn's C++ API passes standard-library types
-and crashes across configurations. Windows ships D3D12 only; nothing outside the Dawn feature list and device start-up may
-assume it, so that Vulkan on Windows can be added later.
+and crashes across configurations. Windows ships D3D12 only; nothing outside the Dawn feature list and device start-up
+may assume it, so that Vulkan on Windows can be added later.
 
 Design to WebGPU's core default limits (4 bind groups, 8 storage buffers per stage): a device gets those unless more are
 requested, every core adapter has them, and Chrome never raises the bind group count. Compatibility mode isn't used: it
