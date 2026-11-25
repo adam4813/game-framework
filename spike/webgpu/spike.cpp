@@ -383,6 +383,8 @@ Options Parse(int argc, char** argv) {
 		if (arg == "--list") o.list = true;
 		else if (arg == "--offscreen") o.offscreen = true;
 		else if (arg == "--imgui") o.imgui = true;
+		else if (arg == "--enumerate") o.enumerate = true;
+		else if (arg == "--fallback") o.fallback = true;
 		else if (arg == "--immediate") o.immediate = true;
 		else if (arg == "--quantized-time") o.quantized_time = true;
 		else if (arg == "--backend") o.backend = next();
@@ -400,7 +402,7 @@ int main(int argc, char** argv) {
 	std::setvbuf(stdout, nullptr, _IONBF, 0);
 	const Options options = Parse(argc, argv);
 	const auto start = Clock::now();
-	WGPUInstance instance = platform::CreateInstance();
+	WGPUInstance instance = options.list || options.enumerate ? platform::CreateNativeInstance() : platform::CreateInstance();
 	if (options.list) {
 		platform::ListAdapters(instance);
 		return 0;

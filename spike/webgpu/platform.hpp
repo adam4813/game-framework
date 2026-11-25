@@ -14,6 +14,8 @@ struct Options {
 	bool offscreen = false;
 	bool imgui = false;
 	bool immediate = false;       // present mode Immediate instead of Fifo
+	bool enumerate = false;       // pick the adapter through Dawn's C++ API instead of the C API
+	bool fallback = false;        // forceFallbackAdapter (C API path)
 	bool quantized_time = false;  // leave Dawn's timestamp quantization on
 	std::string backend;          // "", d3d12, d3d11, vulkan, null
 	uint32_t vendor = 0;          // 0 = any
@@ -28,6 +30,7 @@ std::vector<WGPUFeatureName> WantedFeatures();
 
 namespace platform {
 WGPUInstance CreateInstance();
+WGPUInstance CreateNativeInstance();  // native only: C++ API, needed by ListAdapters and Options::enumerate
 // Lists every adapter of every built backend with limits and features (native only).
 void ListAdapters(WGPUInstance instance);
 // Returns null when no adapter matches.

@@ -8,12 +8,19 @@
 
 #include <SDL3/SDL.h>
 #include <dawn/native/DawnNative.h>
+#ifdef _WIN32
+#include <dawn/native/D3DBackend.h>
+#include <dxgi1_4.h>
+#include <wrl/client.h>
+#endif
 #ifdef SPIKE_IMGUI
 #include <imgui_impl_sdl3.h>
 #endif
 
 namespace {
-std::unique_ptr<dawn::native::Instance> g_instance;
+// Dawn's C++ API. It passes std::vector over the DLL boundary, so a Debug exe can't use it with a Release Dawn.
+std::unique_ptr<dawn::native::Instance> g_native;
+WGPUInstance g_instance = nullptr;
 SDL_Window* g_window = nullptr;
 
 const char* BackendName(WGPUBackendType type) {
@@ -37,7 +44,7 @@ WGPUBackendType BackendFromName(const std::string& name) {
 std::vector<dawn::native::Adapter> Enumerate(const std::string& backend) {
 	WGPURequestAdapterOptions options = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
 	options.backendType = BackendFromName(backend);
-	return g_instance->EnumerateAdapters(&options);
+	return g_native->EnumerateAdapters(&options);
 }
 
 void PrintAdapter(WGPUAdapter adapter) {
@@ -48,13 +55,59 @@ void PrintAdapter(WGPUAdapter adapter) {
 	            Str(info.device).c_str(), Str(info.description).c_str(), Str(info.architecture).c_str());
 	wgpuAdapterInfoFreeMembers(info);
 }
+
+// C API only. A WARP vendor/device pair is turned into its LUID, because the C API can't enumerate.
+WGPUAdapter RequestAdapter(const Options& options) {
+	WGPURequestAdapterOptions request = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
+	request.backendType = BackendFromName(options.backend);
+	request.powerPreference = WGPUPowerPreference_HighPerformance;
+	request.forceFallbackAdapter = options.fallback;
+#ifdef _WIN32
+	dawn::native::d3d::RequestAdapterOptionsLUID luid;
+	if (options.vendor == 0x1414) {
+		Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
+		Microsoft::WRL::ComPtr<IDXGIAdapter> warp;
+		DXGI_ADAPTER_DESC desc{};
+		if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory))) || FAILED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warp))) ||
+		    FAILED(warp->GetDesc(&desc)))
+			return nullptr;
+		luid.adapterLUID = desc.AdapterLuid;
+		request.nextInChain = reinterpret_cast<WGPUChainedStruct*>(&luid);
+	}
+#endif
+	struct Result {
+		WGPUAdapter adapter = nullptr;
+		bool done = false;
+	} result;
+	WGPURequestAdapterCallbackInfo callback = WGPU_REQUEST_ADAPTER_CALLBACK_INFO_INIT;
+	callback.mode = WGPUCallbackMode_AllowProcessEvents;
+	callback.userdata1 = &result;
+	callback.callback = [](WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* user,
+	                       void*) {
+		auto& out = *static_cast<Result*>(user);
+		out.done = true;
+		if (status == WGPURequestAdapterStatus_Success)
+			out.adapter = adapter;
+		else
+			std::fprintf(stderr, "requestAdapter failed: %s\n", Str(message).c_str());
+	};
+	wgpuInstanceRequestAdapter(g_instance, &request, callback);
+	while (!result.done) wgpuInstanceProcessEvents(g_instance);
+	return result.adapter;
+}
 }  // namespace
 
 namespace platform {
 
 WGPUInstance CreateInstance() {
-	// This Dawn can't find system DLLs by bare name (LoadLibraryEx error 87), so SPIKE_SEARCH adds a folder, e.g.
-	// "C:\Windows\System32\", for vulkan-1.dll and d3dcompiler_47.dll.
+	g_instance = wgpuCreateInstance(nullptr);
+	return g_instance;
+}
+
+// The C++ instance: adapter enumeration, and SPIKE_SEARCH. This Dawn can't find system DLLs by bare name
+// (LoadLibraryEx error 87), so SPIKE_SEARCH adds a folder, e.g. C:/Windows/System32/, for vulkan-1.dll and
+// d3dcompiler_47.dll.
+WGPUInstance CreateNativeInstance() {
 	dawn::native::DawnInstanceDescriptor search;
 	std::string_view path;
 	if (const char* env = SDL_getenv("SPIKE_SEARCH")) {
@@ -63,8 +116,9 @@ WGPUInstance CreateInstance() {
 	}
 	wgpu::InstanceDescriptor desc;
 	desc.nextInChain = &search;
-	g_instance = std::make_unique<dawn::native::Instance>(&desc);
-	return g_instance->Get();
+	g_native = std::make_unique<dawn::native::Instance>(&desc);
+	g_instance = g_native->Get();
+	return g_instance;
 }
 
 void ListAdapters(WGPUInstance) {
@@ -106,17 +160,22 @@ void ListAdapters(WGPUInstance) {
 
 WGPUDevice CreateDevice(WGPUInstance, const Options& options) {
 	WGPUAdapter adapter = nullptr;
-	const auto candidates = Enumerate(options.backend);
-	for (const auto& candidate : candidates) {
-		WGPUAdapterInfo info = WGPU_ADAPTER_INFO_INIT;
-		wgpuAdapterGetInfo(candidate.Get(), &info);
-		const bool match = (!options.vendor || info.vendorID == options.vendor) &&
-		                   (!options.device || info.deviceID == options.device);
-		wgpuAdapterInfoFreeMembers(info);
-		if (match) {
-			adapter = candidate.Get();
-			break;
+	std::vector<dawn::native::Adapter> candidates;  // owns the adapter in the C++ path
+	if (g_native) {
+		candidates = Enumerate(options.backend);
+		for (const auto& candidate : candidates) {
+			WGPUAdapterInfo info = WGPU_ADAPTER_INFO_INIT;
+			wgpuAdapterGetInfo(candidate.Get(), &info);
+			const bool match = (!options.vendor || info.vendorID == options.vendor) &&
+			                   (!options.device || info.deviceID == options.device);
+			wgpuAdapterInfoFreeMembers(info);
+			if (match) {
+				adapter = candidate.Get();
+				break;
+			}
 		}
+	} else {
+		adapter = RequestAdapter(options);
 	}
 	if (!adapter) {
 		std::fprintf(stderr, "no adapter matches\n");
@@ -164,7 +223,7 @@ WGPUDevice CreateDevice(WGPUInstance, const Options& options) {
 			std::fprintf(stderr, "requestDevice failed: %s\n", Str(message).c_str());
 	};
 	wgpuAdapterRequestDevice(adapter, &desc, callback);
-	while (!result.done) wgpuInstanceProcessEvents(g_instance->Get());
+	while (!result.done) wgpuInstanceProcessEvents(g_instance);
 	return result.device;
 }
 
