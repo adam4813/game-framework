@@ -90,6 +90,9 @@ if (BUILD_SCENE_EQUIVALENCE_TEST AND NOT EMSCRIPTEN)
     add_subdirectory(tests/scene_equivalence)
 endif ()
 
+# ── spike/extraction (throwaway) ──
+add_subdirectory(spike/extraction)
+
 # ── WASM link check (CI's engine workflow builds this instead of every game) ──
 if (EMSCRIPTEN AND PROJECT_IS_TOP_LEVEL)
     add_subdirectory(tests/wasm_link)

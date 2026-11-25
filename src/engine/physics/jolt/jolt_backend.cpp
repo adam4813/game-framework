@@ -5,6 +5,7 @@
 #include <ranges>
 #include <span>
 #include <string>
+#include <mutex>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -220,10 +221,12 @@ public:
 			point.penetration_depth = manifold.mPenetrationDepth;
 			info.contacts.push_back(point);
 		}
+		const std::lock_guard lock(events_mutex_); // spike only: Jolt calls this from its job threads
 		events_.push_back(info);
 	}
 
 private:
+	std::mutex events_mutex_;
 	std::vector<CollisionInfo> events_;
 };
 } // namespace
