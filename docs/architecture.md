@@ -27,7 +27,8 @@ them, at construction time (not inside an observer) so the structural changes ar
 For the complete module order, see `src/engine/engine_context.cpp`.
 
 `ecs::InitializeRemoteAPI(world)` is called last on desktop (the Flecs REST API needs TCP sockets, which browsers lack,
-so it is compiled out under `__EMSCRIPTEN__`).
+so it is compiled out under `__EMSCRIPTEN__`). A build configured with `-DENABLE_REST_API=OFF` defines `ENGINE_NO_REST_API`,
+which makes the call a no-op; CI's game artifacts build that way.
 
 The **game** layer is a separate Flecs module (`game::GameModule`, `games/sandbox/src/game/game.cpp`) imported on top of the engine.
 It reads `EngineContextRef`, registers the save schema, registers scenes, and activates the title scene.

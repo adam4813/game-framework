@@ -64,6 +64,18 @@ private:
 
 int ServedPort(const flecs::world& world) { return world.get<flecs::Rest>().port; }
 
+#if defined(ENGINE_NO_REST_API)
+
+TEST(RestPortOverride, ABuildWithoutTheRestApiStartsNoServer) {
+	flecs::world world;
+
+	InitializeRemoteAPI(world, kGivenPort);
+
+	EXPECT_FALSE(world.has<flecs::Rest>());
+}
+
+#else
+
 TEST(RestPortOverride, AWorldHonorsTheEnvironmentPortByDefault) {
 	const ScopedRestPortEnv env{kEnvPort};
 	flecs::world world;
@@ -81,5 +93,7 @@ TEST(RestPortOverride, AWorldThatIgnoresTheEnvironmentServesOnItsGivenPort) {
 
 	EXPECT_EQ(ServedPort(world), kGivenPort);
 }
+
+#endif // ENGINE_NO_REST_API
 
 } // namespace

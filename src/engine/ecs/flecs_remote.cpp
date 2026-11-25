@@ -13,6 +13,14 @@
 
 namespace engine::ecs {
 
+#if defined(ENGINE_NO_REST_API)
+
+void InitializeRemoteAPI(flecs::world& world, int /*default_rest_port*/, RestPortEnv /*port_env*/) {
+	Log(world).info("[FlecsRemote] REST API compiled out (ENGINE_NO_REST_API)");
+}
+
+#else
+
 namespace {
 
 // An environment variable's value, or nullopt when unset. Windows' CRT deprecates getenv.
@@ -78,5 +86,7 @@ void InitializeRemoteAPI(flecs::world& world, const int default_rest_port, const
 		.impl = nullptr,
 	});
 }
+
+#endif // ENGINE_NO_REST_API
 
 } // namespace engine::ecs
