@@ -19,6 +19,9 @@ option(ENABLE_DEBUG_UI "Build the Dear ImGui debug UI overlay" ON)
 # (a server) carries no physics rendering code. Jolt's own JPH_DEBUG_RENDERER stays as vcpkg built it: it changes
 # Jolt's class layouts, so it must match the library (src/engine/physics/jolt/jolt_debug_config.hpp).
 option(ENABLE_PHYSICS_DEBUG_RENDERER "Build the engine's Jolt physics debug renderer" ON)
+# The Flecs REST API (Explorer, tools/flecs-api.js, the flecs MCP tools). OFF defines ENGINE_NO_REST_API, which turns
+# engine::ecs::InitializeRemoteAPI into a no-op, so a shipped build opens no debug port. CI's game artifacts build OFF.
+option(ENABLE_REST_API "Serve the Flecs REST API from InitializeRemoteAPI" ON)
 
 include(cmake/Tracy.cmake)
 
@@ -59,6 +62,7 @@ set(GAME_COMPILE_DEFS
     GLM_GTX_INLINE_NAMESPACE
     $<$<BOOL:${ENABLE_DEBUG_UI}>:ENGINE_DEBUG_UI>
     $<$<NOT:$<BOOL:${ENABLE_PHYSICS_DEBUG_RENDERER}>>:ENGINE_NO_PHYSICS_DEBUG_RENDERER>
+    $<$<NOT:$<BOOL:${ENABLE_REST_API}>>:ENGINE_NO_REST_API>
 )
 
 set(GAME_COMPILE_OPTS

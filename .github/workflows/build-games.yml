@@ -75,8 +75,9 @@ jobs:
           em-version: ${{ env.EM-VERSION }}
           target: ${{ matrix.target }}
 
+      # The uploaded builds are what players run, so they open no Flecs REST port (ENGINE_NO_REST_API).
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset ${{ matrix.preset }} -DENABLE_REST_API=OFF
 
       - name: Build ${{ matrix.game }}
         run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}

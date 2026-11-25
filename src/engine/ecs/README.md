@@ -61,5 +61,9 @@ engine::ecs::InitializeRemoteAPI(server_world, 27760, engine::ecs::RestPortEnv::
 
 A `FLECS_REST_PORT` that isn't a port number (1–65535) is ignored with a warning, and the given port is used.
 
+Configure with `-DENABLE_REST_API=OFF` to compile the server out: CMake defines `ENGINE_NO_REST_API`, and
+`InitializeRemoteAPI` then only logs that the API is off, so games call it unconditionally. `kRestApiEnabled` says which
+build this is. CI's game artifacts (`build-games.yml`) build this way, so a shipped game opens no debug port.
+
 `InitializeRemoteAPI` also imports `flecs::stats` for the Explorer, but disables the stats addon's pipeline monitors:
 they assert when a scene switch leaves a scene's custom pipeline inactive, and nothing here reads pipeline stats.

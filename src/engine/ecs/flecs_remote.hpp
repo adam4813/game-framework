@@ -22,8 +22,18 @@ enum class RestPortEnv {
  * variable names another, so several game instances can run side by side. Pass RestPortEnv::Ignore
  * to serve on `default_rest_port` regardless, so two worlds in one process don't both take the
  * variable's port. It processes REST requests during world progression.
+ *
+ * A build with ENGINE_NO_REST_API defined (CMake `-DENABLE_REST_API=OFF`) compiles the server out: this
+ * call then only logs that it is off, so game code calls it unconditionally.
  */
 void InitializeRemoteAPI(flecs::world& world, int default_rest_port = 27750, RestPortEnv port_env = RestPortEnv::Honor);
+
+// Whether this build serves the REST API (false when ENGINE_NO_REST_API is defined).
+#if defined(ENGINE_NO_REST_API)
+inline constexpr bool kRestApiEnabled = false;
+#else
+inline constexpr bool kRestApiEnabled = true;
+#endif
 
 // Environment variable that overrides the REST port (`tools/flecs-api.js` reads FLECS_HOST to match).
 inline constexpr const char* kRestPortEnv = "FLECS_REST_PORT";
