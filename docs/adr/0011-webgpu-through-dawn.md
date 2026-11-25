@@ -9,13 +9,13 @@ Dynamic shadows, HDR with MSAA, and later software-traced global illumination ar
 needs compute shaders and storage buffers on both, which OpenGL 3.3 and WebGL 2 don't have (ADR 0009), and WebGPU is the
 only API that gives them to a browser.
 
-This supersedes ADR 0009's GPU half at the swap: cluster lists as RGBA32F textures, the WebGL 2 requirement and the raylib
-triplet. Its other half stays: clustered forward shading, the light `range`, the budgets and the CPU cluster build, which
+This supersedes ADR 0009's GPU half at the swap: cluster lists as RGBA32F textures, the WebGL 2 requirement and the
+raylib triplet. Its other half stays: clustered forward shading, the light `range`, the budgets and the CPU cluster build, which
 feeds storage buffers instead. Moving that build to compute is a later choice.
 
 **Dawn comes from vcpkg**, with one backend per system, Release-only (a Debug executable uses the Release Dawn), and the
-same port provides the web's bindings. So the engine uses the C API alone: Dawn's C++ API passes standard-library types and
-crashes across configurations. Windows ships D3D12 only; nothing outside the Dawn feature list and device start-up may
+same port provides the web's bindings. So the engine uses the C API alone: Dawn's C++ API passes standard-library types
+and crashes across configurations. Windows ships D3D12 only; nothing outside the Dawn feature list and device start-up may
 assume it, so that Vulkan on Windows can be added later.
 
 Design to WebGPU's core default limits (4 bind groups, 8 storage buffers per stage): a device gets those unless more are
@@ -36,8 +36,8 @@ Measured by a throwaway spike, 2026-11-25 (SDL3, Dawn 20261111, one compute pass
 | Web, wasm without imgui / with | 0.78 / 1.69 MB |
 | Windows, files shipped beside the game | `dxcompiler.dll` 22.3 MB, Dawn 6.5, SDL3 2.5, abseil 2.0 |
 
-Not measured: many draw calls, MSAA, filtering, depth, other GPU vendors, Safari, Firefox, phones, macOS. The spike's image
-was trivial, so the hash says nothing about tolerances for real scenes.
+Not measured: many draw calls, MSAA, filtering, depth, other GPU vendors, Safari, Firefox, phones, macOS. The spike's
+image was trivial, so the hash says nothing about tolerances for real scenes.
 
 Rejected:
 
@@ -57,4 +57,5 @@ Consequences:
 - **Best effort**: Safari, Firefox, phones and macOS Intel are supported where they work and don't hold the swap.
 - **Cold CI is slower.** After a vcpkg bump or a new runner compiler, each leg builds Dawn itself, up to eight at once.
 - **Reopening.** Before the swap, the decision is reopened if the new renderer misses the parity bar (frame times
-  included) on Windows or in Chrome, or stops drawing in Linux CI. No fallback is named; the seam of ADR 0010 stays either way.
+  included) on Windows or in Chrome, or stops drawing in Linux CI. No fallback is named; the seam of ADR 0010 stays
+  either way.
