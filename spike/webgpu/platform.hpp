@@ -1,5 +1,5 @@
 // The part of the spike that differs per platform: window, surface, device start-up, present and event pump.
-// Ticket 06 adds platform_web.cpp beside platform_native.cpp.
+// platform_native.cpp or platform_web.cpp, plus platform_sdl.cpp, which both share.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -43,6 +43,9 @@ bool PollEvents(bool to_imgui);  // false = quit
 void Present(WGPUSurface surface);
 void PumpEvents(WGPUInstance instance);
 void CloseWindow();
+// Calls frame until it returns false, then finish. Native blocks and returns finish's result; the browser returns 0 at
+// once and drives frame from requestAnimationFrame, so `user` must outlive main.
+int RunLoop(bool (*frame)(void*), int (*finish)(void*), void* user);
 }  // namespace platform
 
 inline WGPUStringView Sv(const char* text) { return {text, WGPU_STRLEN}; }

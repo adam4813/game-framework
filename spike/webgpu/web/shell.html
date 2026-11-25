@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  The page requests the WebGPU adapter and device while the wasm downloads. web_device.js (--pre-js, so inside the wasm's
+  JS) holds main back until it's there. Without WebGPU the page says why, and main never runs.
+
+  The canvas has a CSS size: SDL3 then treats the page as owning it and follows it (RESIZABLE, not FILL_DOCUMENT).
+  Program arguments come from the query string: ?--offscreen, ?--imgui&--frames&0, ?--instances&200000.
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	<title>WebGPU spike</title>
+	<style>
+		html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+		canvas { display: block; width: 100vw; height: 100dvh; border: 0; outline: none; touch-action: none; }
+		#status { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+			color: #ccc; font: 16px sans-serif; pointer-events: none; padding: 1em; text-align: center; }
+		/* Never takes pointer events: it lies over the canvas. */
+		#log { position: absolute; right: 0; bottom: 0; max-width: 60vw; max-height: 40vh; margin: 0; padding: 4px;
+			overflow: hidden; background: #000a; color: #8f8; font: 10px monospace; white-space: pre-wrap;
+			pointer-events: none; }
+	</style>
+</head>
+<body>
+	<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+	<div id="status">Loading…</div>
+	<pre id="log"></pre>
+	<script>
+		var statusElement = document.getElementById("status");
+		var logElement = document.getElementById("log");
+		var lines = [];
+		function log(text) {
+			console.log(text);
+			lines.push(text);
+			if (lines.length > 40) lines.shift();
+			logElement.textContent = lines.join("\n");
+			logElement.scrollTop = logElement.scrollHeight;
+		}
+		var pageStart = performance.now();
+		var t0 = function () { return (performance.now() - pageStart).toFixed(0) + " ms: "; };
+		var Module = {
+			canvas: document.getElementById("canvas"),
+			arguments: location.search.slice(1).split("&").filter(Boolean).map(decodeURIComponent),
+			print: log,
+			printErr: function (text) { console.error(text); log("err: " + text); },
+			setStatus: function (text) {
+				if (Module.webgpuFailed) return;
+				statusElement.textContent = text;
+				statusElement.style.display = text ? "flex" : "none";
+			},
+		};
+		function refuse(reason) {
+			Module.webgpuFailed = true;
+			statusElement.style.display = "flex";
+			statusElement.textContent = reason;
+			console.error(reason);
+		}
+		// The order is the WebGPU spec's: secure context, navigator.gpu, adapter, device, then early device loss.
+		async function acquire() {
+			if (!window.isSecureContext) throw "WebGPU needs a secure page (https).";
+			if (!navigator.gpu) throw "This game needs WebGPU, which this browser doesn't support or has turned off.";
+			// No featureLevel: compatibility mode isn't wanted.
+			var adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+			if (!adapter) throw "This game needs WebGPU, but the browser found no graphics adapter for it.";
+			log(t0() + "adapter " + (adapter.info ? adapter.info.vendor + " " + adapter.info.architecture + " '" +
+				adapter.info.description + "' fallback=" + adapter.info.isFallbackAdapter : "?"));
+			var limits = ["maxTextureDimension2D", "maxTextureArrayLayers", "maxBindGroups", "maxStorageBuffersPerShaderStage",
+				"maxStorageTexturesPerShaderStage", "maxSampledTexturesPerShaderStage", "maxUniformBufferBindingSize",
+				"maxStorageBufferBindingSize", "maxBufferSize", "maxColorAttachmentBytesPerSample",
+				"maxComputeWorkgroupStorageSize", "maxComputeInvocationsPerWorkgroup", "maxStorageBuffersInVertexStage"];
+			log("adapter limits: " + limits.map(function (n) { return n + "=" + adapter.limits[n]; }).join(" "));
+			log("adapter features: " + Array.from(adapter.features).join(" "));
+			var wanted = ["timestamp-query"].filter(function (f) { return adapter.features.has(f); });
+			// Defaults for limits: the design target. ?…&--max-limits asks for what the adapter has, to see what a device gets.
+			var requiredLimits = {};
+			if (Module.arguments.includes("--max-limits"))
+				limits.forEach(function (n) { if (adapter.limits[n] !== undefined) requiredLimits[n] = adapter.limits[n]; });
+			var device = await adapter.requestDevice({ requiredFeatures: wanted, requiredLimits: requiredLimits });
+			device.lost.then(function (info) {
+				log("device lost: " + info.reason + " " + info.message);
+				if (info.reason !== "destroyed") refuse("The graphics device was lost. Reload the page.");
+			});
+			device.onuncapturederror = function (event) { console.error("uncaptured: " + event.error.message); log("uncaptured: " + event.error.message); };
+			log(t0() + "device ready");
+			return device;
+		}
+		Module.webgpuReady = acquire();
+		Module.webgpuReady.catch(function (reason) { refuse(String(reason)); });
+		Module.canvas.addEventListener("pointerdown", function () { Module.canvas.focus(); });
+	</script>
+	{{{ SCRIPT }}}
+</body>
+</html>

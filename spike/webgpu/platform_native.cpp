@@ -13,15 +13,11 @@
 #include <dxgi1_4.h>
 #include <wrl/client.h>
 #endif
-#ifdef SPIKE_IMGUI
-#include <imgui_impl_sdl3.h>
-#endif
 
 namespace {
 // Dawn's C++ API. It passes std::vector over the DLL boundary, so a Debug exe can't use it with a Release Dawn.
 std::unique_ptr<dawn::native::Instance> g_native;
 WGPUInstance g_instance = nullptr;
-SDL_Window* g_window = nullptr;
 
 const char* BackendName(WGPUBackendType type) {
 	switch (type) {
@@ -227,17 +223,9 @@ WGPUDevice CreateDevice(WGPUInstance, const Options& options) {
 	return result.device;
 }
 
-bool OpenWindow(const char* title, int width, int height) {
-	if (!SDL_Init(SDL_INIT_VIDEO)) return false;
-	g_window = SDL_CreateWindow(title, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-	return g_window != nullptr;
-}
-
-SDL_Window* Window() { return g_window; }
-
 WGPUSurface CreateSurface(WGPUInstance instance) {
 	WGPUSurfaceDescriptor desc = WGPU_SURFACE_DESCRIPTOR_INIT;
-	const SDL_PropertiesID props = SDL_GetWindowProperties(g_window);
+	const SDL_PropertiesID props = SDL_GetWindowProperties(Window());
 #ifdef _WIN32
 	WGPUSurfaceSourceWindowsHWND source = WGPU_SURFACE_SOURCE_WINDOWS_HWND_INIT;
 	source.hwnd = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
@@ -253,30 +241,12 @@ WGPUSurface CreateSurface(WGPUInstance instance) {
 	return wgpuInstanceCreateSurface(instance, &desc);
 }
 
-void WindowPixelSize(uint32_t& width, uint32_t& height) {
-	int w = 0, h = 0;
-	SDL_GetWindowSizeInPixels(g_window, &w, &h);
-	width = uint32_t(w);
-	height = uint32_t(h);
-}
-
-bool PollEvents([[maybe_unused]] bool to_imgui) {
-	SDL_Event event;
-	while (SDL_PollEvent(&event)) {
-#ifdef SPIKE_IMGUI
-		if (to_imgui) ImGui_ImplSDL3_ProcessEvent(&event);
-#endif
-		if (event.type == SDL_EVENT_QUIT) return false;
-	}
-	return true;
-}
-
 void Present(WGPUSurface surface) { wgpuSurfacePresent(surface); }
 void PumpEvents(WGPUInstance instance) { wgpuInstanceProcessEvents(instance); }
 
-void CloseWindow() {
-	SDL_DestroyWindow(g_window);
-	SDL_Quit();
+int RunLoop(bool (*frame)(void*), int (*finish)(void*), void* user) {
+	while (frame(user)) {}
+	return finish(user);
 }
 
 }  // namespace platform

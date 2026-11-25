@@ -8,7 +8,21 @@ option(SPIKE_COPY_DXC "Copy dxcompiler.dll and dxil.dll beside the exe" ON)
 find_package(Dawn CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 
-add_executable(webgpu_spike spike.cpp platform_native.cpp)
+if (EMSCRIPTEN)
+    add_executable(webgpu_spike spike.cpp platform_sdl.cpp platform_web.cpp)
+    set(WEB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/web)
+    set_target_properties(webgpu_spike PROPERTIES SUFFIX ".html"
+        LINK_DEPENDS "${WEB_DIR}/shell.html;${WEB_DIR}/web_device.js")
+    # Memory and stack as in cmake/GameTarget.cmake.
+    target_link_options(webgpu_spike PRIVATE
+        -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 -sMAXIMUM_MEMORY=134217728 -sSTACK_SIZE=512KB
+        "SHELL:--shell-file ${WEB_DIR}/shell.html"
+        "SHELL:--pre-js ${WEB_DIR}/web_device.js"
+        "$<$<CONFIG:Debug>:-sASSERTIONS>"
+        "$<$<NOT:$<CONFIG:Debug>>:-O3;--closure 1>")
+else ()
+    add_executable(webgpu_spike spike.cpp platform_sdl.cpp platform_native.cpp)
+endif ()
 target_link_libraries(webgpu_spike PRIVATE dawn::webgpu_dawn SDL3::SDL3)
 if (MSVC)
     target_compile_options(webgpu_spike PRIVATE /W4)
