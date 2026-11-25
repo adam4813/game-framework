@@ -22,8 +22,9 @@ Rejected:
 
 - **Widening `Platform` with a call per pass.** Each pass (cascade, spot, cube face, probe) would need every draw path
   again.
-- **A common GPU API under the current systems.** It moves the API, not the problem: the order of draws stays spread over
-  `OnStore` systems. A second graphics API, if one is ever wanted, is a second `Renderer`, taking the same `RenderFrame`.
+- **A common GPU API under the current systems.** It moves the API, not the problem: the order of draws stays spread
+  over `OnStore` systems. A second graphics API, if one is ever wanted, is a second `Renderer`, taking the same
+  `RenderFrame`.
 - **A scene graph owned by the renderer.**
 
 Consequences: extraction lists everything that could be drawn and doesn't cull, since a caster off screen can still
