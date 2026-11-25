@@ -67,13 +67,16 @@ jobs:
       - shell: bash
         run: |
           cd "$RUNNER_TEMP"
-          if "$VCPKG_ROOT/vcpkg" install sdl3 --triplet x64-linux > sdl.log 2>&1; then
-            echo "FACT: sdl3 builds with setup-environment's packages"
-          else
-            echo "FACT: sdl3 does NOT build with setup-environment's packages"
-          fi
-          tail -60 sdl.log
-          grep -rhE 'SDL_(X11|WAYLAND|VIDEO)|Could NOT find|not found|package' "$VCPKG_ROOT"/buildtrees/sdl3/config-*-out.log | head -60 || true
+          probe() {
+            echo "$2" | xargs -r sudo apt-get install -y > /dev/null
+            "$VCPKG_ROOT/vcpkg" remove sdl3 --triplet x64-linux > /dev/null 2>&1 || true
+            "$VCPKG_ROOT/vcpkg" install sdl3 --triplet x64-linux --no-binarycaching > sdl.log 2>&1 && ok=builds || ok=FAILS
+            echo "FACT: sdl3 $ok with $1: $(grep -hE '^--   SDL_(X11|WAYLAND|IBUS|DBUS|LIBUDEV|PULSEAUDIO|PIPEWIRE|X11_X[A-Z]+) .*Wanted' "$VCPKG_ROOT"/buildtrees/sdl3/config-x64-linux-out.log | awk 'NF {print $2, $(NF-1), $NF}' | sort -u | tr -d '()' | tr '\n' ';')"
+          }
+          probe "setup-environment's packages" ""
+          probe "libxkbcommon-dev" "libxkbcommon-dev"
+          probe "libxkbcommon-dev libegl1-mesa-dev" "libegl1-mesa-dev"
+          probe "and libibus-1.0-dev" "libibus-1.0-dev"
 
   web:
     runs-on: ubuntu-latest
