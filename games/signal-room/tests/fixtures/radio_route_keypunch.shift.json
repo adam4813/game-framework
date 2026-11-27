@@ -1,0 +1,11 @@
+{
+	"id": "radio_route_keypunch",
+	"name": "radio_route_keypunch",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Decoder", "Telex"],
+	"modifiers": ["keypunch"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"radios": {"Radio1": "7.0"},
+	"window": 240,
+	"schedule": {}
+}

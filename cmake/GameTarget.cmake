@@ -4,12 +4,23 @@
 #
 #   setup_game_target(<target> [ROOT_ASSETS <dir>...])
 #
+# A game's executable target takes its project() name, which can differ from the games/<folder> name
+# (games/signal-room declares project(signal_room)). CI's Build Games workflow reads the project() name to
+# find the target, its `<target>_tests` aggregate and its `<target>` CTest label.
+#
 # Assets: the shared root assets/ is copied first, then the calling game's own assets/ folder (if it
 # has one) is layered over it, so both resolve under the same runtime asset directory. ROOT_ASSETS
 # limits the root copy to the listed top-level folders (e.g. `shaders config` for a game that
 # brings all its own content and needs only the engine's).
 function(setup_game_target target)
     cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "ROOT_ASSETS")
+
+    # Targets defined in the root project (tests/wasm_link) aren't Game Targets and skip the check.
+    if (NOT PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR AND NOT target STREQUAL PROJECT_NAME)
+        message(FATAL_ERROR
+            "setup_game_target(${target}): a Game Target's executable must take its project() name "
+            "'${PROJECT_NAME}', which CI builds it by")
+    endif ()
 
     target_compile_options(${target} PRIVATE ${GAME_COMPILE_OPTS})
     target_link_libraries(${target} PRIVATE game_framework::engine_lib)

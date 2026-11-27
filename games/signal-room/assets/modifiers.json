@@ -1,0 +1,20 @@
+{
+	"comment": "Modifier catalogue: id -> name, description and overrides. An override is {doc, path, set}: doc is shift | stations | items | tickets | tuning, path is a JSON Pointer (RFC 6901), set replaces the value there, or adds it when the path is new ('-' appends to an array; the parent must exist). A Shift lists the Modifiers it wants in 'modifiers'; the Room panel can force each on or off before a Reload. Applied in sorted id order, each in its listed order.",
+	"modifiers": {
+		"keypunch": {
+			"name": "Keypunch",
+			"description": "The Radio gives a Morse Tape; the Keypunch is in service to punch it into a Raw Card.",
+			"overrides": [
+				{"doc": "shift", "path": "/in_service/-", "set": "Keypunch"},
+				{"doc": "stations", "path": "/stations/radio/transforms/0/outputs", "set": ["morse_tape"]}
+			]
+		},
+		"telex_autostamp": {
+			"name": "Telex auto-stamp",
+			"description": "Placing a Decoded Card on the Telex transmits at once.",
+			"overrides": [
+				{"doc": "stations", "path": "/stations/telex/transforms/0/verb", "set": "instant"}
+			]
+		}
+	}
+}

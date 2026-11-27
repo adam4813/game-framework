@@ -1,0 +1,11 @@
+{
+	"comment": "Keyboard bindings: each action lists the keys that trigger it, named as the engine's KeyCode constants (letters, digits, Up, Down, Left, Right, Space, LeftShift, RightShift, ...). Game logic reads actions, never keys.",
+	"actions": {
+		"move_up": ["W", "Up"],
+		"move_down": ["S", "Down"],
+		"move_left": ["A", "Left"],
+		"move_right": ["D", "Right"],
+		"dash": ["LeftShift", "RightShift"],
+		"interact": ["Space", "E"]
+	}
+}

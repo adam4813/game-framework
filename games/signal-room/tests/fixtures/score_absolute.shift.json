@@ -1,0 +1,11 @@
+{
+	"id": "score_absolute",
+	"name": "score_absolute",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Radio2", "Decoder", "Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"counter_items": {"CounterSouthLeft": "placeholder"},
+	"radios": {"Radio1": "7.0", "Radio2": "7.5"},
+	"window": 240,
+	"stars": {"absolute": [5, 10, 100]}
+}

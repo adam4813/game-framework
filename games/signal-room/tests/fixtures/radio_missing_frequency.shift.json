@@ -1,0 +1,10 @@
+{
+	"id": "radio_missing_frequency",
+	"name": "radio_missing_frequency",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Decoder", "Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"radios": {},
+	"window": 240,
+	"schedule": {}
+}

@@ -1,0 +1,9 @@
+{
+	"stations": {
+		"decoder": {
+			"transforms": [
+				{"id": "decode", "inputs": ["no_such_card"], "outputs": ["decoded_card"], "verb": "instant"}
+			]
+		}
+	}
+}

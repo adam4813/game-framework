@@ -55,6 +55,8 @@ Target names its own. Flecs asserts and errors go there too, tagged `[Flecs]`.
 
 ## Headless tests
 
+- **Signal Room:** `games/signal-room/tests/room_harness.hpp`. `RoomHarness` loads a Shift, holds or taps keys, steps
+  frames at a fixed delta and exposes the world. Its log is `signal_room.log`.
 - **Engine scenes:** `tests/scene_equivalence` (`TestWorld` = `EngineContext` + `HeadlessPlatform`).
 - `HeadlessPlatform` (`engine/platform/headless_platform.hpp`, in `engine_lib`) takes an asset directory, so headless
   loads resolve real asset files. An `EngineContext` created with no Platform gets one with asset directory `.`.

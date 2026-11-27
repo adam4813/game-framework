@@ -1,0 +1,29 @@
+{
+	"comment": "Station catalogue: per Station kind (the keys of catalogue.json 'stations'), its display_name and Transforms. A Transform turns 'inputs' (Item ids, placed one at a time; may be empty) into 'outputs' (Item ids; may be empty). Each kind's input sets must differ. Verbs: 'instant' completes when its inputs are in; 'tap' needs 'taps' empty-handed presses; 'hold' advances only while an Operator Holds the action key, for 'duration' s; 'walk_away' runs by itself for 'duration' s, or 'crank_duration' s while an Operator Holds it. 'transmit': true sends a transmission on completion (it consumes its inputs and has no outputs). Outputs inherit the frequency of the first input that has one; a Radio's take the Radio's.",
+	"stations": {
+		"radio": {
+			"display_name": "Radio",
+			"transforms": [
+				{"id": "copy", "inputs": [], "outputs": ["raw_card"], "verb": "hold", "duration": 2.0}
+			]
+		},
+		"keypunch": {
+			"display_name": "Keypunch",
+			"transforms": [
+				{"id": "punch", "inputs": ["morse_tape"], "outputs": ["raw_card"], "verb": "hold", "duration": 1.5}
+			]
+		},
+		"decoder": {
+			"display_name": "Decoder",
+			"transforms": [
+				{"id": "decode", "inputs": ["raw_card"], "outputs": ["decoded_card"], "verb": "walk_away", "duration": 6.0, "crank_duration": 2.5}
+			]
+		},
+		"telex": {
+			"display_name": "Telex",
+			"transforms": [
+				{"id": "stamp", "inputs": ["decoded_card"], "outputs": [], "verb": "tap", "taps": 1, "transmit": true}
+			]
+		}
+	}
+}

@@ -1,0 +1,8 @@
+{
+	"comment": "The frequency table, ordered low to high. Each label names a palette token for its colour. Shifts refer to frequencies by label.",
+	"frequencies": [
+		{"label": "7.0", "colour": "freq_7_0"},
+		{"label": "7.5", "colour": "freq_7_5"},
+		{"label": "8.0", "colour": "freq_8_0"}
+	]
+}

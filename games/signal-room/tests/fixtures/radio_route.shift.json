@@ -1,0 +1,10 @@
+{
+	"id": "radio_route",
+	"name": "radio_route",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Decoder", "Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"radios": {"Radio1": "7.0"},
+	"window": 240,
+	"schedule": {}
+}

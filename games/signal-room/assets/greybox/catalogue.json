@@ -1,0 +1,207 @@
+{
+	"comment": "Greybox look per kind, built from engine primitives. Offsets are metres from the footprint centre at floor level (+y up, -z north/back); sizes are cube extents, sphere diameters, or capsule [diameter, length, diameter]; rotations are radians. Colours are palette tokens (palette.json). Named parts become named child entities. Tables stand 0.62 m high; lamps and riser bars sit on the top deck or a rear riser, never the front face. A 'fit': 'footprint' model is authored for one 1x1 cell, 1 m tall, and stretches to its footprint and height. A Station kind's 'height' is how tall its tarp stands when Tarped.",
+	"floor": {"grout": "floor_grout", "tile": "floor", "tile_alt": "floor_alt"},
+	"walls": {
+		"full": {"height": 2.6, "thickness": 0.2, "colour": "wall"},
+		"low": {"height": 0.5, "thickness": 0.2, "colour": "wall"}
+	},
+	"counter": {
+		"comment": "A plain wood block with a lighter top slab.",
+		"parts": [
+			{"shape": "cube", "offset": [0, 0.4, 0], "size": [0.9, 0.8, 0.9], "colour": "counter"},
+			{"shape": "cube", "offset": [0, 0.83, 0], "size": [0.98, 0.06, 0.98], "colour": "counter_top"}
+		]
+	},
+	"operator": {
+		"comment": "An Operator, standing at its floor position facing -z. Body and collar take the Operator's identity colour (token 'identity'); the collar rings the neck wider than the body so it reads from above. The visor marks the front.",
+		"parts": [
+			{"name": "body", "shape": "capsule", "offset": [0, 0.47, 0], "size": [0.48, 0.9, 0.48], "colour": "identity"},
+			{"name": "collar", "shape": "sphere", "offset": [0, 0.9, 0], "size": [0.58, 0.09, 0.58], "colour": "identity"},
+			{"name": "head", "shape": "sphere", "offset": [0, 1.08, 0], "size": [0.32, 0.32, 0.32], "colour": "operator_skin"},
+			{"name": "visor", "shape": "cube", "offset": [0, 1.1, -0.14], "size": [0.24, 0.08, 0.08], "colour": "operator_visor"}
+		]
+	},
+	"chevron": {
+		"comment": "The where-to-go chevron: a down-pointing V in the carrying Operator's identity colour, tip at the origin. GuidanceChevrons floats it over each Station that would take the carried Item.",
+		"parts": [
+			{"shape": "cube", "offset": [-0.134, 0.113, 0], "size": [0.35, 0.1, 0.06], "rotation": [0, 0, -0.7], "colour": "identity"},
+			{"shape": "cube", "offset": [0.134, 0.113, 0], "size": [0.35, 0.1, 0.06], "rotation": [0, 0, 0.7], "colour": "identity"}
+		]
+	},
+	"bubble": {
+		"comment": "The Bubble above an Operator: a white comic-book thought bubble, each circle outlined in black (a black disc with a smaller white one in front), with two small circles trailing down toward the Operator on the west. The glyph shown on it is one of the 'glyphs' entries.",
+		"parts": [
+			{"shape": "sphere", "offset": [0, 0, 0], "size": [0.58, 0.58, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [0, 0, 0.03], "size": [0.5, 0.5, 0.08], "colour": "bubble"},
+			{"shape": "sphere", "offset": [-0.3, -0.3, 0], "size": [0.2, 0.2, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [-0.3, -0.3, 0.03], "size": [0.14, 0.14, 0.08], "colour": "bubble"},
+			{"shape": "sphere", "offset": [-0.4, -0.46, 0], "size": [0.12, 0.12, 0.08], "colour": "bubble_outline"},
+			{"shape": "sphere", "offset": [-0.4, -0.46, 0.03], "size": [0.07, 0.07, 0.08], "colour": "bubble"}
+		]
+	},
+	"glyphs": {
+		"refuse": {
+			"comment": "A red x on the Bubble: a refused press.",
+			"parts": [
+				{"shape": "cube", "offset": [0, 0, 0.09], "size": [0.38, 0.07, 0.03], "rotation": [0, 0, 0.785], "colour": "lamp_red"},
+				{"shape": "cube", "offset": [0, 0, 0.09], "size": [0.38, 0.07, 0.03], "rotation": [0, 0, -0.785], "colour": "lamp_red"}
+			]
+		}
+	},
+	"stations": {
+		"radio": {
+			"comment": "A set on a wall bench: body and display in the Radio's duller body colour (identity); the bright frequency colour is the label and the lit lamp, rear riser, progress bar floating in front of the set, copied cards come out on the front of the bench, antenna whip, traffic lamp on a post.",
+			"height": 1.1,
+			"item_slide": {"from": [0, 0.64, 0.3], "to": [0, 0.64, 0.3]},
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 0.8], "colour": "wood"},
+				{"shape": "cube", "offset": [-0.89, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.89, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [-0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.89, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"name": "body", "shape": "cube", "offset": [0, 0.83, -0.05], "size": [1.0, 0.42, 0.5], "colour": "identity"},
+				{"shape": "cube", "offset": [0, 0.83, -0.34], "size": [0.05, 0.42, 0.05], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0, 1.22, -0.34], "size": [0.7, 0.36, 0.05], "rotation": [-0.35, 0, 0], "colour": "riser_panel"},
+				{"name": "display", "shape": "cube", "offset": [0, 1.27, -0.31], "size": [0.4, 0.15, 0.02], "rotation": [-0.35, 0, 0], "colour": "identity"},
+				{"name": "bar_outline", "shape": "cube", "offset": [0.0, 0.95, 0.3], "size": [0.90, 0.24, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_outline"},
+				{"name": "bar_track", "shape": "cube", "offset": [0.0, 0.954, 0.316], "size": [0.80, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "riser_bar", "shape": "cube", "offset": [0.0, 0.958, 0.332], "size": [0.80, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "antenna", "shape": "capsule", "offset": [-0.7, 1.52, -0.25], "size": [0.03, 0.9, 0.03], "colour": "antenna"},
+				{"shape": "cube", "offset": [0.18, 1.29, -0.34], "size": [0.04, 0.5, 0.04], "colour": "metal_dark"},
+				{"name": "lamp", "shape": "sphere", "offset": [0.18, 1.6, -0.34], "size": [0.24, 0.24, 0.24], "colour": "lamp_off"}
+			]
+		},
+		"decoder": {
+			"comment": "A cabinet on a 2x1 table half (two halves stack north-south into one 2x2 table on the rug): two tape reels lying on the top deck, a side crank, the lamp on a post, and a progress bar floating just above the reels. The card slides in at the west end and out the east (item_slide). 'tarp_lift' and 'height' put a Tarped machine's tarp on top of the table (the 'base' parts) as a box 0.55 m tall.",
+			"height": 0.55,
+			"tarp_lift": 0.62,
+			"tarp_size": [1.2, 0.7],
+			"item_slide": {"from": [-0.85, 0.9, 0.15], "to": [0.85, 0.9, 0.15]},
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.59, 0], "size": [1.9, 0.06, 1.0], "colour": "decoder_table", "base": true},
+				{"shape": "cube", "offset": [-0.86, 0.28, -0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [0.86, 0.28, -0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [-0.86, 0.28, 0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"shape": "cube", "offset": [0.86, 0.28, 0.44], "size": [0.1, 0.56, 0.1], "colour": "metal_dark", "base": true},
+				{"name": "body", "shape": "cube", "offset": [0, 0.87, 0], "size": [1.1, 0.5, 0.6], "colour": "decoder_cabinet"},
+				{"name": "reel_l", "shape": "sphere", "offset": [-0.25, 1.14, 0.05], "size": [0.4, 0.05, 0.4], "colour": "reel"},
+				{"parent": "reel_l", "shape": "cube", "offset": [0, 0.7, 0], "size": [0.85, 0.6, 0.15], "colour": "metal_dark"},
+				{"name": "reel_r", "shape": "sphere", "offset": [0.25, 1.14, 0.05], "size": [0.4, 0.05, 0.4], "colour": "reel"},
+				{"parent": "reel_r", "shape": "cube", "offset": [0, 0.7, 0], "size": [0.85, 0.6, 0.15], "colour": "metal_dark"},
+				{"name": "crank", "shape": "cube", "offset": [0.58, 1.02, 0], "size": [0.05, 0.3, 0.05], "colour": "metal_dark"},
+				{"parent": "crank", "shape": "capsule", "offset": [0.07, 0.15, 0], "size": [0.07, 0.16, 0.07], "rotation": [0, 0, 1.5708], "colour": "crank_grip"},
+				{"name": "bar_outline", "shape": "cube", "offset": [0.0, 1.45, -0.1], "size": [0.80, 0.24, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_outline"},
+				{"name": "bar_track", "shape": "cube", "offset": [0.0, 1.454, -0.084], "size": [0.70, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"name": "riser_bar", "shape": "cube", "offset": [0.0, 1.458, -0.068], "size": [0.70, 0.14, 0.03], "rotation": [-0.35, 0, 0], "colour": "bar_track"},
+				{"shape": "cube", "offset": [-0.52, 1.27, -0.15], "size": [0.04, 0.3, 0.04], "colour": "metal_dark"},
+				{"name": "lamp", "shape": "sphere", "offset": [-0.52, 1.5, -0.15], "size": [0.32, 0.32, 0.32], "colour": "lamp_off"}
+			]
+		},
+		"telex": {
+			"comment": "A low unit on a stand with a platen roll; the paper sheet stands behind it only while loaded (hidden when idle). Lamp on a post (no progress bar: a tap job has none to show).",
+			"height": 0.75,
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.59, 0], "size": [0.8, 0.06, 0.8], "colour": "wood"},
+				{"shape": "cube", "offset": [-0.34, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.34, 0.28, -0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [-0.34, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.34, 0.28, 0.34], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"name": "body", "shape": "cube", "offset": [0, 0.77, 0.05], "size": [0.55, 0.3, 0.5], "colour": "telex_body"},
+				{"name": "platen", "shape": "capsule", "offset": [0, 0.96, -0.12], "size": [0.14, 0.5, 0.14], "rotation": [0, 0, 1.5708], "colour": "platen"},
+				{"name": "paper", "shape": "cube", "offset": [0, 1.12, -0.16], "size": [0.36, 0.34, 0.01], "rotation": [-0.3, 0, 0], "colour": "paper", "visible": false},
+				{"shape": "cube", "offset": [0.24, 0.97, -0.3], "size": [0.04, 0.7, 0.04], "colour": "metal_dark"},
+				{"name": "lamp", "shape": "sphere", "offset": [0.24, 1.36, -0.3], "size": [0.18, 0.18, 0.18], "colour": "lamp_off"}
+			]
+		},
+		"keypunch": {
+			"comment": "A small desk unit with a slanted top, rear riser with the progress bar, lamp on a post at the back.",
+			"height": 0.85,
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.59, 0], "size": [0.85, 0.06, 0.75], "colour": "wood"},
+				{"shape": "cube", "offset": [-0.37, 0.28, -0.32], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.37, 0.28, -0.32], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [-0.37, 0.28, 0.32], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"shape": "cube", "offset": [0.37, 0.28, 0.32], "size": [0.06, 0.56, 0.06], "colour": "metal_dark"},
+				{"name": "body", "shape": "cube", "offset": [0, 0.745, 0], "size": [0.6, 0.25, 0.45], "colour": "keypunch_body"},
+				{"shape": "cube", "offset": [0, 0.9, 0.02], "size": [0.6, 0.05, 0.38], "rotation": [0.45, 0, 0], "colour": "keypunch_top"},
+				{"shape": "cube", "offset": [0.24, 0.92, -0.28], "size": [0.04, 0.6, 0.04], "colour": "metal_dark"},
+				{"name": "lamp", "shape": "sphere", "offset": [0.24, 1.26, -0.28], "size": [0.16, 0.16, 0.16], "colour": "lamp_off"}
+			]
+		}
+	},
+	"props": {
+		"tarp": {
+			"comment": "Khaki cloth over the footprint with a lumpy top and dark rope bands. Used for Tarped Stations and the dressing tarps.",
+			"fit": "footprint",
+			"height": 1.0,
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.5, 0], "size": [0.94, 1.0, 0.9], "colour": "tarp"},
+				{"shape": "cube", "offset": [0.03, 1.05, -0.02], "size": [0.7, 0.12, 0.6], "rotation": [0, 0.08, 0], "colour": "tarp"},
+				{"shape": "cube", "offset": [0, 0.06, 0], "size": [1.0, 0.12, 0.96], "colour": "tarp_skirt"},
+				{"shape": "cube", "offset": [-0.25, 0.5, 0], "size": [0.05, 1.02, 0.92], "colour": "rope"},
+				{"shape": "cube", "offset": [0.25, 0.5, 0], "size": [0.05, 1.02, 0.92], "colour": "rope"}
+			]
+		},
+		"wall_tarp": {
+			"comment": "A tarp hung on the west wall over a wall-mounted machine (the Power Panel), anchored at the floor cell beside the wall. It stays inside the wall's thickness, off the floor.",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [-0.56, 1.0, 0.5], "size": [0.12, 1.4, 1.8], "colour": "tarp"},
+				{"shape": "cube", "offset": [-0.565, 1.0, 0.05], "size": [0.13, 1.42, 0.05], "colour": "rope"},
+				{"shape": "cube", "offset": [-0.565, 1.0, 0.95], "size": [0.13, 1.42, 0.05], "colour": "rope"}
+			]
+		},
+		"storm_window": {
+			"comment": "On the north wall, anchored at its western floor cell; centred over two cells.",
+			"parts": [
+				{"shape": "cube", "offset": [0.5, 1.7, -0.47], "size": [1.8, 1.1, 0.06], "colour": "window_frame"},
+				{"name": "glass", "shape": "cube", "offset": [0.5, 1.7, -0.44], "size": [1.6, 0.9, 0.04], "colour": "window"}
+			]
+		},
+		"desk_edge": {
+			"comment": "The foreground desk along the open south edge: place it over the south row; it fits the row's width and sits just past the floor edge.",
+			"fit": "footprint",
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.225, 0.775], "size": [1.0308, 0.45, 0.35], "colour": "wood_dark"}
+			]
+		},
+		"rug": {
+			"comment": "The cosmetic rug under the Decoder.",
+			"fit": "footprint",
+			"parts": [
+				{"shape": "cube", "offset": [0, 0.016, 0], "size": [1.0, 0.01, 1.0], "colour": "rug"}
+			]
+		}
+	},
+	"items": {
+		"card_bundle": {
+			"comment": "The placeholder Item: a bundle of cream cards with a red band and a dark tag. Offsets are from its base: the Counter top, or a point in front of its carrier.",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.05, 0], "size": [0.38, 0.1, 0.28], "colour": "item_card"},
+				{"shape": "cube", "offset": [0, 0.05, 0], "size": [0.07, 0.11, 0.29], "colour": "item_band"},
+				{"shape": "cube", "offset": [0.12, 0.105, -0.06], "size": [0.1, 0.01, 0.07], "colour": "item_tag"}
+			]
+		},
+		"raw_card": {
+			"comment": "A cream card with a frequency stripe across one end ('identity' is the frequency colour).",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.02, 0], "size": [0.36, 0.04, 0.26], "colour": "item_card"},
+				{"name": "stripe", "shape": "cube", "offset": [0.12, 0.045, 0], "size": [0.09, 0.012, 0.27], "colour": "identity"}
+			]
+		},
+		"decoded_card": {
+			"comment": "A white card with a dark band along its length and the frequency stripe at one end.",
+			"parts": [
+				{"name": "body", "shape": "cube", "offset": [0, 0.02, 0], "size": [0.36, 0.04, 0.26], "colour": "item_card_white"},
+				{"shape": "cube", "offset": [-0.04, 0.045, 0], "size": [0.14, 0.012, 0.27], "colour": "item_tag"},
+				{"name": "stripe", "shape": "cube", "offset": [0.12, 0.045, 0], "size": [0.09, 0.012, 0.27], "colour": "identity"}
+			]
+		},
+		"morse_tape": {
+			"comment": "A spool of paper tape on its side, with the frequency stripe round its rim.",
+			"parts": [
+				{"name": "reel", "shape": "cube", "offset": [0, 0.07, 0], "size": [0.16, 0.14, 0.16], "colour": "item_spool"},
+				{"name": "stripe", "shape": "cube", "offset": [0, 0.07, 0], "size": [0.17, 0.04, 0.17], "colour": "identity"}
+			]
+		}
+	}
+}

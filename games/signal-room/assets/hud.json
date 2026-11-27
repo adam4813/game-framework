@@ -1,0 +1,26 @@
+{
+	"comment": "In-play HUD layout. Sizes are pixels, times seconds. Colours are palette tokens.",
+	"margin": 16,
+	"card": {"width": 190, "height": 92, "spacing": 8, "padding": 8, "gauge_height": 14, "swatch_size": 14},
+	"fonts": {"callsign": 22, "tier": 13, "frequency": 18, "clock": 40, "tag": 18, "score": 32, "chain": 26},
+	"timing": {"exit_flash": 0.6, "red_flash_hz": 3, "pop": 0.3, "pop_scale": 1.35},
+	"flow": {"width": 600, "height": 400, "padding": 24, "title_font": 32, "body_font": 20, "button_width": 220, "button_height": 48, "backdrop_alpha": 110},
+	"labels": {
+		"last_call": "LAST CALL", "chain_prefix": "×", "score_prefix": "",
+		"route": "Route", "route_arrow": " > ", "briefing_start": "Start Shift  [Space]",
+		"results_title": "Shift over", "score": "Score", "par": "Par", "stars": "Stars", "star_full": "*", "star_empty": "-",
+		"cleared": "Cleared", "lost": "Lost Intercepts", "best_chain": "Best chain", "retry": "Retry  [Space]"
+	},
+	"colours": {
+		"panel": "hud_panel",
+		"border": "hud_border",
+		"text": "hud_text",
+		"text_dim": "hud_text_dim",
+		"track": "hud_track",
+		"standby": "hud_standby",
+		"flash_clear": "hud_flash_clear",
+		"flash_lost": "hud_flash_lost",
+		"last_call": "lamp_red"
+	},
+	"bands": {"green": "lamp_green", "amber": "lamp_amber", "red": "lamp_red"}
+}

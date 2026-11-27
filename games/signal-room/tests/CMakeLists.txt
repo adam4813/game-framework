@@ -1,0 +1,62 @@
+add_signal_room_test(room_bootstrap_test
+    room_harness.cpp
+    room_bootstrap_test.cpp
+)
+add_signal_room_test(room_layout_test
+    room_harness.cpp
+    room_layout_test.cpp
+)
+add_signal_room_test(operator_movement_test
+    room_harness.cpp
+    operator_movement_test.cpp
+)
+add_signal_room_test(targeting_test
+    room_harness.cpp
+    targeting_test.cpp
+)
+add_signal_room_test(items_test
+    room_harness.cpp
+    items_test.cpp
+)
+add_signal_room_test(stations_test
+    room_harness.cpp
+    stations_test.cpp
+)
+add_signal_room_test(tickets_test
+    room_harness.cpp
+    tickets_test.cpp
+)
+add_signal_room_test(radios_test
+    room_harness.cpp
+    radios_test.cpp
+)
+add_signal_room_test(score_test
+    room_harness.cpp
+    score_test.cpp
+)
+add_signal_room_test(modifiers_test
+    room_harness.cpp
+    modifiers_test.cpp
+)
+add_signal_room_test(station_reads_test
+    room_harness.cpp
+    station_reads_test.cpp
+)
+add_signal_room_test(hud_test
+    room_harness.cpp
+    hud_test.cpp
+)
+add_signal_room_test(guidance_test
+    room_harness.cpp
+    guidance_test.cpp
+)
+add_signal_room_test(shift_flow_test
+    room_harness.cpp
+    shift_flow_test.cpp
+)
+foreach (test_target shift_flow_test guidance_test station_reads_test hud_test modifiers_test score_test radios_test room_bootstrap_test room_layout_test operator_movement_test targeting_test items_test tickets_test stations_test)
+    target_compile_definitions(${test_target} PRIVATE
+        SIGNAL_ROOM_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+        SIGNAL_ROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    )
+endforeach ()

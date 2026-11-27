@@ -1,0 +1,20 @@
+{
+	"comment": "Ticket rules, re-read on every Room load. Times are seconds. A tier's overfill is the range (fraction of on_air_time) a Ticket's gauge starts above 100%, which is how long its frequency stays silent on Stand-by. Gauge bands are listed high to low: a Ticket is in the first band whose 'above' its On Air fraction exceeds, and a Clear scores 'share' of the tier's base. Scoring reads handler_chain, lost_intercept_penalty and star_fractions.",
+	"tiers": {
+		"normal": {"label": "NORMAL", "on_air_time": 90, "base": 20, "overfill": [0.0, 0.30]},
+		"high": {"label": "HIGH PRIORITY", "on_air_time": 65, "base": 30, "overfill": [0.0, 0.15]},
+		"flash": {"label": "FLASH", "on_air_time": 40, "base": 40, "overfill": [0.0, 0.0]}
+	},
+	"bands": [
+		{"id": "green", "above": 0.5, "share": 1.0},
+		{"id": "amber", "above": 0.25, "share": 0.75},
+		{"id": "red", "above": 0.0, "share": 0.5}
+	],
+	"handler_chain": [1.0, 1.25, 1.5, 1.75, 2.0],
+	"lost_intercept_penalty": 10,
+	"rack_cap": 5,
+	"last_call": 20,
+	"empty_rack_wait_factor": 0.5,
+	"star_fractions": [0.4, 0.65, 0.9],
+	"callsigns": ["BADGER", "KESTREL", "NIGHTJAR", "TUNDRA", "ORCHARD", "LANTERN", "MARROW", "SPARROW", "VESPER", "COBALT", "HARRIER", "WILLOW"]
+}

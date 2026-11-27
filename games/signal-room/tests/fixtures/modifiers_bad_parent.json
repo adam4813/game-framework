@@ -1,0 +1,11 @@
+{
+	"modifiers": {
+		"broken": {
+			"name": "Broken",
+			"description": "Sets a path whose parent does not exist.",
+			"overrides": [
+				{"doc": "shift", "path": "/nope/deeper", "set": 1}
+			]
+		}
+	}
+}

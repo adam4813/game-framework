@@ -1,0 +1,6 @@
+{
+	"id": "unknown_counter_item",
+	"layout": "layouts/bunker.layout.json",
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"counter_items": {"CounterNowhere": "placeholder"}
+}

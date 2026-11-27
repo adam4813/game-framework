@@ -1,0 +1,10 @@
+{
+	"stations": {
+		"decoder": {
+			"transforms": [
+				{"id": "decode", "inputs": ["raw_card"], "outputs": ["decoded_card"], "verb": "walk_away", "duration": 6.0},
+				{"id": "decode_again", "inputs": ["raw_card"], "outputs": ["raw_card"], "verb": "instant"}
+			]
+		}
+	}
+}

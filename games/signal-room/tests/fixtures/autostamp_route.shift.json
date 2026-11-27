@@ -1,0 +1,13 @@
+{
+	"id": "autostamp_route",
+	"name": "autostamp_route",
+	"layout": "layouts/bunker.layout.json",
+	"in_service": ["Radio1", "Decoder", "Telex"],
+	"roster": [{"spawn": "spawn_1", "colour": "p1"}],
+	"counter_items": {
+		"CounterSouthLeft": {"item": "decoded_card", "frequency": "7.0"}
+	},
+	"radios": {"Radio1": "7.0"},
+	"window": 240,
+	"schedule": {}
+}
