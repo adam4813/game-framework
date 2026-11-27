@@ -25,11 +25,15 @@ setup_game_target(signal_room ROOT_ASSETS shaders config)
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if (BUILD_TESTING AND NOT EMSCRIPTEN)
-    # Mirrors add_engine_test: links the game library so tests exercise the code that ships.
+    # Mirrors add_engine_test: links the game library so tests exercise the code that ships. CI's Build Games
+    # workflow builds `signal_room_tests` and runs `ctest -L signal_room`, so every test added here joins both.
+    add_custom_target(signal_room_tests)
+
     function(add_signal_room_test test_name)
         add_executable(${test_name} ${ARGN})
         target_link_libraries(${test_name} PRIVATE GTest::gtest engine_test_main signal_room_lib)
-        gtest_discover_tests(${test_name})
+        gtest_discover_tests(${test_name} PROPERTIES LABELS signal_room)
+        add_dependencies(signal_room_tests ${test_name})
     endfunction()
 
     add_subdirectory(tests)
