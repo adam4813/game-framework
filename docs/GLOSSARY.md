@@ -5,7 +5,7 @@ A small, data-driven C++23 game engine built on Flecs 4.x (ECS), Raylib (platfor
 ## Language
 
 **EngineContext**:
-The single root object that owns the `flecs::world`, the `Platform`, and the `DeferredTaskQueue`. It imports all Modules in dependency order and exposes non-owning handles as Singletons so any system can reach them without a global.
+The single root object that owns the `flecs::world`, the Window, the Renderer, and the `DeferredTaskQueue`. It imports all Modules in dependency order and exposes non-owning handles as Singletons so any system can reach them without a global.
 _Avoid_: engine root, engine manager, game engine
 
 **Module**:
@@ -33,7 +33,7 @@ A scene-owned, filtered sequence of Systems that Flecs executes. Each Scene buil
 _Avoid_: system pipeline, execution graph
 
 **Frame**:
-One pass of the game loop, `fixed_step::RunFrame(world, dt)`: sample input (the `FrameSample` systems), run zero or more Ticks, then the per-Frame update and render (`world.progress(dt)`). How often Frames run is the Frame rate, set on the Platform (a cap, vsync or uncapped), apart from the Tick rate.
+One pass of the game loop, `fixed_step::RunFrame(world, dt)`: sample input (the `FrameSample` systems), run zero or more Ticks, then the per-Frame update and render (`world.progress(dt)`). How often Frames run is the Frame rate, set on the Window (a cap, vsync or uncapped), apart from the Tick rate.
 _Avoid_: tick (a Tick is the simulation's step; `App::Tick` and `SceneBase::Tick` are per-Frame and predate the term), update
 
 **Tick**:
@@ -53,7 +53,7 @@ An execution slot within a Pipeline that determines *when* a system runs relativ
 _Avoid_: stage, step, tick phase
 
 **Cluster**:
-One cell of the view frustum for point lighting: a screen tile by a depth slice. Each Frame the platform layer lists the point lights that reach each cluster, and a fragment evaluates only its own cluster's list (ADR 0009).
+One cell of the view frustum for point lighting: a screen tile by a depth slice. Each Frame the Renderer lists the point lights that reach each cluster, and a fragment evaluates only its own cluster's list (ADR 0009).
 _Avoid_: froxel, light tile, light cell
 
 **Transform**:
@@ -80,13 +80,13 @@ _Avoid_: marker, flag component
 A Tag applied to a per-Frame simulation System to exclude it from the paused Pipeline. Systems that should keep running during pause (input, rendering, UI, audio) simply omit this tag. Toggling pause adds/removes `scene::Paused` from the world; the scene-management Module observes this and swaps the active Pipeline, and the fixed step runs no Tick.
 _Avoid_: pausable flag, pause-aware
 
-**Platform**:
-The abstract interface (`platform::Platform`) wrapping Raylib and all windowing/rendering/input primitives. All engine and game code calls `Platform`; no code calls Raylib directly. The desktop and WASM builds share one concrete backend; future backends swap in without touching the rest of the engine.
-_Avoid_: backend, Raylib wrapper, renderer
+**Window**:
+The surface a game is shown in, and its link to the OS: its size and fullscreen state, how often Frames are paced, and each Frame's input, which it hands over as a sample. A headless world's Window has no surface. The Window doesn't draw (ADR 0001).
+_Avoid_: Platform (the old name for everything outside the game), display, screen
 
 **Renderer**:
 The Module that draws a RenderFrame, handed to it once per Frame. It's the only code that talks to a graphics API, and it decides the passes, their order, and what each View sees (ADR 0010).
-_Avoid_: render backend, graphics backend, Platform (the Platform doesn't draw)
+_Avoid_: render backend, graphics backend, Window (the Window doesn't draw)
 
 **RenderFrame**:
 Everything one Frame draws, as plain data: its Views, DrawItems, lights, environment, lines, 2D list, settings, and the Assets they use. Systems fill it from the world each Frame and the Renderer reads it; it's complete, so nothing is left out because the camera can't see it.
