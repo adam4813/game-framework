@@ -1,10 +1,10 @@
 #include "value_generator.hpp"
 
-#include <algorithm>
-#include <numeric>
-#include <random>
+#include <array>
 
 #include <glm/glm.hpp>
+
+#include "permutation.hpp"
 
 namespace engine::noise::builtin {
 
@@ -20,15 +20,12 @@ ValueGenerator::ValueGenerator(const int seed) { BuildTables(seed); }
 void ValueGenerator::SetSeed(const int seed) { BuildTables(seed); }
 
 void ValueGenerator::BuildTables(const int seed) {
-	std::array<int, 256> p{};
-	std::iota(p.begin(), p.end(), 0);
-	std::mt19937 rng(static_cast<uint32_t>(seed));
-	std::ranges::shuffle(p, rng);
+	ecs::RngState rng = SeededNoiseRng(seed);
+	const std::array<int, 256> p = ShuffledPermutation(rng);
 
-	// Build a second shuffle for the value lookup (independent of the coordinate shuffle).
-	std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+	// The lattice values, drawn after the permutation from the same RNG.
 	std::array<float, 256> vals{};
-	for (auto& v : vals) v = dist(rng);
+	for (auto& v : vals) v = rng.NextFloatRange(-1.0f, 1.0f);
 
 	for (int i = 0; i < 256; ++i) {
 		perm_[i] = p[i];

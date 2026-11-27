@@ -1,10 +1,10 @@
 #include "perlin_strategy.hpp"
 
-#include <algorithm>
-#include <numeric>
-#include <random>
+#include <array>
 
 #include <glm/glm.hpp>
+
+#include "permutation.hpp"
 
 namespace engine::noise::builtin {
 
@@ -29,10 +29,8 @@ PerlinGenerator::PerlinGenerator(const int seed) { BuildPermutationTable(seed); 
 void PerlinGenerator::SetSeed(const int seed) { BuildPermutationTable(seed); }
 
 void PerlinGenerator::BuildPermutationTable(const int seed) {
-	std::array<int, 256> p{};
-	std::iota(p.begin(), p.end(), 0);
-	std::mt19937 rng(static_cast<uint32_t>(seed));
-	std::ranges::shuffle(p, rng);
+	ecs::RngState rng = SeededNoiseRng(seed);
+	const std::array<int, 256> p = ShuffledPermutation(rng);
 	for (int i = 0; i < 256; ++i) {
 		perm_[i] = p[i];
 		perm_[i + 256] = p[i];
