@@ -163,7 +163,7 @@ void RegisterFlowUpdate(const flecs::world& world, const flecs::entity roomRoot)
 	// Not Pausable: the cards and the `interact` press must work while the Room is held.
 	world.system("ShiftFlowUpdate")
 		.kind(flecs::OnUpdate)
-		.run([actions = world.query<const OperatorActions>(), roomRoot](flecs::iter& it) {
+		.run([actions = world.query<const OperatorActions>()](flecs::iter& it) {
 			while (it.next()) {
 				const auto world = it.world();
 				const auto& hud = world.get<HudLayout>();
