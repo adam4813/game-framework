@@ -5,8 +5,8 @@ to it.
 
 ## Git
 
-- **Base branch: `feat/signal-room`.** It is long-lived, local only (not pushed to `origin`, the upstream framework
-  repo), and never merges into `main`. Branch each ticket off it and diff or review against it
+- **Base branch: `feat/signal-room`.** It is long-lived and pushed to `origin`, and merges into `main` by pull
+  request. Rebase it on `main` before opening one. Branch each ticket off it and diff or review against it
   (`feat/signal-room...HEAD`).
 - **Merging a ticket is a local squash, not a pull request.** The in-between commits on a ticket branch are scratch
   history. Land each ticket on `feat/signal-room` as at most two commits, then delete the ticket branch
