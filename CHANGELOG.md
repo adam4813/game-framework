@@ -4,6 +4,18 @@ Framework releases, newest first. Each entry opens with the version's highlight,
 Releases up to 0.10.0 were back-filled from the git tags, so they hold highlights rather than every change. Game Targets carry their own `project()` version, and their
 releases are noted under the Framework release they shipped with.
 
+## 0.12.1 - 2026-11-27
+
+**Highlight: a character under zero gravity moves freely, along every axis.**
+
+### Changed
+
+- **Free movement under zero gravity**: a character whose gravity is zero (its `Gravity`, or the world's without one)
+  now moves at the whole `CharacterMove.velocity`, its part along up included, holds still without one, and doesn't
+  stick to the floor, so it can lift off. Before, the part along up was dropped and vertical speed carried over from
+  the last step, so a weightless character could only drift. A game gives one character free movement, for a fly or
+  build mode, by setting a zero `Gravity` on it and removing it again.
+
 ## 0.12.0 - 2026-11-26
 
 **Highlight: any number of point lights through clustered forward shading, with two new Game Targets, Farm and Signal
