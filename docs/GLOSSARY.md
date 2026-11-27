@@ -84,6 +84,10 @@ _Avoid_: pausable flag, pause-aware
 The surface a game is shown in, and its link to the OS: its size and fullscreen state, how often Frames are paced, and each Frame's input, which it hands over as a sample. A headless world's Window has no surface. The Window doesn't draw (ADR 0001).
 _Avoid_: Platform (the old name for everything outside the game), display, screen
 
+**Canvas**:
+The fixed-size surface a game lays out its 2D drawing and UI on, measured in its own units (1280 by 720 in every game today). It's fitted into the Window at its own aspect ratio, with bars filling the rest, and the mouse is reported in Canvas units. Its size doesn't change when the Window does.
+_Avoid_: screen, window size, resolution (the Window's pixels, which the Canvas is scaled to)
+
 **Renderer**:
 The Module that draws a RenderFrame, handed to it once per Frame. It's the only code that talks to a graphics API, and it decides the passes, their order, and what each View sees (ADR 0010).
 _Avoid_: render backend, graphics backend, Window (the Window doesn't draw)
