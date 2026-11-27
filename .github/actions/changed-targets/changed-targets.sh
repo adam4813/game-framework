@@ -16,7 +16,8 @@ set -euo pipefail
 
 out="${GITHUB_OUTPUT:-/dev/stdout}"
 
-# A game is any games/<name>/ with a CMakeLists.txt; its executable target shares the folder name.
+# A game is any games/<name>/ with a CMakeLists.txt. Games are named by folder here; build-games.yml reads
+# each one's CMake target from its project() line.
 mapfile -t all_games < <(find games -mindepth 2 -maxdepth 2 -name CMakeLists.txt 2>/dev/null \
 	| sed -E 's#^games/([^/]+)/CMakeLists.txt$#\1#' | sort)
 

@@ -69,6 +69,21 @@ jobs:
         with:
           submodules: recursive
 
+      # The matrix names games by folder; the CMake target is the game's project() name, which can differ
+      # (games/signal-room is signal_room). setup_game_target fails the configure if the executable doesn't
+      # take that name.
+      - name: Resolve ${{ matrix.game }} CMake target
+        shell: bash
+        run: |
+          target=$(sed -nE 's/^[[:space:]]*project[[:space:]]*\([[:space:]]*([A-Za-z0-9_.+-]+).*/\1/p' \
+            "games/${{ matrix.game }}/CMakeLists.txt" | head -n 1)
+          if [ -z "$target" ]; then
+            echo "::error::games/${{ matrix.game }}/CMakeLists.txt declares no project()"
+            exit 1
+          fi
+          echo "GAME_TARGET=$target" >> "$GITHUB_ENV"
+          echo "${{ matrix.game }} builds target $target"
+
       - name: Setup Engine Environment
         uses: $/.github/actions/setup-environment
         with:
@@ -80,10 +95,10 @@ jobs:
         run: cmake --preset ${{ matrix.preset }} -DENABLE_REST_API=OFF
 
       - name: Build ${{ matrix.game }}
-        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}
+        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ env.GAME_TARGET }}
 
-      # A game with tests has games/<game>/tests/, which defines a <game>_tests target and labels its tests
-      # <game> (see games/crabnado/tests/CMakeLists.txt). Tests are desktop-only.
+      # A game with tests has games/<game>/tests/, which defines a <target>_tests target and labels its tests
+      # <target> (see games/crabnado/tests/CMakeLists.txt). Tests are desktop-only.
       - name: Detect ${{ matrix.game }} tests
         id: game-tests
         if: matrix.platform != 'wasm'
@@ -98,11 +113,11 @@ jobs:
 
       - name: Build ${{ matrix.game }} tests
         if: steps.game-tests.outputs.present == 'true'
-        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ matrix.game }}_tests
+        run: cmake --build --preset ${{ matrix.preset }}-release --target ${{ env.GAME_TARGET }}_tests
 
       - name: Run ${{ matrix.game }} tests
         if: steps.game-tests.outputs.present == 'true'
-        run: ctest --preset ${{ matrix.preset }}-release --output-on-failure -L "^${{ matrix.game }}$"
+        run: ctest --preset ${{ matrix.preset }}-release --output-on-failure -L "^${{ env.GAME_TARGET }}$"
 
       # Configure is where vcpkg builds ports, so save them even when the game's build or tests fail.
       - name: Save vcpkg binary cache
@@ -116,7 +131,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$STAGE_DIR"
-          cp "$OUT_DIR/${{ matrix.game }}" "$STAGE_DIR/"
+          cp "$OUT_DIR/$GAME_TARGET" "$STAGE_DIR/"
           cp -r "$OUT_DIR/assets" "$STAGE_DIR/"
           tar -czf "dist/${{ matrix.game }}-linux.tar.gz" -C dist "${{ matrix.game }}-linux"
           echo "ARTIFACT_PATH=dist/${{ matrix.game }}-linux.tar.gz" >> "$GITHUB_ENV"
@@ -128,7 +143,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$STAGE_DIR"
-          cp "$OUT_DIR/${{ matrix.game }}.exe" "$STAGE_DIR/"
+          cp "$OUT_DIR/$GAME_TARGET.exe" "$STAGE_DIR/"
           find "$OUT_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$STAGE_DIR/" \;
           cp -r "$OUT_DIR/assets" "$STAGE_DIR/"
           echo "ARTIFACT_PATH=$STAGE_DIR" >> "$GITHUB_ENV"
@@ -140,7 +155,7 @@ jobs:
         if: matrix.platform == 'wasm'
         shell: bash
         run: |
-          game='${{ matrix.game }}'
+          game="$GAME_TARGET"
           mkdir -p "$STAGE_DIR"
           cp "$OUT_DIR/$game.html" "$STAGE_DIR/index.html"
           for ext in js wasm data; do cp "$OUT_DIR/$game.$ext" "$STAGE_DIR/"; done
@@ -155,8 +170,8 @@ jobs:
           fail=0
           [ -f index.html ] || { echo "::error::index.html missing"; fail=1; }
           # Release builds minify the shell, which drops attribute quotes: src=game.js.
-          grep -qE "src=[\"']?${{ matrix.game }}\.js" index.html \
-            || { echo "::error::index.html does not load ${{ matrix.game }}.js by relative path"; fail=1; }
+          grep -qE "src=[\"']?${GAME_TARGET}\.js" index.html \
+            || { echo "::error::index.html does not load ${GAME_TARGET}.js by relative path"; fail=1; }
           count=$(find . -type f | wc -l)
           [ "$count" -le 1000 ] || { echo "::error::$count files, itch allows 1000"; fail=1; }
           total=$(du -sb . | cut -f1)

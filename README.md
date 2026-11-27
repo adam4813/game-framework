@@ -339,8 +339,10 @@ If you're starting a new game:
 1. **Read the framework docs** — start with `docs/README.md` and `docs/architecture.md`
 2. **Familiarize with the ECS** — study `docs/ecs-components.md` and existing module READMEs
 3. **Add your Game Target** — create `games/<name>/` (`CMakeLists.txt` calling
-   `setup_game_target`, a top-level module that registers scenes, `tests/` with an `add_<name>_test` helper,
-   optionally `assets/`); the root `CMakeLists.txt` picks up every `games/*/CMakeLists.txt` on its own. A test
+   `project(<target> VERSION ...)` and `setup_game_target(<target>)`, a top-level module that registers scenes,
+   `tests/` with an `add_<target>_test` helper that adds each test to a `<target>_tests` target and the `<target>`
+   CTest label, optionally `assets/`). `<target>` is a CMake name, so `games/signal-room/` declares
+   `signal_room`; the root `CMakeLists.txt` picks up every `games/*/CMakeLists.txt` on its own. A test
    harness that presses keys sets the `KeyOverride` singleton (`src/engine/input/README.md`) rather than writing
    `InputState`, which `InputPoll` overwrites every frame
 4. **Use the scripting API** — wire up AngelScript bindings for fast iteration (`docs/scripting-api.md`)
