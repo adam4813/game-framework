@@ -48,7 +48,6 @@ constexpr float kObjectQuadWidthTiles = 1.0F;
 constexpr float kSlotSize = 48.0F;
 constexpr float kSlotGap = 4.0F;
 constexpr float kHotbarPadBot = 12.0F;
-constexpr int kHotbarSlots = 8; // show first 8 of the 16 inventory slots on-screen
 
 constexpr core::Rgba kSlotBg = {.r = 30, .g = 30, .b = 35, .a = 200};
 constexpr core::Rgba kSlotBorder = {.r = 80, .g = 80, .b = 90, .a = 255};
@@ -353,7 +352,6 @@ void FarmWorldScene::SetupTilemap(flecs::world& world) {
 		engine::profiling::Zone _zone{"FarmWorldScene/TilemapBuild"};
 		const TownStyleTable townStyles = LoadFarmTownStyles(world);
 		tilemap::Tilemap map = BuildTilemapFromWorldData(worldData_, *tileset, townStyles);
-		const float tileWorldSize = tilemap::TileWorldSize(map);
 
 		tilemapEntity_ = world.entity("FarmWorldTilemap").child_of(sceneRoot_);
 		tilemapEntity_.add<level::UseRegistry>(registry);
@@ -630,7 +628,9 @@ void FarmWorldScene::RebuildObjectMeshes(const flecs::world& world, const float 
 }
 
 void FarmWorldScene::ReplaceObjectMesh(
-	platform::Platform& platform, const flecs::entity target, const tilemap::TilemapMeshData& mesh
+	platform::Platform& platform,
+	const flecs::entity target,
+	const tilemap::TilemapMeshData& mesh
 ) {
 	// Free the old GPU mesh directly (immediate, bypasses defer so the handle is recycled before we
 	// potentially hit the 65536-slot limit on long sessions).

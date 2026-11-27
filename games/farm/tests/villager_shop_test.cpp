@@ -36,23 +36,21 @@ protected:
 	}
 };
 
-TEST_F(TryBuyTest, SufficientCoins_ReturnsTrue) {
-	EXPECT_TRUE(TryBuy(inv_, "wheat_seed", 1, 10));
-}
+TEST_F(TryBuyTest, SufficientCoins_ReturnsTrue) { EXPECT_TRUE(TryBuy(inv_, "wheat_seed", 1, 10)); }
 
 TEST_F(TryBuyTest, SufficientCoins_DeductsCoins) {
-	TryBuy(inv_, "wheat_seed", 1, 10);
+	ASSERT_TRUE(TryBuy(inv_, "wheat_seed", 1, 10));
 	EXPECT_EQ(CountItem(inv_, "coin"), 10) << "20 coins - 10 cost = 10 remaining";
 }
 
 TEST_F(TryBuyTest, SufficientCoins_AddsItem) {
-	TryBuy(inv_, "wheat_seed", 1, 10);
+	ASSERT_TRUE(TryBuy(inv_, "wheat_seed", 1, 10));
 	EXPECT_TRUE(HasItem(inv_, "wheat_seed"));
 	EXPECT_EQ(CountItem(inv_, "wheat_seed"), 1);
 }
 
 TEST_F(TryBuyTest, SufficientCoins_MultiCount_DeductsAll) {
-	TryBuy(inv_, "wheat_seed", 2, 5); // 2 × 5 = 10 coins
+	ASSERT_TRUE(TryBuy(inv_, "wheat_seed", 2, 5)); // 2 × 5 = 10 coins
 	EXPECT_EQ(CountItem(inv_, "coin"), 10);
 	EXPECT_EQ(CountItem(inv_, "wheat_seed"), 2);
 }
@@ -67,7 +65,7 @@ TEST_F(TryBuyTest, InsufficientCoins_ReturnsFalse) {
 }
 
 TEST_F(TryBuyTest, InsufficientCoins_NoMutation) {
-	TryBuy(inv_, "wheat_seed", 1, 21);
+	ASSERT_FALSE(TryBuy(inv_, "wheat_seed", 1, 21));
 	EXPECT_EQ(CountItem(inv_, "coin"), 20) << "Coins unchanged on failed purchase";
 	EXPECT_FALSE(HasItem(inv_, "wheat_seed")) << "No seeds added on failed purchase";
 }
@@ -90,22 +88,20 @@ protected:
 	}
 };
 
-TEST_F(TrySellTest, HasCrops_ReturnsTrue) {
-	EXPECT_TRUE(TrySell(inv_, "wheat", 1, 8));
-}
+TEST_F(TrySellTest, HasCrops_ReturnsTrue) { EXPECT_TRUE(TrySell(inv_, "wheat", 1, 8)); }
 
 TEST_F(TrySellTest, HasCrops_RemovesCrops) {
-	TrySell(inv_, "wheat", 1, 8);
+	ASSERT_TRUE(TrySell(inv_, "wheat", 1, 8));
 	EXPECT_EQ(CountItem(inv_, "wheat"), 2) << "3 wheat - 1 sold = 2 remaining";
 }
 
 TEST_F(TrySellTest, HasCrops_AddsCoins) {
-	TrySell(inv_, "wheat", 1, 8);
+	ASSERT_TRUE(TrySell(inv_, "wheat", 1, 8));
 	EXPECT_EQ(CountItem(inv_, "coin"), 13) << "5 existing + 8 earned = 13";
 }
 
 TEST_F(TrySellTest, SellMultiple_CorrectDelta) {
-	TrySell(inv_, "wheat", 3, 8); // sell all 3
+	ASSERT_TRUE(TrySell(inv_, "wheat", 3, 8)); // sell all 3
 	EXPECT_EQ(CountItem(inv_, "wheat"), 0);
 	EXPECT_EQ(CountItem(inv_, "coin"), 29) << "5 + 3×8 = 29";
 }
@@ -115,9 +111,9 @@ TEST_F(TrySellTest, InsufficientCrops_ReturnsFalse) {
 }
 
 TEST_F(TrySellTest, InsufficientCrops_NoMutation) {
-	TrySell(inv_, "wheat", 4, 8);
+	ASSERT_FALSE(TrySell(inv_, "wheat", 4, 8));
 	EXPECT_EQ(CountItem(inv_, "wheat"), 3) << "Crops unchanged on failed sale";
-	EXPECT_EQ(CountItem(inv_, "coin"), 5)  << "Coins unchanged on failed sale";
+	EXPECT_EQ(CountItem(inv_, "coin"), 5) << "Coins unchanged on failed sale";
 }
 
 TEST_F(TrySellTest, NoCrops_ReturnsFalse) {

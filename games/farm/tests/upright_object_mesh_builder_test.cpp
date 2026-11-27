@@ -187,7 +187,7 @@ TEST(UprightMeshBuilderTest, ObjectKindRegistryMapsKindToSpriteName) {
 	};
 
 	const auto obj = MakeObject({glm::ivec2{0, 0}}, "tree_oak", 2.0F);
-	BuildUprightObjectMesh({obj}, reg, UprightMeshConfig{}, spy);
+	static_cast<void>(BuildUprightObjectMesh({obj}, reg, UprightMeshConfig{}, spy));
 	EXPECT_EQ(seenSprite, "oak_canopy");
 }
 
@@ -198,7 +198,7 @@ TEST(UprightMeshBuilderTest, UnknownKindFallsBackToKindAsSpriteName) {
 		return std::nullopt;
 	};
 	const auto obj = MakeObject({glm::ivec2{0, 0}}, "mystery", 1.0F);
-	BuildUprightObjectMesh({obj}, ObjectKindRegistry{}, UprightMeshConfig{}, spy);
+	static_cast<void>(BuildUprightObjectMesh({obj}, ObjectKindRegistry{}, UprightMeshConfig{}, spy));
 	EXPECT_EQ(seenSprite, "mystery");
 }
 
@@ -239,7 +239,8 @@ TEST(UprightMeshBuilderTest, TileUnitScalingContract) {
 // ── Opacity ──────────────────────────────────────────────────────────────────────
 
 TEST(UprightMeshBuilderTest, QuadsAreOpaqueWhiteByDefault) {
-	const auto mesh = BuildUprightObjectMesh({MakeObject({{0, 0}}, "tree_oak", 4.0F)}, ObjectKindRegistry{}, {}, kNoSprite);
+	const auto mesh =
+		BuildUprightObjectMesh({MakeObject({{0, 0}}, "tree_oak", 4.0F)}, ObjectKindRegistry{}, {}, kNoSprite);
 
 	ASSERT_EQ(mesh.colors.size(), 4U);
 	for (const glm::vec4& c : mesh.colors) EXPECT_EQ(c, (glm::vec4{1.0F, 1.0F, 1.0F, 1.0F}));

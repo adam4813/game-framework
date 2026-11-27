@@ -774,7 +774,6 @@ void WorldGenPreviewScene::DrawMap(platform::Platform& platform) const {
 	}
 
 	// Draw roads as their actual A*-routed tile paths so the preview matches the in-game geometry.
-	const float roadThickness = std::max(1.0f, zoom_ * 0.3f);
 	constexpr core::Rgba kRoadColor = {.r = 70, .g = 50, .b = 36, .a = 255};
 	for (const auto& [a, b] : presentRoads) {
 		const int key = std::min(a, b) * 100000 + std::max(a, b);

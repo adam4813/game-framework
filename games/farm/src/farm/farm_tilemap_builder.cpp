@@ -19,6 +19,7 @@ std::string_view BiomeToTileName(const Biome biome) {
 	case Biome::Forest: return "forest";
 	case Biome::Hills: return "deep_forest";
 	case Biome::Mountain: return "stone_wall";
+	case Biome::Count_: break;
 	}
 	return "grass";
 }
@@ -79,7 +80,10 @@ engine::tilemap::Tilemap BuildTilemapFromWorldData(
 			const glm::ivec2 at = (site != nullptr) ? site->location : layout.landmark;
 			const Biome biome = world.grid.InBounds(at.x, at.y) ? world.grid.BiomeAt(at.x, at.y) : Biome::Plains;
 			const std::string material = PickFloorMaterial(
-				styles, biome, TierForPopulation(population), DeriveTownSeed(world.seed, layout.townId) ^ 0x464C4F52u
+				styles,
+				biome,
+				TierForPopulation(population),
+				DeriveTownSeed(world.seed, layout.townId) ^ 0x464C4F52u
 			);
 			floorTile = resolve(material);
 		}

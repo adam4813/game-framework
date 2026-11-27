@@ -34,6 +34,7 @@ Rgb BiomeColour(const Biome biome) {
 	case Biome::Forest: return {.r = 52, .g = 104, .b = 56};
 	case Biome::Hills: return {.r = 140, .g = 120, .b = 80};
 	case Biome::Mountain: return {.r = 150, .g = 150, .b = 158};
+	case Biome::Count_: break;
 	}
 	return {.r = 0, .g = 0, .b = 0};
 }
