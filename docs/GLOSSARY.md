@@ -120,6 +120,10 @@ _Avoid_: animation type, animator
 An entity's playback state for one clip of its Animation Kind: which clip, the time into it, the speed, and whether it loops or is playing. It knows nothing of meshes or sprites; it only moves time through a clip of known length.
 _Avoid_: animator, animation controller, animation state
 
+**Pose**:
+Where every joint of a skeletal model is at one moment: its clip sampled at the Animation Player's time, or its rest position when nothing plays. A new Pose is taken only when that time changes, so a paused model keeps the one it has. Drawing, shadows and lighting all use the same Pose.
+_Avoid_: skeleton state, bone matrices, frame (a Frame is a pass of the game loop)
+
 **Character Body**:
 An entity's physical presence as a walking character: a capsule that moves at the velocity the game asks for, falls under its Gravity, stays on the ground, climbs slopes and steps, and slides along walls. It goes where the game wants it to, but it doesn't know about input. It's distinct from a rigid body, which the simulation pushes around.
 _Avoid_: character controller, player controller, kinematic body
