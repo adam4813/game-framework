@@ -89,7 +89,7 @@ The Module that draws a RenderFrame, handed to it once per Frame. It's the only 
 _Avoid_: render backend, graphics backend, Platform (the Platform doesn't draw)
 
 **RenderFrame**:
-Everything one Frame draws, as plain data: its Views, DrawItems, lights, environment, lines, 2D list and settings. Systems fill it from the world each Frame and the Renderer reads it; it's complete, so nothing is left out because the camera can't see it.
+Everything one Frame draws, as plain data: its Views, DrawItems, lights, environment, lines, 2D list, settings, and the Assets they use. Systems fill it from the world each Frame and the Renderer reads it; it's complete, so nothing is left out because the camera can't see it.
 _Avoid_: frame (a Frame is the pass of the game loop), render queue, scene
 
 **DrawItem**:
@@ -99,6 +99,14 @@ _Avoid_: draw call, render command, renderable
 **View**:
 A viewpoint the Renderer draws the DrawItems from: a camera, or a viewpoint a pass makes for itself, such as a shadow cascade or a spot light. A View keeps its identity from Frame to Frame.
 _Avoid_: camera (that's the component a camera View comes from), viewport, render pass
+
+**Asset**:
+Something loaded or made once and used by many entities: an image, mesh, shader, animation set, font, sound or music. It's an entity holding the data on the CPU, found by its file path when it came from one. The Renderer keeps its own GPU copy, which it can always rebuild (ADR 0012).
+_Avoid_: resource, handle (a handle is how code used to point at one)
+
+**Asset Role**:
+The part an Asset plays for the entity that uses it, such as albedo, normal map, mesh or sound. Each role is its own relationship from the user to the Asset, so one material can hold several textures without mixing them up.
+_Avoid_: slot, asset type (the type is what the Asset is, the role is how it's used)
 
 **DeferredTaskQueue**:
 A queue of callbacks that must execute *after* `world.progress()` completes — used for work that would mutate Flecs world structure mid-frame (e.g. scene switches). Drained by `App::PostTick()` each frame.
