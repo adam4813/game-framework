@@ -84,6 +84,22 @@ _Avoid_: pausable flag, pause-aware
 The abstract interface (`platform::Platform`) wrapping Raylib and all windowing/rendering/input primitives. All engine and game code calls `Platform`; no code calls Raylib directly. The desktop and WASM builds share one concrete backend; future backends swap in without touching the rest of the engine.
 _Avoid_: backend, Raylib wrapper, renderer
 
+**Renderer**:
+The Module that draws a RenderFrame, handed to it once per Frame. It's the only code that talks to a graphics API, and it decides the passes, their order, and what each View sees (ADR 0010).
+_Avoid_: render backend, graphics backend, Platform (the Platform doesn't draw)
+
+**RenderFrame**:
+Everything one Frame draws, as plain data: its Views, DrawItems, lights, environment, lines, 2D list and settings. Systems fill it from the world each Frame and the Renderer reads it; it's complete, so nothing is left out because the camera can't see it.
+_Avoid_: frame (a Frame is the pass of the game loop), render queue, scene
+
+**DrawItem**:
+One thing to draw in a RenderFrame: a shape or mesh with its material, placed in the world, belonging to one entity. An entity with several parts (the sub-meshes of a model) gives one DrawItem per part, told apart by the part.
+_Avoid_: draw call, render command, renderable
+
+**View**:
+A viewpoint the Renderer draws the DrawItems from: a camera, or a viewpoint a pass makes for itself, such as a shadow cascade or a spot light. A View keeps its identity from Frame to Frame.
+_Avoid_: camera (that's the component a camera View comes from), viewport, render pass
+
 **DeferredTaskQueue**:
 A queue of callbacks that must execute *after* `world.progress()` completes — used for work that would mutate Flecs world structure mid-frame (e.g. scene switches). Drained by `App::PostTick()` each frame.
 _Avoid_: deferred queue, post-frame queue, task queue
