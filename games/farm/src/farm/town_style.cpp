@@ -5,6 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "seeded_random.hpp"
+
 namespace game::farm {
 
 TownTier TierForPopulation(const int population) {
@@ -162,7 +164,7 @@ PickFloorMaterial(const TownStyleTable& table, const Biome biome, const TownTier
 			}
 			if (total > 0) {
 				std::mt19937 rng(seed);
-				int roll = std::uniform_int_distribution<int>(0, total - 1)(rng);
+				int roll = UniformInt(rng, 0, total - 1);
 				for (const FloorMaterialWeight& w : list) {
 					roll -= std::max(1, w.weight);
 					if (roll < 0) {

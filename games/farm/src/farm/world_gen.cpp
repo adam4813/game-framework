@@ -24,6 +24,7 @@
 #include "creature_placement.hpp"
 #include "road_hubs.hpp"
 #include "road_router.hpp"
+#include "seeded_random.hpp"
 #include "town_layout.hpp"
 #include "tree_species_catalog.hpp"
 #include "world_data.hpp"
@@ -123,8 +124,8 @@ struct Rng {
 	std::mt19937 engine;
 	explicit Rng(const int seed) : engine(static_cast<std::uint32_t>(seed)) {}
 
-	int Int(const int lo, const int hi) { return std::uniform_int_distribution<int>(lo, hi)(engine); }
-	float Float(const float lo, const float hi) { return std::uniform_real_distribution<float>(lo, hi)(engine); }
+	int Int(const int lo, const int hi) { return UniformInt(engine, lo, hi); }
+	float Float(const float lo, const float hi) { return UniformFloat(engine, lo, hi); }
 };
 
 int SquaredDistance(const glm::ivec2 a, const glm::ivec2 b) {
@@ -955,10 +956,18 @@ int FindCentralLivingTown(const std::vector<TownSite>& towns, const glm::ivec2 c
 TownSite MakeRuinNear(const Grid& grid, const WorldGenParams& params, const glm::ivec2 anchor, const int id, Rng& rng) {
 	for (int radius = 6; radius <= params.explorationRange; radius += 2) {
 		for (int step = 0; step < 24; ++step) {
-			const float ang = rng.Float(0.0f, 6.2831853f);
+			// A uniform random direction from a point in the unit disc, not cos/sin of an angle: the math libraries
+			// round those differently, and the cast to int would turn that into a different tile per platform.
+			glm::vec2 dir{0.0f};
+			float lengthSq = 0.0f;
+			do {
+				dir = {rng.Float(-1.0f, 1.0f), rng.Float(-1.0f, 1.0f)};
+				lengthSq = dir.x * dir.x + dir.y * dir.y;
+			} while (lengthSq > 1.0f || lengthSq < 0.01f);
+			const float length = std::sqrt(lengthSq);
 			const glm::ivec2 p{
-				anchor.x + static_cast<int>(std::cos(ang) * radius),
-				anchor.y + static_cast<int>(std::sin(ang) * radius)
+				anchor.x + static_cast<int>(dir.x / length * static_cast<float>(radius)),
+				anchor.y + static_cast<int>(dir.y / length * static_cast<float>(radius))
 			};
 			if (grid.InBounds(p.x, p.y) && IsLandForTown(grid.BiomeAt(p.x, p.y))) {
 				TownSite ruin;

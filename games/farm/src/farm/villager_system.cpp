@@ -15,6 +15,7 @@
 #include "farm_components.hpp"
 #include "game_time.hpp"
 #include "player_inventory.hpp"
+#include "seeded_random.hpp"
 #include "shop_helpers.hpp"
 #include "town_layout.hpp"
 #include "villager_components.hpp"
@@ -466,7 +467,7 @@ PlanTownVillagers(const int worldSeed, const TownSite& town, const TownLayout* l
 	std::mt19937 rng(DeriveTownSeed(worldSeed, town.id) ^ 0x56494C4Cu);
 
 	std::vector<std::string> names = catalog.namePool;
-	if (!names.empty()) std::shuffle(names.begin(), names.end(), rng);
+	Shuffle(names.begin(), names.end(), rng);
 	std::size_t nameIdx = 0;
 	const auto nextName = [&]() -> std::string {
 		if (names.empty()) return "Villager";

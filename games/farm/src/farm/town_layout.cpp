@@ -9,6 +9,7 @@
 #include <set>
 #include <utility>
 
+#include "seeded_random.hpp"
 #include "town_style.hpp"
 
 namespace game::farm {
@@ -27,7 +28,7 @@ constexpr int kPlotJitter = 1;    // ± tiles a plot centre is nudged so the vil
 struct LayoutRng {
 	std::mt19937 engine;
 	explicit LayoutRng(const std::uint32_t s) : engine(s) {}
-	int Int(const int lo, const int hi) { return std::uniform_int_distribution<int>(lo, hi)(engine); }
+	int Int(const int lo, const int hi) { return UniformInt(engine, lo, hi); }
 };
 
 // A building is buildable only on walkable land. Water and mountains are skipped so a spread-out

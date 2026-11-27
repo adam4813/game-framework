@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "seeded_random.hpp"
+
 namespace game::farm {
 namespace {
 
@@ -14,12 +16,7 @@ namespace {
 struct PlacementRng {
 	std::mt19937 engine;
 	explicit PlacementRng(const std::uint32_t s) : engine(s) {}
-	int Int(const int lo, const int hi) {
-		if (hi <= lo) {
-			return lo;
-		}
-		return std::uniform_int_distribution<int>(lo, hi)(engine);
-	}
+	int Int(const int lo, const int hi) { return UniformInt(engine, lo, hi); }
 };
 
 // Derive a stable per-region RNG seed from the world seed, a region id (town id or cell index) and a
