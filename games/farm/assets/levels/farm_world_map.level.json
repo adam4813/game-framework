@@ -1,0 +1,52 @@
+{
+	"entities": [
+		{
+			"name": "BasicRegistry",
+			"components": {
+				"tileset": "@file:../data/tilesets/basic.json"
+			}
+		},
+		{
+			"name": "FarmObjectRegistry",
+			"components": {
+				"tileset": "@file:../data/tilesets/farm_objects.json"
+			}
+		},
+		{
+			"name": "BasicSheet",
+			"components": {
+				"sprite_atlas": "@file:../data/spriteatlas/basic.json",
+				"shader": {
+					"stages": [
+						{
+							"type": "vertex",
+							"path": "tilemap.vs"
+						},
+						{
+							"type": "fragment",
+							"path": "tilemap.fs"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "ObjectSheet",
+			"components": {
+				"sprite_atlas": "@file:../data/spriteatlas/farm_objects.json",
+				"shader": {
+					"stages": [
+						{
+							"type": "vertex",
+							"path": "tilemap.vs"
+						},
+						{
+							"type": "fragment",
+							"path": "upright.fs"
+						}
+					]
+				}
+			}
+		}
+	]
+}

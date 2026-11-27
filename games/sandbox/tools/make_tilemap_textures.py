@@ -138,18 +138,102 @@ def _make_deep_forest(size):
     return img
 
 
+def _make_ruins(size):
+    """Tile 8 – collapsed stonework: grey-brown ground strewn with broken blocks."""
+    img = solid_with_noise(size, size, (120, 112, 98), noise_amplitude=10)
+    draw = ImageDraw.Draw(img)
+    np.random.seed(808)
+    for _ in range(9):
+        x = int(np.random.randint(2, size - 16))
+        y = int(np.random.randint(2, size - 12))
+        w = int(np.random.randint(8, 18))
+        h = int(np.random.randint(6, 12))
+        s = int(np.random.randint(-18, 10))
+        draw.rectangle([x, y, x + w, y + h], fill=(96 + s, 90 + s, 78 + s))
+    return img
+
+
+def _make_tilled_soil(size):
+    """Tile 9 – ploughed farm earth: dark brown with horizontal furrows."""
+    img = solid_with_noise(size, size, (104, 72, 44), noise_amplitude=12)
+    draw = ImageDraw.Draw(img)
+    for y in range(4, size, 8):
+        draw.line([(0, y), (size, y)], fill=(78, 52, 30), width=2)
+        draw.line([(0, y + 2), (size, y + 2)], fill=(126, 90, 56), width=1)
+    return img
+
+
+def _make_dirt(size):
+    """Tile 10 – packed bare earth (a small village's ground): warm brown with pebbles."""
+    img = solid_with_noise(size, size, (138, 104, 66), noise_amplitude=16)
+    draw = ImageDraw.Draw(img)
+    np.random.seed(1010)
+    for _ in range(14):
+        x = int(np.random.randint(2, size - 4))
+        y = int(np.random.randint(2, size - 4))
+        r = int(np.random.randint(1, 3))
+        shade = int(np.random.randint(-24, 24))
+        draw.ellipse([x, y, x + r, y + r], fill=(118 + shade, 88 + shade, 54 + shade))
+    return img
+
+
+def _make_cobblestone(size):
+    """Tile 11 – mortared cobbles (a town's paving): grey rounded stones."""
+    img = solid_with_noise(size, size, (96, 96, 102), noise_amplitude=8)
+    draw = ImageDraw.Draw(img)
+    np.random.seed(1111)
+    step = 16
+    for gy in range(0, size, step):
+        offset = (step // 2) if ((gy // step) % 2) else 0
+        for gx in range(-offset, size, step):
+            cx = gx + step // 2 + int(np.random.randint(-2, 3))
+            cy = gy + step // 2 + int(np.random.randint(-2, 3))
+            r = step // 2 - 1
+            shade = int(np.random.randint(-14, 22))
+            draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(150 + shade, 150 + shade, 156 + shade))
+    return img
+
+
+def _make_brick(size):
+    """Tile 12 – laid brick (a city's paving): red-brown bricks with pale mortar."""
+    img = solid_with_noise(size, size, (150, 74, 54), noise_amplitude=6)
+    draw = ImageDraw.Draw(img)
+    mortar = (176, 158, 140)
+    bh, bw, mg = 12, 22, 2
+    for row_i, y0 in enumerate(range(0, size, bh + mg)):
+        draw.rectangle([0, y0, size, y0 + mg - 1], fill=mortar)
+        offset = (bw // 2) if (row_i % 2 == 1) else 0
+        for x0 in range(-offset, size, bw + mg):
+            draw.line([(x0, y0), (x0, min(y0 + bh + mg, size))], fill=mortar, width=mg)
+    return img
+
+
+def _make_moss(size):
+    """Tile 13 – mossy ground (woodland town ground): soft green with darker clumps."""
+    img = solid_with_noise(size, size, (74, 108, 56), noise_amplitude=12)
+    draw = ImageDraw.Draw(img)
+    np.random.seed(1313)
+    for _ in range(12):
+        cx = int(np.random.randint(4, size - 4))
+        cy = int(np.random.randint(4, size - 4))
+        r = int(np.random.randint(3, 7))
+        shade = int(np.random.randint(-18, 10))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(56 + shade, 90 + shade, 42 + shade))
+    return img
+
+
 def generate_tileset():
     """
-    Generate tileset_basic.png: 128x256 with 8-tile grid (2x4).
+    Generate tileset_basic.png: 256x256 with a 16-tile grid (4x4).
 
-    Tile layout (ID → terrain):
-      0 = GRASS        1 = FOREST
-      2 = PATH         3 = WATER
-      4 = STONE_FLOOR  5 = STONE_WALL
-      6 = SAND         7 = DEEP_FOREST
+    Tile layout (index -> terrain), row-major, matching assets/data/tilesets/basic.json:
+      0  = GRASS        1  = FOREST       2  = PATH         3  = WATER
+      4  = STONE_FLOOR  5  = STONE_WALL   6  = SAND         7  = DEEP_FOREST
+      8  = RUINS        9  = TILLED_SOIL  10 = DIRT         11 = COBBLESTONE
+      12 = BRICK        13 = MOSS         (14,15 reserved)
     """
     tile_size = 64
-    grid_w, grid_h = 2, 4
+    grid_w, grid_h = 4, 4
     width, height = tile_size * grid_w, tile_size * grid_h
 
     img = Image.new("RGB", (width, height), (0, 0, 0))
@@ -163,6 +247,12 @@ def generate_tileset():
         _make_stone_wall,
         _make_sand,
         _make_deep_forest,
+        _make_ruins,
+        _make_tilled_soil,
+        _make_dirt,
+        _make_cobblestone,
+        _make_brick,
+        _make_moss,
     ]
 
     for idx, func in enumerate(tile_funcs):

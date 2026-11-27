@@ -1,0 +1,44 @@
+{
+	"name": "farm_objects",
+	"description": "Farm-world upright-object sprites: trees, per-kind village buildings, characters, animals, rubble. 8x8 grid of 64px tiles in farm_objects.png (512x512).",
+	"tiles": [
+		{ "id": 0,  "name": "tree",       "color": [255, 255, 255, 255], "tex_coords": [0,   0,  64, 64], "walkable": false },
+		{ "id": 1,  "name": "tree_dark",  "color": [255, 255, 255, 255], "tex_coords": [64,  0,  64, 64], "walkable": false },
+		{ "id": 2,  "name": "building",   "color": [255, 255, 255, 255], "tex_coords": [128, 0,  64, 64], "walkable": false },
+		{ "id": 3,  "name": "wood",       "color": [255, 255, 255, 255], "tex_coords": [192, 0,  64, 64], "walkable": false },
+		{ "id": 4,  "name": "character",  "color": [255, 255, 255, 255], "tex_coords": [0,   64, 64, 64], "walkable": false },
+		{ "id": 5,  "name": "animal",     "color": [255, 255, 255, 255], "tex_coords": [64,  64, 64, 64], "walkable": false },
+		{ "id": 6,  "name": "rubble_sprite", "color": [255, 255, 255, 255], "tex_coords": [128, 64, 64, 64], "walkable": false },
+
+		{ "id": 10, "name": "tree_oak",      "color": [255, 255, 255, 255], "tex_coords": [0,   0,  64, 64], "walkable": false },
+		{ "id": 11, "name": "tree_birch",    "color": [255, 255, 255, 255], "tex_coords": [0,   0,  64, 64], "walkable": false },
+		{ "id": 12, "name": "tree_pine",     "color": [255, 255, 255, 255], "tex_coords": [64,  0,  64, 64], "walkable": false },
+		{ "id": 13, "name": "tree_fir",      "color": [255, 255, 255, 255], "tex_coords": [64,  0,  64, 64], "walkable": false },
+		{ "id": 14, "name": "tree_pine_dark","color": [255, 255, 255, 255], "tex_coords": [64,  0,  64, 64], "walkable": false },
+		{ "id": 15, "name": "tree_fir_dark", "color": [255, 255, 255, 255], "tex_coords": [64,  0,  64, 64], "walkable": false },
+
+		{ "id": 20, "name": "well",       "color": [255, 255, 255, 255], "tex_coords": [0,   128, 64, 64], "walkable": false },
+		{ "id": 21, "name": "landmark",   "color": [255, 255, 255, 255], "tex_coords": [64,  128, 64, 64], "walkable": false },
+		{ "id": 22, "name": "rubble",     "color": [255, 255, 255, 255], "tex_coords": [128, 64,  64, 64], "walkable": false },
+		{ "id": 23, "name": "house",      "color": [255, 255, 255, 255], "tex_coords": [128, 128, 64, 64], "walkable": false },
+		{ "id": 24, "name": "shop",       "color": [255, 255, 255, 255], "tex_coords": [192, 128, 64, 64], "walkable": false },
+		{ "id": 25, "name": "barn",       "color": [255, 255, 255, 255], "tex_coords": [256, 128, 64, 64], "walkable": false },
+		{ "id": 26, "name": "tavern",     "color": [255, 255, 255, 255], "tex_coords": [320, 128, 64, 64], "walkable": false },
+		{ "id": 27, "name": "smithy",     "color": [255, 255, 255, 255], "tex_coords": [384, 128, 64, 64], "walkable": false },
+		{ "id": 28, "name": "hall",       "color": [255, 255, 255, 255], "tex_coords": [448, 128, 64, 64], "walkable": false },
+		{ "id": 29, "name": "chapel",     "color": [255, 255, 255, 255], "tex_coords": [0,   192, 64, 64], "walkable": false },
+		{ "id": 30, "name": "market",     "color": [255, 255, 255, 255], "tex_coords": [64,  192, 64, 64], "walkable": false },
+		{ "id": 31, "name": "temple",     "color": [255, 255, 255, 255], "tex_coords": [128, 192, 64, 64], "walkable": false },
+		{ "id": 32, "name": "guardhouse", "color": [255, 255, 255, 255], "tex_coords": [192, 192, 64, 64], "walkable": false },
+		{ "id": 33, "name": "signpost",   "color": [255, 255, 255, 255], "tex_coords": [256, 192, 64, 64], "walkable": false },
+
+		{ "id": 40, "name": "villager",  "color": [255, 255, 255, 255], "tex_coords": [0,  64, 64, 64], "walkable": false },
+
+		{ "id": 50, "name": "cow",       "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false },
+		{ "id": 51, "name": "sheep",     "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false },
+		{ "id": 52, "name": "chicken",   "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false },
+		{ "id": 53, "name": "deer",      "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false },
+		{ "id": 54, "name": "rabbit",    "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false },
+		{ "id": 55, "name": "fox",       "color": [255, 255, 255, 255], "tex_coords": [64, 64, 64, 64], "walkable": false }
+	]
+}

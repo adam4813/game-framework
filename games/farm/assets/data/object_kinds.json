@@ -1,0 +1,52 @@
+{
+  "objectKinds": [
+    {
+      "kind": "landmark",
+      "height": 1.0,
+      "sprite": "landmark",
+      "blocksMovement": true
+    },
+    {
+      "kind": "well",
+      "height": 1.0,
+      "sprite": "well",
+      "blocksMovement": true
+    },
+    {
+      "kind": "rubble",
+      "height": 0.5,
+      "sprite": "rubble",
+      "blocksMovement": true
+    },
+    {
+      "kind": "house",
+      "height": 1.5,
+      "sprite": "house",
+      "blocksMovement": true
+    },
+    {
+      "kind": "shop",
+      "height": 1.6,
+      "sprite": "shop",
+      "blocksMovement": true
+    },
+    {
+      "kind": "barn",
+      "height": 2.2,
+      "sprite": "barn",
+      "blocksMovement": true
+    },
+    {
+      "kind": "hall",
+      "height": 2.6,
+      "sprite": "hall",
+      "blocksMovement": true
+    },
+    {
+      "kind": "signpost",
+      "height": 1.0,
+      "sprite": "signpost",
+      "blocksMovement": false
+    }
+  ]
+}

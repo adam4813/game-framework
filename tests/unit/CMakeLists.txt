@@ -5,6 +5,11 @@ add_engine_test(sanity_check_test
     sanity_check_test.cpp
 )
 
+# The built-in noise generators give the same tables and samples from a seed on every platform
+add_engine_test(noise_determinism_test
+    noise_determinism_test.cpp
+)
+
 add_engine_test(synth_dsp_test
     synth_dsp_test.cpp
 )

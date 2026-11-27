@@ -70,9 +70,19 @@ Noise_SetAlgorithm("worley_f1");
 `{F1, F2}`. The three named Worley variants expose the distance combinations via the base
 `Sample2D/Sample3D` interface so all scripting and C++ sampling code works unchanged.
 
+## Same Noise on Every Platform
+
+A seed gives the same noise on Linux, Windows and the web, so a world generated from it matches everywhere. The
+built-in generators build their tables with `SeededNoiseRng` and `ShuffledPermutation` (`builtin/permutation.hpp`),
+which draw through `ecs::RngState`. `std::shuffle` and the `std::uniform_*_distribution`s would not do: the standard
+leaves how they use the engine's output to the library, so libstdc++, the MSVC STL and libc++ each build a different
+table from one seed. `tests/unit/noise_determinism_test.cpp` pins one seed's tables and samples, and CI runs it on
+both desktop libraries.
+
 ## Adding a New Generator
 
-1. Implement `INoiseGenerator` (or `ICellularGenerator` for multi-distance generators).
+1. Implement `INoiseGenerator` (or `ICellularGenerator` for multi-distance generators). Build any seeded table
+   through `permutation.hpp`, not the standard library's random distributions.
 2. Register a factory in `BuiltinNoiseModule`:
 
 ```cpp

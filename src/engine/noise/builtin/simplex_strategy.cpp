@@ -1,11 +1,12 @@
 #include "simplex_strategy.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
-#include <numeric>
-#include <random>
 
 #include <glm/glm.hpp>
+
+#include "permutation.hpp"
 
 namespace engine::noise::builtin {
 
@@ -42,10 +43,8 @@ SimplexGenerator::SimplexGenerator(const int seed) { BuildPermutationTable(seed)
 void SimplexGenerator::SetSeed(const int seed) { BuildPermutationTable(seed); }
 
 void SimplexGenerator::BuildPermutationTable(const int seed) {
-	std::array<int, 256> p{};
-	std::iota(p.begin(), p.end(), 0);
-	std::mt19937 rng(static_cast<uint32_t>(seed));
-	std::ranges::shuffle(p, rng);
+	ecs::RngState rng = SeededNoiseRng(seed);
+	const std::array<int, 256> p = ShuffledPermutation(rng);
 	for (int i = 0; i < 256; ++i) {
 		perm_[i] = p[i];
 		perm_[i + 256] = p[i];

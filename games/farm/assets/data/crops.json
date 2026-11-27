@@ -1,0 +1,34 @@
+{
+  "crops": [
+    {
+      "typeId": "carrot",
+      "name": "Carrot",
+      "harvestTool": "",
+      "seedItemId": "seed_carrot",
+      "stageDays": [1, 2, 1],
+      "seasonsValid": ["spring", "summer", "autumn"],
+      "requiresWatering": false,
+      "sellPrice": 2
+    },
+    {
+      "typeId": "wheat",
+      "name": "Wheat",
+      "harvestTool": "scythe",
+      "seedItemId": "seed_wheat",
+      "stageDays": [3, 5, 3],
+      "seasonsValid": [],
+      "requiresWatering": true,
+      "sellPrice": 4
+    },
+    {
+      "typeId": "tomato",
+      "name": "Tomato",
+      "harvestTool": "",
+      "seedItemId": "seed_tomato",
+      "stageDays": [2, 4, 2],
+      "seasonsValid": ["summer"],
+      "requiresWatering": true,
+      "sellPrice": 8
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "description": "Ground-material palette per town. A town's biome selects a named style (falling back to 'default'); each style lists, per size tier, the weighted floor materials it may be paved with. Small towns bias to dirt, larger ones to cobblestone then brick. Add a style + biomeStyle entry to theme a new town type (e.g. a forest hamlet paved with moss) with no code changes.",
+  "fallbackMaterial": "dirt",
+  "biomeStyle": {
+    "forest": "woodland",
+    "hills": "woodland",
+    "beach": "coastal"
+  },
+  "styles": {
+    "default": {
+      "tiers": {
+        "hamlet":  [ { "material": "dirt", "weight": 100 } ],
+        "village": [ { "material": "dirt", "weight": 70 }, { "material": "cobblestone", "weight": 30 } ],
+        "town":    [ { "material": "cobblestone", "weight": 70 }, { "material": "dirt", "weight": 15 }, { "material": "brick", "weight": 15 } ],
+        "city":    [ { "material": "brick", "weight": 60 }, { "material": "cobblestone", "weight": 35 }, { "material": "dirt", "weight": 5 } ]
+      }
+    },
+    "woodland": {
+      "tiers": {
+        "hamlet":  [ { "material": "dirt", "weight": 70 }, { "material": "moss", "weight": 30 } ],
+        "village": [ { "material": "dirt", "weight": 55 }, { "material": "moss", "weight": 30 }, { "material": "cobblestone", "weight": 15 } ],
+        "town":    [ { "material": "cobblestone", "weight": 55 }, { "material": "moss", "weight": 25 }, { "material": "dirt", "weight": 20 } ],
+        "city":    [ { "material": "cobblestone", "weight": 50 }, { "material": "brick", "weight": 35 }, { "material": "moss", "weight": 15 } ]
+      }
+    },
+    "coastal": {
+      "tiers": {
+        "hamlet":  [ { "material": "dirt", "weight": 100 } ],
+        "village": [ { "material": "dirt", "weight": 60 }, { "material": "cobblestone", "weight": 40 } ],
+        "town":    [ { "material": "cobblestone", "weight": 75 }, { "material": "dirt", "weight": 25 } ],
+        "city":    [ { "material": "cobblestone", "weight": 60 }, { "material": "brick", "weight": 40 } ]
+      }
+    }
+  }
+}
