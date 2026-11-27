@@ -100,6 +100,10 @@ _Avoid_: draw call, render command, renderable
 A viewpoint the Renderer draws the DrawItems from: a camera, or a viewpoint a pass makes for itself, such as a shadow cascade or a spot light. A View keeps its identity from Frame to Frame.
 _Avoid_: camera (that's the component a camera View comes from), viewport, render pass
 
+**Hidden**:
+A Tag saying an entity and everything under it in the `ChildOf` hierarchy isn't drawn: no DrawItems, no lights, so no shadows either. It changes only what's seen; Systems, physics, sound and UI carry on as before.
+_Avoid_: disabled (a disabled entity is skipped by Systems, and its children aren't), invisible, culled (culling is the Renderer leaving out what a View can't see)
+
 **Asset**:
 Something loaded or made once and used by many entities: an image, mesh, shader, animation set, font, sound or music. It's an entity holding the data on the CPU, found by its file path when it came from one. The Renderer keeps its own GPU copy, which it can always rebuild (ADR 0012).
 _Avoid_: resource, handle (a handle is how code used to point at one)
