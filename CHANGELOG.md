@@ -4,6 +4,51 @@ Framework releases, newest first. Each entry opens with the version's highlight,
 Releases up to 0.10.0 were back-filled from the git tags, so they hold highlights rather than every change. Game Targets carry their own `project()` version, and their
 releases are noted under the Framework release they shipped with.
 
+## 0.12.0 - 2026-11-26
+
+**Highlight: any number of point lights through clustered forward shading, with two new Game Targets, Farm and Signal
+Room.**
+
+### Added
+
+- **Clustered forward point lights** (#136, ADR 0009): a scene can author any number of `PointLight`s. Each Frame the
+  platform culls them to the camera, keeps the most important within a budget (512 visible, 64 per cluster) and lists
+  them per cluster for `lighting.glsl`. `PointLight` gains `range`, derived from the attenuation terms when unset.
+  Light counts, drops and cluster build time show in `RenderStats`, the profiler and the stats panel. The sandbox's
+  Many Lights scene demonstrates it.
+- **Script constants for reflected enums** (#128): `RegisterEnumConstantsForScripts` exposes an enum to scripts as
+  `<Prefix>_<Name>` ints. `Projection_*`, `Motion_*`, `PathFollowMode_*`, `TextAlign_*` and `StackDirection_*` are
+  registered, and `RigidBody`, `PathFollow`, `Label` and `Stack` reflect those members.
+- **`ENABLE_REST_API` CMake option** (#141): `OFF` compiles the Flecs REST server out, and `InitializeRemoteAPI`
+  becomes a logged no-op. CI's game artifacts build with it off, so a shipped game opens no debug port.
+- **READMEs for the app and scene modules** (#129).
+- **Farm 0.1.0** (#142): a farm life-sim on a deterministic procedural island (terrain, rivers, forests, villages and
+  roads), with crops, NPC dialog and shops, game time, inventory and multi-slot saves.
+- **Signal Room 0.1.0** (#143): the Room and its core loop: Operator movement, Items, Tickets and the Window, Stations,
+  Radios and the Antenna Coupler, scoring and the Handler Chain, the HUD, and the Briefing card, results and Retry.
+
+### Changed
+
+- **The web build needs WebGL 2** (#136): an overlay triplet builds raylib for OpenGL ES 3, and the page shows a
+  message in a browser without it.
+- **One shader source for every target** (#136): shaders live in `assets/shaders/`, and the backend prepends the
+  `#version` line and expands `#include`. A game shader in `glsl330/` or `glsl100/` moves up one folder and drops its
+  `#version` line.
+- **`Platform::SetLighting` takes the point lights as a span** and returns `LightingStats` (#136). `LightParams` no longer
+  holds them.
+- **`MotionType`, `PathFollowMode`, `TextAlign` and `StackDirection` lose their `uint8_t` underlying type** (#128), so
+  the serializer reports real values.
+- **Loaded meshes are instanced and frustum-culled** (#135): static opaque models batch into one instanced draw per
+  sub-mesh and are culled by a bounding sphere from `Platform::MeshBounds`, which `FrustumCullRadius` overrides. A
+  culled model casts no shadow.
+- **Faster primitive enqueue** (#140): up to 10x less enqueue time in a world with many small tables.
+
+### Fixed
+
+- **An unknown camera `projection` warns** (#128), naming the value, the entity and the accepted names, then falls back
+  to Perspective.
+- **`lit_inst.vs` applies vertex colors** and keeps normals right under non-uniform scale (#135).
+
 ## 0.11.0 - 2026-11-22
 
 **Highlight: a UI framework and event-driven scripting, with Crabnado 1.0 as the first game built on them.**
