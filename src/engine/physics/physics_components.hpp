@@ -67,14 +67,15 @@ struct CharacterBody {
 	bool inner_body{true};
 };
 
-/// Desired velocity, written by the game each frame. Only the part perpendicular to the character's up is used.
-/// Without it the desired velocity is zero.
+/// Desired velocity, written by the game each frame. Only the part perpendicular to the character's up is used,
+/// except under zero gravity, where the character moves freely at all of it. Without it the desired velocity is zero.
 struct CharacterMove {
 	glm::vec3 velocity{0.0F};
 };
 
-/// The single acceleration an entity feels, which also defines its up (-normalize(acceleration)). Without it an
-/// entity uses `PhysicsWorldConfig::gravity`. Only characters read it for now.
+/// The single acceleration an entity feels, which also defines its up (-normalize(acceleration), world Y when zero).
+/// Without it an entity uses `PhysicsWorldConfig::gravity`. Only characters read it for now. A zero one gives a
+/// character free movement (see `CharacterMove`).
 struct Gravity {
 	glm::vec3 acceleration{0.0F, -9.81F, 0.0F};
 };

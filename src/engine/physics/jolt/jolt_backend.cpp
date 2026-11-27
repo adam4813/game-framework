@@ -888,15 +888,22 @@ void JoltBackend::StepCharacter(const flecs::entity_t entity, const float delta_
 	}
 
 	const JPH::Vec3 move = ToJolt(input.move_velocity);
-	const JPH::Vec3 planar = move - up * move.Dot(up);
-	const float vertical_speed = character.GetLinearVelocity().Dot(up);
-	const bool on_ground = character.GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround;
-	const float kept_vertical = (on_ground && vertical_speed < kLeavingGroundSpeed) ? 0.0F : vertical_speed;
 	const JPH::Vec3 gravity = ToJolt(input.gravity);
-	character.SetLinearVelocity(planar + up * kept_vertical + gravity * delta_time);
+	// Free movement: with no gravity there's no floor to walk on, so the move is the whole velocity, every axis of it.
+	const bool free_move = glm::length(input.gravity) < kMinGravityLength;
+	if (free_move) {
+		character.SetLinearVelocity(move);
+	} else {
+		const JPH::Vec3 planar = move - up * move.Dot(up);
+		const float vertical_speed = character.GetLinearVelocity().Dot(up);
+		const bool on_ground = character.GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround;
+		const float kept_vertical = (on_ground && vertical_speed < kLeavingGroundSpeed) ? 0.0F : vertical_speed;
+		character.SetLinearVelocity(planar + up * kept_vertical + gravity * delta_time);
+	}
 
 	JPH::CharacterVirtual::ExtendedUpdateSettings update_settings;
-	update_settings.mStickToFloorStepDown = -up * record.settings.stick_to_floor;
+	// Sticking to the floor would pull a freely moving character back down as it lifts off.
+	update_settings.mStickToFloorStepDown = free_move ? JPH::Vec3::sZero() : -up * record.settings.stick_to_floor;
 	update_settings.mWalkStairsStepUp = up * record.settings.step_height;
 	const JPH::ObjectLayer layer = CharacterObjectLayer(record.settings);
 	const ScopedFlag stepping(stepping_);
