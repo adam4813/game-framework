@@ -9,6 +9,7 @@
 
 using engine::physics::CharacterMove;
 using engine::physics::CharacterState;
+using engine::physics::Gravity;
 using engine::spatial::Transform;
 
 namespace {
@@ -66,6 +67,37 @@ TEST(CharacterBody, WalksAtTheRequestedPlanarVelocity) {
 
 	EXPECT_NEAR(walker.get<Transform>().position.x - start_x, 2.0F, 0.2F);
 	EXPECT_TRUE(walker.get<CharacterState>().grounded);
+}
+
+TEST(CharacterBody, UnderZeroGravityLiftsOffTheFloorAtTheFullRequestedVelocity) {
+	const CharacterWorld w;
+	w.Step(120);
+	const auto walker = w.World().lookup("Walker");
+	ASSERT_TRUE(walker.get<CharacterState>().grounded);
+	const glm::vec3 start = walker.get<Transform>().position;
+
+	walker.set<Gravity>({.acceleration = glm::vec3{0.0F}});
+	walker.set<CharacterMove>({.velocity = {1.0F, 2.0F, 0.0F}});
+	w.Step(60);
+
+	const glm::vec3 moved = walker.get<Transform>().position - start;
+	EXPECT_NEAR(moved.x, 1.0F, 0.1F);
+	EXPECT_NEAR(moved.y, 2.0F, 0.1F);
+	EXPECT_FALSE(walker.get<CharacterState>().grounded);
+}
+
+TEST(CharacterBody, UnderZeroGravityHoldsStillWithoutACharacterMove) {
+	const CharacterWorld w;
+	const auto walker = w.World().lookup("Walker");
+	walker.set<Gravity>({.acceleration = glm::vec3{0.0F}});
+	walker.set<CharacterMove>({.velocity = {0.0F, 2.0F, 0.0F}});
+	w.Step(30);
+	const float risen_y = walker.get<Transform>().position.y;
+
+	walker.remove<CharacterMove>();
+	w.Step(60);
+
+	EXPECT_NEAR(walker.get<Transform>().position.y, risen_y, 0.01F);
 }
 
 // The floor's entity origin is at y = 0, and its offset moves the box down so its top face is at y = 0, not 0.25.

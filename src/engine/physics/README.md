@@ -136,8 +136,8 @@ not a rigid body: pairing it with a `rigid_body`, or with a non-capsule shape, l
 | Component | Role |
 |---|---|
 | `CharacterBody` | Authored: max slope (degrees), step height, stick-to-floor distance, mass (defaults are Jolt's), `layer` (default `player`) and `inner_body` (default `true`). |
-| `CharacterMove` | Runtime input. The game writes `velocity` each frame; only the part perpendicular to up is used. Absent means zero. |
-| `Gravity` | Authored. The one acceleration an entity feels; up is `-normalize(acceleration)`. Absent means `PhysicsWorldConfig.gravity`. Only characters read it. |
+| `CharacterMove` | Runtime input. The game writes `velocity` each frame; only the part perpendicular to up is used, except under zero gravity, where all of it is (free movement). Absent means zero. |
+| `Gravity` | Authored. The one acceleration an entity feels; up is `-normalize(acceleration)`, or world Y when it's zero. Absent means `PhysicsWorldConfig.gravity`. Only characters read it. |
 | `CharacterState` | Runtime, added with `CharacterBody`: `grounded`, `ground_entity`, `ground_normal`, `velocity`. |
 
 `CollisionShape.offset` is the capsule center relative to the entity origin (put the origin at the feet by offsetting
@@ -148,6 +148,11 @@ half the height plus the radius), expressed in the character's up-aligned frame.
 1. Project `CharacterMove.velocity` onto the plane perpendicular to up.
 2. Vertical speed resets to 0 when grounded and not moving away from the ground; gravity adds `gravity * dt`.
 3. `SetLinearVelocity`, then `ExtendedUpdate` (stick to floor, walk stairs).
+
+**Free movement:** under zero gravity (`Gravity` or, without one, `PhysicsWorldConfig.gravity`), steps 1 and 2 give
+way to `CharacterMove.velocity` whole, so the character moves along every axis at the velocity asked, and holds still
+without one. It still collides and walks stairs, but doesn't stick to the floor, so it can lift off. A game turns it
+on for one character by setting a zero `Gravity` (a fly or build mode) and off by removing it.
 
 After the step, `CharacterSyncFromBackend` (PostUpdate) writes the position to `Transform.position` and fills
 `CharacterState`. It never writes `Transform.rotation`.
@@ -162,7 +167,7 @@ exported by `engine/engine.hpp`).
 - `RestoreCharacter(character, position, velocity)` moves the character, re-detects its ground contacts, and writes the
   position to `Transform` and the ground state and velocity to `CharacterState`. Writing `Transform` is what keeps the
   next Tick's `CharacterTeleport` from moving it back to where it was. The part of the velocity along up survives the
-  next step; `CharacterMove` replaces the planar part.
+  next step; `CharacterMove` replaces the planar part. Under free movement `CharacterMove` replaces all of it.
 - `StepCharacterTick(character)` runs the same movement update and write-back as `PhysicsStep` and
   `CharacterSyncFromBackend` (they share `MakeCharacterStepInput` and `WriteCharacterBack`), so a replayed character
   lands where a Tick would put it. It steps no other character or body and doesn't advance the Tick counter.

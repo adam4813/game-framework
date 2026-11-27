@@ -116,8 +116,9 @@ public:
 	void SetCharacterPosition(flecs::entity_t entity, const glm::vec3& position);
 
 	/// Set a character's linear velocity. The next step keeps its part along up (unless grounded and not leaving the
-	/// ground); `CharacterMove` replaces the planar part. ECS code restores a character for replay through
-	/// `RestoreCharacter` (character_step.hpp), which also writes the state to its components.
+	/// ground); `CharacterMove` replaces the planar part, or all of it under zero gravity. ECS code restores a
+	/// character for replay through `RestoreCharacter` (character_step.hpp), which also writes the state to its
+	/// components.
 	void SetCharacterVelocity(flecs::entity_t entity, const glm::vec3& velocity);
 
 	/// Re-detect a character's contacts at its current position, so its ground state matches a position just set.
@@ -125,7 +126,8 @@ public:
 	/// "Where to call them").
 	void RefreshCharacterContacts(flecs::entity_t entity);
 
-	/// Advance one character by `delta_time`: planar velocity, gravity along up, grounding, slopes, steps. Call before
+	/// Advance one character by `delta_time`: planar velocity, gravity along up, grounding, slopes, steps; under zero
+	/// gravity, the whole requested velocity instead (free movement), without sticking to the floor. Call before
 	/// `StepSimulation` in the same Tick. ECS code steps a character through `StepCharacterTick`
 	/// (character_step.hpp), which reads its input and writes the result back.
 	void StepCharacter(flecs::entity_t entity, float delta_time, const CharacterStepInput& input);
