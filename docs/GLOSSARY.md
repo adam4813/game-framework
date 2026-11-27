@@ -5,7 +5,7 @@ A small, data-driven C++23 game engine built on Flecs 4.x (ECS), Raylib (platfor
 ## Language
 
 **EngineContext**:
-The single root object that owns the `flecs::world`, the `Platform`, and the `DeferredTaskQueue`. It imports all Modules in dependency order and exposes non-owning handles as Singletons so any system can reach them without a global.
+The single root object that owns the `flecs::world`, the Window, the Renderer, and the `DeferredTaskQueue`. It imports all Modules in dependency order and exposes non-owning handles as Singletons so any system can reach them without a global.
 _Avoid_: engine root, engine manager, game engine
 
 **Module**:
@@ -33,7 +33,7 @@ A scene-owned, filtered sequence of Systems that Flecs executes. Each Scene buil
 _Avoid_: system pipeline, execution graph
 
 **Frame**:
-One pass of the game loop, `fixed_step::RunFrame(world, dt)`: sample input (the `FrameSample` systems), run zero or more Ticks, then the per-Frame update and render (`world.progress(dt)`). How often Frames run is the Frame rate, set on the Platform (a cap, vsync or uncapped), apart from the Tick rate.
+One pass of the game loop, `fixed_step::RunFrame(world, dt)`: sample input (the `FrameSample` systems), run zero or more Ticks, then the per-Frame update and render (`world.progress(dt)`). How often Frames run is the Frame rate, set on the Window (a cap, vsync or uncapped), apart from the Tick rate.
 _Avoid_: tick (a Tick is the simulation's step; `App::Tick` and `SceneBase::Tick` are per-Frame and predate the term), update
 
 **Tick**:
@@ -53,7 +53,7 @@ An execution slot within a Pipeline that determines *when* a system runs relativ
 _Avoid_: stage, step, tick phase
 
 **Cluster**:
-One cell of the view frustum for point lighting: a screen tile by a depth slice. Each Frame the platform layer lists the point lights that reach each cluster, and a fragment evaluates only its own cluster's list (ADR 0009).
+One cell of the view frustum for point lighting: a screen tile by a depth slice. Each Frame the Renderer lists the point lights that reach each cluster, and a fragment evaluates only its own cluster's list (ADR 0009).
 _Avoid_: froxel, light tile, light cell
 
 **Transform**:
@@ -80,9 +80,41 @@ _Avoid_: marker, flag component
 A Tag applied to a per-Frame simulation System to exclude it from the paused Pipeline. Systems that should keep running during pause (input, rendering, UI, audio) simply omit this tag. Toggling pause adds/removes `scene::Paused` from the world; the scene-management Module observes this and swaps the active Pipeline, and the fixed step runs no Tick.
 _Avoid_: pausable flag, pause-aware
 
-**Platform**:
-The abstract interface (`platform::Platform`) wrapping Raylib and all windowing/rendering/input primitives. All engine and game code calls `Platform`; no code calls Raylib directly. The desktop and WASM builds share one concrete backend; future backends swap in without touching the rest of the engine.
-_Avoid_: backend, Raylib wrapper, renderer
+**Window**:
+The surface a game is shown in, and its link to the OS: its size and fullscreen state, how often Frames are paced, and each Frame's input, which it hands over as a sample. A headless world's Window has no surface. The Window doesn't draw (ADR 0001).
+_Avoid_: Platform (the old name for everything outside the game), display, screen
+
+**Canvas**:
+The fixed-size surface a game lays out its 2D drawing and UI on, measured in its own units (1280 by 720 in every game today). It's fitted into the Window at its own aspect ratio, with bars filling the rest, and the mouse is reported in Canvas units. Its size doesn't change when the Window does.
+_Avoid_: screen, window size, resolution (the Window's pixels, which the Canvas is scaled to)
+
+**Renderer**:
+The Module that draws a RenderFrame, handed to it once per Frame. It's the only code that talks to a graphics API, and it decides the passes, their order, and what each View sees (ADR 0010).
+_Avoid_: render backend, graphics backend, Window (the Window doesn't draw)
+
+**RenderFrame**:
+Everything one Frame draws, as plain data: its Views, DrawItems, lights, environment, lines, 2D list, settings, and the Assets they use. Systems fill it from the world each Frame and the Renderer reads it; it's complete, so nothing is left out because the camera can't see it.
+_Avoid_: frame (a Frame is the pass of the game loop), render queue, scene
+
+**DrawItem**:
+One thing to draw in a RenderFrame: a shape or mesh with its material, placed in the world, belonging to one entity. An entity with several parts (the sub-meshes of a model) gives one DrawItem per part, told apart by the part.
+_Avoid_: draw call, render command, renderable
+
+**View**:
+A viewpoint the Renderer draws the DrawItems from: a camera, or a viewpoint a pass makes for itself, such as a shadow cascade or a spot light. A View keeps its identity from Frame to Frame.
+_Avoid_: camera (that's the component a camera View comes from), viewport, render pass
+
+**Hidden**:
+A Tag saying an entity and everything under it in the `ChildOf` hierarchy isn't drawn: no DrawItems, no lights, so no shadows either. It changes only what's seen; Systems, physics, sound and UI carry on as before.
+_Avoid_: disabled (a disabled entity is skipped by Systems, and its children aren't), invisible, culled (culling is the Renderer leaving out what a View can't see)
+
+**Asset**:
+Something loaded or made once and used by many entities: an image, mesh, shader, animation set, font, sound or music. It's an entity holding the data on the CPU, found by its file path when it came from one. The Renderer keeps its own GPU copy, which it can always rebuild (ADR 0012).
+_Avoid_: resource, handle (a handle is how code used to point at one)
+
+**Asset Role**:
+The part an Asset plays for the entity that uses it, such as albedo, normal map, mesh or sound. Each role is its own relationship from the user to the Asset, so one material can hold several textures without mixing them up.
+_Avoid_: slot, asset type (the type is what the Asset is, the role is how it's used)
 
 **DeferredTaskQueue**:
 A queue of callbacks that must execute *after* `world.progress()` completes — used for work that would mutate Flecs world structure mid-frame (e.g. scene switches). Drained by `App::PostTick()` each frame.
@@ -105,12 +137,20 @@ A JSON string `"@file:<path>"` that stands in for the whole JSON document at `<p
 _Avoid_: include, file ref sigil (the sigil is `kFileRefSigil`, the string is the reference)
 
 **RenderWith**:
-An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, `AlbedoMap`, and `ShaderMap`. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`, `GetAlbedoMap()`) do the same transparently.
+An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, the textures it uses (each through its Asset Role), and optionally its Surface Shader. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`) do the same transparently.
 _Avoid_: material reference, material link
 
+**Surface Shader**:
+A material's own description of how its surface looks before any light reaches it: color, opacity, glow, bumps, roughness and metalness, and optionally how its vertices sway. It never sees lights, shadows, the camera or the screen, so the engine can light it, shadow it and capture its color for bounced light. A material without one uses the standard surface (ADR 0013).
+_Avoid_: custom shader, `ShaderMap`, material shader
+
+**Occluder Fade**:
+An object standing between the camera and the player dissolves where it covers the player on screen, so the player stays visible behind trees and buildings. Only materials marked for it fade.
+_Avoid_: ghost pass, x-ray, `TransparentPass`
+
 **Translucent Pass**:
-The render pass that draws `Translucent`-tagged entities after all opaque geometry: alpha-blended by their `Material` alpha, depth test on and depth write off, sorted back to front per object. Distinct from the *occluder fade* ghost (`TransparentPass`), which redraws only the faded fragments of a cutout occluder.
-_Avoid_: transparent pass (that names the occluder-fade tag), alpha pass, blend pass
+The render pass that draws `Translucent`-tagged entities after all opaque geometry: alpha-blended by their `Material` alpha, depth test on and depth write off, sorted back to front. Occluder Fade is not part of it: a fading occluder stays opaque and dissolves where it covers the player.
+_Avoid_: transparent pass, alpha pass, blend pass
 
 **Animation Kind**:
 A family of animation that supplies its own clips and decides how a clip at a given time changes what's drawn: skeletal mesh, 2D sprite, spline, and so on. Every kind shares the same Animation Player; only its clips and how they take effect differ.

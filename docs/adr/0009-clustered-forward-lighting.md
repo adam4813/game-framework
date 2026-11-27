@@ -1,5 +1,8 @@
 # Many Point Lights Use Clustered Forward Shading, Built on the CPU, and the Web Build Is WebGL 2 Only
 
+**Superseded in part by ADR 0011, once its WebGPU renderer replaces raylib**: the cluster textures and the WebGL 2
+requirement go. Clustered forward shading, the light `range`, the budgets and the CPU cluster build stay.
+
 Point lights are drawn with clustered forward shading. Each Frame the view frustum is split into screen tiles and depth
 slices, the CPU lists the lights that reach each cluster, and each fragment evaluates only its own cluster's lights. A
 scene can author any number of lights; the ones in view are kept within a budget
