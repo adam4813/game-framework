@@ -137,12 +137,20 @@ A JSON string `"@file:<path>"` that stands in for the whole JSON document at `<p
 _Avoid_: include, file ref sigil (the sigil is `kFileRefSigil`, the string is the reference)
 
 **RenderWith**:
-An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, `AlbedoMap`, and `ShaderMap`. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`, `GetAlbedoMap()`) do the same transparently.
+An ECS relationship from a renderable entity to a *material entity*. The material entity carries `Material`, the textures it uses (each through its Asset Role), and optionally its Surface Shader. Render systems traverse this relationship to find the material; script accessors (`GetMaterial()`) do the same transparently.
 _Avoid_: material reference, material link
 
+**Surface Shader**:
+A material's own description of how its surface looks before any light reaches it: color, opacity, glow, bumps, roughness and metalness, and optionally how its vertices sway. It never sees lights, shadows, the camera or the screen, so the engine can light it, shadow it and capture its color for bounced light. A material without one uses the standard surface (ADR 0013).
+_Avoid_: custom shader, `ShaderMap`, material shader
+
+**Occluder Fade**:
+An object standing between the camera and the player dissolves where it covers the player on screen, so the player stays visible behind trees and buildings. Only materials marked for it fade.
+_Avoid_: ghost pass, x-ray, `TransparentPass`
+
 **Translucent Pass**:
-The render pass that draws `Translucent`-tagged entities after all opaque geometry: alpha-blended by their `Material` alpha, depth test on and depth write off, sorted back to front per object. Distinct from the *occluder fade* ghost (`TransparentPass`), which redraws only the faded fragments of a cutout occluder.
-_Avoid_: transparent pass (that names the occluder-fade tag), alpha pass, blend pass
+The render pass that draws `Translucent`-tagged entities after all opaque geometry: alpha-blended by their `Material` alpha, depth test on and depth write off, sorted back to front. Occluder Fade is not part of it: a fading occluder stays opaque and dissolves where it covers the player.
+_Avoid_: transparent pass, alpha pass, blend pass
 
 **Animation Kind**:
 A family of animation that supplies its own clips and decides how a clip at a given time changes what's drawn: skeletal mesh, 2D sprite, spline, and so on. Every kind shares the same Animation Player; only its clips and how they take effect differ.
