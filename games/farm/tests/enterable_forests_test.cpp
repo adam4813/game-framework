@@ -375,8 +375,10 @@ TEST(EnterableForestsTest, TreeDensityFallsInExpectedRange) {
 	for (const int seed : kSeeds) {
 		const WorldData world = WorldGen::Generate(WorldGenParams{}, seed);
 		const ForestStats s = MeasureForest(world);
+		// Too little woodland for a density sample. Skip just this seed: GTEST_SKIP would end the test here and
+		// leave the remaining seeds unchecked.
 		if (s.woodland < kMinWoodlandForStats) {
-			GTEST_SKIP() << "seed " << seed << " has too little woodland (" << s.woodland << ") for a density sample";
+			continue;
 		}
 		const double fraction = static_cast<double>(s.treed) / s.woodland;
 		EXPECT_GE(fraction, 0.05) << "forest too sparse, seed " << seed;
@@ -389,7 +391,7 @@ TEST(EnterableForestsTest, EveryTypicalForestHasAClearing) {
 		const WorldData world = WorldGen::Generate(WorldGenParams{}, seed);
 		const ForestStats s = MeasureForest(world);
 		if (s.woodland < kMinWoodlandForStats) {
-			GTEST_SKIP() << "seed " << seed << " has too little woodland for a clearing test";
+			continue; // too little woodland for a clearing test; the remaining seeds still run
 		}
 		EXPECT_GE(LargestClearing(world), 12) << "no sizeable clearing, seed " << seed;
 	}
@@ -423,7 +425,7 @@ TEST(EnterableForestsTest, NoTreeSitsOnARoadTile) {
 	for (const int seed : kSeeds) {
 		const WorldData world = WorldGen::Generate(WorldGenParams{}, seed);
 		if (world.roads.segments.empty()) {
-			GTEST_SKIP() << "seed " << seed << " produced no roads";
+			continue; // no roads to clear; the remaining seeds still run
 		}
 		const TileSet ts = WoodlandTileSet();
 		const Tilemap tm = BuildTilemapFromWorldData(world, ts);
