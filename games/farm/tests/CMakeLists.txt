@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.30)
 
 # add_farm_test: mirrors add_engine_test. Links farm_lib (which transitively links engine_lib)
-# so tests compile and run against exactly the same targets as production code.
+# so tests compile and run against exactly the same targets as production code. CI's Build Games
+# workflow builds `farm_tests` and runs `ctest -L farm`, so every test added here joins both.
+add_custom_target(farm_tests)
+
 function(add_farm_test test_name)
     add_executable(${test_name} ${ARGN})
     target_link_libraries(${test_name} PRIVATE GTest::gtest engine_test_main farm_lib)
-    gtest_discover_tests(${test_name})
+    gtest_discover_tests(${test_name} PROPERTIES LABELS farm)
+    add_dependencies(farm_tests ${test_name})
 endfunction()
 
 add_farm_test(game_time_test             game_time_test.cpp)
