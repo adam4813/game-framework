@@ -86,18 +86,16 @@ TEST(CharacterBody, UnderZeroGravityLiftsOffTheFloorAtTheFullRequestedVelocity) 
 	EXPECT_FALSE(walker.get<CharacterState>().grounded);
 }
 
-TEST(CharacterBody, UnderZeroGravityHoldsStillWithoutACharacterMove) {
+TEST(CharacterBody, UnderZeroGravityHoldsStillWithoutACharacterMoveRatherThanDrifting) {
 	const CharacterWorld w;
 	const auto walker = w.World().lookup("Walker");
 	walker.set<Gravity>({.acceleration = glm::vec3{0.0F}});
-	walker.set<CharacterMove>({.velocity = {0.0F, 2.0F, 0.0F}});
-	w.Step(30);
-	const float risen_y = walker.get<Transform>().position.y;
+	// Already rising, as a Server correction might leave it: free movement doesn't carry that speed on.
+	engine::physics::RestoreCharacter(walker, {0.0F, 3.0F, 0.0F}, {0.0F, 2.0F, 0.0F});
 
-	walker.remove<CharacterMove>();
 	w.Step(60);
 
-	EXPECT_NEAR(walker.get<Transform>().position.y, risen_y, 0.01F);
+	EXPECT_NEAR(walker.get<Transform>().position.y, 3.0F, 0.01F);
 }
 
 // The floor's entity origin is at y = 0, and its offset moves the box down so its top face is at y = 0, not 0.25.
